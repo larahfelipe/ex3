@@ -1,12 +1,12 @@
-import { PrismaClient as DPrismaClient } from '@prisma/client';
+import { PrismaClient as _PrismaClient } from '@prisma/client';
 
 import { envs } from '@/config';
 
-export class PrismaClient extends DPrismaClient {
+export class PrismaClient extends _PrismaClient {
   private static INSTANCE: PrismaClient;
   private _isConnected: boolean;
 
-  constructor() {
+  private constructor() {
     super();
     this._isConnected = false;
   }
@@ -23,7 +23,7 @@ export class PrismaClient extends DPrismaClient {
 
   async makeConnection() {
     if (!envs.dbAccessUrl)
-      throw new Error('\nMissing database access URL in .env file');
+      throw new Error('\nMissing database URL in .env file');
 
     try {
       await this.$connect();

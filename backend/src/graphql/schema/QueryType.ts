@@ -1,21 +1,12 @@
-import { GraphQLNonNull, GraphQLObjectType } from 'graphql';
-import { connectionArgs, connectionFromArray } from 'graphql-relay';
+import { GraphQLObjectType } from 'graphql';
 
-import { loadAll } from '../user/UserLoader';
-import { UserConnection } from '../user/UserType';
+import { UserQuery, UsersQuery } from '../modules/user';
 
 export const QueryType = new GraphQLObjectType({
   name: 'Query',
   description: 'The root of all queries',
   fields: () => ({
-    users: {
-      type: new GraphQLNonNull(UserConnection),
-      args: connectionArgs,
-      resolve: async (_, args, ctx) => {
-        const data = await loadAll();
-
-        return connectionFromArray(data, args);
-      }
-    }
+    user: UserQuery,
+    users: UsersQuery
   })
 });

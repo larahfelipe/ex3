@@ -11,12 +11,14 @@ datasource db {
 }
 
 model User {
-  id        String     @id @default(auto()) @map("_id") @db.ObjectId
-  name      String
-  email     String     @unique
-  portfolio Portfolio?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  name        String?
+  email       String     @unique
+  password    String
+  portfolio   Portfolio?
+  accessToken String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   @@map("users")
 }
@@ -26,6 +28,8 @@ model Portfolio {
   assets Asset[]
   user   User    @relation(fields: [userId], references: [id])
   userId String  @unique @db.ObjectId
+
+  @@map("portfolios")
 }
 
 model Asset {
@@ -34,6 +38,8 @@ model Asset {
   transactions Transaction[]
   portfolio    Portfolio     @relation(fields: [portfolioId], references: [id])
   portfolioId  String        @unique @db.ObjectId
+
+  @@map("assets")
 }
 
 model Transaction {
@@ -45,4 +51,6 @@ model Transaction {
   updatedAt DateTime @updatedAt
   asset     Asset    @relation(fields: [assetId], references: [id])
   assetId   String   @unique @db.ObjectId
+
+  @@map("transactions")
 }

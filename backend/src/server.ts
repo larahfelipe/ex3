@@ -1,4 +1,5 @@
-import { PrismaClient, envs } from '@/config';
+import { envs } from '@/config';
+import { PrismaClient } from '@/infra/database/PrismaClient';
 
 import { app } from './app';
 
