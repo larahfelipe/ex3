@@ -2,12 +2,12 @@ import cors from '@koa/cors';
 import Router from '@koa/router';
 import Koa from 'koa';
 
-import { graphQlMiddleware } from '@/middlewares';
+import { graphQLMiddleware } from '@/middleware';
 
 const app = new Koa();
 const router = new Router();
 
-router.all('/graphql', graphQlMiddleware);
+router.all('/graphql', graphQLMiddleware);
 
 app.use(cors());
 app.use(router.routes());
