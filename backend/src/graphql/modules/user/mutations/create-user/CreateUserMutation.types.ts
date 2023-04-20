@@ -1,9 +1,9 @@
 import type { User } from '@/domain/models';
+import type { UserEssentials } from '@/types';
 
-type UserEssentials = Omit<User, 'password'>;
+export type InputPayload = Pick<User, 'name' | 'email' | 'password'>;
 
 export type CreateUserResponse = {
   user: UserEssentials | null;
-  success: string | null;
-  error: string | null;
+  message: string | null;
 };
