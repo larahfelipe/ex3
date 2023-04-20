@@ -61,6 +61,24 @@ export class UserRepository {
     return newUser;
   }
 
+  async update(params: UserRepository.UpdateParams) {
+    const { id, name, password } = params;
+
+    let updatedUser = await this.prismaClient.user.update({
+      where: {
+        id
+      },
+      data: {
+        name,
+        ...(password && { password: await this.bcrypt.hash(password) })
+      }
+    });
+
+    updatedUser = (({ password, ...rest }) => rest)(updatedUser) as User;
+
+    return updatedUser;
+  }
+
   async updateAccessToken(params: UserRepository.UpdateAccessTokenParams) {
     const { id, accessToken } = params;
 
@@ -73,9 +91,22 @@ export class UserRepository {
       }
     });
   }
+
+  async delete(id: string) {
+    await this.prismaClient.user.delete({
+      where: {
+        id
+      }
+    });
+  }
 }
 
 export namespace UserRepository {
   export type AddParams = Pick<User, 'name' | 'email' | 'password'>;
+  export type UpdateParams = {
+    id: string;
+    name: string | null;
+    password: string | null;
+  };
   export type UpdateAccessTokenParams = Pick<User, 'id' | 'accessToken'>;
 }

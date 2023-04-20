@@ -31,4 +31,12 @@ export class PortfolioRepository {
 
     return newPortfolio;
   }
+
+  async delete(relatedUserId: string) {
+    await this.prismaClient.portfolio.delete({
+      where: {
+        userId: relatedUserId
+      }
+    });
+  }
 }

@@ -5,6 +5,7 @@ import {
 } from 'graphql';
 import { connectionFromArray } from 'graphql-relay';
 
+import { NotFoundError } from '@/errors';
 import type { Context } from '@/types';
 
 import { UserLoader } from '../../UserLoader';
@@ -22,6 +23,8 @@ export const UserQuery: GraphQLFieldConfig<any, Context, UserQueryArgs> = {
     const userLoader = UserLoader.getInstance();
 
     const userData = await userLoader.loadByCredentials(args);
+    if (!userData)
+      throw new NotFoundError('User not found with given credentials');
 
     return connectionFromArray([userData], args);
   }

@@ -1,11 +1,16 @@
 import { GraphQLNonNull, GraphQLString } from 'graphql';
 import { mutationWithClientMutationId, toGlobalId } from 'graphql-relay';
 
-import type { User } from '@/domain/models';
+import { envs } from '@/config';
+import { BadRequestError } from '@/errors';
+import { Jwt } from '@/infra/cryptography';
 import { PortfolioRepository, UserRepository } from '@/infra/database';
 
 import { UserEdge } from '../../UserType';
-import type { CreateUserResponse } from './CreateUserMutation.types';
+import type {
+  CreateUserResponse,
+  InputPayload
+} from './CreateUserMutation.types';
 
 export const CreateUserMutation = mutationWithClientMutationId({
   name: 'CreateUser',
@@ -27,42 +32,46 @@ export const CreateUserMutation = mutationWithClientMutationId({
         };
       }
     },
-    success: {
+    message: {
       type: GraphQLString,
-      resolve: ({ success }: CreateUserResponse) => success
-    },
-    error: {
-      type: GraphQLString,
-      resolve: ({ error }: CreateUserResponse) => error
+      resolve: ({ message }: CreateUserResponse) => message
     }
   },
-  mutateAndGetPayload: async (input: User): Promise<CreateUserResponse> => {
+  mutateAndGetPayload: async (
+    input: InputPayload
+  ): Promise<CreateUserResponse> => {
     const { name, email, password } = input;
 
     let res: CreateUserResponse = {
       user: null,
-      success: null,
-      error: null
+      message: null
     };
 
     const userRepository = UserRepository.getInstance();
-    const portfoliosRepository = PortfolioRepository.getInstance();
+    const portfolioRepository = PortfolioRepository.getInstance();
+    const jwt = Jwt.getInstance(envs.jwtSecret);
 
     const userAlreadyExists = await userRepository.getByEmail(email);
 
-    if (userAlreadyExists) {
-      res.error = 'User already exists';
-      return res;
-    }
+    if (userAlreadyExists) throw new BadRequestError('User already exists');
 
-    const user = await userRepository.add({ name, email, password });
+    const newUser = await userRepository.add({ name, email, password });
 
-    await portfoliosRepository.add(user.id);
+    const encryptedAccessToken = await jwt.encrypt(newUser.id);
+
+    await userRepository.updateAccessToken({
+      id: newUser.id,
+      accessToken: encryptedAccessToken
+    });
+
+    await portfolioRepository.add(newUser.id);
 
     res = {
-      user,
-      error: null,
-      success: 'User created successfully'
+      user: {
+        ...newUser,
+        accessToken: encryptedAccessToken
+      },
+      message: 'User created successfully'
     };
 
     return res;
