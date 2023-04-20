@@ -39,8 +39,8 @@ const graphQLOptions = async (req: Request): Promise<OptionsData> => ({
   customFormatErrorFn: ({ message, extensions, path }) => ({
     message,
     httpStatus: {
-      code: (extensions?.http as { status: string }).status,
-      message: extensions?.code
+      code: (extensions?.http as Record<'status', 'string'>)?.status ?? 500,
+      message: extensions?.code ?? 'Internal Server Error'
     },
     path
   })

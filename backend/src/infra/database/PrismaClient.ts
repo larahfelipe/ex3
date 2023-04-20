@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { PrismaClient as _PrismaClient } from '@prisma/client';
 
 import { envs } from '@/config';

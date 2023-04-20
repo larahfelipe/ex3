@@ -5,7 +5,7 @@ import {
 } from 'graphql';
 import { connectionFromArray } from 'graphql-relay';
 
-import { Context } from '@/types';
+import type { Context } from '@/types';
 
 import { UserLoader } from '../../UserLoader';
 import { UserConnection } from '../../UserType';
