@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { envs } from '@/config';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 
