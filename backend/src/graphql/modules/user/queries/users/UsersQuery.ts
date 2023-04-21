@@ -13,10 +13,11 @@ import { UserConnection } from '../../UserType';
 
 export const UsersQuery: GraphQLFieldConfig<any, Context, ConnectionArguments> =
   {
+    description: 'Get all users',
     type: new GraphQLNonNull(UserConnection),
     args: connectionArgs,
     resolve: async (_, args, ctx) => {
-      if (!ctx.user) throw new UnauthorizedError(ctx.message);
+      if (!ctx?.user) throw new UnauthorizedError(ctx.message);
 
       const userLoader = UserLoader.getInstance();
 

@@ -15,6 +15,29 @@ export class PortfolioRepository {
     return PortfolioRepository.INSTANCE;
   }
 
+  async getAll() {
+    const portfolios = await this.prismaClient.portfolio.findMany({
+      include: {
+        assets: true
+      }
+    });
+
+    return portfolios;
+  }
+
+  async getByUserId(userId: string) {
+    const portfolio = await this.prismaClient.portfolio.findUnique({
+      where: {
+        userId
+      },
+      include: {
+        assets: true
+      }
+    });
+
+    return portfolio;
+  }
+
   async add(relatedUserId: string) {
     const newPortfolio = await this.prismaClient.portfolio.create({
       data: {

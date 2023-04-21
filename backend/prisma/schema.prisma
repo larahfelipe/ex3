@@ -34,7 +34,7 @@ model Portfolio {
 
 model Asset {
   id           String        @id @default(auto()) @map("_id") @db.ObjectId
-  name         String
+  symbol       String        @unique
   transactions Transaction[]
   portfolio    Portfolio     @relation(fields: [portfolioId], references: [id])
   portfolioId  String        @unique @db.ObjectId

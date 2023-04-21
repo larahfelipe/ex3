@@ -2,9 +2,12 @@ import { GraphQLNonNull, GraphQLString } from 'graphql';
 import { mutationWithClientMutationId, toGlobalId } from 'graphql-relay';
 
 import { envs } from '@/config';
+import type { User } from '@/domain/models';
 import { BadRequestError } from '@/errors';
 import { Jwt } from '@/infra/cryptography';
 import { PortfolioRepository, UserRepository } from '@/infra/database';
+import { validate } from '@/validation';
+import { CreateUserSchema } from '@/validation/schema';
 
 import { UserEdge } from '../../UserType';
 import type {
@@ -40,22 +43,24 @@ export const CreateUserMutation = mutationWithClientMutationId({
   mutateAndGetPayload: async (
     input: InputPayload
   ): Promise<CreateUserResponse> => {
-    const { name, email, password } = input;
-
-    let res: CreateUserResponse = {
-      user: null,
-      message: null
-    };
+    const { name } = input;
 
     const userRepository = UserRepository.getInstance();
     const portfolioRepository = PortfolioRepository.getInstance();
     const jwt = Jwt.getInstance(envs.jwtSecret);
 
-    const userAlreadyExists = await userRepository.getByEmail(email);
+    const { email: validatedEmail, password: validatedPassword } =
+      await validate(CreateUserSchema, input);
+
+    const userAlreadyExists = await userRepository.getByEmail(validatedEmail);
 
     if (userAlreadyExists) throw new BadRequestError('User already exists');
 
-    const newUser = await userRepository.add({ name, email, password });
+    const newUser = await userRepository.add({
+      name: name ?? '',
+      email: validatedEmail,
+      password: validatedPassword
+    });
 
     const encryptedAccessToken = await jwt.encrypt(newUser.id);
 
@@ -66,11 +71,11 @@ export const CreateUserMutation = mutationWithClientMutationId({
 
     await portfolioRepository.add(newUser.id);
 
-    res = {
+    const res: CreateUserResponse = {
       user: {
         ...newUser,
         accessToken: encryptedAccessToken
-      },
+      } as User,
       message: 'User created successfully'
     };
 

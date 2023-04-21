@@ -2,10 +2,13 @@ import { GraphQLString } from 'graphql';
 import { mutationWithClientMutationId, toGlobalId } from 'graphql-relay';
 
 import { envs } from '@/config';
+import type { User } from '@/domain/models';
 import { BadRequestError, UnauthorizedError } from '@/errors';
 import { Bcrypt } from '@/infra/cryptography';
 import { UserRepository } from '@/infra/database';
 import type { Context } from '@/types';
+import { validate } from '@/validation';
+import { UpdateUserSchema } from '@/validation/schema';
 
 import { UserEdge } from '../../UserType';
 import type {
@@ -47,31 +50,35 @@ export const UpdateUserMutation = mutationWithClientMutationId({
 
     const { name, oldPassword, newPassword } = input;
 
-    let res: UpdateUserResponse = {
-      user: null,
-      message: null
-    };
-
     const bcrypt = Bcrypt.getInstance(+envs.bcryptSalt);
     const userRepository = UserRepository.getInstance();
 
     let isPasswordValid = false;
 
     if (oldPassword?.length) {
-      isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+      const {
+        oldPassword: validatedOldPassword,
+        newPassword: validatedNewPassword
+      } = await validate(UpdateUserSchema, input);
 
-      if (!isPasswordValid || !newPassword?.length)
-        throw new BadRequestError('Invalid password');
+      isPasswordValid = await bcrypt.compare(
+        validatedOldPassword as string,
+        user.password
+      );
+
+      if (!isPasswordValid) throw new BadRequestError('Invalid password');
+
+      input.newPassword = validatedNewPassword as string;
     }
 
     const updatedUser = await userRepository.update({
       id: user.id,
-      name,
+      name: name ?? '',
       password: isPasswordValid ? newPassword : null
     });
 
-    res = {
-      user: updatedUser,
+    const res: UpdateUserResponse = {
+      user: updatedUser as User,
       message: 'User updated successfully'
     };
 
