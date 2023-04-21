@@ -101,7 +101,7 @@ export class UserRepository {
   }
 }
 
-export namespace UserRepository {
+namespace UserRepository {
   export type AddParams = Pick<User, 'name' | 'email' | 'password'>;
   export type UpdateParams = {
     id: string;

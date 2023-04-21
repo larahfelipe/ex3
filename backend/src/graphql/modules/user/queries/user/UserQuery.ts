@@ -7,6 +7,8 @@ import { connectionFromArray } from 'graphql-relay';
 
 import { NotFoundError } from '@/errors';
 import type { Context } from '@/types';
+import { validate } from '@/validation';
+import { GetUserSchema } from '@/validation/schema';
 
 import { UserLoader } from '../../UserLoader';
 import { UserConnection } from '../../UserType';
@@ -22,9 +24,11 @@ export const UserQuery: GraphQLFieldConfig<any, Context, UserQueryArgs> = {
   resolve: async (_, args) => {
     const userLoader = UserLoader.getInstance();
 
-    const userData = await userLoader.loadByCredentials(args);
+    const validatedCredentials = await validate(GetUserSchema, args);
+
+    const userData = await userLoader.loadByCredentials(validatedCredentials);
     if (!userData)
-      throw new NotFoundError('User not found with given credentials');
+      throw new NotFoundError('User not found for the given credentials');
 
     return connectionFromArray([userData], args);
   }

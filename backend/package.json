@@ -29,7 +29,8 @@
     "koa-graphql": "^0.12.0",
     "prisma": "^4.12.0",
     "tsconfig-paths": "^4.2.0",
-    "tscpaths": "^0.0.9"
+    "tscpaths": "^0.0.9",
+    "zod": "^3.21.4"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.0",

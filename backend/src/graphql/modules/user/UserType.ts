@@ -1,7 +1,13 @@
 import { GraphQLNonNull, GraphQLObjectType, GraphQLString } from 'graphql';
-import { connectionDefinitions, globalIdField } from 'graphql-relay';
+import {
+  connectionArgs,
+  connectionDefinitions,
+  globalIdField
+} from 'graphql-relay';
 
 import type { User } from '@/domain/models';
+
+import { PortfolioConnection } from '../portfolio';
 
 const UserType = new GraphQLObjectType<User>({
   name: 'User',
@@ -24,6 +30,11 @@ const UserType = new GraphQLObjectType<User>({
       type: new GraphQLNonNull(GraphQLString),
       resolve: ({ accessToken }) => accessToken
     },
+    portfolio: {
+      type: PortfolioConnection,
+      args: connectionArgs,
+      resolve: ({ portfolio }) => portfolio
+    },
     createdAt: {
       type: new GraphQLNonNull(GraphQLString),
       resolve: ({ createdAt }) => createdAt
@@ -32,27 +43,6 @@ const UserType = new GraphQLObjectType<User>({
       type: new GraphQLNonNull(GraphQLString),
       resolve: ({ updatedAt }) => updatedAt
     }
-    // portfolio: {
-    //   type: new GraphQLObjectType({
-    //     name: 'Portfolio',
-    //     description: 'Portfolio Type',
-    //     fields: () => ({
-    //       id: globalIdField('Portfolio'),
-    //       assets: {
-    //         type: new GraphQLNonNull(GraphQLString),
-    //         resolve: ({ assets }) => assets
-    //       },
-    //       message: {
-    //         type: new GraphQLNonNull(GraphQLString),
-    //         resolve: ({ message }) => message
-    //       }
-    //     })
-    //   }),
-    //   resolve: ({ portfolio }) => ({
-    //     ...portfolio,
-    //     message: 'Portfolio here'
-    //   })
-    // },
   })
 });
 

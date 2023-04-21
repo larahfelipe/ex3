@@ -6,6 +6,8 @@ import { BadRequestError, UnauthorizedError } from '@/errors';
 import { Bcrypt } from '@/infra/cryptography';
 import { PortfolioRepository, UserRepository } from '@/infra/database';
 import type { Context } from '@/types';
+import { validate } from '@/validation';
+import { DeleteUserSchema } from '@/validation/schema';
 
 import type {
   DeleteUserResponse,
@@ -35,9 +37,15 @@ export const DeleteUserMutation = mutationWithClientMutationId({
     const portfolioRepository = PortfolioRepository.getInstance();
     const userRepository = UserRepository.getInstance();
 
-    if (!input.password?.length) throw new BadRequestError('Invalid password');
+    const { password: validatedPassword } = await validate(
+      DeleteUserSchema,
+      input
+    );
 
-    const isPasswordValid = await bcrypt.compare(input.password, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      validatedPassword,
+      user.password
+    );
 
     if (!isPasswordValid) throw new BadRequestError('Invalid password');
 
