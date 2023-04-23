@@ -2,6 +2,7 @@ import type { Request } from 'koa';
 import { graphqlHTTP, type OptionsData } from 'koa-graphql';
 
 import { envs } from '@/config';
+import type { User } from '@/domain/models';
 import { schema } from '@/graphql/schema';
 import { Jwt } from '@/infra/cryptography';
 import { UserRepository } from '@/infra/database';
@@ -24,7 +25,7 @@ const getContext = async (req: Request): Promise<Context> => {
     const userExists = await userRepository.getByAccessToken(accessToken);
     if (!userExists) throw 'User not found';
 
-    return { user: userExists, message: null };
+    return { user: userExists as User, message: null };
   } catch (e) {
     const errorMessage = e as string;
 

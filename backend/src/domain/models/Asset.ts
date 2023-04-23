@@ -4,4 +4,5 @@ export type Asset = {
   id: string;
   symbol: string;
   transactions: Array<Transaction>;
+  portfolioId: string;
 };

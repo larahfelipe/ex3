@@ -24,8 +24,8 @@ export const AssetsQuery: GraphQLFieldConfig<
 
     const assetLoader = AssetLoader.getInstance();
 
-    const allAssets = await assetLoader.loadAll();
+    const allAssetsData = await assetLoader.loadAll();
 
-    return connectionFromArray(allAssets, args);
+    return connectionFromArray(allAssetsData, args);
   }
 };

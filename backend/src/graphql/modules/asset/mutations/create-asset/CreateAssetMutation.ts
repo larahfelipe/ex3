@@ -63,7 +63,9 @@ export const CreateAssetMutation = mutationWithClientMutationId({
     });
 
     if (assetAlreadyExists)
-      throw new BadRequestError('Asset already exists in portfolio');
+      throw new BadRequestError(
+        'Asset already exists in portfolio. Update it instead'
+      );
 
     const newAsset = await assetRepository.add({
       symbol: validatedSymbol,
