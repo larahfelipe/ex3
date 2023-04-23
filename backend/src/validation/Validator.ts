@@ -4,7 +4,7 @@ import { BadRequestError } from '@/errors';
 
 export const validate = async <T>(
   schema: ZodSchema<T>,
-  payload: object
+  payload: unknown
 ): Promise<T> => {
   try {
     const parsedPayload = await schema.parseAsync(payload);

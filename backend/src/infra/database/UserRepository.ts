@@ -103,9 +103,7 @@ export class UserRepository {
 
 namespace UserRepository {
   export type AddParams = Pick<User, 'name' | 'email' | 'password'>;
-  export type UpdateParams = {
-    id: string;
-    name: string | null;
+  export type UpdateParams = Pick<User, 'id' | 'name'> & {
     password: string | null;
   };
   export type UpdateAccessTokenParams = Pick<User, 'id' | 'accessToken'>;

@@ -48,7 +48,8 @@ export const UpdateAssetMutation = mutationWithClientMutationId({
       portfolioId: portfolioExists.id
     });
 
-    if (!assetExists) throw new NotFoundError('Asset not found in portfolio');
+    if (!assetExists)
+      throw new NotFoundError('Asset not found in portfolio. Create it first');
 
     const assetAlreadyExists = await assetRepository.getBySymbol({
       symbol: validatedNewSymbol,

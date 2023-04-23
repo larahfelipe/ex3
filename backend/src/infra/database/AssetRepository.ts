@@ -1,3 +1,5 @@
+import type { Asset } from '@/domain/models';
+
 import { PrismaClient } from './PrismaClient';
 
 export class AssetRepository {
@@ -23,6 +25,19 @@ export class AssetRepository {
     });
 
     return assets;
+  }
+
+  async getById(id: string) {
+    const asset = await this.prismaClient.asset.findUnique({
+      where: {
+        id
+      },
+      include: {
+        transactions: true
+      }
+    });
+
+    return asset;
   }
 
   async getBySymbol(params: AssetRepository.GetParams) {
@@ -95,21 +110,11 @@ export class AssetRepository {
 }
 
 namespace AssetRepository {
-  export type GetParams = {
-    symbol: string;
-    portfolioId: string;
-  };
-  export type AddParams = {
-    symbol: string;
-    portfolioId: string;
-  };
-  export type UpdateParams = {
+  export type GetParams = Pick<Asset, 'symbol' | 'portfolioId'>;
+  export type AddParams = Pick<Asset, 'symbol' | 'portfolioId'>;
+  export type UpdateParams = Pick<Asset, 'portfolioId'> & {
     oldSymbol: string;
     newSymbol: string;
-    portfolioId: string;
   };
-  export type DeleteParams = {
-    symbol: string;
-    portfolioId: string;
-  };
+  export type DeleteParams = Pick<Asset, 'symbol' | 'portfolioId'>;
 }

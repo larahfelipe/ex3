@@ -1,4 +1,4 @@
-type TransactionType = 'BUY' | 'SELL';
+export type TransactionType = 'BUY' | 'SELL';
 
 export type Transaction = {
   id: string;
@@ -7,4 +7,5 @@ export type Transaction = {
   price: number;
   createdAt: Date;
   updatedAt: Date;
+  assetId: string;
 };
