@@ -5,7 +5,8 @@ import {
   type ConnectionArguments
 } from 'graphql-relay';
 
-import { UnauthorizedError } from '@/errors';
+import { NotFoundError, UnauthorizedError } from '@/errors';
+import { PortfolioRepository } from '@/infra/database';
 import type { Context } from '@/types';
 
 import { AssetLoader } from '../../AssetLoader';
@@ -20,11 +21,24 @@ export const AssetsQuery: GraphQLFieldConfig<
   type: new GraphQLNonNull(AssetConnection),
   args: connectionArgs,
   resolve: async (_, args, ctx) => {
-    if (!ctx?.user) throw new UnauthorizedError(ctx.message);
+    const { user, message } = ctx;
+    if (!user) throw new UnauthorizedError(message);
 
+    let portfolioId: string | undefined;
     const assetLoader = AssetLoader.getInstance();
 
-    const allAssetsData = await assetLoader.loadAll();
+    if (!user.isStaff) {
+      const portfolioRepository = PortfolioRepository.getInstance();
+
+      const portfolioExists = await portfolioRepository.getByUserId(user.id);
+
+      if (!portfolioExists)
+        throw new NotFoundError('Portfolio not found for this user');
+
+      portfolioId = portfolioExists.id;
+    }
+
+    const allAssetsData = await assetLoader.loadAll(portfolioId);
 
     return connectionFromArray(allAssetsData, args);
   }

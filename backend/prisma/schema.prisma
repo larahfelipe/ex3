@@ -17,6 +17,7 @@ model User {
   password    String
   portfolio   Portfolio?
   accessToken String?
+  isStaff     Boolean    @default(false)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 

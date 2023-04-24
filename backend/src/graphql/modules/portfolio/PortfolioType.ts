@@ -8,6 +8,7 @@ import {
 import type { Portfolio } from '@/domain/models';
 
 import { AssetConnection } from '../asset';
+import { AssetsQuery } from '../asset/queries';
 
 const PortfolioType = new GraphQLObjectType<Portfolio>({
   name: 'Portfolio',
@@ -21,7 +22,7 @@ const PortfolioType = new GraphQLObjectType<Portfolio>({
     assets: {
       type: AssetConnection,
       args: connectionArgs,
-      resolve: ({ assets }) => assets
+      resolve: (...args) => (AssetsQuery as any).resolve(...args)
     }
   })
 });

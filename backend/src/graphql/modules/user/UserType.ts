@@ -8,6 +8,7 @@ import {
 import type { User } from '@/domain/models';
 
 import { PortfolioConnection } from '../portfolio';
+import { PortfolioQuery } from '../portfolio/queries';
 
 const UserType = new GraphQLObjectType<User>({
   name: 'User',
@@ -33,7 +34,7 @@ const UserType = new GraphQLObjectType<User>({
     portfolio: {
       type: PortfolioConnection,
       args: connectionArgs,
-      resolve: ({ portfolio }) => portfolio
+      resolve: (...args) => (PortfolioQuery as any).resolve(...args)
     },
     createdAt: {
       type: new GraphQLNonNull(GraphQLString),
