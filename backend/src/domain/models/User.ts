@@ -6,6 +6,7 @@ export type User = {
   email: string;
   password: string;
   accessToken: string | null;
+  isStaff: boolean;
   portfolio: Portfolio;
   createdAt: Date;
   updatedAt: Date;

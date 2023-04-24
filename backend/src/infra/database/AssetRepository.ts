@@ -27,6 +27,19 @@ export class AssetRepository {
     return assets;
   }
 
+  async getAllByPortfolioId(portfolioId: string) {
+    const assets = await this.prismaClient.asset.findMany({
+      where: {
+        portfolioId
+      },
+      include: {
+        transactions: true
+      }
+    });
+
+    return assets;
+  }
+
   async getById(id: string) {
     const asset = await this.prismaClient.asset.findUnique({
       where: {

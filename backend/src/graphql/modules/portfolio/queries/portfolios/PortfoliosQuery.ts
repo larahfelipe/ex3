@@ -5,7 +5,7 @@ import {
   type ConnectionArguments
 } from 'graphql-relay';
 
-import { UnauthorizedError } from '@/errors';
+import { ForbiddenError, UnauthorizedError } from '@/errors';
 import type { Context } from '@/types';
 
 import { PortfolioLoader } from '../../PortfolioLoader';
@@ -20,7 +20,12 @@ export const PortfoliosQuery: GraphQLFieldConfig<
   type: new GraphQLNonNull(PortfolioConnection),
   args: connectionArgs,
   resolve: async (_, args, ctx) => {
-    if (!ctx?.user) throw new UnauthorizedError(ctx.message);
+    const { user, message } = ctx;
+    if (!user) throw new UnauthorizedError(message);
+    if (!user.isStaff)
+      throw new ForbiddenError(
+        "You don't have permission to access this resource"
+      );
 
     const portfolioLoader = PortfolioLoader.getInstance();
 

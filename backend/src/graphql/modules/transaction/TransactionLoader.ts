@@ -15,8 +15,14 @@ export class TransactionLoader {
     return TransactionLoader.INSTANCE;
   }
 
-  async loadAll() {
-    const transactions = await this.transactionRepository.getAll();
+  async loadAll(assetId?: string) {
+    let transactions = [];
+
+    if (assetId) {
+      transactions = await this.transactionRepository.getAllByAssetId(assetId);
+    } else {
+      transactions = await this.transactionRepository.getAll();
+    }
 
     return transactions;
   }
@@ -25,11 +31,5 @@ export class TransactionLoader {
     const transactionExists = await this.transactionRepository.getById(id);
 
     return transactionExists;
-  }
-
-  async loadByAssetId(assetId: string) {
-    const transactions = await this.transactionRepository.getByAssetId(assetId);
-
-    return transactions;
   }
 }

@@ -23,7 +23,7 @@ export class TransactionRepository {
     return transactions;
   }
 
-  async getByAssetId(assetId: string) {
+  async getAllByAssetId(assetId: string) {
     const transactions = await this.prismaClient.transaction.findMany({
       where: {
         assetId

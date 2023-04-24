@@ -14,8 +14,14 @@ export class AssetLoader {
     return AssetLoader.INSTANCE;
   }
 
-  async loadAll() {
-    const assets = await this.assetRepository.getAll();
+  async loadAll(portfolioId?: string) {
+    let assets = [];
+
+    if (portfolioId) {
+      assets = await this.assetRepository.getAllByPortfolioId(portfolioId);
+    } else {
+      assets = await this.assetRepository.getAll();
+    }
 
     return assets;
   }

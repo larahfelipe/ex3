@@ -1,6 +1,5 @@
 import {
   GraphQLFloat,
-  GraphQLInt,
   GraphQLNonNull,
   GraphQLObjectType,
   GraphQLString
@@ -19,7 +18,7 @@ const TransactionType = new GraphQLObjectType<Transaction>({
       resolve: ({ type }) => type
     },
     amount: {
-      type: new GraphQLNonNull(GraphQLInt),
+      type: new GraphQLNonNull(GraphQLFloat),
       resolve: ({ amount }) => amount
     },
     price: {

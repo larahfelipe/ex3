@@ -8,6 +8,7 @@ import {
 import type { Asset } from '@/domain/models';
 
 import { TransactionConnection } from '../transaction';
+import { TransactionsQuery } from '../transaction/queries';
 
 const AssetType = new GraphQLObjectType<Asset>({
   name: 'Asset',
@@ -21,7 +22,7 @@ const AssetType = new GraphQLObjectType<Asset>({
     transactions: {
       type: TransactionConnection,
       args: connectionArgs,
-      resolve: ({ transactions }) => transactions
+      resolve: (...args) => (TransactionsQuery as any).resolve(...args)
     }
   })
 });
