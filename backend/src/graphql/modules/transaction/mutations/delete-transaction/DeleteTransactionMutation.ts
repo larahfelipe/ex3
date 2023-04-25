@@ -2,7 +2,11 @@ import { GraphQLNonNull, GraphQLString } from 'graphql';
 import { mutationWithClientMutationId } from 'graphql-relay';
 
 import { NotFoundError, UnauthorizedError } from '@/errors';
-import { PortfolioRepository, TransactionRepository } from '@/infra/database';
+import {
+  AssetRepository,
+  PortfolioRepository,
+  TransactionRepository
+} from '@/infra/database';
 import type { Context } from '@/types';
 import { validate } from '@/validation';
 import { DeleteTransactionSchema } from '@/validation/schema';
@@ -33,6 +37,7 @@ export const DeleteTransactionMutation = mutationWithClientMutationId({
 
     const portfolioRepository = PortfolioRepository.getInstance();
     const transactionRepository = TransactionRepository.getInstance();
+    const assetRepository = AssetRepository.getInstance();
 
     const { id: validatedTransactionId } = await validate(
       DeleteTransactionSchema,
@@ -52,6 +57,12 @@ export const DeleteTransactionMutation = mutationWithClientMutationId({
       throw new NotFoundError('Transaction not found for this asset');
 
     await transactionRepository.delete(validatedTransactionId);
+
+    await assetRepository.updateBalance({
+      operation: 'decrement',
+      value: transactionExists.price * transactionExists.amount,
+      id: transactionExists.assetId
+    });
 
     const res: DeleteTransactionResponse = {
       message: 'Transaction deleted successfully'

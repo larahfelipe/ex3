@@ -3,7 +3,11 @@ import { mutationWithClientMutationId, toGlobalId } from 'graphql-relay';
 
 import type { Transaction, TransactionType } from '@/domain/models';
 import { NotFoundError, UnauthorizedError } from '@/errors';
-import { PortfolioRepository, TransactionRepository } from '@/infra/database';
+import {
+  AssetRepository,
+  PortfolioRepository,
+  TransactionRepository
+} from '@/infra/database';
 import type { Context } from '@/types';
 import { validate } from '@/validation';
 import { UpdateTransactionSchema } from '@/validation/schema/transaction/UpdateTransactionSchema';
@@ -49,6 +53,7 @@ export const UpdateTransactionMutation = mutationWithClientMutationId({
 
     const portfolioRepository = PortfolioRepository.getInstance();
     const transactionRepository = TransactionRepository.getInstance();
+    const assetRepository = AssetRepository.getInstance();
 
     const {
       id: validatedTransactionId,
@@ -76,6 +81,12 @@ export const UpdateTransactionMutation = mutationWithClientMutationId({
       type: validatedTransactionType as TransactionType,
       amount: validatedTransactionAmount,
       price: validatedTransactionPrice
+    });
+
+    await assetRepository.updateBalance({
+      operation: updatedTransaction.type === 'BUY' ? 'increment' : 'decrement',
+      value: updatedTransaction.price * updatedTransaction.amount,
+      id: updatedTransaction.assetId
     });
 
     const res: UpdateTransactionResponse = {
