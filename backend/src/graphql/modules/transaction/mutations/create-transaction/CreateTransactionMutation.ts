@@ -81,6 +81,12 @@ export const CreateTransactionMutation = mutationWithClientMutationId({
       assetId: validatedTransactionAssetId
     });
 
+    await assetRepository.updateBalance({
+      operation: newTransaction.type === 'BUY' ? 'increment' : 'decrement',
+      value: newTransaction.price * newTransaction.amount,
+      id: newTransaction.assetId
+    });
+
     const res: CreateTransactionResponse = {
       transaction: newTransaction as Transaction,
       message: 'Transaction created successfully'

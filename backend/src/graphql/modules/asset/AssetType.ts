@@ -1,4 +1,9 @@
-import { GraphQLNonNull, GraphQLObjectType, GraphQLString } from 'graphql';
+import {
+  GraphQLFloat,
+  GraphQLNonNull,
+  GraphQLObjectType,
+  GraphQLString
+} from 'graphql';
 import {
   connectionArgs,
   connectionDefinitions,
@@ -18,6 +23,10 @@ const AssetType = new GraphQLObjectType<Asset>({
     symbol: {
       type: new GraphQLNonNull(GraphQLString),
       resolve: ({ symbol }) => symbol
+    },
+    balance: {
+      type: new GraphQLNonNull(GraphQLFloat),
+      resolve: ({ balance }) => balance
     },
     transactions: {
       type: TransactionConnection,

@@ -108,6 +108,23 @@ export class AssetRepository {
     return updatedAsset.count;
   }
 
+  async updateBalance(params: AssetRepository.UpdateBalanceParams) {
+    const { id, operation, value } = params;
+
+    const updatedAsset = await this.prismaClient.asset.update({
+      where: {
+        id
+      },
+      data: {
+        balance: {
+          [operation]: value
+        }
+      }
+    });
+
+    return updatedAsset;
+  }
+
   async delete(params: AssetRepository.DeleteParams) {
     const { symbol, portfolioId } = params;
 
@@ -128,6 +145,10 @@ namespace AssetRepository {
   export type UpdateParams = Pick<Asset, 'portfolioId'> & {
     oldSymbol: string;
     newSymbol: string;
+  };
+  export type UpdateBalanceParams = Pick<Asset, 'id'> & {
+    operation: 'increment' | 'decrement';
+    value: number;
   };
   export type DeleteParams = Pick<Asset, 'symbol' | 'portfolioId'>;
 }
