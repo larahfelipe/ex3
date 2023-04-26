@@ -28,9 +28,9 @@ const getContext = async (req: Request): Promise<Context> => {
 
     return { user: userExists as User, message: null };
   } catch (e) {
-    const errorMessage = e as string;
+    const message = e as string;
 
-    return { user: null, message: errorMessage };
+    return { user: null, message };
   }
 };
 
