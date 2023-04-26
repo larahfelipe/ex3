@@ -1,6 +1,7 @@
 import { GraphQLNonNull, type GraphQLFieldConfig } from 'graphql';
 import { connectionFromArray, type ConnectionArguments } from 'graphql-relay';
 
+import { PortfolioMessages } from '@/constants';
 import { NotFoundError, UnauthorizedError } from '@/errors';
 import type { Context } from '@/types';
 
@@ -22,8 +23,7 @@ export const PortfolioQuery: GraphQLFieldConfig<
 
     const portfolioData = await portfolioLoader.loadByUserId(user.id);
 
-    if (!portfolioData)
-      throw new NotFoundError('Portfolio not found for this user');
+    if (!portfolioData) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
     return connectionFromArray([portfolioData], args);
   }

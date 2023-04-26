@@ -5,6 +5,7 @@ import {
   type ConnectionArguments
 } from 'graphql-relay';
 
+import { PortfolioMessages } from '@/constants';
 import { NotFoundError, UnauthorizedError } from '@/errors';
 import { PortfolioRepository } from '@/infra/database';
 import type { Context } from '@/types';
@@ -33,7 +34,7 @@ export const AssetsQuery: GraphQLFieldConfig<
       const portfolioExists = await portfolioRepository.getByUserId(user.id);
 
       if (!portfolioExists)
-        throw new NotFoundError('Portfolio not found for this user');
+        throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
       portfolioId = portfolioExists.id;
     }

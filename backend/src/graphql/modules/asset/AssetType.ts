@@ -24,6 +24,10 @@ const AssetType = new GraphQLObjectType<Asset>({
       type: new GraphQLNonNull(GraphQLString),
       resolve: ({ symbol }) => symbol
     },
+    amount: {
+      type: new GraphQLNonNull(GraphQLFloat),
+      resolve: ({ amount }) => amount
+    },
     balance: {
       type: new GraphQLNonNull(GraphQLFloat),
       resolve: ({ balance }) => balance

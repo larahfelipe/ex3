@@ -2,6 +2,7 @@ import type { Request } from 'koa';
 import { graphqlHTTP, type OptionsData } from 'koa-graphql';
 
 import { envs } from '@/config';
+import { DefaultErrorMessages, UserMessages } from '@/constants';
 import type { User } from '@/domain/models';
 import { schema } from '@/graphql/schema';
 import { Jwt } from '@/infra/cryptography';
@@ -12,7 +13,7 @@ const getContext = async (req: Request): Promise<Context> => {
   const { authorization } = req.headers;
 
   try {
-    if (!authorization?.length) throw 'Missing authorization header';
+    if (!authorization?.length) throw DefaultErrorMessages.INVALID_AUTH_HEADER;
 
     const [_, accessToken] = authorization.split(' ');
 
@@ -20,10 +21,10 @@ const getContext = async (req: Request): Promise<Context> => {
     const userRepository = UserRepository.getInstance();
 
     const { id: decryptedAccessToken } = await jwt.decrypt(accessToken);
-    if (!decryptedAccessToken) throw 'Invalid access token';
+    if (!decryptedAccessToken) throw DefaultErrorMessages.INVALID_TOKEN;
 
     const userExists = await userRepository.getByAccessToken(accessToken);
-    if (!userExists) throw 'User not found';
+    if (!userExists) throw UserMessages.NOT_FOUND;
 
     return { user: userExists as User, message: null };
   } catch (e) {
@@ -41,7 +42,7 @@ const graphQLOptions = async (req: Request): Promise<OptionsData> => ({
     message,
     httpStatus: {
       code: (extensions?.http as Record<'status', 'string'>)?.status ?? 500,
-      message: extensions?.code ?? 'Internal Server Error'
+      message: extensions?.code ?? DefaultErrorMessages.INTERNAL_SERVER_ERROR
     },
     path
   })

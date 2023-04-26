@@ -1,6 +1,7 @@
 import { GraphQLNonNull, GraphQLString } from 'graphql';
 import { mutationWithClientMutationId } from 'graphql-relay';
 
+import { AssetMessages, PortfolioMessages } from '@/constants';
 import { BadRequestError, NotFoundError, UnauthorizedError } from '@/errors';
 import { AssetRepository, PortfolioRepository } from '@/infra/database';
 import type { Context } from '@/types';
@@ -40,16 +41,14 @@ export const UpdateAssetMutation = mutationWithClientMutationId({
 
     const portfolioExists = await portfolioRepository.getByUserId(user.id);
 
-    if (!portfolioExists)
-      throw new NotFoundError('Portfolio not found for this user');
+    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
     const assetExists = await assetRepository.getBySymbol({
       symbol: validatedOldSymbol,
       portfolioId: portfolioExists.id
     });
 
-    if (!assetExists)
-      throw new NotFoundError('Asset not found in portfolio. Create it first');
+    if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
     const assetAlreadyExists = await assetRepository.getBySymbol({
       symbol: validatedNewSymbol,
@@ -57,7 +56,7 @@ export const UpdateAssetMutation = mutationWithClientMutationId({
     });
 
     if (assetAlreadyExists)
-      throw new BadRequestError('Asset already exists in portfolio');
+      throw new BadRequestError(AssetMessages.ALREADY_EXISTS);
 
     await assetRepository.update({
       oldSymbol: validatedOldSymbol,
@@ -66,7 +65,7 @@ export const UpdateAssetMutation = mutationWithClientMutationId({
     });
 
     const res: UpdateAssetResponse = {
-      message: 'Asset updated successfully'
+      message: AssetMessages.UPDATED
     };
 
     return res;

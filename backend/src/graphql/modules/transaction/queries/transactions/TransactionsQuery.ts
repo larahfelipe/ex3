@@ -5,6 +5,7 @@ import {
 } from 'graphql';
 import { connectionFromArray } from 'graphql-relay';
 
+import { AssetMessages, PortfolioMessages } from '@/constants';
 import { ForbiddenError, NotFoundError, UnauthorizedError } from '@/errors';
 import { AssetRepository, PortfolioRepository } from '@/infra/database';
 import type { Context } from '@/types';
@@ -28,10 +29,7 @@ export const TransactionsQuery: GraphQLFieldConfig<
   resolve: async (_, args, ctx) => {
     const { user, message } = ctx;
     if (!user) throw new UnauthorizedError(message);
-    if (!user.isStaff && !args?.assetId?.length)
-      throw new ForbiddenError(
-        "You don't have permission to access this resource"
-      );
+    if (!user.isStaff && !args?.assetId?.length) throw new ForbiddenError();
 
     const transactionLoader = TransactionLoader.getInstance();
 
@@ -47,23 +45,19 @@ export const TransactionsQuery: GraphQLFieldConfig<
       const portfolioExists = await portfolioRepository.getByUserId(user.id);
 
       if (!portfolioExists)
-        throw new NotFoundError('Portfolio not found for this user');
+        throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
       const allAssets = await assetRepository.getAllByPortfolioId(
         portfolioExists.id
       );
 
-      if (!allAssets?.length)
-        throw new NotFoundError('No assets found for this portfolio');
+      if (!allAssets?.length) throw new NotFoundError(AssetMessages.EMPTY);
 
       const assetExists = allAssets.find(
         (asset) => asset.id === validatedAssetId
       );
 
-      if (!assetExists)
-        throw new NotFoundError(
-          'Asset not found in portfolio for the given id'
-        );
+      if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
     }
 
     const allTransactionsData = await transactionLoader.loadAll(

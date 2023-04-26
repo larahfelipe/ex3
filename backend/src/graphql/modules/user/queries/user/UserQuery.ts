@@ -5,6 +5,7 @@ import {
 } from 'graphql';
 import { connectionFromArray } from 'graphql-relay';
 
+import { UserMessages } from '@/constants';
 import { NotFoundError } from '@/errors';
 import type { Context } from '@/types';
 import { validate } from '@/validation';
@@ -27,8 +28,7 @@ export const UserQuery: GraphQLFieldConfig<any, Context, UserQueryArgs> = {
     const validatedCredentials = await validate(GetUserSchema, args);
 
     const userData = await userLoader.loadByCredentials(validatedCredentials);
-    if (!userData)
-      throw new NotFoundError('User not found for the given credentials');
+    if (!userData) throw new NotFoundError(UserMessages.NOT_FOUND);
 
     return connectionFromArray([userData], args);
   }

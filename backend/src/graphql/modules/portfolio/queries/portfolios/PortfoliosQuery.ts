@@ -22,10 +22,7 @@ export const PortfoliosQuery: GraphQLFieldConfig<
   resolve: async (_, args, ctx) => {
     const { user, message } = ctx;
     if (!user) throw new UnauthorizedError(message);
-    if (!user.isStaff)
-      throw new ForbiddenError(
-        "You don't have permission to access this resource"
-      );
+    if (!user.isStaff) throw new ForbiddenError();
 
     const portfolioLoader = PortfolioLoader.getInstance();
 
