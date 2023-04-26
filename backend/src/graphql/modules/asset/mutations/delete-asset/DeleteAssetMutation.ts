@@ -1,6 +1,7 @@
 import { GraphQLNonNull, GraphQLString } from 'graphql';
 import { mutationWithClientMutationId } from 'graphql-relay';
 
+import { AssetMessages, PortfolioMessages } from '@/constants';
 import { NotFoundError, UnauthorizedError } from '@/errors';
 import { AssetRepository, PortfolioRepository } from '@/infra/database';
 import type { Context } from '@/types';
@@ -41,15 +42,14 @@ export const DeleteAssetMutation = mutationWithClientMutationId({
 
     const portfolioExists = await portfolioRepository.getByUserId(user.id);
 
-    if (!portfolioExists)
-      throw new NotFoundError('Portfolio not found for this user');
+    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
     const assetExists = await assetRepository.getBySymbol({
       symbol: validatedSymbol,
       portfolioId: portfolioExists.id
     });
 
-    if (!assetExists) throw new NotFoundError('Asset not found in portfolio');
+    if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
     await assetRepository.delete({
       symbol: validatedSymbol,
@@ -57,7 +57,7 @@ export const DeleteAssetMutation = mutationWithClientMutationId({
     });
 
     const res: DeleteAssetResponse = {
-      message: 'Asset deleted successfully'
+      message: AssetMessages.DELETED
     };
 
     return res;

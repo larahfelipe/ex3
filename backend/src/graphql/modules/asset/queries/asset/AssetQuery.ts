@@ -5,6 +5,7 @@ import {
 } from 'graphql';
 import { connectionFromArray } from 'graphql-relay';
 
+import { AssetMessages, PortfolioMessages } from '@/constants';
 import { NotFoundError, UnauthorizedError } from '@/errors';
 import { PortfolioRepository } from '@/infra/database';
 import type { Context } from '@/types';
@@ -35,18 +36,14 @@ export const AssetQuery: GraphQLFieldConfig<any, Context, AssetQueryArgs> = {
 
     const portfolioExists = await portfolioRepository.getByUserId(user.id);
 
-    if (!portfolioExists)
-      throw new NotFoundError('Portfolio not found for this user');
+    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
     const assetData = await assetLoader.loadBySymbol({
       symbol: validatedAssetSymbol,
       portfolioId: portfolioExists.id
     });
 
-    if (!assetData)
-      throw new NotFoundError(
-        'Asset not found in portfolio for the given symbol'
-      );
+    if (!assetData) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
     return connectionFromArray([assetData], args);
   }

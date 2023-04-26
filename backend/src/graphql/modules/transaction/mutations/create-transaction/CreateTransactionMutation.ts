@@ -1,8 +1,14 @@
 import { GraphQLFloat, GraphQLNonNull, GraphQLString } from 'graphql';
 import { mutationWithClientMutationId, toGlobalId } from 'graphql-relay';
 
+import {
+  AssetMessages,
+  PortfolioMessages,
+  TransactionMessages,
+  TransactionTypes
+} from '@/constants';
 import type { Transaction, TransactionType } from '@/domain/models';
-import { NotFoundError, UnauthorizedError } from '@/errors';
+import { BadRequestError, NotFoundError, UnauthorizedError } from '@/errors';
 import {
   AssetRepository,
   PortfolioRepository,
@@ -64,15 +70,19 @@ export const CreateTransactionMutation = mutationWithClientMutationId({
 
     const portfolioExists = await portfolioRepository.getByUserId(user.id);
 
-    if (!portfolioExists)
-      throw new NotFoundError('Portfolio not found for this user');
+    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
     const assetExists = await assetRepository.getById(
       validatedTransactionAssetId
     );
 
-    if (!assetExists)
-      throw new NotFoundError('Asset not found in portfolio. Create it first');
+    if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
+
+    if (
+      validatedTransactionType === TransactionTypes.SELL &&
+      assetExists.amount < validatedTransactionAmount
+    )
+      throw new BadRequestError(TransactionMessages.ACC_NEGATIVE_AMOUNT);
 
     const newTransaction = await transactionRepository.add({
       type: validatedTransactionType as TransactionType,
@@ -81,15 +91,19 @@ export const CreateTransactionMutation = mutationWithClientMutationId({
       assetId: validatedTransactionAssetId
     });
 
-    await assetRepository.updateBalance({
-      operation: newTransaction.type === 'BUY' ? 'increment' : 'decrement',
-      value: newTransaction.price * newTransaction.amount,
+    await assetRepository.updatePosition({
+      operation:
+        newTransaction.type === TransactionTypes.BUY
+          ? 'increment'
+          : 'decrement',
+      amount: newTransaction.amount,
+      balance: newTransaction.price * newTransaction.amount,
       id: newTransaction.assetId
     });
 
     const res: CreateTransactionResponse = {
       transaction: newTransaction as Transaction,
-      message: 'Transaction created successfully'
+      message: TransactionMessages.CREATED
     };
 
     return res;

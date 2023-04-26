@@ -2,6 +2,7 @@ import { GraphQLNonNull, GraphQLString } from 'graphql';
 import { mutationWithClientMutationId } from 'graphql-relay';
 
 import { envs } from '@/config';
+import { UserMessages } from '@/constants';
 import { BadRequestError, UnauthorizedError } from '@/errors';
 import { Bcrypt } from '@/infra/cryptography';
 import { PortfolioRepository, UserRepository } from '@/infra/database';
@@ -47,14 +48,15 @@ export const DeleteUserMutation = mutationWithClientMutationId({
       user.password
     );
 
-    if (!isPasswordValid) throw new BadRequestError('Invalid password');
+    if (!isPasswordValid)
+      throw new BadRequestError(UserMessages.INVALID_PASSWORD);
 
     await portfolioRepository.delete(user.id);
 
     await userRepository.delete(user.id);
 
     const res: DeleteUserResponse = {
-      message: 'User deleted successfully'
+      message: UserMessages.DELETED
     };
 
     return res;

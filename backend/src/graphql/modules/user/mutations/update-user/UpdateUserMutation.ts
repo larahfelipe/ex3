@@ -2,6 +2,7 @@ import { GraphQLString } from 'graphql';
 import { mutationWithClientMutationId, toGlobalId } from 'graphql-relay';
 
 import { envs } from '@/config';
+import { UserMessages } from '@/constants';
 import type { User } from '@/domain/models';
 import { BadRequestError, UnauthorizedError } from '@/errors';
 import { Bcrypt } from '@/infra/cryptography';
@@ -66,7 +67,8 @@ export const UpdateUserMutation = mutationWithClientMutationId({
         user.password
       );
 
-      if (!isPasswordValid) throw new BadRequestError('Invalid password');
+      if (!isPasswordValid)
+        throw new BadRequestError(UserMessages.INVALID_PASSWORD);
 
       input.newPassword = validatedNewPassword as string;
     }
@@ -79,7 +81,7 @@ export const UpdateUserMutation = mutationWithClientMutationId({
 
     const res: UpdateUserResponse = {
       user: updatedUser as User,
-      message: 'User updated successfully'
+      message: UserMessages.UPDATED
     };
 
     return res;

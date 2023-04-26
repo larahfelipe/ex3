@@ -2,6 +2,7 @@ import { GraphQLNonNull, GraphQLString } from 'graphql';
 import { mutationWithClientMutationId, toGlobalId } from 'graphql-relay';
 
 import { envs } from '@/config';
+import { UserMessages } from '@/constants';
 import type { User } from '@/domain/models';
 import { BadRequestError } from '@/errors';
 import { Jwt } from '@/infra/cryptography';
@@ -54,7 +55,8 @@ export const CreateUserMutation = mutationWithClientMutationId({
 
     const userAlreadyExists = await userRepository.getByEmail(validatedEmail);
 
-    if (userAlreadyExists) throw new BadRequestError('User already exists');
+    if (userAlreadyExists)
+      throw new BadRequestError(UserMessages.ALREADY_EXISTS);
 
     const newUser = await userRepository.add({
       name: name ?? '',
@@ -76,7 +78,7 @@ export const CreateUserMutation = mutationWithClientMutationId({
         ...newUser,
         accessToken: encryptedAccessToken
       } as User,
-      message: 'User created successfully'
+      message: UserMessages.CREATED
     };
 
     return res;

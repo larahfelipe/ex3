@@ -5,6 +5,7 @@ import {
 } from 'graphql';
 import { connectionFromArray } from 'graphql-relay';
 
+import { TransactionMessages } from '@/constants';
 import { NotFoundError, UnauthorizedError } from '@/errors';
 import type { Context } from '@/types';
 import { validate } from '@/validation';
@@ -40,7 +41,7 @@ export const TransactionQuery: GraphQLFieldConfig<
     );
 
     if (!transactionData)
-      throw new NotFoundError('Transaction not found for the given id');
+      throw new NotFoundError(TransactionMessages.NOT_FOUND);
 
     return connectionFromArray([transactionData], args);
   }

@@ -1,6 +1,11 @@
 import { GraphQLFloat, GraphQLNonNull, GraphQLString } from 'graphql';
 import { mutationWithClientMutationId, toGlobalId } from 'graphql-relay';
 
+import {
+  PortfolioMessages,
+  TransactionMessages,
+  TransactionTypes
+} from '@/constants';
 import type { Transaction, TransactionType } from '@/domain/models';
 import { NotFoundError, UnauthorizedError } from '@/errors';
 import {
@@ -64,17 +69,14 @@ export const UpdateTransactionMutation = mutationWithClientMutationId({
 
     const portfolioExists = await portfolioRepository.getByUserId(user.id);
 
-    if (!portfolioExists)
-      throw new NotFoundError('Portfolio not found for this user');
+    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
     const transactionExists = await transactionRepository.getById(
       validatedTransactionId
     );
 
     if (!transactionExists)
-      throw new NotFoundError(
-        'Transaction not found for this asset. Create it first'
-      );
+      throw new NotFoundError(TransactionMessages.NOT_FOUND);
 
     const updatedTransaction = await transactionRepository.update({
       id: validatedTransactionId,
@@ -83,15 +85,19 @@ export const UpdateTransactionMutation = mutationWithClientMutationId({
       price: validatedTransactionPrice
     });
 
-    await assetRepository.updateBalance({
-      operation: updatedTransaction.type === 'BUY' ? 'increment' : 'decrement',
-      value: updatedTransaction.price * updatedTransaction.amount,
+    await assetRepository.updatePosition({
+      operation:
+        updatedTransaction.type === TransactionTypes.BUY
+          ? 'increment'
+          : 'decrement',
+      amount: updatedTransaction.amount,
+      balance: updatedTransaction.price * updatedTransaction.amount,
       id: updatedTransaction.assetId
     });
 
     const res: UpdateTransactionResponse = {
       transaction: updatedTransaction as Transaction,
-      message: 'Transaction updated successfully'
+      message: TransactionMessages.UPDATED
     };
 
     return res;
