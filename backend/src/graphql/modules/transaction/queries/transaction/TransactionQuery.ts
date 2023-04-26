@@ -12,7 +12,7 @@ import { validate } from '@/validation';
 import { GetTransactionSchema } from '@/validation/schema';
 
 import { TransactionLoader } from '../../TransactionLoader';
-import { TransactionType } from '../../TransactionType';
+import { TransactionConnection } from '../../TransactionType';
 import type { TransactionQueryArgs } from './TransactionQuery.types';
 
 export const TransactionQuery: GraphQLFieldConfig<
@@ -21,7 +21,7 @@ export const TransactionQuery: GraphQLFieldConfig<
   TransactionQueryArgs
 > = {
   description: 'Get transaction by id',
-  type: new GraphQLNonNull(TransactionType),
+  type: new GraphQLNonNull(TransactionConnection),
   args: {
     id: { type: new GraphQLNonNull(GraphQLString) }
   },
