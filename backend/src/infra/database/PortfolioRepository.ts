@@ -16,11 +16,7 @@ export class PortfolioRepository {
   }
 
   async getAll() {
-    const portfolios = await this.prismaClient.portfolio.findMany({
-      include: {
-        assets: true
-      }
-    });
+    const portfolios = await this.prismaClient.portfolio.findMany();
 
     return portfolios;
   }
@@ -29,9 +25,6 @@ export class PortfolioRepository {
     const portfolio = await this.prismaClient.portfolio.findUnique({
       where: {
         userId
-      },
-      include: {
-        assets: true
       }
     });
 

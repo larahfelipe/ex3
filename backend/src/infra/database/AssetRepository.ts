@@ -18,11 +18,7 @@ export class AssetRepository {
   }
 
   async getAll() {
-    const assets = await this.prismaClient.asset.findMany({
-      include: {
-        transactions: true
-      }
-    });
+    const assets = await this.prismaClient.asset.findMany();
 
     return assets;
   }
@@ -31,9 +27,6 @@ export class AssetRepository {
     const assets = await this.prismaClient.asset.findMany({
       where: {
         portfolioId
-      },
-      include: {
-        transactions: true
       }
     });
 
@@ -44,9 +37,6 @@ export class AssetRepository {
     const asset = await this.prismaClient.asset.findUnique({
       where: {
         id
-      },
-      include: {
-        transactions: true
       }
     });
 
@@ -60,9 +50,6 @@ export class AssetRepository {
       where: {
         portfolioId,
         symbol
-      },
-      include: {
-        transactions: true
       }
     });
 
@@ -83,9 +70,6 @@ export class AssetRepository {
             id: portfolioId
           }
         }
-      },
-      include: {
-        transactions: true
       }
     });
 

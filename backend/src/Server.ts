@@ -1,8 +1,6 @@
 /* eslint-disable no-console */
-import { envs } from '@/config';
+import { app, envs } from '@/config';
 import { PrismaClient } from '@/infra/database/PrismaClient';
-
-import { app } from './app';
 
 const bootstrap = async () => {
   try {

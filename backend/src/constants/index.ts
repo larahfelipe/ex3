@@ -5,7 +5,7 @@ export const DefaultErrorMessages = {
   FORBIDDEN: 'Resource access denied',
   NOT_FOUND: 'Resource not found',
   UNAUTHORIZED: 'Authentication required',
-  INTERNAL_SERVER_ERROR: 'Internal server error',
+  INTERNAL_SERVER_ERROR: 'An unexpected error occurred',
   INVALID_AUTH_HEADER: 'Invalid authorization header',
   INVALID_TOKEN: 'Invalid access token'
 };
