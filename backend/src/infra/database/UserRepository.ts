@@ -69,7 +69,7 @@ export class UserRepository {
         id
       },
       data: {
-        name,
+        ...(name && { name }),
         ...(password && { password: await this.bcrypt.hash(password) })
       }
     });

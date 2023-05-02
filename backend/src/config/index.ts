@@ -1,3 +1,2 @@
-import envs from './Envs';
-
-export { envs };
+export * from './App';
+export * from './Envs';
