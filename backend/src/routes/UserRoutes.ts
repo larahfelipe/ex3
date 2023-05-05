@@ -1,36 +1,36 @@
 import { Router, type Application } from 'express';
 
 import {
-  CreateUserControllerHandler,
-  DeleteUserControllerHandler,
-  GetAllUsersControllerHandler,
-  GetUserControllerHandler,
-  UpdateUserControllerHandler
+  createUserControllerHandler,
+  deleteUserControllerHandler,
+  getAllUsersControllerHandler,
+  getUserControllerHandler,
+  updateUserControllerHandler
 } from '@/controllers/user';
 import { authMiddleware } from '@/middleware';
 
 const userRouter = Router();
 
-userRouter.get('/v1/user', GetUserControllerHandler as Application);
+userRouter.get('/v1/user', getUserControllerHandler as Application);
 
 userRouter.get(
   '/v1/user/all',
   authMiddleware as Application,
-  GetAllUsersControllerHandler as Application
+  getAllUsersControllerHandler as Application
 );
 
-userRouter.post('/v1/user', CreateUserControllerHandler as Application);
+userRouter.post('/v1/user', createUserControllerHandler as Application);
 
-userRouter.put(
+userRouter.patch(
   '/v1/user',
   authMiddleware as Application,
-  UpdateUserControllerHandler as Application
+  updateUserControllerHandler as Application
 );
 
 userRouter.delete(
   '/v1/user',
   authMiddleware as Application,
-  DeleteUserControllerHandler as Application
+  deleteUserControllerHandler as Application
 );
 
 export { userRouter };

@@ -17,7 +17,7 @@ import { GetAllUsersController } from './GetAllUsersController';
 import { GetUserController } from './GetUserController';
 import { UpdateUserController } from './UpdateUserController';
 
-export const CreateUserControllerHandler = (req: Request, res: Response) => {
+export const createUserControllerHandler = (req: Request, res: Response) => {
   const userRepository = UserRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
   const jwt = Jwt.getInstance(envs.jwtSecret);
@@ -34,7 +34,7 @@ export const CreateUserControllerHandler = (req: Request, res: Response) => {
   return createUserController.handle(req, res);
 };
 
-export const DeleteUserControllerHandler = (req: Request, res: Response) => {
+export const deleteUserControllerHandler = (req: Request, res: Response) => {
   const userRepository = UserRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
   const bcrypt = Bcrypt.getInstance(+envs.bcryptSalt);
@@ -51,7 +51,7 @@ export const DeleteUserControllerHandler = (req: Request, res: Response) => {
   return deleteUserController.handle(req, res);
 };
 
-export const GetAllUsersControllerHandler = (req: Request, res: Response) => {
+export const getAllUsersControllerHandler = (req: Request, res: Response) => {
   const userRepository = UserRepository.getInstance();
 
   const getAllUsersService = GetAllUsersService.getInstance(userRepository);
@@ -62,7 +62,7 @@ export const GetAllUsersControllerHandler = (req: Request, res: Response) => {
   return getAllUsersController.handle(req, res);
 };
 
-export const GetUserControllerHandler = (req: Request, res: Response) => {
+export const getUserControllerHandler = (req: Request, res: Response) => {
   const userRepository = UserRepository.getInstance();
   const bcrypt = Bcrypt.getInstance(+envs.bcryptSalt);
   const jwt = Jwt.getInstance(envs.jwtSecret);
@@ -78,7 +78,7 @@ export const GetUserControllerHandler = (req: Request, res: Response) => {
   return getUserController.handle(req, res);
 };
 
-export const UpdateUserControllerHandler = (req: Request, res: Response) => {
+export const updateUserControllerHandler = (req: Request, res: Response) => {
   const userRepository = UserRepository.getInstance();
   const bcrypt = Bcrypt.getInstance(+envs.bcryptSalt);
 
