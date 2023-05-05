@@ -9,7 +9,7 @@ import {
 import { GetAllPortfoliosController } from './GetAllPortfoliosController';
 import { GetPortfolioController } from './GetPortfolioController';
 
-export const GetAllPortfoliosControllerHandler = (
+export const getAllPortfoliosControllerHandler = (
   req: Request,
   res: Response
 ) => {
@@ -25,7 +25,7 @@ export const GetAllPortfoliosControllerHandler = (
   return getAllPortfoliosController.handle(req, res);
 };
 
-export const GetPortfolioControllerHandler = (req: Request, res: Response) => {
+export const getPortfolioControllerHandler = (req: Request, res: Response) => {
   const portfolioRepository = PortfolioRepository.getInstance();
 
   const getPortfolioService =

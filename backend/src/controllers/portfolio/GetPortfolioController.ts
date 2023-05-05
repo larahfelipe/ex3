@@ -26,7 +26,9 @@ export class GetPortfolioController implements Controller {
     const { user } = req;
 
     try {
-      const result = await this.getPortfolioService.execute({ id: user.id });
+      const result = await this.getPortfolioService.execute({
+        userId: user.id
+      });
 
       return res.status(200).json(result);
     } catch (e) {

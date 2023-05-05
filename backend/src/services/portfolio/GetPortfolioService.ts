@@ -1,5 +1,5 @@
 import { PortfolioMessages } from '@/constants';
-import type { Portfolio, User } from '@/domain/models';
+import type { Portfolio } from '@/domain/models';
 import { NotFoundError } from '@/errors';
 import type { PortfolioRepository } from '@/infra/database';
 
@@ -20,8 +20,8 @@ export class GetPortfolioService {
     return GetPortfolioService.INSTANCE;
   }
 
-  async execute({ id }: GetPortfolioService.DTO) {
-    const portfolioExists = await this.portfolioRepository.getByUserId(id);
+  async execute({ userId }: GetPortfolioService.DTO) {
+    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
@@ -34,6 +34,8 @@ export class GetPortfolioService {
 }
 
 namespace GetPortfolioService {
-  export type DTO = Pick<User, 'id'>;
+  export type DTO = {
+    userId: string;
+  };
   export type Result = Omit<Portfolio, 'assets'>;
 }

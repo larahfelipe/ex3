@@ -1,5 +1,5 @@
 import { DefaultErrorMessages } from '@/constants';
-import type { Portfolio, User } from '@/domain/models';
+import type { Portfolio } from '@/domain/models';
 import { ForbiddenError } from '@/errors';
 import type { PortfolioRepository } from '@/infra/database';
 
@@ -20,8 +20,8 @@ export class GetAllPortfoliosService {
     return GetAllPortfoliosService.INSTANCE;
   }
 
-  async execute({ isStaff }: GetAllPortfoliosService.DTO) {
-    if (!isStaff) throw new ForbiddenError(DefaultErrorMessages.FORBIDDEN);
+  async execute({ userIsStaff }: GetAllPortfoliosService.DTO) {
+    if (!userIsStaff) throw new ForbiddenError(DefaultErrorMessages.FORBIDDEN);
 
     const allPortfolios = await this.portfolioRepository.getAll();
 
@@ -34,6 +34,8 @@ export class GetAllPortfoliosService {
 }
 
 namespace GetAllPortfoliosService {
-  export type DTO = Pick<User, 'isStaff'>;
+  export type DTO = {
+    userIsStaff: boolean;
+  };
   export type Result = Record<'portfolios', Array<Portfolio>>;
 }

@@ -27,7 +27,7 @@ export class GetAllPortfoliosController implements Controller {
 
     try {
       const result = await this.getAllPortfoliosService.execute({
-        isStaff: user.isStaff
+        userIsStaff: user.isStaff
       });
 
       return res.status(200).json(result);

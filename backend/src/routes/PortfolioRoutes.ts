@@ -1,8 +1,8 @@
 import { Router, type Application } from 'express';
 
 import {
-  GetAllPortfoliosControllerHandler,
-  GetPortfolioControllerHandler
+  getAllPortfoliosControllerHandler,
+  getPortfolioControllerHandler
 } from '@/controllers/portfolio';
 import { authMiddleware } from '@/middleware';
 
@@ -11,13 +11,13 @@ const portfolioRouter = Router();
 portfolioRouter.get(
   '/v1/portfolio',
   authMiddleware as Application,
-  GetPortfolioControllerHandler as Application
+  getPortfolioControllerHandler as Application
 );
 
 portfolioRouter.get(
   '/v1/portfolio/all',
   authMiddleware as Application,
-  GetAllPortfoliosControllerHandler as Application
+  getAllPortfoliosControllerHandler as Application
 );
 
 export { portfolioRouter };
