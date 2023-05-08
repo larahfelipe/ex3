@@ -1,4 +1,4 @@
-import { AssetMessages, PortfolioMessages } from '@/constants';
+import { AssetMessages, PortfolioMessages } from '@/config';
 import { BadRequestError, NotFoundError } from '@/errors';
 import type { AssetRepository, PortfolioRepository } from '@/infra/database';
 

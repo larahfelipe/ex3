@@ -1,4 +1,4 @@
-import { DefaultErrorMessages } from '@/constants';
+import { DefaultErrorMessages } from '@/config';
 import type { Portfolio } from '@/domain/models';
 import { ForbiddenError } from '@/errors';
 import type { PortfolioRepository } from '@/infra/database';

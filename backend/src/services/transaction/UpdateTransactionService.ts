@@ -3,7 +3,7 @@ import {
   PortfolioMessages,
   TransactionMessages,
   TransactionTypes
-} from '@/constants';
+} from '@/config';
 import type { Transaction } from '@/domain/models';
 import { BadRequestError, NotFoundError } from '@/errors';
 import type {

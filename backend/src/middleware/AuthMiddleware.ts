@@ -1,7 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 
-import { envs } from '@/config';
-import { DefaultErrorMessages, UserMessages } from '@/constants';
+import { DefaultErrorMessages, UserMessages, envs } from '@/config';
 import type { User } from '@/domain/models';
 import {
   BadRequestError,

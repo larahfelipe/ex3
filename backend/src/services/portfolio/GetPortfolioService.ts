@@ -1,4 +1,4 @@
-import { PortfolioMessages } from '@/constants';
+import { PortfolioMessages } from '@/config';
 import type { Portfolio } from '@/domain/models';
 import { NotFoundError } from '@/errors';
 import type { PortfolioRepository } from '@/infra/database';
