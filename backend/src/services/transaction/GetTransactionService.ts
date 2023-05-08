@@ -1,4 +1,4 @@
-import { TransactionMessages } from '@/constants';
+import { TransactionMessages } from '@/config';
 import type { Transaction } from '@/domain/models';
 import { NotFoundError } from '@/errors';
 import type { TransactionRepository } from '@/infra/database';

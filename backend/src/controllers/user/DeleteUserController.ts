@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 
-import { DefaultErrorMessages } from '@/constants';
+import { DefaultErrorMessages } from '@/config';
 import type { ApplicationError } from '@/errors';
 import type { Controller } from '@/interfaces';
 import type { DeleteUserService } from '@/services/user';

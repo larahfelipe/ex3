@@ -1,4 +1,4 @@
-import { DefaultErrorMessages } from '@/constants';
+import { DefaultErrorMessages } from '@/config';
 import type { User } from '@/domain/models';
 import { ForbiddenError } from '@/errors';
 import type { UserRepository } from '@/infra/database';

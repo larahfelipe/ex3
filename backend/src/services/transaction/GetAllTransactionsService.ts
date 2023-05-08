@@ -1,4 +1,4 @@
-import { AssetMessages, PortfolioMessages } from '@/constants';
+import { AssetMessages, PortfolioMessages } from '@/config';
 import type { Transaction } from '@/domain/models';
 import { ForbiddenError, NotFoundError } from '@/errors';
 import type {

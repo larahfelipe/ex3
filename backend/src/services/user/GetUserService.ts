@@ -1,4 +1,4 @@
-import { UserMessages } from '@/constants';
+import { UserMessages } from '@/config';
 import type { User } from '@/domain/models';
 import { NotFoundError } from '@/errors';
 import type { Bcrypt, Jwt } from '@/infra/cryptography';

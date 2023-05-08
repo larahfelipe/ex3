@@ -1,4 +1,4 @@
-import { DefaultErrorMessages } from '@/constants';
+import { DefaultErrorMessages } from '@/config';
 
 import { ApplicationError } from './ApplicationError';
 
