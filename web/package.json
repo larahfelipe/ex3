@@ -1,6 +1,8 @@
 {
   "name": "web",
   "version": "0.0.0",
+  "repository": "https://github.com/larahfelipe/ex3.git",
+  "author": "larahfelipe",
   "private": true,
   "scripts": {
     "dev": "next dev",

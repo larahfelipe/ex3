@@ -2,8 +2,8 @@
   "name": "backend",
   "version": "0.0.0",
   "main": "index.js",
-  "repository": "https://github.com/larafe1/ex3.git",
-  "author": "larafe1",
+  "repository": "https://github.com/larahfelipe/ex3.git",
+  "author": "larahfelipe",
   "license": "MIT",
   "private": true,
   "scripts": {
