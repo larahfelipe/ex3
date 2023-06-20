@@ -11,7 +11,7 @@ import { authMiddleware } from '@/middleware';
 
 const userRouter = Router();
 
-userRouter.get('/v1/user', getUserControllerHandler as Application);
+userRouter.post('/v1/user', getUserControllerHandler as Application);
 
 userRouter.get(
   '/v1/user/all',
@@ -19,7 +19,7 @@ userRouter.get(
   getAllUsersControllerHandler as Application
 );
 
-userRouter.post('/v1/user', createUserControllerHandler as Application);
+userRouter.post('/v1/user/create', createUserControllerHandler as Application);
 
 userRouter.patch(
   '/v1/user',
