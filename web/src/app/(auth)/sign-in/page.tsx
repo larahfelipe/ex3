@@ -6,7 +6,7 @@ import { VscKey } from 'react-icons/vsc';
 
 import type { NextPage } from 'next';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 import {
   AbsoluteCenter,
@@ -32,6 +32,7 @@ import { useSignIn } from './useSignIn';
 const SignIn: NextPage = () => {
   const { user, signInHandler, isLoading } = useSignIn();
 
+  const { push } = useRouter();
   const {
     register,
     handleSubmit,
@@ -41,7 +42,7 @@ const SignIn: NextPage = () => {
     mode: 'onBlur'
   });
 
-  if (user?.id) redirect('/dashboard');
+  if (user?.id) push('/dashboard');
 
   return (
     <Flex
