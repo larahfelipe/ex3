@@ -14,7 +14,8 @@ export const theme = extendTheme({
         fontSize: '88.5%',
         fontFamily: 'Archivo, sans-serif',
         fontWeight: 500,
-        backgroundColor: 'blackAlpha.100'
+        backgroundColor: 'blackAlpha.100',
+        color: 'blackAlpha.900'
       }
     }
   }
