@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  distDir: 'build',
-  experimental: {
-    typedRoutes: true
-  }
+  distDir: 'build'
 };
 
 module.exports = nextConfig;

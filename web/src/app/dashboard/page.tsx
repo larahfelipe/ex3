@@ -1,25 +1,7 @@
-'use client';
-
-import type { NextPage } from 'next';
-import { useRouter } from 'next/navigation';
-
-import { Center } from '@chakra-ui/react';
-
-import { Navbar } from '@/components';
-import { useAuth } from '@/hooks';
-
-const Dashboard: NextPage = () => {
-  const { user } = useAuth();
-
-  const { push } = useRouter();
-
-  if (!user?.id) push('/sign-in');
-
+export default function Dashboard() {
   return (
-    <Center>
-      <Navbar />
-    </Center>
+    <div>
+      <h1>Dashboard</h1>
+    </div>
   );
-};
-
-export default Dashboard;
+}
