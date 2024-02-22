@@ -9,8 +9,8 @@
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
-    "forceConsistentCasingInFileNames": true,
     "noEmit": true,
+    "forceConsistentCasingInFileNames": true,
     "noImplicitAny": true,
     "noUnusedLocals": true,
     "noImplicitThis": true,
@@ -18,7 +18,7 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
@@ -28,21 +28,17 @@
         "name": "next"
       }
     ],
-    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./src/*"
       ]
-    },
-    "typeRoots": [
-      "./node_modules/@types",
-      "./types"
-    ]
+    }
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    ".next/types/**/*.ts",
     "build/types/**/*.ts"
   ],
   "exclude": [
