@@ -1,37 +1,41 @@
 'use client';
 
-import { useState, type FC } from 'react';
-import { useForm } from 'react-hook-form';
+import { useCallback, type FC } from 'react';
+import { useForm, type SubmitHandler } from 'react-hook-form';
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
+import { z } from 'zod';
 
 import { Button, Input, Label } from '@/components/ui';
+import { useUser } from '@/hooks/use-user';
+
+const signInSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().trim().min(1, 'Password is required')
+});
 
 export const SignInForm: FC = () => {
-  const [isLoading, setIsLoading] = useState(false);
+  const { signIn } = useUser();
 
   const {
     register,
     handleSubmit,
-    formState: { errors }
-  } = useForm({
+    formState: { errors, isSubmitting, isValid }
+  } = useForm<z.infer<typeof signInSchema>>({
     mode: 'onChange',
+    resolver: zodResolver(signInSchema),
     defaultValues: {
       email: '',
       password: ''
     }
   });
 
-  const signIn = async () => {
-    try {
-      setIsLoading(true);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const signInHandler: SubmitHandler<z.infer<typeof signInSchema>> =
+    useCallback(async (formData) => await signIn(formData), [signIn]);
 
   return (
-    <form onSubmit={handleSubmit(signIn)}>
+    <form onSubmit={handleSubmit(signInHandler)}>
       <div className="flex-col align-center space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="email" className="text-slate-700">
@@ -41,11 +45,14 @@ export const SignInForm: FC = () => {
           <Input
             type="email"
             id="email"
-            disabled={isLoading}
+            autoComplete="off"
+            disabled={isSubmitting}
             {...register('email')}
           />
 
-          {!!errors.email?.message && <p>{errors.email.message}</p>}
+          {!!errors.email?.message && (
+            <small className="text-red-500">{errors.email.message}</small>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -56,16 +63,22 @@ export const SignInForm: FC = () => {
           <Input
             type="password"
             id="password"
-            disabled={isLoading}
+            disabled={isSubmitting}
             {...register('password')}
           />
 
-          {!!errors.password?.message && <p>{errors.password.message}</p>}
+          {!!errors.password?.message && (
+            <small className="text-red-500">{errors.password.message}</small>
+          )}
         </div>
       </div>
 
-      <Button type="submit" disabled={isLoading} className="w-full mt-12 p-6">
-        {isLoading ? (
+      <Button
+        type="submit"
+        disabled={isSubmitting || !isValid}
+        className="w-full mt-12 p-6"
+      >
+        {isSubmitting ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <p>Login</p>

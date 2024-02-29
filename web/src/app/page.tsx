@@ -1,33 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { redirect } from 'next/navigation';
 
-type WithId = Record<'id', string>;
+import { Loader2 } from 'lucide-react';
 
-interface UserProperties {
-  name: string;
-  email: string;
-  isStaff: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface User extends WithId, UserProperties {}
+import { useUser } from '@/hooks/use-user';
 
 export default function Home() {
-  const [user, setUser] = useState({} as User);
+  const { user } = useUser();
 
   useEffect(() => {
-    if (user?.id) redirect('/dashboard');
-
-    redirect('/sign-in');
+    if (user?.id) {
+      redirect('/dashboard');
+    } else {
+      redirect('/auth/sign-in');
+    }
   }, [user]);
 
   return (
-    <div>
-      <h1 className="text-violet-200">Home page</h1>
+    <div className="h-lvh flex">
+      <Loader2 className="m-auto animate-spin" />
     </div>
   );
 }

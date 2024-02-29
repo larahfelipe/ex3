@@ -12,9 +12,11 @@ export const metadata: Metadata = {
 export default function SignIn() {
   return (
     <div className="h-screen relative bg-slate-50 lg:grid-cols-2 md:grid">
-      <h1 className="italic text-[256px] font-extrabold text-slate-100 absolute right-12 bottom-0 cursor-default">
-        EX3
-      </h1>
+      <div className="absolute right-12 bottom-0">
+        <h1 className="italic text-[256px] font-extrabold leading-tight text-slate-100 cursor-default">
+          EX3
+        </h1>
+      </div>
 
       <div className="h-full flex flex-col justify-center align-center relative space-y-8 shadow-sm bg-white border-[1px] border-slate-100">
         <h2 className="text-lg font-bold text-slate-700 text-center">
@@ -27,7 +29,7 @@ export default function SignIn() {
           <p className="mt-6 text-center text-sm text-slate-500">
             Not registered?{' '}
             <Link
-              href="/sign-up"
+              href="/auth/sign-up"
               className="font-semibold leading-6 text-slate-900 hover:text-gray-700"
             >
               Create account
