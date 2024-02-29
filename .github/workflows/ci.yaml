@@ -6,30 +6,43 @@ on:
       - master
 
 jobs:
-  deploy:
+  backend:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Node setup
         uses: actions/setup-node@v3
-      - name: Change directory to backend
-        run: cd backend
-      - name: (backend) Install
-        run: npm install
-      - name: (backend) Build
-        run: npm run build
-      - name: (backend) Lint
-        run: npm run lint
-      - name: (backend) Type check
-        run: npm run typecheck
-      - name: Change directory to web
-        run: cd ../web
-      - name: (web) Install
-        run: npm install
-      - name: (web) Build
-        run: npm run build
-      - name: (web) Lint
-        run: npm run lint
-      - name: (web) Type check
-        run: npm run typecheck
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: backend/node_modules
+          key: ${{ runner.os }}-backend-${{ hashFiles('backend/package-lock.json') }}
+      - name: Install dependencies
+        run: cd backend && npm install
+      - name: Build
+        run: cd backend && npm run build
+      - name: Lint
+        run: cd backend && npm run lint
+      - name: Type check
+        run: cd backend && npm run typecheck
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Node setup
+        uses: actions/setup-node@v3
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: web/node_modules
+          key: ${{ runner.os }}-web-${{ hashFiles('web/package-lock.json') }}
+      - name: Install dependencies
+        run: cd web && npm install
+      - name: Build
+        run: cd web && npm run build
+      - name: Lint
+        run: cd web && npm run lint
+      - name: Type check
+        run: cd web && npm run typecheck
