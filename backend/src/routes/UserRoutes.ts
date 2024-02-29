@@ -14,7 +14,7 @@ const userRouter = Router();
 userRouter.post('/v1/user', getUserControllerHandler as Application);
 
 userRouter.get(
-  '/v1/user/all',
+  '/v1/users',
   authMiddleware as Application,
   getAllUsersControllerHandler as Application
 );

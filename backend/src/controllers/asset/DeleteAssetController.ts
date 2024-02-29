@@ -25,10 +25,10 @@ export class DeleteAssetController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    const { user, body } = req;
+    const { user, params } = req;
 
     try {
-      const { symbol } = await validate(DeleteAssetSchema, body);
+      const { symbol } = await validate(DeleteAssetSchema, params);
 
       const result = await this.deleteAssetService.execute({
         symbol,

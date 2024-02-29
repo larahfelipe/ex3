@@ -26,12 +26,12 @@ export class UpdateTransactionController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    const { user, body } = req;
+    const { user, body, params } = req;
 
     try {
       const { id, type, price, amount } = await validate(
         UpdateTransactionSchema,
-        body
+        { ...body, id: params.id }
       );
 
       const result = await this.updateTransactionService.execute({

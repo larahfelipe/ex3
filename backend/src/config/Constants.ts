@@ -26,7 +26,7 @@ export const PortfolioMessages = {
 export const TransactionMessages = {
   NOT_FOUND: 'Transaction not found for this asset',
   ACC_NEGATIVE_AMOUNT:
-    'Invalid transaction, cannot sell more assets than you have',
+    'Invalid transaction: resulting amount cannot be negative',
   CREATED: 'Transaction created successfully',
   UPDATED: 'Transaction updated successfully',
   DELETED: 'Transaction deleted successfully'

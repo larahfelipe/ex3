@@ -12,13 +12,13 @@ import { authMiddleware } from '@/middleware';
 const transactionRouter = Router();
 
 transactionRouter.get(
-  '/v1/transaction',
+  '/v1/transaction/:id',
   authMiddleware as Application,
   getTransactionControllerHandler as Application
 );
 
 transactionRouter.get(
-  '/v1/transaction/all',
+  '/v1/transactions/:assetId',
   authMiddleware as Application,
   getAllTransactionsControllerHandler as Application
 );
@@ -30,13 +30,13 @@ transactionRouter.post(
 );
 
 transactionRouter.patch(
-  '/v1/transaction',
+  '/v1/transaction/:id',
   authMiddleware as Application,
   updateTransactionControllerHandler as Application
 );
 
 transactionRouter.delete(
-  '/v1/transaction',
+  '/v1/transaction/:id',
   authMiddleware as Application,
   deleteTransactionControllerHandler as Application
 );

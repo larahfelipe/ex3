@@ -25,10 +25,10 @@ export class GetAllTransactionsController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    const { user, query } = req;
+    const { user, params } = req;
 
     try {
-      const { assetId } = await validate(GetTransactionsSchema, query);
+      const { assetId } = await validate(GetTransactionsSchema, params);
 
       const result = await this.getAllTransactionsService.execute({
         assetId,

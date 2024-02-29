@@ -25,10 +25,13 @@ export class UpdateAssetController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    const { user, body } = req;
+    const { user, body, params } = req;
 
     try {
-      const { oldSymbol, newSymbol } = await validate(UpdateAssetSchema, body);
+      const { oldSymbol, newSymbol } = await validate(UpdateAssetSchema, {
+        oldSymbol: params.symbol,
+        newSymbol: body.newSymbol
+      });
 
       const result = await this.updateAssetService.execute({
         oldSymbol,

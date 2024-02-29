@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider     = "mysql"
+  provider     = "postgresql"
   url          = env("DATABASE_URL")
+  directUrl    = env("DIRECT_URL")
   relationMode = "prisma"
 }
 
@@ -41,7 +42,7 @@ model Asset {
   balance      Float         @default(0)
   transactions Transaction[]
   portfolio    Portfolio     @relation(fields: [portfolioId], references: [id])
-  portfolioId  String        @unique
+  portfolioId  String
 
   @@map("assets")
 }
@@ -54,7 +55,7 @@ model Transaction {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   asset     Asset    @relation(fields: [assetId], references: [id])
-  assetId   String   @unique
+  assetId   String
 
   @@map("transactions")
 }

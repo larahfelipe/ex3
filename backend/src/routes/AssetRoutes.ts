@@ -12,13 +12,13 @@ import { authMiddleware } from '@/middleware';
 const assetRouter = Router();
 
 assetRouter.get(
-  '/v1/asset',
+  '/v1/asset/:symbol',
   authMiddleware as Application,
   getAssetControllerHandler as Application
 );
 
 assetRouter.get(
-  '/v1/asset/all',
+  '/v1/assets',
   authMiddleware as Application,
   getAllAssetsControllerHandler as Application
 );
@@ -30,13 +30,13 @@ assetRouter.post(
 );
 
 assetRouter.patch(
-  '/v1/asset',
+  '/v1/asset/:symbol',
   authMiddleware as Application,
   updateAssetControllerHandler as Application
 );
 
 assetRouter.delete(
-  '/v1/asset',
+  '/v1/asset/:symbol',
   authMiddleware as Application,
   deleteAssetControllerHandler as Application
 );

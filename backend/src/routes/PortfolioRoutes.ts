@@ -15,7 +15,7 @@ portfolioRouter.get(
 );
 
 portfolioRouter.get(
-  '/v1/portfolio/all',
+  '/v1/portfolios',
   authMiddleware as Application,
   getAllPortfoliosControllerHandler as Application
 );
