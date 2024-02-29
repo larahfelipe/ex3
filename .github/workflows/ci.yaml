@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Node setup
+        uses: actions/setup-node@v3
+      - name: Change directory to backend
+        run: cd backend
+      - name: (backend) Install
+        run: npm install
+      - name: (backend) Build
+        run: npm run build
+      - name: (backend) Lint
+        run: npm run lint
+      - name: (backend) Type check
+        run: npm run typecheck
+      - name: Change directory to web
+        run: cd ../web
+      - name: (web) Install
+        run: npm install
+      - name: (web) Build
+        run: npm run build
+      - name: (web) Lint
+        run: npm run lint
+      - name: (web) Type check
+        run: npm run typecheck
