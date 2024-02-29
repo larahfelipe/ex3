@@ -25,10 +25,10 @@ export class DeleteTransactionController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    const { user, body } = req;
+    const { user, params } = req;
 
     try {
-      const { id } = await validate(DeleteTransactionSchema, body);
+      const { id } = await validate(DeleteTransactionSchema, params);
 
       const result = await this.deleteTransactionService.execute({
         id,

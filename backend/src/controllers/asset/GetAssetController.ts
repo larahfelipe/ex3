@@ -23,10 +23,10 @@ export class GetAssetController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    const { user, query } = req;
+    const { user, params } = req;
 
     try {
-      const { symbol } = await validate(GetAssetSchema, query);
+      const { symbol } = await validate(GetAssetSchema, params);
 
       const result = await this.getAssetService.execute({
         symbol,

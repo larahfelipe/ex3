@@ -26,7 +26,7 @@ export class GetTransactionController implements Controller {
 
   async handle(req: Request, res: Response) {
     try {
-      const { id } = await validate(GetTransactionSchema, req.query);
+      const { id } = await validate(GetTransactionSchema, req.params);
 
       const result = await this.getTransactionService.execute({ id });
 
