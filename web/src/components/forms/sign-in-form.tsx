@@ -3,6 +3,8 @@
 import { useCallback, type FC } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 
+import { useRouter } from 'next/navigation';
+
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
@@ -16,12 +18,13 @@ const signInSchema = z.object({
 });
 
 export const SignInForm: FC = () => {
-  const { signIn } = useUser();
+  const { isLoading, signIn } = useUser();
 
   const {
     register,
+    reset,
     handleSubmit,
-    formState: { errors, isSubmitting, isValid }
+    formState: { errors, isValid }
   } = useForm<z.infer<typeof signInSchema>>({
     mode: 'onChange',
     resolver: zodResolver(signInSchema),
@@ -30,23 +33,35 @@ export const SignInForm: FC = () => {
       password: ''
     }
   });
+  const { push } = useRouter();
 
   const signInHandler: SubmitHandler<z.infer<typeof signInSchema>> =
-    useCallback(async (formData) => await signIn(formData), [signIn]);
+    useCallback(
+      async (formData) => {
+        try {
+          await signIn(formData);
+          reset();
+          push('/dashboard');
+        } catch (_) {
+          // noop
+        }
+      },
+      [signIn, reset, push]
+    );
 
   return (
     <form onSubmit={handleSubmit(signInHandler)}>
       <div className="flex-col align-center space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="email" className="text-slate-700">
-            E-mail
+            Email
           </Label>
 
           <Input
             type="email"
             id="email"
             autoComplete="off"
-            disabled={isSubmitting}
+            disabled={isLoading}
             {...register('email')}
           />
 
@@ -63,7 +78,7 @@ export const SignInForm: FC = () => {
           <Input
             type="password"
             id="password"
-            disabled={isSubmitting}
+            disabled={isLoading}
             {...register('password')}
           />
 
@@ -75,10 +90,10 @@ export const SignInForm: FC = () => {
 
       <Button
         type="submit"
-        disabled={isSubmitting || !isValid}
+        disabled={isLoading || !isValid}
         className="w-full mt-12 p-6"
       >
-        {isSubmitting ? (
+        {isLoading ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <p>Login</p>
