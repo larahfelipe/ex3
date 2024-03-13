@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
 import { useCallback, type FC } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
+
+import { useRouter } from 'next/navigation';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
@@ -11,30 +14,36 @@ import { z } from 'zod';
 import { Button, Input, Label } from '@/components/ui';
 import { useUser } from '@/hooks/use-user';
 
-const signUpSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(6, 'Name must be at least 6 characters long')
-    .max(255, 'Name must be at most 255 characters long'),
-  email: z.string().trim().email(),
-  password: z
-    .string()
-    .trim()
-    .min(6, 'Password must be at least 6 characters long'),
-  confirmPassword: z
-    .string()
-    .trim()
-    .min(6, 'Confirm password must be at least 6 characters long')
-});
+const signUpSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(6, 'Name must be at least 6 characters long')
+      .max(255, 'Name must be at most 255 characters long'),
+    email: z.string().trim().email(),
+    password: z
+      .string()
+      .trim()
+      .min(6, 'Password must be at least 6 characters long'),
+    confirmPassword: z
+      .string()
+      .trim()
+      .min(6, 'Confirm password must be at least 6 characters long')
+  })
+  .refine(({ password, confirmPassword }) => password === confirmPassword, {
+    message: 'Passwords must match',
+    path: ['confirmPassword']
+  });
 
 export const SignUpForm: FC = () => {
-  const { signUp } = useUser();
+  const { isLoading, signUp } = useUser();
 
   const {
     register,
+    reset,
     handleSubmit,
-    formState: { errors, isSubmitting, isValid }
+    formState: { errors, isValid }
   } = useForm<z.infer<typeof signUpSchema>>({
     mode: 'onChange',
     resolver: zodResolver(signUpSchema),
@@ -45,11 +54,20 @@ export const SignUpForm: FC = () => {
       confirmPassword: ''
     }
   });
+  const { push } = useRouter();
 
   const signUpHandler: SubmitHandler<z.infer<typeof signUpSchema>> =
     useCallback(
-      async ({ confirmPassword, ...formData }) => await signUp(formData),
-      [signUp]
+      async ({ confirmPassword, ...formData }) => {
+        try {
+          await signUp(formData);
+          reset();
+          push('/dashboard');
+        } catch (_) {
+          // noop
+        }
+      },
+      [signUp, reset, push]
     );
 
   return (
@@ -62,7 +80,7 @@ export const SignUpForm: FC = () => {
 
           <Input
             id="name"
-            disabled={isSubmitting}
+            disabled={isLoading}
             autoCorrect="off"
             {...register('name')}
           />
@@ -74,14 +92,14 @@ export const SignUpForm: FC = () => {
 
         <div className="space-y-1.5">
           <Label htmlFor="email" className="text-slate-700">
-            E-mail
+            Email
           </Label>
 
           <Input
             type="email"
             id="email"
             autoComplete="off"
-            disabled={isSubmitting}
+            disabled={isLoading}
             {...register('email')}
           />
 
@@ -98,7 +116,7 @@ export const SignUpForm: FC = () => {
           <Input
             type="password"
             id="password"
-            disabled={isSubmitting}
+            disabled={isLoading}
             {...register('password')}
           />
 
@@ -115,7 +133,7 @@ export const SignUpForm: FC = () => {
           <Input
             type="password"
             id="confirmPassword"
-            disabled={isSubmitting}
+            disabled={isLoading}
             {...register('confirmPassword')}
           />
 
@@ -129,10 +147,10 @@ export const SignUpForm: FC = () => {
 
       <Button
         type="submit"
-        disabled={isSubmitting || !isValid}
+        disabled={isLoading || !isValid}
         className="w-full mt-12 p-6"
       >
-        {isSubmitting ? (
+        {isLoading ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <p>Register</p>

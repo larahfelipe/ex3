@@ -6,8 +6,5 @@ export type SignUpPayload = {
   password: string;
 };
 
-export const signUp = async (payload: SignUpPayload) => {
-  const res = await api.post('/v1/user/create', payload);
-
-  return res.data;
-};
+export const signUp = async (payload: SignUpPayload) =>
+  await api.post('/v1/user/create', payload);

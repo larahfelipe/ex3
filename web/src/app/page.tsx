@@ -12,7 +12,7 @@ export default function Home() {
   const { user } = useUser();
 
   useEffect(() => {
-    if (user?.id) {
+    if (user) {
       redirect('/dashboard');
     } else {
       redirect('/auth/sign-in');
