@@ -153,7 +153,7 @@ export const SignUpForm: FC = () => {
         {isLoading ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
-          <p>Register</p>
+          <span>Register</span>
         )}
       </Button>
     </form>
