@@ -40,8 +40,8 @@ export const SignInForm: FC = () => {
       async (formData) => {
         try {
           await signIn(formData);
-          reset();
           push('/dashboard');
+          reset();
         } catch (_) {
           // noop
         }
@@ -94,9 +94,9 @@ export const SignInForm: FC = () => {
         className="w-full mt-12 p-6"
       >
         {isLoading ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <Loader2 className="mr-2 size-4 animate-spin" />
         ) : (
-          <p>Login</p>
+          <span>Login</span>
         )}
       </Button>
     </form>

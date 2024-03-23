@@ -10,6 +10,8 @@ import {
   type FC
 } from 'react';
 
+import { useRouter } from 'next/navigation';
+
 import { useMutation } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import { toast } from 'sonner';
@@ -42,6 +44,7 @@ type UserContextProps = {
   user: Maybe<User>;
   signIn: MutationAsync<SignInPayload, SignInResult>;
   signUp: MutationAsync<SignUpPayload, SignUpResult>;
+  signOut: () => void;
 };
 
 const EX3_USER_STORAGE_KEY = 'ex3@user';
@@ -51,9 +54,12 @@ const UserContext = createContext({} as UserContextProps);
 export const UserProvider: FC<Readonly<Children>> = ({ children }) => {
   const [user, setUser] = useState<Maybe<User>>(null);
 
+  const { push } = useRouter();
+
   const { mutateAsync: signIn, status: signInStatus } = useMutation({
     mutationFn: signInFn,
     onSuccess: ({ data: userData }: AxiosResponse<SignInResult>) => {
+      setUser(userData);
       api.defaults.headers.Authorization = `Bearer ${userData.accessToken}`;
       localStorage.setItem(EX3_USER_STORAGE_KEY, JSON.stringify(userData));
       toast.success(`Logged in as ${userData.name}`);
@@ -74,6 +80,14 @@ export const UserProvider: FC<Readonly<Children>> = ({ children }) => {
     onError: (e: string) => toast.error(e)
   });
 
+  const signOut = useCallback(() => {
+    setUser(null);
+    api.defaults.headers.Authorization = null;
+    localStorage.clear();
+    push('/sign-in');
+    toast.success('Logged out successfully');
+  }, [push]);
+
   const loadUserFromStorage = useCallback(() => {
     const maybeUser = localStorage.getItem(EX3_USER_STORAGE_KEY);
     if (!maybeUser) return;
@@ -88,9 +102,10 @@ export const UserProvider: FC<Readonly<Children>> = ({ children }) => {
       user,
       signIn,
       signUp,
+      signOut,
       isLoading: signInStatus === 'pending' || signUpStatus === 'pending'
     }),
-    [user, signIn, signUp, signInStatus, signUpStatus]
+    [user, signIn, signUp, signOut, signInStatus, signUpStatus]
   );
 
   useEffect(() => {
