@@ -10,7 +10,7 @@ import { queryClient } from '@/lib/react-query';
 import type { Children } from '@/types';
 import './globals.css';
 
-const manrope = Manrope({ subsets: ['latin'] });
+const manrope = Manrope({ weight: ['400', '700'], subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'EX3',

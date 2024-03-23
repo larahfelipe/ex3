@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
@@ -61,8 +60,8 @@ export const SignUpForm: FC = () => {
       async ({ confirmPassword, ...formData }) => {
         try {
           await signUp(formData);
-          reset();
           push('/dashboard');
+          reset();
         } catch (_) {
           // noop
         }
@@ -151,7 +150,7 @@ export const SignUpForm: FC = () => {
         className="w-full mt-12 p-6"
       >
         {isLoading ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <Loader2 className="mr-2 size-4 animate-spin" />
         ) : (
           <span>Register</span>
         )}

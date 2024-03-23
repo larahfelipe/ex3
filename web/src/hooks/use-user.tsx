@@ -59,6 +59,7 @@ export const UserProvider: FC<Readonly<Children>> = ({ children }) => {
   const { mutateAsync: signIn, status: signInStatus } = useMutation({
     mutationFn: signInFn,
     onSuccess: ({ data: userData }: AxiosResponse<SignInResult>) => {
+      setUser(userData);
       api.defaults.headers.Authorization = `Bearer ${userData.accessToken}`;
       localStorage.setItem(EX3_USER_STORAGE_KEY, JSON.stringify(userData));
       toast.success(`Logged in as ${userData.name}`);
@@ -83,7 +84,7 @@ export const UserProvider: FC<Readonly<Children>> = ({ children }) => {
     setUser(null);
     api.defaults.headers.Authorization = null;
     localStorage.clear();
-    push('/auth/sign-in');
+    push('/sign-in');
     toast.success('Logged out successfully');
   }, [push]);
 
