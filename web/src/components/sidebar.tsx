@@ -62,6 +62,7 @@ export const Sidebar: FC = () => {
   }: SectionButtonProps) => (
     <Button
       variant={path === activeSectionPath ? variant : 'ghost'}
+      aria-label={text}
       className={twMerge(
         `transition-all duration-200 hover:brightness-95 sm:w-full active:scale-90 ${path === activeSectionPath && 'bg-slate-200'}`,
         className?.button
@@ -83,7 +84,7 @@ export const Sidebar: FC = () => {
   );
 
   return (
-    <div className="h-[60px] flex items-center relative bg-slate-50 border-[1px] border-slate-100 sm:h-lvh sm:flex-col">
+    <nav className="h-[60px] flex items-center relative bg-slate-50 border-[1px] border-slate-100 sm:h-lvh sm:flex-col">
       <section className="max-sm:ml-4 sm:mt-3">
         <h2 className="text-lg font-bold text-slate-700 text-center cursor-default">
           EX3
@@ -115,6 +116,6 @@ export const Sidebar: FC = () => {
           left={<IoExitOutline size={18} className="text-red-500" />}
         />
       </section>
-    </div>
+    </nav>
   );
 };

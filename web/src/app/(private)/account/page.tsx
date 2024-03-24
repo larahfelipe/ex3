@@ -1,7 +1,5 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
-
 import {
   Button,
   Card,
@@ -18,7 +16,7 @@ import { useUser } from '@/hooks/use-user';
 export default function Account() {
   const { user } = useUser();
 
-  if (!user) return <Loader2 className="m-auto size-6 animate-spin" />;
+  if (!user) return null;
 
   return (
     <div className="space-y-12 mx-4 md:mx-16">

@@ -148,6 +148,7 @@ export const SignUpForm: FC = () => {
         type="submit"
         disabled={isLoading || !isValid}
         className="w-full mt-12 p-6"
+        aria-label="Register"
       >
         {isLoading ? (
           <Loader2 className="mr-2 size-4 animate-spin" />
