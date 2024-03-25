@@ -1,6 +1,25 @@
+'use client';
+
+import { useEffect } from 'react';
+
+import { useRouter } from 'next/navigation';
+
+import { useUser } from '@/hooks/use-user';
 import type { Children } from '@/types';
 
 export default function Layout({ children }: Readonly<Children>) {
+  const { isLoading, user } = useUser();
+
+  const { replace } = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      replace('/dashboard');
+    }
+  }, [isLoading, user, replace]);
+
+  if (isLoading || user) return null;
+
   return (
     <main className="h-screen relative bg-white lg:grid-cols-2 md:grid">
       <aside className="absolute right-10 bottom-5">

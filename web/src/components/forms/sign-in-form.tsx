@@ -3,8 +3,6 @@
 import { useCallback, type FC } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 
-import { useRouter } from 'next/navigation';
-
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
@@ -33,20 +31,18 @@ export const SignInForm: FC = () => {
       password: ''
     }
   });
-  const { push } = useRouter();
 
   const signInHandler: SubmitHandler<z.infer<typeof signInSchema>> =
     useCallback(
       async (formData) => {
         try {
           await signIn(formData);
-          push('/dashboard');
           reset();
         } catch (_) {
           // noop
         }
       },
-      [signIn, reset, push]
+      [signIn, reset]
     );
 
   return (
