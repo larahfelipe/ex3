@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function SignIn() {
   return (
     <>
-      <section className="mx-auto space-y-2">
+      <section className="mx-auto space-y-1.5">
         <h2 className="text-lg font-bold text-slate-700 text-center">EX3</h2>
 
         <div className="w-full h-[1px] bg-gray-100" />
