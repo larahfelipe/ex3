@@ -1,16 +1,14 @@
 import type { Metadata } from 'next';
-import { Manrope } from 'next/font/google';
 
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'sonner';
 
+import { inter } from '@/common/constants';
 import { UserProvider } from '@/hooks/use-user';
 import { queryClient } from '@/lib/react-query';
 import type { Children } from '@/types';
 import './globals.css';
-
-const manrope = Manrope({ weight: ['400', '700'], subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'EX3',
@@ -20,7 +18,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<Children>) {
   return (
     <html lang="en">
-      <body className={manrope.className}>
+      <body className={inter.className}>
         <QueryClientProvider client={queryClient}>
           <ReactQueryDevtools initialIsOpen={false} />
 

@@ -12,7 +12,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="mt-12 mx-4 sm:mx-16">
+    <div className="mt-12 sm:mx-4">
       <AssetsTable onAction={handleAction} />
     </div>
   );

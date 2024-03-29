@@ -10,9 +10,17 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 
+import { raleway } from '@/common/constants';
 import { useUser } from '@/hooks/use-user';
 
-import { Button, type ButtonProps } from './ui';
+import {
+  Button,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  type ButtonProps
+} from './ui';
 
 type SectionButtonProps = Pick<ButtonProps, 'variant' | 'onClick'> & {
   text?: string;
@@ -60,33 +68,50 @@ export const Sidebar: FC = () => {
     className,
     variant = 'secondary'
   }: SectionButtonProps) => (
-    <Button
-      variant={path === activeSectionPath ? variant : 'ghost'}
-      aria-label={text}
-      className={twMerge(
-        `transition-all duration-200 hover:brightness-95 sm:w-full active:scale-90 ${path === activeSectionPath && 'bg-slate-200'}`,
-        className?.button
-      )}
-      onClick={onClick}
-    >
-      {!text && <Loader2 className="size-4 animate-spin" />}
+    <TooltipProvider>
+      <Tooltip delayDuration={500}>
+        <TooltipTrigger asChild>
+          <Button
+            variant={path === activeSectionPath ? variant : 'ghost'}
+            aria-label={text}
+            className={twMerge(
+              `transition-all duration-200 hover:brightness-95 sm:w-full active:scale-90 ${path === activeSectionPath && 'bg-gray-200'}`,
+              className?.button
+            )}
+            onClick={onClick}
+          >
+            {!text && <Loader2 className="size-4 animate-spin" />}
 
-      {text && (
-        <>
-          {left}
+            {text && (
+              <>
+                {left}
 
-          <span className={twMerge('ml-1.5 max-sm:hidden', className?.text)}>
-            {text}
-          </span>
-        </>
-      )}
-    </Button>
+                <span
+                  className={twMerge('ml-1.5 max-sm:hidden', className?.text)}
+                >
+                  {text}
+                </span>
+              </>
+            )}
+          </Button>
+        </TooltipTrigger>
+
+        <TooltipContent>
+          <p>{text}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 
   return (
-    <nav className="h-[60px] flex items-center relative bg-slate-50 border-[1px] border-slate-100 sm:h-lvh sm:flex-col">
+    <nav className="h-[60px] flex items-center relative bg-gray-50 border-[1px] border-gray-200 sm:h-lvh sm:flex-col">
       <section className="max-sm:ml-4 sm:mt-3">
-        <h2 className="text-lg font-bold text-slate-700 text-center cursor-default">
+        <h2
+          className={twMerge(
+            'text-lg font-bold text-gray-700 text-center cursor-default',
+            raleway.className
+          )}
+        >
           EX3
         </h2>
       </section>

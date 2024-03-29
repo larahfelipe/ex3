@@ -42,7 +42,7 @@ export const SignUpForm: FC = () => {
     handleSubmit,
     formState: { errors, isValid }
   } = useForm<z.infer<typeof signUpSchema>>({
-    mode: 'onChange',
+    mode: 'onBlur',
     resolver: zodResolver(signUpSchema),
     defaultValues: {
       name: '',
@@ -69,7 +69,7 @@ export const SignUpForm: FC = () => {
     <form onSubmit={handleSubmit(signUpHandler)}>
       <div className="flex-col align-center space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="name" className="text-slate-700">
+          <Label htmlFor="name" className="text-gray-700">
             Name
           </Label>
 
@@ -86,7 +86,7 @@ export const SignUpForm: FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-slate-700">
+          <Label htmlFor="email" className="text-gray-700">
             Email
           </Label>
 
@@ -104,7 +104,7 @@ export const SignUpForm: FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-slate-700">
+          <Label htmlFor="password" className="text-gray-700">
             Password
           </Label>
 
@@ -121,7 +121,7 @@ export const SignUpForm: FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="confirmPassword" className="text-slate-700">
+          <Label htmlFor="confirmPassword" className="text-gray-700">
             Confirm password
           </Label>
 

@@ -24,7 +24,7 @@ export const SignInForm: FC = () => {
     handleSubmit,
     formState: { errors, isValid }
   } = useForm<z.infer<typeof signInSchema>>({
-    mode: 'onChange',
+    mode: 'onBlur',
     resolver: zodResolver(signInSchema),
     defaultValues: {
       email: '',
@@ -49,7 +49,7 @@ export const SignInForm: FC = () => {
     <form onSubmit={handleSubmit(signInHandler)}>
       <div className="flex-col align-center space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-slate-700">
+          <Label htmlFor="email" className="text-gray-700">
             Email
           </Label>
 
@@ -67,7 +67,7 @@ export const SignInForm: FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-slate-700">
+          <Label htmlFor="password" className="text-gray-700">
             Password
           </Label>
 
