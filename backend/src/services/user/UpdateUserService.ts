@@ -62,7 +62,7 @@ namespace UpdateUserService {
     newPassword?: string;
   };
   export type Result = {
-    user: Omit<User, 'password' | 'portfolio'>;
+    user: Omit<User, 'password' | 'isAdmin' | 'portfolio'>;
     message: string;
   };
 }

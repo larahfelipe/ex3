@@ -18,6 +18,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<Children>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="shortcut icon" href="favicon.svg" type="image/svg" />
+      </head>
+
       <body className={inter.className}>
         <QueryClientProvider client={queryClient}>
           <ReactQueryDevtools initialIsOpen={false} />

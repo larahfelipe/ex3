@@ -4,7 +4,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useReducer,
   useState,
   type ChangeEvent,
@@ -55,17 +54,21 @@ import { useUser } from '@/hooks/use-user';
 
 import { AssetTransactionTableCell } from './asset-transaction-table-cell';
 
-export type Asset = {
+interface WithDominance {
+  dominance?: string;
+}
+
+export interface Asset extends WithDominance {
   id: string;
   symbol: string;
   amount: number;
   balance: number;
   portfolioId: string;
-};
+}
 
 type ReducerState = {
   assets: Array<Asset>;
-  sort: 'asc' | 'des';
+  sort: 'asc' | 'desc';
 };
 
 type ReducerAction = {
@@ -80,20 +83,21 @@ type AssetsTableProps = {
   onAction: (type: ActionType, payload?: Asset) => void;
 };
 
-const reducer = (state: ReducerState, action: ReducerAction): ReducerState => {
-  const data = (action.payload as Array<Asset>) || state.assets;
+const reducer = (state: ReducerState, { type, payload }: ReducerAction) => {
+  const data = (payload as Array<Asset>) || state.assets;
 
-  switch (action.type) {
+  switch (type) {
     case 'sort_asc':
-      return {
-        assets: data.sort((a, b) => a.balance - b.balance),
-        sort: 'asc'
-      };
-    case 'sort_des':
-      return {
-        assets: data.sort((a, b) => b.balance - a.balance),
-        sort: 'des'
-      };
+    case 'sort_desc': {
+      const sortOrder = type.split('_')[1] as ReducerState['sort'];
+
+      const compare: (a: Asset, b: Asset) => number =
+        sortOrder === 'asc'
+          ? (a, b) => a.balance - b.balance
+          : (a, b) => b.balance - a.balance;
+
+      return { ...state, sort: sortOrder, assets: data.sort(compare) };
+    }
     default:
       return state;
   }
@@ -102,7 +106,7 @@ const reducer = (state: ReducerState, action: ReducerAction): ReducerState => {
 export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
   const [{ assets, sort }, dispatch] = useReducer(reducer, {
     assets: [],
-    sort: 'des'
+    sort: 'desc'
   });
   const [isAssetSelectionActive, setIsAssetSelectionActive] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -110,17 +114,25 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
 
   const { currency, changeCurrency } = useUser();
 
-  const { data: maybeAssets, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['assets'],
     queryFn: getAssets,
-    select: ({ data }: AxiosResponse<Record<'assets', Array<Asset>>>) =>
-      data.assets
-  });
+    select: ({ data }: AxiosResponse<Record<'assets', Array<Asset>>>) => {
+      const totalBalance = data.assets.reduce(
+        (acc, curr) => (acc += curr.balance),
+        0
+      );
+      const assetsWithDominance = data.assets.map((a) => {
+        a.dominance = formatNumber(a.balance / totalBalance, {
+          style: 'percent',
+          maximumFractionDigits: 2
+        });
+        return a;
+      });
 
-  const totalBalance = useMemo(
-    () => assets.reduce((acc, curr) => (acc += curr.balance), 0),
-    [assets]
-  );
+      return { totalBalance, assets: assetsWithDominance };
+    }
+  });
 
   const formatCurrencyValue = useCallback(
     (value: number) => formatNumber(value, { style: 'currency', currency }),
@@ -144,23 +156,19 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
   };
 
   useEffect(() => {
-    if (!maybeAssets) return;
+    if (!data?.assets?.length) return;
 
-    if (!enteredAssetSymbol?.length) {
-      dispatch({
-        type: ('sort_' + sort) as ReducerAction['type'],
-        payload: maybeAssets
-      });
-      return;
-    }
+    const parsedAssets = enteredAssetSymbol.length
+      ? data.assets.filter(({ symbol }) =>
+          symbol.includes(enteredAssetSymbol.toUpperCase())
+        )
+      : data.assets;
 
     dispatch({
-      type: ('sort_' + sort) as ReducerAction['type'],
-      payload: maybeAssets.filter(({ symbol }) =>
-        symbol.toLowerCase().includes(enteredAssetSymbol.toLowerCase())
-      )
+      type: `sort_${sort}` as ReducerAction['type'],
+      payload: parsedAssets
     });
-  }, [maybeAssets, enteredAssetSymbol, sort]);
+  }, [data, enteredAssetSymbol, sort]);
 
   return (
     <div className="flex flex-col gap-20 sm:gap-4">
@@ -256,7 +264,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
                   onClick={() => handleChangeSort('des')}
                   className={twMerge(
                     'absolute bottom-[-2px] text-gray-400',
-                    sort === 'des' && 'text-black'
+                    sort === 'desc' && 'text-black'
                   )}
                 />
 
@@ -332,12 +340,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
                   assetId={asset.id}
                 />
 
-                <TableCell>
-                  {formatNumber(asset.balance / totalBalance, {
-                    style: 'percent',
-                    maximumFractionDigits: 2
-                  })}
-                </TableCell>
+                <TableCell>{asset?.dominance ?? '-'}</TableCell>
 
                 <AssetTransactionTableCell
                   itemRef="total_qty"
@@ -354,7 +357,10 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
                         className="h-8 sm:w-[fit-content] sm:self-end"
                         disabled={isLoading}
                       >
-                        <IoEllipsisHorizontal size={18} />
+                        <IoEllipsisHorizontal
+                          size={18}
+                          className="text-gray-600"
+                        />
                       </Button>
                     </DropdownMenuTrigger>
 
@@ -420,7 +426,9 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
                   </Select>
 
                   <span>
-                    {formatNumber(totalBalance, { minimumFractionDigits: 2 })}
+                    {formatNumber(data?.totalBalance ?? 0, {
+                      minimumFractionDigits: 2
+                    })}
                   </span>
                 </div>
               </TableCell>

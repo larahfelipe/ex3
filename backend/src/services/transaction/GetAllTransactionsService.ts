@@ -41,13 +41,13 @@ export class GetAllTransactionsService {
   async execute({
     assetId,
     userId,
-    userIsStaff
+    userIsAdmin
   }: GetAllTransactionsService.DTO) {
     let allTransactions = [];
 
-    if (!userIsStaff && !assetId?.length) throw new ForbiddenError();
+    if (!userIsAdmin && !assetId?.length) throw new ForbiddenError();
 
-    if (!userIsStaff) {
+    if (!userIsAdmin) {
       const portfolioExists = await this.portfolioRepository.getByUserId(
         userId
       );
@@ -86,7 +86,7 @@ namespace GetAllTransactionsService {
   export type DTO = {
     assetId?: string;
     userId: string;
-    userIsStaff: boolean;
+    userIsAdmin: boolean;
   };
   export type Result = Record<'transactions', Array<Transaction>>;
 }

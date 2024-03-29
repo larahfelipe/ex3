@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 
-import { DefaultErrorMessages } from '@/config';
+import { Errors } from '@/config';
 import type { ApplicationError } from '@/errors';
 import type { Controller } from '@/interfaces';
 import type { GetAllUsersService } from '@/services/user';
@@ -27,15 +27,15 @@ export class GetAllUsersController implements Controller {
 
     try {
       const result = await this.getAllUsersService.execute({
-        isStaff: user.isStaff
+        isAdmin: user.isAdmin
       });
 
       return res.status(200).json(result);
     } catch (e) {
       const {
-        status = 500,
-        name = 'InternalServerError',
-        message = DefaultErrorMessages.INTERNAL_SERVER_ERROR
+        status = Errors.INTERNAL_SERVER_ERROR.status,
+        name = Errors.INTERNAL_SERVER_ERROR.name,
+        message = Errors.INTERNAL_SERVER_ERROR.message
       } = e as ApplicationError;
 
       return res.status(status).json({ name, message });

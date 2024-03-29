@@ -37,7 +37,7 @@ export class GetUserService {
       );
 
       if (isPasswordValid) {
-        const user = (({ password, ...rest }) => rest)(userExists);
+        const user = (({ password, isAdmin, ...rest }) => rest)(userExists);
 
         const encryptedAccessToken = await this.jwt.encrypt(user.id);
 
@@ -61,5 +61,5 @@ export class GetUserService {
 
 namespace GetUserService {
   export type DTO = Pick<User, 'email' | 'password'>;
-  export type Result = Omit<User, 'password' | 'portfolio'>;
+  export type Result = Omit<User, 'password' | 'isAdmin' | 'portfolio'>;
 }

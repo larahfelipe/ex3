@@ -1,4 +1,3 @@
-import { DefaultErrorMessages } from '@/config';
 import type { User } from '@/domain/models';
 import { ForbiddenError } from '@/errors';
 import type { UserRepository } from '@/infra/database';
@@ -18,8 +17,8 @@ export class GetAllUsersService {
     return GetAllUsersService.INSTANCE;
   }
 
-  async execute({ isStaff }: GetAllUsersService.DTO) {
-    if (!isStaff) throw new ForbiddenError(DefaultErrorMessages.FORBIDDEN);
+  async execute({ isAdmin }: GetAllUsersService.DTO) {
+    if (!isAdmin) throw new ForbiddenError();
 
     const allUsers = await this.userRepository.getAll();
 
@@ -32,6 +31,6 @@ export class GetAllUsersService {
 }
 
 namespace GetAllUsersService {
-  export type DTO = Pick<User, 'isStaff'>;
+  export type DTO = Pick<User, 'isAdmin'>;
   export type Result = Record<'users', Array<User>>;
 }

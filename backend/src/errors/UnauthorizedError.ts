@@ -1,9 +1,9 @@
-import { DefaultErrorMessages } from '@/config';
+import { Errors } from '@/config';
 
 import { ApplicationError } from './ApplicationError';
 
 export class UnauthorizedError extends ApplicationError {
-  constructor(message = DefaultErrorMessages.UNAUTHORIZED) {
-    super(message, 401, 'UnauthorizedError');
+  constructor(message = Errors.UNAUTHORIZED.message) {
+    super(message, Errors.UNAUTHORIZED.status, Errors.UNAUTHORIZED.name);
   }
 }

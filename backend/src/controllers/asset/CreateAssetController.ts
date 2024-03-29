@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 
-import { DefaultErrorMessages } from '@/config';
+import { Errors } from '@/config';
 import type { ApplicationError } from '@/errors';
 import type { Controller } from '@/interfaces';
 import type { CreateAssetService } from '@/services/asset';
@@ -38,9 +38,9 @@ export class CreateAssetController implements Controller {
       return res.status(201).json(result);
     } catch (e) {
       const {
-        status = 500,
-        name = 'InternalServerError',
-        message = DefaultErrorMessages.INTERNAL_SERVER_ERROR
+        status = Errors.INTERNAL_SERVER_ERROR.status,
+        name = Errors.INTERNAL_SERVER_ERROR.name,
+        message = Errors.INTERNAL_SERVER_ERROR.message
       } = e as ApplicationError;
 
       return res.status(status).json({ name, message });

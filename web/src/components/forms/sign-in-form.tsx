@@ -16,7 +16,7 @@ const signInSchema = z.object({
 });
 
 export const SignInForm: FC = () => {
-  const { isLoading, signIn } = useUser();
+  const { isFetching, signIn } = useUser();
 
   const {
     register,
@@ -57,7 +57,7 @@ export const SignInForm: FC = () => {
             type="email"
             id="email"
             autoComplete="off"
-            disabled={isLoading}
+            disabled={isFetching}
             {...register('email')}
           />
 
@@ -74,7 +74,7 @@ export const SignInForm: FC = () => {
           <Input
             type="password"
             id="password"
-            disabled={isLoading}
+            disabled={isFetching}
             {...register('password')}
           />
 
@@ -86,11 +86,11 @@ export const SignInForm: FC = () => {
 
       <Button
         type="submit"
-        disabled={isLoading || !isValid}
+        disabled={isFetching || !isValid}
         className="w-full mt-12 p-6"
         aria-label="Login"
       >
-        {isLoading ? (
+        {isFetching ? (
           <Loader2 className="mr-2 size-4 animate-spin" />
         ) : (
           <span>Login</span>

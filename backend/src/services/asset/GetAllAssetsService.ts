@@ -1,4 +1,4 @@
-import { PortfolioMessages } from '@/config';
+import { PortfolioMessages, type SortTypes } from '@/config';
 import type { Asset } from '@/domain/models';
 import { NotFoundError } from '@/errors';
 import type { AssetRepository, PortfolioRepository } from '@/infra/database';
@@ -29,10 +29,10 @@ export class GetAllAssetsService {
     return GetAllAssetsService.INSTANCE;
   }
 
-  async execute({ userId, userIsStaff }: GetAllAssetsService.DTO) {
+  async execute({ userId, userIsAdmin, sort }: GetAllAssetsService.DTO) {
     let allAssets = [];
 
-    if (!userIsStaff) {
+    if (!userIsAdmin) {
       const portfolioExists = await this.portfolioRepository.getByUserId(
         userId
       );
@@ -44,7 +44,7 @@ export class GetAllAssetsService {
         portfolioExists.id
       );
     } else {
-      allAssets = await this.assetRepository.getAll();
+      allAssets = await this.assetRepository.getAll(sort);
     }
 
     const res: GetAllAssetsService.Result = {
@@ -57,8 +57,9 @@ export class GetAllAssetsService {
 
 namespace GetAllAssetsService {
   export type DTO = {
+    sort: (typeof SortTypes)[keyof typeof SortTypes];
     userId: string;
-    userIsStaff: boolean;
+    userIsAdmin: boolean;
   };
   export type Result = Record<'assets', Array<Asset>>;
 }

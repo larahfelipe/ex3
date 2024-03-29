@@ -34,7 +34,7 @@ const signUpSchema = z
   });
 
 export const SignUpForm: FC = () => {
-  const { isLoading, signUp } = useUser();
+  const { isFetching, signUp } = useUser();
 
   const {
     register,
@@ -75,7 +75,7 @@ export const SignUpForm: FC = () => {
 
           <Input
             id="name"
-            disabled={isLoading}
+            disabled={isFetching}
             autoCorrect="off"
             {...register('name')}
           />
@@ -94,7 +94,7 @@ export const SignUpForm: FC = () => {
             type="email"
             id="email"
             autoComplete="off"
-            disabled={isLoading}
+            disabled={isFetching}
             {...register('email')}
           />
 
@@ -111,7 +111,7 @@ export const SignUpForm: FC = () => {
           <Input
             type="password"
             id="password"
-            disabled={isLoading}
+            disabled={isFetching}
             {...register('password')}
           />
 
@@ -128,7 +128,7 @@ export const SignUpForm: FC = () => {
           <Input
             type="password"
             id="confirmPassword"
-            disabled={isLoading}
+            disabled={isFetching}
             {...register('confirmPassword')}
           />
 
@@ -142,11 +142,11 @@ export const SignUpForm: FC = () => {
 
       <Button
         type="submit"
-        disabled={isLoading || !isValid}
+        disabled={isFetching || !isValid}
         className="w-full mt-12 p-6"
         aria-label="Register"
       >
-        {isLoading ? (
+        {isFetching ? (
           <Loader2 className="mr-2 size-4 animate-spin" />
         ) : (
           <span>Register</span>

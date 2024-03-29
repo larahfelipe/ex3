@@ -1,13 +1,31 @@
 import type { TransactionType } from '@/domain/models';
 
-export const DefaultErrorMessages = {
-  BAD_REQUEST: 'Invalid or corrupted request',
-  FORBIDDEN: 'Resource access denied',
-  NOT_FOUND: 'Resource not found',
-  UNAUTHORIZED: 'Authentication required',
-  INTERNAL_SERVER_ERROR: 'An unexpected error occurred',
-  INVALID_AUTH_HEADER: 'Invalid authorization header',
-  INVALID_TOKEN: 'Invalid access token'
+export const Errors = {
+  BAD_REQUEST: {
+    name: 'BadRequestError',
+    status: 400,
+    message: 'Invalid or corrupted request'
+  },
+  FORBIDDEN: {
+    name: 'ForbiddenError',
+    status: 403,
+    message: 'Resource access denied'
+  },
+  NOT_FOUND: {
+    name: 'NotFoundError',
+    status: 404,
+    message: 'Resource not found'
+  },
+  UNAUTHORIZED: {
+    name: 'UnauthorizedError',
+    status: 401,
+    message: 'Authentication required'
+  },
+  INTERNAL_SERVER_ERROR: {
+    name: 'InternalServerError',
+    status: 500,
+    message: 'An unexpected error occurred'
+  }
 };
 
 export const AssetMessages = {
@@ -44,4 +62,9 @@ export const UserMessages = {
 export const TransactionTypes: Record<TransactionType, TransactionType> = {
   BUY: 'BUY',
   SELL: 'SELL'
-};
+} as const;
+
+export const SortTypes = {
+  ASCENDENT: 'asc',
+  DESCENDENT: 'desc'
+} as const;
