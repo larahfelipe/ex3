@@ -1,10 +1,7 @@
 'use client';
 
-import {
-  AssetsTable,
-  type ActionType,
-  type Asset
-} from '@/components/assets-table';
+import type { Asset } from '@/api/get-assets';
+import { AssetsTable, type ActionType } from '@/components/assets-table';
 
 export default function Dashboard() {
   const handleAction = (type: ActionType, payload?: Asset) => {
