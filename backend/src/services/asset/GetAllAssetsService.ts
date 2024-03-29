@@ -40,14 +40,16 @@ export class GetAllAssetsService {
       if (!portfolioExists)
         throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
-      allAssets = await this.assetRepository.getAllByPortfolioId(
-        portfolioExists.id
-      );
+      allAssets = await this.assetRepository.getAllByPortfolioId({
+        sort,
+        portfolioId: portfolioExists.id
+      });
     } else {
       allAssets = await this.assetRepository.getAll(sort);
     }
 
     const res: GetAllAssetsService.Result = {
+      ...(sort && { sort }),
       assets: allAssets as Array<Asset>
     };
 
@@ -57,9 +59,12 @@ export class GetAllAssetsService {
 
 namespace GetAllAssetsService {
   export type DTO = {
-    sort: (typeof SortTypes)[keyof typeof SortTypes];
     userId: string;
     userIsAdmin: boolean;
+    sort?: (typeof SortTypes)[keyof typeof SortTypes];
   };
-  export type Result = Record<'assets', Array<Asset>>;
+  export type Result = {
+    assets: Array<Asset>;
+    sort?: (typeof SortTypes)[keyof typeof SortTypes];
+  };
 }

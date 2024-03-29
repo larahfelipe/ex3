@@ -18,7 +18,7 @@ export class AssetRepository {
     return AssetRepository.INSTANCE;
   }
 
-  async getAll(sort?: (typeof SortTypes)[keyof typeof SortTypes]) {
+  async getAll(sort?: AssetRepository.GetAllParams['sort']) {
     const assets = sort
       ? await this.prismaClient.asset.findMany({ orderBy: { balance: sort } })
       : await this.prismaClient.asset.findMany();
@@ -26,12 +26,15 @@ export class AssetRepository {
     return assets;
   }
 
-  async getAllByPortfolioId(portfolioId: string) {
-    const assets = await this.prismaClient.asset.findMany({
-      where: {
-        portfolioId
-      }
-    });
+  async getAllByPortfolioId(params: AssetRepository.GetAllParams) {
+    const { portfolioId, sort } = params;
+
+    const assets = sort
+      ? await this.prismaClient.asset.findMany({
+          where: { portfolioId },
+          orderBy: { balance: sort }
+        })
+      : await this.prismaClient.asset.findMany({ where: { portfolioId } });
 
     return assets;
   }
@@ -131,6 +134,9 @@ export class AssetRepository {
 
 namespace AssetRepository {
   export type GetParams = Pick<Asset, 'symbol' | 'portfolioId'>;
+  export type GetAllParams = Pick<Asset, 'portfolioId'> & {
+    sort?: (typeof SortTypes)[keyof typeof SortTypes];
+  };
   export type AddParams = Pick<Asset, 'symbol' | 'portfolioId'>;
   export type UpdateParams = Pick<Asset, 'portfolioId'> & {
     oldSymbol: string;

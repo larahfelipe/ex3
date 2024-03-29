@@ -4,7 +4,6 @@
 import {
   useCallback,
   useEffect,
-  useReducer,
   useState,
   type ChangeEvent,
   type FC
@@ -21,11 +20,10 @@ import { LuArrowDownUp, LuCoins } from 'react-icons/lu';
 
 import { SelectValue } from '@radix-ui/react-select';
 import { useQuery } from '@tanstack/react-query';
-import type { AxiosResponse } from 'axios';
 import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 
-import { getAssets } from '@/api/get-assets';
+import { getAssets, type Asset, type GetAssetsParams } from '@/api/get-assets';
 import { CURRENCIES, type TABLE_ACTIONS } from '@/common/constants';
 import { formatNumber } from '@/common/utils';
 import {
@@ -51,73 +49,37 @@ import {
   TableRow
 } from '@/components/ui';
 import { useUser } from '@/hooks/use-user';
+import type { Maybe } from '@/types';
 
 import { AssetTransactionTableCell } from './asset-transaction-table-cell';
 
-interface WithDominance {
-  dominance?: string;
-}
-
-export interface Asset extends WithDominance {
-  id: string;
-  symbol: string;
-  amount: number;
-  balance: number;
-  portfolioId: string;
-}
-
-type ReducerState = {
-  assets: Array<Asset>;
-  sort: 'asc' | 'desc';
-};
-
-type ReducerAction = {
-  type: `sort_${ReducerState['sort']}`;
-  payload?: unknown;
-};
-
 export type ActionType = (typeof TABLE_ACTIONS)[keyof typeof TABLE_ACTIONS];
+
+type AssetsState = {
+  items: Array<Asset>;
+  sort: GetAssetsParams['sort'];
+};
 
 type AssetsTableProps = {
   caption?: string;
   onAction: (type: ActionType, payload?: Asset) => void;
 };
 
-const reducer = (state: ReducerState, { type, payload }: ReducerAction) => {
-  const data = (payload as Array<Asset>) || state.assets;
-
-  switch (type) {
-    case 'sort_asc':
-    case 'sort_desc': {
-      const sortOrder = type.split('_')[1] as ReducerState['sort'];
-
-      const compare: (a: Asset, b: Asset) => number =
-        sortOrder === 'asc'
-          ? (a, b) => a.balance - b.balance
-          : (a, b) => b.balance - a.balance;
-
-      return { ...state, sort: sortOrder, assets: data.sort(compare) };
-    }
-    default:
-      return state;
-  }
-};
-
 export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
-  const [{ assets, sort }, dispatch] = useReducer(reducer, {
-    assets: [],
+  const [isAssetSelectionActive, setIsAssetSelectionActive] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<Maybe<Asset>>(null);
+  const [enteredAssetSymbol, setEnteredAssetSymbol] = useState('');
+  const [assets, setAssets] = useState<AssetsState>({
+    items: [],
     sort: 'desc'
   });
-  const [isAssetSelectionActive, setIsAssetSelectionActive] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
-  const [enteredAssetSymbol, setEnteredAssetSymbol] = useState('');
 
   const { currency, changeCurrency } = useUser();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['assets'],
-    queryFn: getAssets,
-    select: ({ data }: AxiosResponse<Record<'assets', Array<Asset>>>) => {
+    queryKey: ['assets', assets.sort],
+    queryFn: () => getAssets({ sort: assets.sort }),
+    select: ({ data }) => {
       const totalBalance = data.assets.reduce(
         (acc, curr) => (acc += curr.balance),
         0
@@ -130,7 +92,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
         return a;
       });
 
-      return { totalBalance, assets: assetsWithDominance };
+      return { totalBalance, sort: data.sort, assets: assetsWithDominance };
     }
   });
 
@@ -145,7 +107,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
   };
 
   const handleChangeSort = (v: string) =>
-    dispatch({ type: ('sort_' + v) as ReducerAction['type'] });
+    setAssets((state) => ({ ...state, sort: v as GetAssetsParams['sort'] }));
 
   const handleChangeCurrency = (v: string) =>
     changeCurrency(v as keyof typeof CURRENCIES);
@@ -158,17 +120,15 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
   useEffect(() => {
     if (!data?.assets?.length) return;
 
-    const parsedAssets = enteredAssetSymbol.length
-      ? data.assets.filter(({ symbol }) =>
-          symbol.includes(enteredAssetSymbol.toUpperCase())
-        )
-      : data.assets;
-
-    dispatch({
-      type: `sort_${sort}` as ReducerAction['type'],
-      payload: parsedAssets
-    });
-  }, [data, enteredAssetSymbol, sort]);
+    setAssets((state) => ({
+      ...state,
+      items: enteredAssetSymbol
+        ? data.assets.filter(({ symbol }) =>
+            symbol.includes(enteredAssetSymbol.toUpperCase())
+          )
+        : data.assets
+    }));
+  }, [data, enteredAssetSymbol]);
 
   return (
     <div className="flex flex-col gap-20 sm:gap-4">
@@ -261,10 +221,10 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
               <div className="flex flex-col relative cursor-pointer">
                 <ChevronUp
                   size={10}
-                  onClick={() => handleChangeSort('des')}
+                  onClick={() => handleChangeSort('desc')}
                   className={twMerge(
                     'absolute bottom-[-2px] text-gray-400',
-                    sort === 'desc' && 'text-black'
+                    assets.sort === 'desc' && 'text-black'
                   )}
                 />
 
@@ -273,7 +233,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
                   onClick={() => handleChangeSort('asc')}
                   className={twMerge(
                     'absolute top-0 text-gray-400',
-                    sort === 'asc' && 'text-black'
+                    assets.sort === 'asc' && 'text-black'
                   )}
                 />
               </div>
@@ -298,7 +258,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
             </TableRow>
           )}
 
-          {!isLoading && !assets?.length && (
+          {!isLoading && !assets.items.length && (
             <TableRow>
               <TableCell
                 colSpan={8}
@@ -311,8 +271,8 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
           )}
 
           {!isLoading &&
-            !!assets?.length &&
-            assets.map((asset, i) => (
+            !!assets.items.length &&
+            assets.items.map((asset, i) => (
               <TableRow key={asset.id}>
                 {!isAssetSelectionActive && <TableCell>{++i}</TableCell>}
 
@@ -397,7 +357,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
             ))}
         </TableBody>
 
-        {!isLoading && !!assets?.length && (
+        {!isLoading && !!assets.items.length && (
           <TableFooter>
             <TableRow>
               <TableCell colSpan={7}>Total</TableCell>
