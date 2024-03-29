@@ -19,7 +19,7 @@ export default function RootLayout({ children }: Readonly<Children>) {
   return (
     <html lang="en">
       <head>
-        <link rel="shortcut icon" href="favicon.svg" type="image/svg" />
+        <link rel="shortcut icon" href="favicon.png" type="image/png" />
       </head>
 
       <body className={inter.className}>

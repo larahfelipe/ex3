@@ -13,32 +13,22 @@ import {
 import { useRouter } from 'next/navigation';
 
 import { useMutation } from '@tanstack/react-query';
-import type { AxiosResponse } from 'axios';
 import { toast } from 'sonner';
 
-import { signIn as signInFn, type SignInPayload } from '@/api/sign-in';
-import { signUp as signUpFn, type SignUpPayload } from '@/api/sign-up';
+import {
+  signIn as signInFn,
+  type SignInPayload,
+  type SignInResponse,
+  type User
+} from '@/api/sign-in';
+import {
+  signUp as signUpFn,
+  type SignUpPayload,
+  type SignUpResponse
+} from '@/api/sign-up';
 import { CURRENCIES } from '@/common/constants';
 import { api } from '@/lib/axios';
-import type { Children, Maybe, MutationAsync, WithId } from '@/types';
-
-type UserProperties = {
-  name: string;
-  email: string;
-  accessToken: string;
-  isAdmin: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export interface User extends WithId, UserProperties {}
-
-type SignInResult = User;
-
-type SignUpResult = {
-  user: User;
-  message: string;
-};
+import type { Children, Maybe, MutationAsync } from '@/types';
 
 type UserContextProps = {
   isLoading: boolean;
@@ -46,8 +36,8 @@ type UserContextProps = {
   currency: keyof typeof CURRENCIES;
   user: Maybe<User>;
   changeCurrency: (currency: keyof typeof CURRENCIES) => void;
-  signIn: MutationAsync<SignInPayload, SignInResult>;
-  signUp: MutationAsync<SignUpPayload, SignUpResult>;
+  signIn: MutationAsync<SignInPayload, SignInResponse>;
+  signUp: MutationAsync<SignUpPayload, SignUpResponse>;
   signOut: () => void;
 };
 
@@ -71,7 +61,7 @@ export const UserProvider: FC<Readonly<Children>> = ({ children }) => {
 
   const { mutateAsync: signIn, status: signInStatus } = useMutation({
     mutationFn: signInFn,
-    onSuccess: ({ data: userData }: AxiosResponse<SignInResult>) => {
+    onSuccess: ({ data: userData }) => {
       setUser(userData);
       api.defaults.headers.Authorization = `Bearer ${userData.accessToken}`;
       localStorage.setItem(EX3_USER_STORAGE_KEY, JSON.stringify(userData));
@@ -82,7 +72,7 @@ export const UserProvider: FC<Readonly<Children>> = ({ children }) => {
 
   const { mutateAsync: signUp, status: signUpStatus } = useMutation({
     mutationFn: signUpFn,
-    onSuccess: ({ data }: AxiosResponse<SignUpResult>) => {
+    onSuccess: ({ data }) => {
       const { message, user: userData } = data;
       setUser(userData);
       api.defaults.headers.Authorization = `Bearer ${userData.accessToken}`;

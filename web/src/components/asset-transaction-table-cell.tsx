@@ -1,25 +1,13 @@
 import type { FC } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
-import type { AxiosResponse } from 'axios';
 
+import type { Transaction } from '@/api/get-transactions';
 import { getTransactions } from '@/api/get-transactions';
 import { formatNumber } from '@/common/utils';
 import { useUser } from '@/hooks/use-user';
 
 import { Skeleton, TableCell } from './ui';
-
-type TransactionType = 'BUY' | 'SELL';
-
-type Transaction = {
-  id: string;
-  type: TransactionType;
-  amount: number;
-  price: number;
-  createdAt: Date;
-  updatedAt: Date;
-  assetId: string;
-};
 
 type AssetTransactionTableCell = {
   assetId: string;
@@ -62,10 +50,7 @@ export const AssetTransactionTableCell: FC<AssetTransactionTableCell> = ({
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ['transactions', assetId],
     queryFn: () => getTransactions(assetId),
-    select: ({
-      data
-    }: AxiosResponse<Record<'transactions', Array<Transaction>>>) =>
-      data.transactions
+    select: ({ data }) => data.transactions
   });
 
   if (isLoading)
