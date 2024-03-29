@@ -20,16 +20,16 @@ export default function Account() {
 
   return (
     <div className="space-y-12 mx-4 md:mx-16">
-      <Card className="mt-12 border-slate-100">
+      <Card className="mt-12 shadow-none">
         <CardHeader>
-          <CardTitle className="text-slate-700">Profile</CardTitle>
+          <CardTitle className="text-gray-700">Profile</CardTitle>
 
           <CardDescription>Your account details</CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-5 [&_label]:text-slate-700">
+        <CardContent className="space-y-5 [&_label]:text-gray-700">
           <section className="space-y-1.5">
-            <Label htmlFor="name" className="text-slate-700">
+            <Label htmlFor="name" className="text-gray-700">
               Name
             </Label>
 
@@ -37,7 +37,7 @@ export default function Account() {
           </section>
 
           <section className="space-y-1.5">
-            <Label htmlFor="email" className="text-slate-700">
+            <Label htmlFor="email" className="text-gray-700">
               Email
             </Label>
 
@@ -45,7 +45,7 @@ export default function Account() {
           </section>
 
           <section className="space-y-1.5">
-            <Label htmlFor="creation" className="text-slate-700">
+            <Label htmlFor="creation" className="text-gray-700">
               Joined at
             </Label>
 
@@ -58,37 +58,37 @@ export default function Account() {
         </CardContent>
 
         <CardFooter className="flex justify-end">
-          <Button disabled className="h-9 max-sm:w-full">
+          <Button disabled variant="secondary" className="h-9 max-sm:w-full">
             Update
           </Button>
         </CardFooter>
       </Card>
 
-      <Card className="border-slate-100">
+      <Card className="shadow-none">
         <CardHeader>
-          <CardTitle className="text-slate-700">Security</CardTitle>
+          <CardTitle className="text-gray-700">Security</CardTitle>
 
           <CardDescription>
             Manage your account security details
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-5 [&_label]:text-slate-700">
+        <CardContent className="space-y-5 [&_label]:text-gray-700">
           <section className="space-y-1.5">
-            <Label className="text-slate-700">Current password</Label>
+            <Label className="text-gray-700">Old password</Label>
 
             <Input type="password" placeholder="Enter your password" />
           </section>
 
           <section className="space-y-1.5">
-            <Label className="text-slate-700">New password</Label>
+            <Label className="text-gray-700">New password</Label>
 
             <Input type="password" placeholder="Enter your new password" />
           </section>
         </CardContent>
 
         <CardFooter className="flex justify-end">
-          <Button disabled className="h-9 max-sm:w-full">
+          <Button disabled variant="secondary" className="h-9 max-sm:w-full">
             Update
           </Button>
         </CardFooter>

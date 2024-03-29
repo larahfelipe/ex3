@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 
-import { DefaultErrorMessages, UserMessages, envs } from '@/config';
+import { UserMessages, envs } from '@/config';
 import type { User } from '@/domain/models';
 import {
   BadRequestError,
@@ -20,7 +20,7 @@ export const authMiddleware = async (
 
   try {
     if (!authorization?.length)
-      throw new UnauthorizedError(DefaultErrorMessages.INVALID_AUTH_HEADER);
+      throw new UnauthorizedError('Invalid authorization header');
 
     const [_, accessToken] = authorization.split(' ');
 
@@ -30,7 +30,7 @@ export const authMiddleware = async (
     const { id: decryptedAccessToken } = await jwt.decrypt(accessToken);
 
     if (!decryptedAccessToken)
-      throw new BadRequestError(DefaultErrorMessages.INVALID_TOKEN);
+      throw new BadRequestError('Invalid access token');
 
     const userExists = await userRepository.getByAccessToken(accessToken);
 

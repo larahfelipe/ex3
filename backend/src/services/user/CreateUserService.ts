@@ -71,7 +71,7 @@ export class CreateUserService {
 namespace CreateUserService {
   export type DTO = Pick<User, 'name' | 'email' | 'password'>;
   export type Result = {
-    user: Omit<User, 'password' | 'portfolio'>;
+    user: Omit<User, 'password' | 'isAdmin' | 'portfolio'>;
     message: string;
   };
 }

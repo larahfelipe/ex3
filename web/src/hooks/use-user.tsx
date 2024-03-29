@@ -26,7 +26,7 @@ type UserProperties = {
   name: string;
   email: string;
   accessToken: string;
-  isStaff: boolean;
+  isAdmin: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -42,6 +42,7 @@ type SignUpResult = {
 
 type UserContextProps = {
   isLoading: boolean;
+  isFetching: boolean;
   currency: keyof typeof CURRENCIES;
   user: Maybe<User>;
   changeCurrency: (currency: keyof typeof CURRENCIES) => void;
@@ -118,8 +119,8 @@ export const UserProvider: FC<Readonly<Children>> = ({ children }) => {
       signIn,
       signUp,
       signOut,
-      isLoading:
-        isLoading || signInStatus === 'pending' || signUpStatus === 'pending'
+      isLoading,
+      isFetching: signInStatus === 'pending' || signUpStatus === 'pending'
     }),
     [
       currency,

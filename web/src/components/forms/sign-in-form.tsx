@@ -16,7 +16,7 @@ const signInSchema = z.object({
 });
 
 export const SignInForm: FC = () => {
-  const { isLoading, signIn } = useUser();
+  const { isFetching, signIn } = useUser();
 
   const {
     register,
@@ -24,7 +24,7 @@ export const SignInForm: FC = () => {
     handleSubmit,
     formState: { errors, isValid }
   } = useForm<z.infer<typeof signInSchema>>({
-    mode: 'onChange',
+    mode: 'onBlur',
     resolver: zodResolver(signInSchema),
     defaultValues: {
       email: '',
@@ -49,7 +49,7 @@ export const SignInForm: FC = () => {
     <form onSubmit={handleSubmit(signInHandler)}>
       <div className="flex-col align-center space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-slate-700">
+          <Label htmlFor="email" className="text-gray-700">
             Email
           </Label>
 
@@ -57,7 +57,7 @@ export const SignInForm: FC = () => {
             type="email"
             id="email"
             autoComplete="off"
-            disabled={isLoading}
+            disabled={isFetching}
             {...register('email')}
           />
 
@@ -67,14 +67,14 @@ export const SignInForm: FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-slate-700">
+          <Label htmlFor="password" className="text-gray-700">
             Password
           </Label>
 
           <Input
             type="password"
             id="password"
-            disabled={isLoading}
+            disabled={isFetching}
             {...register('password')}
           />
 
@@ -86,11 +86,11 @@ export const SignInForm: FC = () => {
 
       <Button
         type="submit"
-        disabled={isLoading || !isValid}
+        disabled={isFetching || !isValid}
         className="w-full mt-12 p-6"
         aria-label="Login"
       >
-        {isLoading ? (
+        {isFetching ? (
           <Loader2 className="mr-2 size-4 animate-spin" />
         ) : (
           <span>Login</span>

@@ -26,6 +26,19 @@ type AssetTransactionTableCell = {
   itemRef: 'total_qty' | 'avg_price';
 };
 
+const getTotalTransactionsTuple = (transactions: Array<Transaction>) => {
+  const initialValue: [number, number] = [0, 0];
+  if (!transactions?.length) return initialValue;
+
+  const totalTransactions = transactions.reduce<[number, number]>(
+    (acc, curr) =>
+      curr.type === 'BUY' ? [++acc[0], acc[1]] : [acc[0], ++acc[1]],
+    initialValue
+  );
+
+  return totalTransactions;
+};
+
 const getAssetPriceAverage = (transactions: Array<Transaction>) => {
   if (!transactions?.length) return 0;
 
@@ -63,8 +76,18 @@ export const AssetTransactionTableCell: FC<AssetTransactionTableCell> = ({
     );
 
   switch (itemRef) {
-    case 'total_qty':
-      return <TableCell>{transactions.length ?? 0}</TableCell>;
+    case 'total_qty': {
+      const [buyQty, sellQty] = getTotalTransactionsTuple(transactions);
+      return (
+        <TableCell>
+          <div className="flex gap-2">
+            <span className="text-green-600">{buyQty} Buy</span>
+
+            <span className="text-red-600">{sellQty} Sell</span>
+          </div>
+        </TableCell>
+      );
+    }
     case 'avg_price':
       return (
         <TableCell>

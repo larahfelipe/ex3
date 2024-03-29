@@ -34,7 +34,7 @@ const signUpSchema = z
   });
 
 export const SignUpForm: FC = () => {
-  const { isLoading, signUp } = useUser();
+  const { isFetching, signUp } = useUser();
 
   const {
     register,
@@ -42,7 +42,7 @@ export const SignUpForm: FC = () => {
     handleSubmit,
     formState: { errors, isValid }
   } = useForm<z.infer<typeof signUpSchema>>({
-    mode: 'onChange',
+    mode: 'onBlur',
     resolver: zodResolver(signUpSchema),
     defaultValues: {
       name: '',
@@ -69,13 +69,13 @@ export const SignUpForm: FC = () => {
     <form onSubmit={handleSubmit(signUpHandler)}>
       <div className="flex-col align-center space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="name" className="text-slate-700">
+          <Label htmlFor="name" className="text-gray-700">
             Name
           </Label>
 
           <Input
             id="name"
-            disabled={isLoading}
+            disabled={isFetching}
             autoCorrect="off"
             {...register('name')}
           />
@@ -86,7 +86,7 @@ export const SignUpForm: FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-slate-700">
+          <Label htmlFor="email" className="text-gray-700">
             Email
           </Label>
 
@@ -94,7 +94,7 @@ export const SignUpForm: FC = () => {
             type="email"
             id="email"
             autoComplete="off"
-            disabled={isLoading}
+            disabled={isFetching}
             {...register('email')}
           />
 
@@ -104,14 +104,14 @@ export const SignUpForm: FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-slate-700">
+          <Label htmlFor="password" className="text-gray-700">
             Password
           </Label>
 
           <Input
             type="password"
             id="password"
-            disabled={isLoading}
+            disabled={isFetching}
             {...register('password')}
           />
 
@@ -121,14 +121,14 @@ export const SignUpForm: FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="confirmPassword" className="text-slate-700">
+          <Label htmlFor="confirmPassword" className="text-gray-700">
             Confirm password
           </Label>
 
           <Input
             type="password"
             id="confirmPassword"
-            disabled={isLoading}
+            disabled={isFetching}
             {...register('confirmPassword')}
           />
 
@@ -142,11 +142,11 @@ export const SignUpForm: FC = () => {
 
       <Button
         type="submit"
-        disabled={isLoading || !isValid}
+        disabled={isFetching || !isValid}
         className="w-full mt-12 p-6"
         aria-label="Register"
       >
-        {isLoading ? (
+        {isFetching ? (
           <Loader2 className="mr-2 size-4 animate-spin" />
         ) : (
           <span>Register</span>

@@ -1,25 +1,42 @@
 /* eslint-disable react/jsx-newline */
 'use client';
 
-import { useCallback, useEffect, useMemo, useReducer, type FC } from 'react';
-import { FiEdit, FiPlus, FiTrash } from 'react-icons/fi';
+import {
+  useCallback,
+  useEffect,
+  useReducer,
+  useState,
+  type ChangeEvent,
+  type FC
+} from 'react';
+import { FiEdit } from 'react-icons/fi';
+import {
+  IoBanSharp,
+  IoCheckmarkSharp,
+  IoEllipsisHorizontal,
+  IoSearchOutline,
+  IoTrashBinOutline
+} from 'react-icons/io5';
 import { LuArrowDownUp, LuCoins } from 'react-icons/lu';
 
 import { SelectValue } from '@radix-ui/react-select';
 import { useQuery } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
-import { Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { twMerge } from 'tailwind-merge';
 
 import { getAssets } from '@/api/get-assets';
-import { CURRENCIES, TABLE_ACTIONS } from '@/common/constants';
+import { CURRENCIES, type TABLE_ACTIONS } from '@/common/constants';
 import { formatNumber } from '@/common/utils';
 import {
   Button,
+  Checkbox,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Input,
   Select,
   SelectContent,
   SelectItem,
@@ -37,21 +54,25 @@ import { useUser } from '@/hooks/use-user';
 
 import { AssetTransactionTableCell } from './asset-transaction-table-cell';
 
-export type Asset = {
+interface WithDominance {
+  dominance?: string;
+}
+
+export interface Asset extends WithDominance {
   id: string;
   symbol: string;
   amount: number;
   balance: number;
   portfolioId: string;
-};
+}
 
-type ReduceState = {
+type ReducerState = {
   assets: Array<Asset>;
-  sort: 'asc' | 'des';
+  sort: 'asc' | 'desc';
 };
 
-type ReduceAction = {
-  type: `sort_${ReduceState['sort']}`;
+type ReducerAction = {
+  type: `sort_${ReducerState['sort']}`;
   payload?: unknown;
 };
 
@@ -62,20 +83,21 @@ type AssetsTableProps = {
   onAction: (type: ActionType, payload?: Asset) => void;
 };
 
-const reducer = (state: ReduceState, action: ReduceAction): ReduceState => {
-  const data = (action.payload as Array<Asset>) || state.assets;
+const reducer = (state: ReducerState, { type, payload }: ReducerAction) => {
+  const data = (payload as Array<Asset>) || state.assets;
 
-  switch (action.type) {
+  switch (type) {
     case 'sort_asc':
-      return {
-        assets: data.sort((a, b) => a.balance - b.balance),
-        sort: 'asc'
-      };
-    case 'sort_des':
-      return {
-        assets: data.sort((a, b) => b.balance - a.balance),
-        sort: 'des'
-      };
+    case 'sort_desc': {
+      const sortOrder = type.split('_')[1] as ReducerState['sort'];
+
+      const compare: (a: Asset, b: Asset) => number =
+        sortOrder === 'asc'
+          ? (a, b) => a.balance - b.balance
+          : (a, b) => b.balance - a.balance;
+
+      return { ...state, sort: sortOrder, assets: data.sort(compare) };
+    }
     default:
       return state;
   }
@@ -84,89 +106,89 @@ const reducer = (state: ReduceState, action: ReduceAction): ReduceState => {
 export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
   const [{ assets, sort }, dispatch] = useReducer(reducer, {
     assets: [],
-    sort: 'des'
+    sort: 'desc'
   });
+  const [isAssetSelectionActive, setIsAssetSelectionActive] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [enteredAssetSymbol, setEnteredAssetSymbol] = useState('');
 
   const { currency, changeCurrency } = useUser();
 
-  const { data: maybeAssets, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['assets'],
     queryFn: getAssets,
-    select: ({ data }: AxiosResponse<Record<'assets', Array<Asset>>>) =>
-      data.assets
-  });
+    select: ({ data }: AxiosResponse<Record<'assets', Array<Asset>>>) => {
+      const totalBalance = data.assets.reduce(
+        (acc, curr) => (acc += curr.balance),
+        0
+      );
+      const assetsWithDominance = data.assets.map((a) => {
+        a.dominance = formatNumber(a.balance / totalBalance, {
+          style: 'percent',
+          maximumFractionDigits: 2
+        });
+        return a;
+      });
 
-  const totalBalance = useMemo(
-    () => assets.reduce((acc, curr) => (acc += curr.balance), 0),
-    [assets]
-  );
+      return { totalBalance, assets: assetsWithDominance };
+    }
+  });
 
   const formatCurrencyValue = useCallback(
     (value: number) => formatNumber(value, { style: 'currency', currency }),
     [currency]
   );
 
+  const handleChangeEnteredAssetName = (e: ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    setEnteredAssetSymbol(value);
+  };
+
   const handleChangeSort = (v: string) =>
-    dispatch({ type: ('sort_' + v) as ReduceAction['type'] });
+    dispatch({ type: ('sort_' + v) as ReducerAction['type'] });
 
   const handleChangeCurrency = (v: string) =>
     changeCurrency(v as keyof typeof CURRENCIES);
 
+  const handleChangeActiveAssetSelection = () => {
+    setIsAssetSelectionActive((prev) => !prev);
+    if (selectedAsset) setSelectedAsset(null);
+  };
+
   useEffect(() => {
-    if (!maybeAssets) return;
+    if (!data?.assets?.length) return;
+
+    const parsedAssets = enteredAssetSymbol.length
+      ? data.assets.filter(({ symbol }) =>
+          symbol.includes(enteredAssetSymbol.toUpperCase())
+        )
+      : data.assets;
 
     dispatch({
-      type: ('sort_' + sort) as ReduceAction['type'],
-      payload: maybeAssets
+      type: `sort_${sort}` as ReducerAction['type'],
+      payload: parsedAssets
     });
-  }, [maybeAssets, sort]);
+  }, [data, enteredAssetSymbol, sort]);
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-1">
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:w-1/6 sm:min-w-[fit-content] sm:self-end">
-        <Select
+    <div className="flex flex-col gap-20 sm:gap-4">
+      <div className="h-8 flex flex-col gap-3 mx-1 sm:flex-row sm:justify-between max-sm:mx-4">
+        <Input
+          placeholder="Search asset..."
+          className="sm:w-[12rem] bg-gray-50"
           disabled={isLoading}
-          defaultValue={sort}
-          onValueChange={handleChangeSort}
-        >
-          <SelectTrigger className="h-8">
-            <SelectValue aria-label="Sort" placeholder="Sort preference" />
-          </SelectTrigger>
-
-          <SelectContent>
-            <SelectItem value="asc">Ascendent</SelectItem>
-            <SelectItem value="des">Descendent</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select
-          disabled={isLoading}
-          defaultValue={currency}
-          onValueChange={handleChangeCurrency}
-        >
-          <SelectTrigger className="h-8">
-            <SelectValue aria-label="Currency" placeholder="Select currency" />
-          </SelectTrigger>
-
-          <SelectContent>
-            {Object.values(CURRENCIES).map(({ id, name, symbol }) => (
-              <SelectItem key={id} value={id}>
-                {name} ({symbol})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          onChange={handleChangeEnteredAssetName}
+          leftElement={<IoSearchOutline size={16} className="text-gray-500" />}
+        />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               aria-label="Add"
-              className="h-8 space-x-1.5 sm:w-[fit-content] sm:self-end"
+              className="h-8 sm:self-end"
               disabled={isLoading}
             >
-              <FiPlus size={18} />
-
-              <span>Add</span>
+              Add
             </Button>
           </DropdownMenuTrigger>
 
@@ -174,18 +196,19 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
             <DropdownMenuGroup>
               <DropdownMenuItem
                 className="space-x-2"
+                disabled={isAssetSelectionActive}
                 onClick={() => onAction('add-asset')}
               >
-                <LuCoins size={14} />
+                <LuCoins size={16} className="text-gray-700" />
 
                 <span>New asset</span>
               </DropdownMenuItem>
 
               <DropdownMenuItem
                 className="space-x-2"
-                onClick={() => onAction('add-transaction')}
+                onClick={handleChangeActiveAssetSelection}
               >
-                <LuArrowDownUp size={14} />
+                <LuArrowDownUp size={16} className="text-gray-700" />
 
                 <span>New transaction</span>
               </DropdownMenuItem>
@@ -199,21 +222,70 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
 
         <TableHeader>
           <TableRow>
-            <TableHead>#</TableHead>
+            {!isAssetSelectionActive && <TableHead>#</TableHead>}
+
+            {isAssetSelectionActive && (
+              <TableHead className="flex justify-center items-center gap-1">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-label="Cancel"
+                  className="bg-red-100 hover:bg-red-200"
+                  onClick={handleChangeActiveAssetSelection}
+                >
+                  <IoBanSharp size={16} className="text-red-600" />
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  aria-label="Confirm"
+                  className="bg-green-100 hover:bg-green-200"
+                  disabled={!selectedAsset}
+                  onClick={() =>
+                    onAction('add-transaction', selectedAsset as Asset)
+                  }
+                >
+                  <IoCheckmarkSharp size={16} className="text-green-600" />
+                </Button>
+              </TableHead>
+            )}
 
             <TableHead>Asset</TableHead>
 
             <TableHead>Amount</TableHead>
 
-            <TableHead>Balance ({CURRENCIES[currency].symbol})</TableHead>
+            <TableHead className="flex items-center gap-1.5">
+              <span>Balance</span>
 
-            <TableHead>Avg Price ({CURRENCIES[currency].symbol})</TableHead>
+              <div className="flex flex-col relative cursor-pointer">
+                <ChevronUp
+                  size={10}
+                  onClick={() => handleChangeSort('des')}
+                  className={twMerge(
+                    'absolute bottom-[-2px] text-gray-400',
+                    sort === 'desc' && 'text-black'
+                  )}
+                />
 
-            <TableHead>Dominance (%)</TableHead>
+                <ChevronDown
+                  size={10}
+                  onClick={() => handleChangeSort('asc')}
+                  className={twMerge(
+                    'absolute top-0 text-gray-400',
+                    sort === 'asc' && 'text-black'
+                  )}
+                />
+              </div>
+            </TableHead>
 
-            <TableHead>Qty Transactions</TableHead>
+            <TableHead>Avg Price</TableHead>
 
-            <TableHead>Action</TableHead>
+            <TableHead>Dominance</TableHead>
+
+            <TableHead>Transaction Orders</TableHead>
+
+            <TableHead />
           </TableRow>
         </TableHeader>
 
@@ -231,9 +303,9 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
               <TableCell
                 colSpan={8}
                 align="center"
-                className="p-4 text-slate-400"
+                className="p-4 text-gray-400"
               >
-                No assets found in your portfolio. Try add one to get started
+                No assets to display
               </TableCell>
             </TableRow>
           )}
@@ -242,7 +314,18 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
             !!assets?.length &&
             assets.map((asset, i) => (
               <TableRow key={asset.id}>
-                <TableCell>{++i}</TableCell>
+                {!isAssetSelectionActive && <TableCell>{++i}</TableCell>}
+
+                {isAssetSelectionActive && (
+                  <TableCell align="center">
+                    <Checkbox
+                      checked={asset.symbol === selectedAsset?.symbol}
+                      onCheckedChange={(checked) =>
+                        setSelectedAsset(checked ? asset : null)
+                      }
+                    />
+                  </TableCell>
+                )}
 
                 <TableCell>
                   <span className="font-semibold">{asset.symbol}</span>
@@ -257,7 +340,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
                   assetId={asset.id}
                 />
 
-                <TableCell>{(asset.balance / totalBalance) * 100}%</TableCell>
+                <TableCell>{asset?.dominance ?? '-'}</TableCell>
 
                 <AssetTransactionTableCell
                   itemRef="total_qty"
@@ -265,27 +348,50 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
                 />
 
                 <TableCell className="px-0">
-                  <Button
-                    variant="ghost"
-                    aria-label="Edit"
-                    className="space-x-1.5"
-                    onClick={() => onAction(TABLE_ACTIONS.Edit, asset)}
-                  >
-                    <FiEdit size={18} className="text-slate-700" />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Action"
+                        className="h-8 sm:w-[fit-content] sm:self-end"
+                        disabled={isLoading}
+                      >
+                        <IoEllipsisHorizontal
+                          size={18}
+                          className="text-gray-600"
+                        />
+                      </Button>
+                    </DropdownMenuTrigger>
 
-                    <span className="text-xs">Edit</span>
-                  </Button>
+                    <DropdownMenuContent>
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          aria-label="Edit"
+                          className="space-x-2"
+                          disabled={isAssetSelectionActive}
+                          onClick={() => onAction('edit', asset)}
+                        >
+                          <FiEdit size={16} className="text-gray-700" />
 
-                  <Button
-                    variant="ghost"
-                    aria-label="Delete"
-                    className="space-x-1.5 hover:bg-red-50"
-                    onClick={() => onAction(TABLE_ACTIONS.Delete, asset)}
-                  >
-                    <FiTrash size={18} className="text-red-500" />
+                          <span>Edit</span>
+                        </DropdownMenuItem>
 
-                    <span className="text-red-500 text-xs">Delete</span>
-                  </Button>
+                        <DropdownMenuItem
+                          aria-label="Delete"
+                          className="space-x-2"
+                          onClick={() => onAction('delete', asset)}
+                        >
+                          <IoTrashBinOutline
+                            size={16}
+                            className="text-red-500"
+                          />
+
+                          <span className="text-red-500">Delete</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}
@@ -296,8 +402,35 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
             <TableRow>
               <TableCell colSpan={7}>Total</TableCell>
 
-              <TableCell className="text-right font-semibold">
-                {formatCurrencyValue(totalBalance)}
+              <TableCell align="right">
+                <div className="w-fit flex items-center gap-1.5 font-semibold">
+                  <Select
+                    disabled={isLoading}
+                    defaultValue={currency}
+                    onValueChange={handleChangeCurrency}
+                  >
+                    <SelectTrigger className="w-fit h-7 self-end sm:min-w-fit">
+                      <SelectValue
+                        aria-label="Currency"
+                        placeholder="Select currency"
+                      />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      {Object.values(CURRENCIES).map(({ id, symbol }) => (
+                        <SelectItem key={id} value={id}>
+                          {symbol}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <span>
+                    {formatNumber(data?.totalBalance ?? 0, {
+                      minimumFractionDigits: 2
+                    })}
+                  </span>
+                </div>
               </TableCell>
             </TableRow>
           </TableFooter>

@@ -1,9 +1,9 @@
-import { DefaultErrorMessages } from '@/config';
+import { Errors } from '@/config';
 
 import { ApplicationError } from './ApplicationError';
 
 export class BadRequestError extends ApplicationError {
-  constructor(message = DefaultErrorMessages.BAD_REQUEST) {
-    super(message, 400, 'BadRequestError');
+  constructor(message = Errors.BAD_REQUEST.message) {
+    super(message, Errors.BAD_REQUEST.status, Errors.BAD_REQUEST.name);
   }
 }

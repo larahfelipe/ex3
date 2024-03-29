@@ -56,7 +56,7 @@ export class UserRepository {
       data: { ...params, password: hashedPassword }
     });
 
-    newUser = (({ password, ...rest }) => rest)(newUser) as User;
+    newUser = (({ password, isAdmin, ...rest }) => rest)(newUser) as User;
 
     return newUser;
   }
@@ -74,7 +74,9 @@ export class UserRepository {
       }
     });
 
-    updatedUser = (({ password, ...rest }) => rest)(updatedUser) as User;
+    updatedUser = (({ password, isAdmin, ...rest }) => rest)(
+      updatedUser
+    ) as User;
 
     return updatedUser;
   }

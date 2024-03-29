@@ -1,9 +1,9 @@
-import { DefaultErrorMessages } from '@/config';
+import { Errors } from '@/config';
 
 import { ApplicationError } from './ApplicationError';
 
 export class NotFoundError extends ApplicationError {
-  constructor(message = DefaultErrorMessages.NOT_FOUND) {
-    super(message, 404, 'NotFoundError');
+  constructor(message = Errors.NOT_FOUND.message) {
+    super(message, Errors.NOT_FOUND.status, Errors.NOT_FOUND.name);
   }
 }

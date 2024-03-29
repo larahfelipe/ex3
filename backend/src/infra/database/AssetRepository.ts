@@ -1,3 +1,4 @@
+import { type SortTypes } from '@/config';
 import type { Asset } from '@/domain/models';
 
 import { PrismaClient } from './PrismaClient';
@@ -17,8 +18,10 @@ export class AssetRepository {
     return AssetRepository.INSTANCE;
   }
 
-  async getAll() {
-    const assets = await this.prismaClient.asset.findMany();
+  async getAll(sort?: (typeof SortTypes)[keyof typeof SortTypes]) {
+    const assets = sort
+      ? await this.prismaClient.asset.findMany({ orderBy: { balance: sort } })
+      : await this.prismaClient.asset.findMany();
 
     return assets;
   }
