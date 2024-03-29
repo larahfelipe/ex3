@@ -55,9 +55,9 @@ export class GetAllTransactionsService {
       if (!portfolioExists)
         throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
-      const allAssets = await this.assetRepository.getAllByPortfolioId(
-        portfolioExists.id
-      );
+      const allAssets = await this.assetRepository.getAllByPortfolioId({
+        portfolioId: portfolioExists.id
+      });
 
       if (!allAssets?.length) throw new NotFoundError(AssetMessages.EMPTY);
 
