@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import type { Transaction } from '@/api/get-transactions';
 import { getTransactions } from '@/api/get-transactions';
+import { TRANSACTION_TYPES } from '@/common/constants';
 import { formatNumber } from '@/common/utils';
 import { useUser } from '@/hooks/use-user';
 
@@ -20,7 +21,9 @@ const getTotalTransactionsTuple = (transactions: Array<Transaction>) => {
 
   const totalTransactions = transactions.reduce<[number, number]>(
     (acc, curr) =>
-      curr.type === 'BUY' ? [++acc[0], acc[1]] : [acc[0], ++acc[1]],
+      curr.type === TRANSACTION_TYPES[0]
+        ? [++acc[0], acc[1]]
+        : [acc[0], ++acc[1]],
     initialValue
   );
 

@@ -15,6 +15,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const [showPassword, setShowPassword] = React.useState(false);
 
     const isTypePassword = type === 'password';
+    const passwordState = showPassword ? 'text' : 'password';
 
     const togglePasswordVisibility = () => setShowPassword((prev) => !prev);
 
@@ -23,7 +24,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {leftElement && <div className="absolute ml-2.5">{leftElement}</div>}
 
         <input
-          type={type}
+          type={isTypePassword ? passwordState : type}
           className={cn(
             'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-default file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
             leftElement && 'pl-8',

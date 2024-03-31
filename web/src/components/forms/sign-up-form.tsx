@@ -34,13 +34,13 @@ const signUpSchema = z
   });
 
 export const SignUpForm: FC = () => {
-  const { isFetching, signUp } = useUser();
+  const { signUp } = useUser();
 
   const {
     register,
     reset,
     handleSubmit,
-    formState: { errors, isValid }
+    formState: { errors, isSubmitting, isValid }
   } = useForm<z.infer<typeof signUpSchema>>({
     mode: 'onBlur',
     resolver: zodResolver(signUpSchema),
@@ -75,7 +75,7 @@ export const SignUpForm: FC = () => {
 
           <Input
             id="name"
-            disabled={isFetching}
+            disabled={isSubmitting}
             autoCorrect="off"
             {...register('name')}
           />
@@ -94,7 +94,7 @@ export const SignUpForm: FC = () => {
             type="email"
             id="email"
             autoComplete="off"
-            disabled={isFetching}
+            disabled={isSubmitting}
             {...register('email')}
           />
 
@@ -111,7 +111,7 @@ export const SignUpForm: FC = () => {
           <Input
             type="password"
             id="password"
-            disabled={isFetching}
+            disabled={isSubmitting}
             {...register('password')}
           />
 
@@ -128,7 +128,7 @@ export const SignUpForm: FC = () => {
           <Input
             type="password"
             id="confirmPassword"
-            disabled={isFetching}
+            disabled={isSubmitting}
             {...register('confirmPassword')}
           />
 
@@ -142,12 +142,12 @@ export const SignUpForm: FC = () => {
 
       <Button
         type="submit"
-        disabled={isFetching || !isValid}
+        disabled={isSubmitting || !isValid}
         className="w-full mt-12 p-6"
         aria-label="Register"
       >
-        {isFetching ? (
-          <Loader2 className="mr-2 size-4 animate-spin" />
+        {isSubmitting ? (
+          <Loader2 className="size-4 animate-spin" />
         ) : (
           <span>Register</span>
         )}

@@ -1,4 +1,5 @@
 import { api } from '@/lib/axios';
+import type { WithMessage } from '@/types';
 
 import type { User } from './sign-in';
 
@@ -8,10 +9,9 @@ export type SignUpPayload = {
   password: string;
 };
 
-export type SignUpResponse = {
+export interface SignUpResponse extends WithMessage {
   user: User;
-  message: string;
-};
+}
 
 export const signUp = async (payload: SignUpPayload) =>
   await api.post<SignUpResponse>('/v1/user/create', payload);

@@ -1,9 +1,9 @@
 import { api } from '@/lib/axios';
+import type { WithId } from '@/types';
 
 export type TransactionType = 'BUY' | 'SELL';
 
-export type Transaction = {
-  id: string;
+export type TransactionProperties = {
   type: TransactionType;
   amount: number;
   price: number;
@@ -11,6 +11,8 @@ export type Transaction = {
   updatedAt: Date;
   assetId: string;
 };
+
+export interface Transaction extends WithId, TransactionProperties {}
 
 type GetTransactionsResponse = Record<'transactions', Array<Transaction>>;
 
