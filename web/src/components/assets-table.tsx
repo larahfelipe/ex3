@@ -1,17 +1,9 @@
 /* eslint-disable react/jsx-newline */
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useState,
-  type ChangeEvent,
-  type FC
-} from 'react';
+import { useEffect, useState, type ChangeEvent, type FC } from 'react';
 import { FiEdit } from 'react-icons/fi';
 import {
-  IoBanSharp,
-  IoCheckmarkSharp,
   IoEllipsisHorizontal,
   IoSearchOutline,
   IoTrashBinOutline
@@ -56,7 +48,7 @@ import { AssetTransactionTableCell } from './asset-transaction-table-cell';
 export type ActionType = (typeof TABLE_ACTIONS)[keyof typeof TABLE_ACTIONS];
 
 type AssetsState = {
-  items: Array<Asset>;
+  list: Array<Asset>;
   sort: GetAssetsParams['sort'];
 };
 
@@ -69,16 +61,16 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
   const [isAssetSelectionActive, setIsAssetSelectionActive] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Maybe<Asset>>(null);
   const [enteredAssetSymbol, setEnteredAssetSymbol] = useState('');
-  const [assets, setAssets] = useState<AssetsState>({
-    items: [],
+  const [assetCollection, setAssetCollection] = useState<AssetsState>({
+    list: [],
     sort: 'desc'
   });
 
   const { currency, changeCurrency } = useUser();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['assets', assets.sort],
-    queryFn: () => getAssets({ sort: assets.sort }),
+    queryKey: ['assets', assetCollection.sort],
+    queryFn: () => getAssets({ sort: assetCollection.sort }),
     select: ({ data }) => {
       const totalBalance = data.assets.reduce(
         (acc, curr) => (acc += curr.balance),
@@ -93,13 +85,9 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
       });
 
       return { totalBalance, sort: data.sort, assets: assetsWithDominance };
-    }
+    },
+    staleTime: 60000
   });
-
-  const formatCurrencyValue = useCallback(
-    (value: number) => formatNumber(value, { style: 'currency', currency }),
-    [currency]
-  );
 
   const handleChangeEnteredAssetName = (e: ChangeEvent<HTMLInputElement>) => {
     const { value } = e.target;
@@ -107,10 +95,18 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
   };
 
   const handleChangeSort = (v: string) =>
-    setAssets((state) => ({ ...state, sort: v as GetAssetsParams['sort'] }));
+    setAssetCollection((state) => ({
+      ...state,
+      sort: v as GetAssetsParams['sort']
+    }));
 
   const handleChangeCurrency = (v: string) =>
     changeCurrency(v as keyof typeof CURRENCIES);
+
+  const handleOnAction = (type: ActionType, payload?: Asset) => {
+    onAction(type, payload);
+    if (type === 'add-transaction') setIsAssetSelectionActive(false);
+  };
 
   const handleChangeActiveAssetSelection = () => {
     setIsAssetSelectionActive((prev) => !prev);
@@ -120,9 +116,9 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
   useEffect(() => {
     if (!data?.assets?.length) return;
 
-    setAssets((state) => ({
+    setAssetCollection((state) => ({
       ...state,
-      items: enteredAssetSymbol
+      list: enteredAssetSymbol
         ? data.assets.filter(({ symbol }) =>
             symbol.includes(enteredAssetSymbol.toUpperCase())
           )
@@ -132,7 +128,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
 
   return (
     <div className="flex flex-col gap-20 sm:gap-4">
-      <div className="h-8 flex flex-col gap-3 mx-1 sm:flex-row sm:justify-between max-sm:mx-4">
+      <div className="h-8 flex flex-col gap-3 mx-1 sm:flex-row sm:justify-between max-sm:mx-4 max-sm:mb-6">
         <Input
           placeholder="Search asset..."
           className="sm:w-[12rem] bg-gray-50"
@@ -141,40 +137,66 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
           leftElement={<IoSearchOutline size={16} className="text-gray-500" />}
         />
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        {!isAssetSelectionActive && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                aria-label="Add"
+                className="h-8 sm:self-end"
+                disabled={isLoading}
+              >
+                Add
+              </Button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent>
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  className="space-x-2"
+                  disabled={isAssetSelectionActive}
+                  onClick={() => handleOnAction('add-asset')}
+                >
+                  <LuCoins size={16} className="text-gray-700" />
+
+                  <span>New asset</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  className="space-x-2"
+                  onClick={handleChangeActiveAssetSelection}
+                >
+                  <LuArrowDownUp size={16} className="text-gray-700" />
+
+                  <span>New transaction</span>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        {isAssetSelectionActive && (
+          <div className="flex flex-col gap-3 sm:flex-row sm:gap-1">
             <Button
-              aria-label="Add"
-              className="h-8 sm:self-end"
-              disabled={isLoading}
+              variant="secondary"
+              aria-label="Cancel"
+              className="h-8"
+              onClick={handleChangeActiveAssetSelection}
             >
-              Add
+              Cancel
             </Button>
-          </DropdownMenuTrigger>
 
-          <DropdownMenuContent>
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                className="space-x-2"
-                disabled={isAssetSelectionActive}
-                onClick={() => onAction('add-asset')}
-              >
-                <LuCoins size={16} className="text-gray-700" />
-
-                <span>New asset</span>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                className="space-x-2"
-                onClick={handleChangeActiveAssetSelection}
-              >
-                <LuArrowDownUp size={16} className="text-gray-700" />
-
-                <span>New transaction</span>
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <Button
+              aria-label="Confirm"
+              className="h-8"
+              disabled={!selectedAsset}
+              onClick={() =>
+                handleOnAction('add-transaction', selectedAsset as Asset)
+              }
+            >
+              Confirm
+            </Button>
+          </div>
+        )}
       </div>
 
       <Table>
@@ -182,34 +204,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
 
         <TableHeader>
           <TableRow>
-            {!isAssetSelectionActive && <TableHead>#</TableHead>}
-
-            {isAssetSelectionActive && (
-              <TableHead className="flex justify-center items-center gap-1">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  aria-label="Cancel"
-                  className="bg-red-100 hover:bg-red-200"
-                  onClick={handleChangeActiveAssetSelection}
-                >
-                  <IoBanSharp size={16} className="text-red-600" />
-                </Button>
-
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  aria-label="Confirm"
-                  className="bg-green-100 hover:bg-green-200"
-                  disabled={!selectedAsset}
-                  onClick={() =>
-                    onAction('add-transaction', selectedAsset as Asset)
-                  }
-                >
-                  <IoCheckmarkSharp size={16} className="text-green-600" />
-                </Button>
-              </TableHead>
-            )}
+            {!isAssetSelectionActive ? <TableHead>#</TableHead> : <TableHead />}
 
             <TableHead>Asset</TableHead>
 
@@ -224,7 +219,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
                   onClick={() => handleChangeSort('desc')}
                   className={twMerge(
                     'absolute bottom-[-2px] text-gray-400',
-                    assets.sort === 'desc' && 'text-black'
+                    assetCollection.sort === 'desc' && 'text-black'
                   )}
                 />
 
@@ -233,7 +228,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
                   onClick={() => handleChangeSort('asc')}
                   className={twMerge(
                     'absolute top-0 text-gray-400',
-                    assets.sort === 'asc' && 'text-black'
+                    assetCollection.sort === 'asc' && 'text-black'
                   )}
                 />
               </div>
@@ -258,7 +253,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
             </TableRow>
           )}
 
-          {!isLoading && !assets.items.length && (
+          {!isLoading && !assetCollection.list.length && (
             <TableRow>
               <TableCell
                 colSpan={8}
@@ -271,13 +266,13 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
           )}
 
           {!isLoading &&
-            !!assets.items.length &&
-            assets.items.map((asset, i) => (
+            !!assetCollection.list.length &&
+            assetCollection.list.map((asset, i) => (
               <TableRow key={asset.id}>
                 {!isAssetSelectionActive && <TableCell>{++i}</TableCell>}
 
                 {isAssetSelectionActive && (
-                  <TableCell align="center">
+                  <TableCell>
                     <Checkbox
                       checked={asset.symbol === selectedAsset?.symbol}
                       onCheckedChange={(checked) =>
@@ -293,7 +288,12 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
 
                 <TableCell>{asset.amount}</TableCell>
 
-                <TableCell>{formatCurrencyValue(asset.balance)}</TableCell>
+                <TableCell>
+                  {asset.balance.toLocaleString('en-US', {
+                    style: 'currency',
+                    currency
+                  })}
+                </TableCell>
 
                 <AssetTransactionTableCell
                   itemRef="avg_price"
@@ -330,7 +330,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
                           aria-label="Edit"
                           className="space-x-2"
                           disabled={isAssetSelectionActive}
-                          onClick={() => onAction('edit', asset)}
+                          onClick={() => handleOnAction('edit', asset)}
                         >
                           <FiEdit size={16} className="text-gray-700" />
 
@@ -340,7 +340,8 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
                         <DropdownMenuItem
                           aria-label="Delete"
                           className="space-x-2"
-                          onClick={() => onAction('delete', asset)}
+                          disabled={isAssetSelectionActive}
+                          onClick={() => handleOnAction('delete', asset)}
                         >
                           <IoTrashBinOutline
                             size={16}
@@ -357,7 +358,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({ caption, onAction }) => {
             ))}
         </TableBody>
 
-        {!isLoading && !!assets.items.length && (
+        {!isLoading && !!assetCollection.list.length && (
           <TableFooter>
             <TableRow>
               <TableCell colSpan={7}>Total</TableCell>

@@ -16,13 +16,13 @@ const signInSchema = z.object({
 });
 
 export const SignInForm: FC = () => {
-  const { isFetching, signIn } = useUser();
+  const { signIn } = useUser();
 
   const {
     register,
     reset,
     handleSubmit,
-    formState: { errors, isValid }
+    formState: { errors, isSubmitting, isValid }
   } = useForm<z.infer<typeof signInSchema>>({
     mode: 'onBlur',
     resolver: zodResolver(signInSchema),
@@ -57,7 +57,7 @@ export const SignInForm: FC = () => {
             type="email"
             id="email"
             autoComplete="off"
-            disabled={isFetching}
+            disabled={isSubmitting}
             {...register('email')}
           />
 
@@ -74,7 +74,7 @@ export const SignInForm: FC = () => {
           <Input
             type="password"
             id="password"
-            disabled={isFetching}
+            disabled={isSubmitting}
             {...register('password')}
           />
 
@@ -86,12 +86,12 @@ export const SignInForm: FC = () => {
 
       <Button
         type="submit"
-        disabled={isFetching || !isValid}
+        disabled={isSubmitting || !isValid}
         className="w-full mt-12 p-6"
         aria-label="Login"
       >
-        {isFetching ? (
-          <Loader2 className="mr-2 size-4 animate-spin" />
+        {isSubmitting ? (
+          <Loader2 className="size-4 animate-spin" />
         ) : (
           <span>Login</span>
         )}
