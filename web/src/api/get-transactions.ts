@@ -12,9 +12,11 @@ export type TransactionProperties = {
   assetId: string;
 };
 
+export type GetTransactionPayload = Pick<Transaction, 'assetId'>;
+
 export interface Transaction extends WithId, TransactionProperties {}
 
 type GetTransactionsResponse = Record<'transactions', Array<Transaction>>;
 
-export const getTransactions = async (assetId: string) =>
-  await api.get<GetTransactionsResponse>(`/v1/transactions/${assetId}`);
+export const getTransactions = async (payload: GetTransactionPayload) =>
+  await api.get<GetTransactionsResponse>(`/v1/transactions/${payload.assetId}`);

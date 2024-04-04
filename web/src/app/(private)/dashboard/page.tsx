@@ -8,12 +8,14 @@ import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { createTransaction } from '@/api/create-transaction';
+import { deleteAsset } from '@/api/delete-asset';
 import type { Asset } from '@/api/get-assets';
 import { TRANSACTION_TYPES } from '@/common/constants';
 import { AssetsTable, type ActionType } from '@/components/assets-table';
 import {
   AddAssetTransactionDialog,
   AddAssetTransactionSchema,
+  DeleteAssetDialog,
   type AddAssetTransactionSchemaType
 } from '@/components/dialogs';
 import type { Maybe } from '@/types';
@@ -66,8 +68,14 @@ export default function Dashboard() {
     }
   );
 
-  const { mutateAsync: createAssetTransaction } = useMutation({
+  const { mutateAsync: createAssetTransactionMutation } = useMutation({
     mutationFn: createTransaction,
+    onSuccess: ({ data }) => toast.success(data.message),
+    onError: (e: string) => toast.error(e)
+  });
+
+  const { mutateAsync: deleteAssetMutation } = useMutation({
+    mutationFn: deleteAsset,
     onSuccess: ({ data }) => toast.success(data.message),
     onError: (e: string) => toast.error(e)
   });
@@ -85,9 +93,18 @@ export default function Dashboard() {
             open={dialog.open}
             data={dialog.context.data as Asset}
             onCancel={handleCloseDialog}
-            onConfirm={createAssetTransaction}
+            onConfirm={createAssetTransactionMutation}
           />
         </FormProvider>
+      )}
+
+      {dialog?.context?.ref === 'delete' && (
+        <DeleteAssetDialog
+          open={dialog.open}
+          data={dialog.context.data as Asset}
+          onCancel={handleCloseDialog}
+          onConfirm={deleteAssetMutation}
+        />
       )}
 
       <div className="mt-12 sm:mx-4">
