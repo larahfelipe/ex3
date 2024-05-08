@@ -3,7 +3,6 @@
 import {
   createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -16,16 +15,12 @@ import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import {
-  signIn as signInFn,
+  signIn,
   type SignInPayload,
   type SignInResponse,
   type User
 } from '@/api/sign-in';
-import {
-  signUp as signUpFn,
-  type SignUpPayload,
-  type SignUpResponse
-} from '@/api/sign-up';
+import { signUp, type SignUpPayload, type SignUpResponse } from '@/api/sign-up';
 import { CURRENCIES } from '@/common/constants';
 import { api } from '@/lib/axios';
 import type { Children, Maybe, MutationAsync } from '@/types';
@@ -45,7 +40,7 @@ const EX3_USER_STORAGE_KEY = 'ex3@user';
 
 const UserContext = createContext({} as UserContextProps);
 
-export const UserProvider: FC<Readonly<Children>> = ({ children }) => {
+const UserProvider: FC<Readonly<Children>> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<Maybe<User>>(null);
   const [currency, setCurrency] = useState<keyof typeof CURRENCIES>(
@@ -59,8 +54,8 @@ export const UserProvider: FC<Readonly<Children>> = ({ children }) => {
     []
   );
 
-  const { mutateAsync: signIn, status: signInStatus } = useMutation({
-    mutationFn: signInFn,
+  const { mutateAsync: signInMutation, status: signInStatus } = useMutation({
+    mutationFn: signIn,
     onSuccess: ({ data: userData }) => {
       setUser(userData);
       api.defaults.headers.Authorization = `Bearer ${userData.accessToken}`;
@@ -70,8 +65,8 @@ export const UserProvider: FC<Readonly<Children>> = ({ children }) => {
     onError: (e: string) => toast.error(e)
   });
 
-  const { mutateAsync: signUp, status: signUpStatus } = useMutation({
-    mutationFn: signUpFn,
+  const { mutateAsync: signUpMutation, status: signUpStatus } = useMutation({
+    mutationFn: signUp,
     onSuccess: ({ data }) => {
       const { message, user: userData } = data;
       setUser(userData);
@@ -106,8 +101,8 @@ export const UserProvider: FC<Readonly<Children>> = ({ children }) => {
       currency,
       user,
       changeCurrency,
-      signIn,
-      signUp,
+      signIn: signInMutation,
+      signUp: signUpMutation,
       signOut,
       isLoading,
       isFetching: signInStatus === 'pending' || signUpStatus === 'pending'
@@ -116,8 +111,8 @@ export const UserProvider: FC<Readonly<Children>> = ({ children }) => {
       currency,
       user,
       changeCurrency,
-      signIn,
-      signUp,
+      signInMutation,
+      signUpMutation,
       signOut,
       isLoading,
       signInStatus,
@@ -141,8 +136,4 @@ export const UserProvider: FC<Readonly<Children>> = ({ children }) => {
   );
 };
 
-export const useUser = () => {
-  const ctx = useContext(UserContext);
-
-  return ctx;
-};
+export { UserContext, UserProvider };
