@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 
-import { Errors, type SortTypes } from '@/config';
+import { Errors, type SortOrderTypes } from '@/config';
 import type { ApplicationError } from '@/errors';
 import type { Controller } from '@/interfaces';
 import type { GetAllAssetsService } from '@/services/asset';
@@ -28,12 +28,13 @@ export class GetAllAssetsController implements Controller {
     const { user, query } = req;
 
     try {
-      const { sort } = await validate(GetAssetsSchema, query);
+      const { page, limit, sort } = await validate(GetAssetsSchema, query);
 
       const result = await this.getAllAssetsService.execute({
+        page,
+        limit,
         userId: user.id,
-        userIsAdmin: user.isAdmin,
-        sort: sort as (typeof SortTypes)[keyof typeof SortTypes]
+        sort: sort as (typeof SortOrderTypes)[keyof typeof SortOrderTypes]
       });
 
       return res.status(200).json(result);

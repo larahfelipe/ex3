@@ -1,9 +1,9 @@
 import { api } from '@/lib/axios';
-import type { Maybe, WithId } from '@/types';
+import type { Maybe, Pagination, WithId } from '@/types';
 
 type WithDominance = Record<'dominance', Maybe<string>>;
 
-type AssetProperties = {
+export type AssetProperties = {
   symbol: string;
   amount: number;
   balance: number;
@@ -13,11 +13,18 @@ type AssetProperties = {
 export interface Asset extends WithId, WithDominance, AssetProperties {}
 
 export type GetAssetsParams = {
+  page?: number;
+  limit?: number;
   sort?: 'asc' | 'desc';
 };
 
-type GetAssetsResponse = Pick<GetAssetsParams, 'sort'> & {
+type GetAssetsResponse = {
   assets: Array<Asset>;
+  pagination: Pagination;
+  sort: {
+    field: string;
+    order: GetAssetsParams['sort'];
+  };
 };
 
 export const getAssets = async (params: GetAssetsParams) =>

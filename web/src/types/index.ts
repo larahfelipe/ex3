@@ -17,6 +17,11 @@ export type MutationAsync<
   TError = string
 > = UseMutateAsyncFunction<AxiosResponse<TSuccess>, TError, TPayload>;
 
+export type Pagination = Record<
+  'page' | 'limit' | 'total' | 'totalPages',
+  number
+>;
+
 type SizeType = 'px' | 'rem' | 'em' | '%';
 
 export type Size = `${number}${SizeType}`;

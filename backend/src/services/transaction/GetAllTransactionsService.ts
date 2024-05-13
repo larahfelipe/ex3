@@ -1,6 +1,6 @@
 import { AssetMessages, PortfolioMessages } from '@/config';
 import type { Transaction } from '@/domain/models';
-import { ForbiddenError, NotFoundError } from '@/errors';
+import { NotFoundError } from '@/errors';
 import type {
   AssetRepository,
   PortfolioRepository,
@@ -41,41 +41,31 @@ export class GetAllTransactionsService {
   async execute({
     assetId,
     userId,
-    userIsAdmin
+    page,
+    limit
   }: GetAllTransactionsService.DTO) {
-    let allTransactions = [];
+    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
 
-    if (!userIsAdmin && !assetId?.length) throw new ForbiddenError();
+    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
-    if (!userIsAdmin) {
-      const portfolioExists = await this.portfolioRepository.getByUserId(
-        userId
-      );
+    const { docs: assets } = await this.assetRepository.getAll({
+      portfolioId: portfolioExists.id
+    });
 
-      if (!portfolioExists)
-        throw new NotFoundError(PortfolioMessages.NOT_FOUND);
+    const assetExists = assets?.find((asset) => asset.id === assetId);
 
-      const allAssets = await this.assetRepository.getAllByPortfolioId({
-        portfolioId: portfolioExists.id
+    if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
+
+    const { pagination, docs: transactions } =
+      await this.transactionRepository.getAll({
+        assetId,
+        page,
+        limit
       });
 
-      if (!allAssets?.length) throw new NotFoundError(AssetMessages.EMPTY);
-
-      const assetExists = allAssets.find((asset) => asset.id === assetId);
-
-      if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
-    }
-
-    if (assetId) {
-      allTransactions = await this.transactionRepository.getAllByAssetId(
-        assetId
-      );
-    } else {
-      allTransactions = await this.transactionRepository.getAll();
-    }
-
     const res: GetAllTransactionsService.Result = {
-      transactions: allTransactions as Array<Transaction>
+      pagination,
+      transactions: transactions as Array<Transaction>
     };
 
     return res;
@@ -84,9 +74,13 @@ export class GetAllTransactionsService {
 
 namespace GetAllTransactionsService {
   export type DTO = {
-    assetId?: string;
+    assetId: string;
     userId: string;
-    userIsAdmin: boolean;
+    page?: number;
+    limit?: number;
   };
-  export type Result = Record<'transactions', Array<Transaction>>;
+  export type Result = {
+    transactions: Array<Transaction>;
+    pagination: Record<'page' | 'limit' | 'total' | 'totalPages', number>;
+  };
 }

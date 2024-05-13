@@ -16,8 +16,8 @@ export const CreateTransactionSchema = z.object({
         message: 'Transaction type must be either `BUY` or `SELL`'
       }
     ),
-  amount: z.number().positive('Transaction amount must be greater than 0'),
-  price: z.number().positive('Transaction price must be greater than 0'),
+  amount: z.number().positive('Transaction amount must be greater than zero'),
+  price: z.number().positive('Transaction price must be greater than zero'),
   assetId: z
     .string()
     .min(1, 'Asset id must have at least 1 character')

@@ -53,7 +53,8 @@ export const AssetTransactionTableCell: FC<AssetTransactionTableCell> = ({
   const { data: transactions = [], isLoading } = useQuery({
     queryKey: ['transactions', assetId],
     queryFn: () => getTransactions({ assetId }),
-    select: ({ data }) => data.transactions
+    select: ({ data }) => data.transactions,
+    staleTime: 30_000
   });
 
   if (isLoading)

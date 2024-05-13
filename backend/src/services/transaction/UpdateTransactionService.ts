@@ -94,10 +94,7 @@ export class UpdateTransactionService {
 }
 
 namespace UpdateTransactionService {
-  export type DTO = Omit<Transaction, 'assetId' | 'createdAt' | 'updatedAt'> & {
-    userId: string;
-  };
-  export type Result = {
-    message: string;
-  };
+  export type DTO = Omit<Transaction, 'assetId' | 'createdAt' | 'updatedAt'> &
+    Record<'userId', string>;
+  export type Result = Record<'message', string>;
 }

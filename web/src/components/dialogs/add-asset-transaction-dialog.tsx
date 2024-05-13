@@ -38,7 +38,7 @@ type AddAssetTransactionDialogProps = {
   open: boolean;
   data: Asset;
   onCancel: () => void;
-  onConfirm: (payload: CreateTransactionPayload) => void;
+  onConfirm: (payload: CreateTransactionPayload) => Promise<unknown>;
 };
 
 export type AddAssetTransactionSchemaType = z.infer<
@@ -76,10 +76,10 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
     reset();
   };
 
-  const handleConfirm: SubmitHandler<AddAssetTransactionSchemaType> = (
+  const handleConfirm: SubmitHandler<AddAssetTransactionSchemaType> = async (
     payload
   ) => {
-    onConfirm({
+    await onConfirm({
       ...payload,
       type: payload.type as TransactionType,
       assetId: data.id

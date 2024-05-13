@@ -23,9 +23,7 @@ export class PortfolioRepository {
 
   async getByUserId(userId: string) {
     const portfolio = await this.prismaClient.portfolio.findUnique({
-      where: {
-        userId
-      }
+      where: { userId }
     });
 
     return portfolio;

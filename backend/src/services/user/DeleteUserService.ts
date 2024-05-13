@@ -58,7 +58,5 @@ namespace DeleteUserService {
     user: User;
     password: string;
   };
-  export type Result = {
-    message: string;
-  };
+  export type Result = Record<'message', string>;
 }

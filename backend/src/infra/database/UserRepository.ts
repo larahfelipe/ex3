@@ -29,9 +29,7 @@ export class UserRepository {
 
   async getByEmail(email: string) {
     const user = await this.prismaClient.user.findUnique({
-      where: {
-        email
-      }
+      where: { email }
     });
 
     return user;
@@ -39,9 +37,7 @@ export class UserRepository {
 
   async getByAccessToken(accessToken: string) {
     const user = await this.prismaClient.user.findFirst({
-      where: {
-        accessToken
-      }
+      where: { accessToken }
     });
 
     return user;
@@ -65,9 +61,7 @@ export class UserRepository {
     const { id, name, password } = params;
 
     let updatedUser = await this.prismaClient.user.update({
-      where: {
-        id
-      },
+      where: { id },
       data: {
         ...(name && { name }),
         ...(password && { password: await this.bcrypt.hash(password) })
@@ -85,20 +79,14 @@ export class UserRepository {
     const { id, accessToken } = params;
 
     await this.prismaClient.user.update({
-      where: {
-        id
-      },
-      data: {
-        accessToken
-      }
+      where: { id },
+      data: { accessToken }
     });
   }
 
   async delete(id: string) {
     await this.prismaClient.user.delete({
-      where: {
-        id
-      }
+      where: { id }
     });
   }
 }

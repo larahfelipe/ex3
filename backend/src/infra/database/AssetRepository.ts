@@ -1,4 +1,4 @@
-import { type SortTypes } from '@/config';
+import { type SortOrderTypes } from '@/config';
 import type { Asset } from '@/domain/models';
 
 import { PrismaClient } from './PrismaClient';
@@ -18,32 +18,37 @@ export class AssetRepository {
     return AssetRepository.INSTANCE;
   }
 
-  async getAll(sort?: AssetRepository.GetAllParams['sort']) {
-    const assets = sort
-      ? await this.prismaClient.asset.findMany({ orderBy: { balance: sort } })
-      : await this.prismaClient.asset.findMany();
+  async getAll(params: AssetRepository.GetAllParams) {
+    const { portfolioId, sort, limit, page = 1 } = params;
 
-    return assets;
-  }
+    const limitPerPage = limit || limit === 0 ? limit : 10;
 
-  async getAllByPortfolioId(params: AssetRepository.GetAllParams) {
-    const { portfolioId, sort } = params;
+    const [total, docs] = await Promise.all([
+      this.prismaClient.asset.count({ where: { portfolioId } }),
+      this.prismaClient.asset.findMany({
+        where: { portfolioId },
+        take: limit !== 0 ? limitPerPage : undefined,
+        skip: (page - 1) * limitPerPage || 0,
+        ...(sort && { orderBy: { balance: sort } })
+      })
+    ]);
 
-    const assets = sort
-      ? await this.prismaClient.asset.findMany({
-          where: { portfolioId },
-          orderBy: { balance: sort }
-        })
-      : await this.prismaClient.asset.findMany({ where: { portfolioId } });
+    const totalPages = Math.ceil(total / limitPerPage);
 
-    return assets;
+    return {
+      docs,
+      pagination: {
+        page,
+        total,
+        limit: limitPerPage,
+        totalPages: totalPages !== Infinity ? totalPages : 1
+      }
+    };
   }
 
   async getById(id: string) {
     const asset = await this.prismaClient.asset.findUnique({
-      where: {
-        id
-      }
+      where: { id }
     });
 
     return asset;
@@ -102,9 +107,7 @@ export class AssetRepository {
     const { id, operation, amount, balance } = params;
 
     const updatedAsset = await this.prismaClient.asset.update({
-      where: {
-        id
-      },
+      where: { id },
       data: {
         amount: {
           [operation]: amount
@@ -135,7 +138,9 @@ export class AssetRepository {
 namespace AssetRepository {
   export type GetParams = Pick<Asset, 'symbol' | 'portfolioId'>;
   export type GetAllParams = Pick<Asset, 'portfolioId'> & {
-    sort?: (typeof SortTypes)[keyof typeof SortTypes];
+    page?: number;
+    limit?: number;
+    sort?: (typeof SortOrderTypes)[keyof typeof SortOrderTypes];
   };
   export type AddParams = Pick<Asset, 'symbol' | 'portfolioId'>;
   export type UpdateParams = Pick<Asset, 'portfolioId'> & {

@@ -137,8 +137,8 @@ export const Sidebar: FC = () => {
           text="Logout"
           variant="ghost"
           onClick={signOut}
-          className={{ button: 'hover:bg-red-50', text: 'text-red-500' }}
-          left={<IoExitOutline size={18} className="text-red-500" />}
+          className={{ button: 'hover:bg-red-50', text: 'text-red-600' }}
+          left={<IoExitOutline size={18} className="text-red-600" />}
         />
       </section>
     </nav>

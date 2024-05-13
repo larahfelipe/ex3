@@ -33,8 +33,6 @@ export class GetAllPortfoliosService {
 }
 
 namespace GetAllPortfoliosService {
-  export type DTO = {
-    userIsAdmin: boolean;
-  };
+  export type DTO = Record<'userIsAdmin', boolean>;
   export type Result = Record<'portfolios', Array<Portfolio>>;
 }

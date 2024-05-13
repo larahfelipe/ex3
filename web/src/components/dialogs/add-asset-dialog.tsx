@@ -1,0 +1,160 @@
+import { useCallback, useMemo, useState, type FC } from 'react';
+import { useFormContext, type SubmitHandler } from 'react-hook-form';
+import { LuArrowDownUp } from 'react-icons/lu';
+
+import { Loader2, Plus } from 'lucide-react';
+import { z } from 'zod';
+
+import type { CreateAssetPayload } from '@/api/create-asset';
+import type { Asset } from '@/api/get-assets';
+import { replaceUrl } from '@/common/utils';
+
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label
+} from '../ui';
+
+type AddAssetDialogProps = {
+  open: boolean;
+  data: Asset;
+  onCancel: () => void;
+  onConfirm: (payload: CreateAssetPayload) => Promise<unknown>;
+};
+
+export type AddAssetSchemaType = z.infer<typeof AddAssetSchema>;
+
+export const AddAssetSchema = z.object({
+  symbol: z
+    .string()
+    .min(1, 'Asset symbol must have at least 1 character')
+    .max(6, 'Asset symbol must have at most 6 characters')
+    .transform((value) => value.trim().toUpperCase())
+});
+
+export const AddAssetDialog: FC<AddAssetDialogProps> = ({
+  open,
+  onCancel,
+  onConfirm
+}) => {
+  const [assetSymbol, setAssetSymbol] = useState('');
+
+  const {
+    register,
+    handleSubmit,
+    getFieldState,
+    reset,
+    formState: {
+      errors,
+      isSubmitting,
+      isSubmitted,
+      isSubmitSuccessful,
+      isValid
+    }
+  } = useFormContext<AddAssetSchemaType>();
+
+  const isSubmittedSuccessfully = useMemo(
+    () => isSubmitted && isSubmitSuccessful,
+    [isSubmitted, isSubmitSuccessful]
+  );
+
+  const handleCancel = () => {
+    onCancel();
+    reset();
+  };
+
+  const handleConfirm: SubmitHandler<AddAssetSchemaType> = async (payload) => {
+    await onConfirm(payload);
+    setAssetSymbol(payload.symbol);
+    reset();
+  };
+
+  const handleAddTransaction = useCallback(() => {
+    onCancel();
+
+    if (isSubmitSuccessful && assetSymbol.length)
+      replaceUrl(`?symbol=${assetSymbol}&ref=add-transaction`);
+  }, [onCancel, isSubmitSuccessful, assetSymbol]);
+
+  return (
+    <Dialog open={open} onOpenChange={handleCancel}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex gap-2 max-sm:justify-center">
+            <LuArrowDownUp />
+
+            <span>Add asset</span>
+          </DialogTitle>
+
+          <DialogDescription>Create a new asset</DialogDescription>
+        </DialogHeader>
+
+        <form
+          onSubmit={handleSubmit(handleConfirm)}
+          id="add-asset-transaction-form"
+          className="flex flex-col gap-3"
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor="symbol">Asset</Label>
+
+            <Input
+              id="symbol"
+              aria-label="Asset symbol"
+              placeholder="Enter the asset symbol"
+              disabled={isSubmitting}
+              {...register('symbol')}
+            />
+
+            {!!errors.symbol?.message && (
+              <small className="text-red-500">{errors.symbol.message}</small>
+            )}
+          </div>
+        </form>
+
+        <DialogFooter className="max-sm:space-y-4">
+          {isSubmittedSuccessfully && !getFieldState('symbol').isDirty && (
+            <Button
+              variant="ghost"
+              className="sm:absolute sm:left-6 max-sm:mt-6"
+              onClick={handleAddTransaction}
+            >
+              <div className="flex items-center gap-2">
+                <Plus size={16} />
+
+                <span>Add a transaction?</span>
+              </div>
+            </Button>
+          )}
+
+          <Button
+            variant="outline"
+            aria-label="Cancel"
+            disabled={isSubmitting}
+            onClick={handleCancel}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            type="submit"
+            form="add-asset-transaction-form"
+            aria-label="Confirm"
+            disabled={isSubmitting || !isValid}
+          >
+            {isSubmitting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <span>Confirm</span>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};

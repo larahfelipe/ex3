@@ -34,11 +34,15 @@ const FallbackContent: FC<FallbackContentProps> = ({
     );
 
   return (
-    <main className="h-screen">
-      <div className="flex flex-col justify-center gap-4">
+    <main className="h-screen flex">
+      <div className="flex flex-col justify-center gap-4 m-auto">
         <h4>Oops, something went wrong</h4>
 
-        <Button aria-label="Reset" onClick={() => resetErrorBoundary!()}>
+        <Button
+          variant="secondary"
+          aria-label="Reset"
+          onClick={() => resetErrorBoundary!()}
+        >
           <div className="flex items-center gap-2">
             <IoRefresh size={16} />
 

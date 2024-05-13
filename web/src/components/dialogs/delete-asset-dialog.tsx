@@ -19,7 +19,7 @@ type DeleteAssetDialogProps = {
   open: boolean;
   data: Asset;
   onCancel: () => void;
-  onConfirm: (payload: DeleteAssetPayload) => void;
+  onConfirm: (payload: DeleteAssetPayload) => Promise<unknown>;
 };
 
 export const DeleteAssetDialog: FC<DeleteAssetDialogProps> = ({
@@ -30,10 +30,7 @@ export const DeleteAssetDialog: FC<DeleteAssetDialogProps> = ({
 }) => {
   const handleCancel = () => onCancel();
 
-  const handleConfirm = () => {
-    onConfirm({ symbol: data.symbol });
-    onCancel();
-  };
+  const handleConfirm = async () => await onConfirm({ symbol: data.symbol });
 
   return (
     <AlertDialog open={open} onOpenChange={handleCancel}>
