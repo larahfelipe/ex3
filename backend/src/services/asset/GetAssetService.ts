@@ -50,8 +50,6 @@ export class GetAssetService {
 }
 
 namespace GetAssetService {
-  export type DTO = Pick<Asset, 'symbol'> & {
-    userId: string;
-  };
+  export type DTO = Pick<Asset, 'symbol'> & Record<'userId', string>;
   export type Result = Omit<Asset, 'transactions'>;
 }

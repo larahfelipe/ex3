@@ -64,7 +64,7 @@ export const TransactionTypes: Record<TransactionType, TransactionType> = {
   SELL: 'SELL'
 } as const;
 
-export const SortTypes = {
+export const SortOrderTypes = {
   ASCENDENT: 'asc',
   DESCENDENT: 'desc'
 } as const;

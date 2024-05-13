@@ -17,6 +17,6 @@ export const UpdateTransactionSchema = z.object({
     .refine((value) => transactionTypes.includes(value as TransactionType), {
       message: 'Transaction type must be either BUY or SELL'
     }),
-  amount: z.number().positive('Transaction amount must be greater than 0'),
-  price: z.number().positive('Transaction price must be greater than 0')
+  amount: z.number().positive('Transaction amount must be greater than zero'),
+  price: z.number().positive('Transaction price must be greater than zero')
 });

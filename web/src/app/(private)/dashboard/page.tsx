@@ -1,19 +1,28 @@
 'use client';
 
-import { useReducer } from 'react';
+import { useCallback, useReducer, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
+
+import { useSearchParams } from 'next/navigation';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+import { createAsset } from '@/api/create-asset';
 import { createTransaction } from '@/api/create-transaction';
+import { deleteAsset } from '@/api/delete-asset';
 import type { Asset } from '@/api/get-assets';
 import { TRANSACTION_TYPES } from '@/common/constants';
+import { replaceUrl } from '@/common/utils';
 import { AssetsTable, type ActionType } from '@/components/assets-table';
 import {
+  AddAssetDialog,
+  AddAssetSchema,
   AddAssetTransactionDialog,
   AddAssetTransactionSchema,
+  DeleteAssetDialog,
+  type AddAssetSchemaType,
   type AddAssetTransactionSchemaType
 } from '@/components/dialogs';
 import type { Maybe } from '@/types';
@@ -53,6 +62,15 @@ const reducer = (state: ReducerState, action: ReducerAction): ReducerState => {
 
 export default function Dashboard() {
   const [dialog, dispatch] = useReducer(reducer, initialState);
+  const [revalidateKey, setRevalidateKey] = useState(0);
+
+  const addAssetFormMethods = useForm<AddAssetSchemaType>({
+    mode: 'onChange',
+    resolver: zodResolver(AddAssetSchema),
+    defaultValues: {
+      symbol: ''
+    }
+  });
 
   const addAssetTransactionFormMethods = useForm<AddAssetTransactionSchemaType>(
     {
@@ -66,32 +84,82 @@ export default function Dashboard() {
     }
   );
 
-  const { mutateAsync: createAssetTransaction } = useMutation({
-    mutationFn: createTransaction,
-    onSuccess: ({ data }) => toast.success(data.message),
+  const searchParams = useSearchParams();
+
+  const handleAction = useCallback(
+    (type: ActionType, payload?: Asset) => dispatch({ type, payload }),
+    []
+  );
+
+  const handleCloseDialog = useCallback(() => {
+    dispatch({ type: 'delete' });
+    if (searchParams.size) replaceUrl(window.location.pathname);
+  }, [searchParams]);
+
+  const { mutateAsync: createAssetMutation } = useMutation({
+    mutationFn: createAsset,
+    onSuccess: ({ data }) => {
+      toast.success(data.message);
+      setRevalidateKey((prev) => prev + 1);
+    },
     onError: (e: string) => toast.error(e)
   });
 
-  const handleAction = (type: ActionType, payload?: Asset) =>
-    dispatch({ type, payload });
+  const { mutateAsync: createAssetTransactionMutation } = useMutation({
+    mutationFn: createTransaction,
+    onSuccess: ({ data }) => {
+      toast.success(data.message);
+      setRevalidateKey((prev) => prev + 1);
+      if (searchParams.size) replaceUrl(window.location.pathname);
+    },
+    onError: (e: string) => toast.error(e)
+  });
 
-  const handleCloseDialog = () => dispatch({ type: 'delete' });
+  const { mutateAsync: deleteAssetMutation } = useMutation({
+    mutationFn: deleteAsset,
+    onSuccess: ({ data }) => {
+      handleCloseDialog();
+      toast.success(data.message);
+      setRevalidateKey((prev) => prev + 1);
+    },
+    onError: (e: string) => toast.error(e)
+  });
 
   return (
     <>
+      {dialog?.context?.ref === 'add-asset' && (
+        <FormProvider {...addAssetFormMethods}>
+          <AddAssetDialog
+            open={dialog.open}
+            data={dialog.context.data as Asset}
+            onCancel={handleCloseDialog}
+            onConfirm={createAssetMutation}
+          />
+        </FormProvider>
+      )}
+
       {dialog?.context?.ref === 'add-transaction' && (
         <FormProvider {...addAssetTransactionFormMethods}>
           <AddAssetTransactionDialog
             open={dialog.open}
             data={dialog.context.data as Asset}
             onCancel={handleCloseDialog}
-            onConfirm={createAssetTransaction}
+            onConfirm={createAssetTransactionMutation}
           />
         </FormProvider>
       )}
 
+      {dialog?.context?.ref === 'delete' && (
+        <DeleteAssetDialog
+          open={dialog.open}
+          data={dialog.context.data as Asset}
+          onCancel={handleCloseDialog}
+          onConfirm={deleteAssetMutation}
+        />
+      )}
+
       <div className="mt-12 sm:mx-4">
-        <AssetsTable onAction={handleAction} />
+        <AssetsTable revalidate={revalidateKey} onAction={handleAction} />
       </div>
     </>
   );

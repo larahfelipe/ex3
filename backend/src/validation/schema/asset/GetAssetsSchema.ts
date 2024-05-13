@@ -1,18 +1,23 @@
 import { z } from 'zod';
 
-import { SortTypes } from '@/config';
+import { SortOrderTypes } from '@/config';
 
 export const GetAssetsSchema = z.object({
+  page: z.coerce.number().positive('Page must be greater than zero').optional(),
+  limit: z.coerce
+    .number()
+    .positive('Limit must be greater than zero')
+    .optional(),
   sort: z
     .string()
     .transform((value) => value.trim().toLowerCase())
     .refine(
       (value) =>
-        Object.values(SortTypes).includes(
-          value as (typeof SortTypes)[keyof typeof SortTypes]
+        Object.values(SortOrderTypes).includes(
+          value as (typeof SortOrderTypes)[keyof typeof SortOrderTypes]
         ),
       {
-        message: 'Sort type must be either `asc` or `desc`'
+        message: 'Sort order must be either `asc` or `desc`'
       }
     )
     .optional()

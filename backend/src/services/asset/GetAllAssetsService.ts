@@ -1,4 +1,4 @@
-import { PortfolioMessages, type SortTypes } from '@/config';
+import { PortfolioMessages, type SortOrderTypes } from '@/config';
 import type { Asset } from '@/domain/models';
 import { NotFoundError } from '@/errors';
 import type { AssetRepository, PortfolioRepository } from '@/infra/database';
@@ -29,28 +29,22 @@ export class GetAllAssetsService {
     return GetAllAssetsService.INSTANCE;
   }
 
-  async execute({ userId, userIsAdmin, sort }: GetAllAssetsService.DTO) {
-    let allAssets = [];
+  async execute({ userId, page, limit, sort }: GetAllAssetsService.DTO) {
+    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
 
-    if (!userIsAdmin) {
-      const portfolioExists = await this.portfolioRepository.getByUserId(
-        userId
-      );
+    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
-      if (!portfolioExists)
-        throw new NotFoundError(PortfolioMessages.NOT_FOUND);
-
-      allAssets = await this.assetRepository.getAllByPortfolioId({
-        sort,
-        portfolioId: portfolioExists.id
-      });
-    } else {
-      allAssets = await this.assetRepository.getAll(sort);
-    }
+    const { pagination, docs: assets } = await this.assetRepository.getAll({
+      page,
+      limit,
+      sort,
+      portfolioId: portfolioExists.id
+    });
 
     const res: GetAllAssetsService.Result = {
-      ...(sort && { sort }),
-      assets: allAssets as Array<Asset>
+      ...(sort && { sort: { field: 'balance', order: sort } }),
+      pagination,
+      assets: assets as Array<Asset>
     };
 
     return res;
@@ -60,11 +54,13 @@ export class GetAllAssetsService {
 namespace GetAllAssetsService {
   export type DTO = {
     userId: string;
-    userIsAdmin: boolean;
-    sort?: (typeof SortTypes)[keyof typeof SortTypes];
+    page?: number;
+    limit?: number;
+    sort?: (typeof SortOrderTypes)[keyof typeof SortOrderTypes];
   };
   export type Result = {
     assets: Array<Asset>;
-    sort?: (typeof SortTypes)[keyof typeof SortTypes];
+    pagination: Record<'page' | 'limit' | 'total' | 'totalPages', number>;
+    sort?: Record<'field' | 'order', string>;
   };
 }

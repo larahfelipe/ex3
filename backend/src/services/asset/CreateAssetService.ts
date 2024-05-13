@@ -57,9 +57,7 @@ export class CreateAssetService {
 }
 
 namespace CreateAssetService {
-  export type DTO = Pick<Asset, 'symbol'> & {
-    userId: string;
-  };
+  export type DTO = Pick<Asset, 'symbol'> & Record<'userId', string>;
   export type Result = {
     asset: Omit<Asset, 'transactions'>;
     message: string;

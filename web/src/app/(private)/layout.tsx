@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 
-import { useRouter } from 'next/navigation';
+import { redirect } from 'next/navigation';
 
 import { Loader2 } from 'lucide-react';
 
@@ -13,13 +13,9 @@ import type { Children } from '@/types';
 export default function Layout({ children }: Readonly<Children>) {
   const { isLoading, user } = useUser();
 
-  const { replace } = useRouter();
-
   useEffect(() => {
-    if (!isLoading && !user) {
-      replace('/sign-in');
-    }
-  }, [isLoading, user, replace]);
+    if (!isLoading && !user) redirect('/sign-in');
+  }, [isLoading, user]);
 
   if (isLoading || !user)
     return (

@@ -73,10 +73,6 @@ export class DeleteTransactionService {
 }
 
 namespace DeleteTransactionService {
-  export type DTO = Pick<Transaction, 'id'> & {
-    userId: string;
-  };
-  export type Result = {
-    message: string;
-  };
+  export type DTO = Pick<Transaction, 'id'> & Record<'userId', string>;
+  export type Result = Record<'message', string>;
 }

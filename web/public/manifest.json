@@ -1,0 +1,32 @@
+{
+  "theme_color": "#FFF",
+  "background_color": "#FFF",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "name": "EX3",
+  "short_name": "EX3",
+  "description": "EX3 Progressive Web App (PWA)",
+  "icons": [
+      {
+          "src": "/favicon.png",
+          "sizes": "192x192",
+          "type": "image/png"
+      },
+      {
+          "src": "/favicon.png",
+          "sizes": "256x256",
+          "type": "image/png"
+      },
+      {
+          "src": "/favicon.png",
+          "sizes": "384x384",
+          "type": "image/png"
+      },
+      {
+          "src": "/favicon.png",
+          "sizes": "512x512",
+          "type": "image/png"
+      }
+  ]
+}

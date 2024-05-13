@@ -5,7 +5,10 @@ import type { ApplicationError } from '@/errors';
 import type { Controller } from '@/interfaces';
 import type { GetAllTransactionsService } from '@/services/transaction';
 import { validate } from '@/validation';
-import { GetTransactionsSchema } from '@/validation/schema';
+import {
+  GetTransactionsParamsSchema,
+  GetTransactionsQuerySchema
+} from '@/validation/schema';
 
 export class GetAllTransactionsController implements Controller {
   private static INSTANCE: GetAllTransactionsController;
@@ -25,15 +28,19 @@ export class GetAllTransactionsController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    const { user, params } = req;
+    const { user, params, query } = req;
 
     try {
-      const { assetId } = await validate(GetTransactionsSchema, params);
+      const [{ assetId }, { page, limit }] = await Promise.all([
+        validate(GetTransactionsParamsSchema, params),
+        validate(GetTransactionsQuerySchema, query)
+      ]);
 
       const result = await this.getAllTransactionsService.execute({
         assetId,
-        userId: user.id,
-        userIsAdmin: user.isAdmin
+        page,
+        limit,
+        userId: user.id
       });
 
       return res.status(200).json(result);
