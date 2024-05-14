@@ -29,7 +29,7 @@ export class CreateTransactionController implements Controller {
     const { user, body } = req;
 
     try {
-      const { type, price, amount, assetId } = await validate(
+      const { type, price, amount, assetSymbol } = await validate(
         CreateTransactionSchema,
         body
       );
@@ -37,7 +37,7 @@ export class CreateTransactionController implements Controller {
       const result = await this.createTransactionService.execute({
         price,
         amount,
-        assetId,
+        assetSymbol,
         type: type as TransactionType,
         userId: user.id
       });

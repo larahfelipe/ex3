@@ -20,16 +20,14 @@ export class GetPortfolioService {
     return GetPortfolioService.INSTANCE;
   }
 
-  async execute({ userId }: GetPortfolioService.DTO) {
+  async execute({
+    userId
+  }: GetPortfolioService.DTO): Promise<GetPortfolioService.Result> {
     const portfolioExists = await this.portfolioRepository.getByUserId(userId);
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
-    const res: GetPortfolioService.Result = {
-      ...portfolioExists
-    };
-
-    return res;
+    return { ...portfolioExists };
   }
 }
 

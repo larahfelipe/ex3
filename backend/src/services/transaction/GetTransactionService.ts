@@ -20,17 +20,15 @@ export class GetTransactionService {
     return GetTransactionService.INSTANCE;
   }
 
-  async execute({ id }: GetTransactionService.DTO) {
+  async execute({
+    id
+  }: GetTransactionService.DTO): Promise<GetTransactionService.Result> {
     const transactionExists = await this.transactionRepository.getById(id);
 
     if (!transactionExists)
       throw new NotFoundError(TransactionMessages.NOT_FOUND);
 
-    const res: GetTransactionService.Result = {
-      ...(transactionExists as Transaction)
-    };
-
-    return res;
+    return { ...(transactionExists as Transaction) };
   }
 }
 

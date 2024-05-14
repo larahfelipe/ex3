@@ -28,7 +28,11 @@ export class UpdateAssetService {
     return UpdateAssetService.INSTANCE;
   }
 
-  async execute({ userId, oldSymbol, newSymbol }: UpdateAssetService.DTO) {
+  async execute({
+    userId,
+    oldSymbol,
+    newSymbol
+  }: UpdateAssetService.DTO): Promise<UpdateAssetService.Result> {
     const portfolioExists = await this.portfolioRepository.getByUserId(userId);
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
@@ -54,11 +58,9 @@ export class UpdateAssetService {
       portfolioId: portfolioExists.id
     });
 
-    const res: UpdateAssetService.Result = {
+    return {
       message: AssetMessages.UPDATED
     };
-
-    return res;
   }
 }
 

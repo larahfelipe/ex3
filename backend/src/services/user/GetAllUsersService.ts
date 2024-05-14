@@ -17,16 +17,16 @@ export class GetAllUsersService {
     return GetAllUsersService.INSTANCE;
   }
 
-  async execute({ isAdmin }: GetAllUsersService.DTO) {
+  async execute({
+    isAdmin
+  }: GetAllUsersService.DTO): Promise<GetAllUsersService.Result> {
     if (!isAdmin) throw new ForbiddenError();
 
     const allUsers = await this.userRepository.getAll();
 
-    const res: GetAllUsersService.Result = {
+    return {
       users: allUsers as Array<User>
     };
-
-    return res;
   }
 }
 

@@ -7,5 +7,5 @@ export type Transaction = {
   price: number;
   createdAt: Date;
   updatedAt: Date;
-  assetId: string;
+  assetSymbol: string;
 };

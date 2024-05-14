@@ -18,8 +18,9 @@ export const CreateTransactionSchema = z.object({
     ),
   amount: z.number().positive('Transaction amount must be greater than zero'),
   price: z.number().positive('Transaction price must be greater than zero'),
-  assetId: z
+  assetSymbol: z
     .string()
-    .min(1, 'Asset id must have at least 1 character')
-    .transform((value) => value.trim())
+    .min(1, 'Asset symbol must have at least 1 character')
+    .max(6, 'Asset symbol must have at most 6 characters')
+    .transform((value) => value.trim().toUpperCase())
 });

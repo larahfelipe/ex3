@@ -29,7 +29,10 @@ export class GetAssetService {
     return GetAssetService.INSTANCE;
   }
 
-  async execute({ userId, symbol }: GetAssetService.DTO) {
+  async execute({
+    userId,
+    symbol
+  }: GetAssetService.DTO): Promise<GetAssetService.Result> {
     const portfolioExists = await this.portfolioRepository.getByUserId(userId);
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
@@ -41,11 +44,7 @@ export class GetAssetService {
 
     if (!asset) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
-    const res: GetAssetService.Result = {
-      ...asset
-    };
-
-    return res;
+    return { ...asset };
   }
 }
 

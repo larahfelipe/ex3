@@ -22,25 +22,19 @@ export class UserRepository {
   }
 
   async getAll() {
-    const users = await this.prismaClient.user.findMany();
-
-    return users;
+    return this.prismaClient.user.findMany();
   }
 
   async getByEmail(email: string) {
-    const user = await this.prismaClient.user.findUnique({
+    return this.prismaClient.user.findUnique({
       where: { email }
     });
-
-    return user;
   }
 
   async getByAccessToken(accessToken: string) {
-    const user = await this.prismaClient.user.findFirst({
+    return this.prismaClient.user.findFirst({
       where: { accessToken }
     });
-
-    return user;
   }
 
   async add(params: UserRepository.AddParams) {
@@ -78,14 +72,14 @@ export class UserRepository {
   async updateAccessToken(params: UserRepository.UpdateAccessTokenParams) {
     const { id, accessToken } = params;
 
-    await this.prismaClient.user.update({
+    return this.prismaClient.user.update({
       where: { id },
       data: { accessToken }
     });
   }
 
   async delete(id: string) {
-    await this.prismaClient.user.delete({
+    return this.prismaClient.user.delete({
       where: { id }
     });
   }

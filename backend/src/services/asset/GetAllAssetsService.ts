@@ -29,7 +29,12 @@ export class GetAllAssetsService {
     return GetAllAssetsService.INSTANCE;
   }
 
-  async execute({ userId, page, limit, sort }: GetAllAssetsService.DTO) {
+  async execute({
+    userId,
+    page,
+    limit,
+    sort
+  }: GetAllAssetsService.DTO): Promise<GetAllAssetsService.Result> {
     const portfolioExists = await this.portfolioRepository.getByUserId(userId);
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
@@ -41,13 +46,11 @@ export class GetAllAssetsService {
       portfolioId: portfolioExists.id
     });
 
-    const res: GetAllAssetsService.Result = {
+    return {
       ...(sort && { sort: { field: 'balance', order: sort } }),
       pagination,
       assets: assets as Array<Asset>
     };
-
-    return res;
   }
 }
 

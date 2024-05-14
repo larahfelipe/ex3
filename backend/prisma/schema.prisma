@@ -44,18 +44,19 @@ model Asset {
   portfolio    Portfolio     @relation(fields: [portfolioId], references: [id])
   portfolioId  String
 
+  @@index(fields: [symbol])
   @@map("assets")
 }
 
 model Transaction {
-  id        String   @id @default(uuid())
-  type      String
-  amount    Float
-  price     Float
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  asset     Asset    @relation(fields: [assetId], references: [id])
-  assetId   String
+  id          String   @id @default(uuid())
+  type        String
+  amount      Float
+  price       Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  asset       Asset    @relation(fields: [assetSymbol], references: [symbol])
+  assetSymbol String
 
   @@map("transactions")
 }

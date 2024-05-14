@@ -35,7 +35,10 @@ export class DeleteUserService {
     return DeleteUserService.INSTANCE;
   }
 
-  async execute({ user, password }: DeleteUserService.DTO) {
+  async execute({
+    user,
+    password
+  }: DeleteUserService.DTO): Promise<DeleteUserService.Result> {
     const isPasswordValid = await this.bcrypt.compare(password, user.password);
 
     if (!isPasswordValid)
@@ -45,11 +48,9 @@ export class DeleteUserService {
 
     await this.userRepository.delete(user.id);
 
-    const res: DeleteUserService.Result = {
+    return {
       message: UserMessages.DELETED
     };
-
-    return res;
   }
 }
 

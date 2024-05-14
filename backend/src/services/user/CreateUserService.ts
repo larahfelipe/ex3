@@ -35,7 +35,11 @@ export class CreateUserService {
     return CreateUserService.INSTANCE;
   }
 
-  async execute({ name, email, password }: CreateUserService.DTO) {
+  async execute({
+    name,
+    email,
+    password
+  }: CreateUserService.DTO): Promise<CreateUserService.Result> {
     const userAlreadyExists = await this.userRepository.getByEmail(email);
 
     if (userAlreadyExists)
@@ -56,15 +60,13 @@ export class CreateUserService {
       accessToken: encryptedAccessToken
     });
 
-    const res: CreateUserService.Result = {
+    return {
       user: {
         ...newUser,
         accessToken: encryptedAccessToken
       },
       message: UserMessages.CREATED
     };
-
-    return res;
   }
 }
 

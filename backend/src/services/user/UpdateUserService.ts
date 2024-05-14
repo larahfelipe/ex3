@@ -29,7 +29,7 @@ export class UpdateUserService {
     name,
     oldPassword,
     newPassword
-  }: UpdateUserService.DTO) {
+  }: UpdateUserService.DTO): Promise<UpdateUserService.Result> {
     let isPasswordValid = false;
 
     if (oldPassword?.length) {
@@ -45,12 +45,10 @@ export class UpdateUserService {
       password: isPasswordValid ? (newPassword as string) : null
     });
 
-    const res: UpdateUserService.Result = {
+    return {
       user: updatedUser,
       message: UserMessages.UPDATED
     };
-
-    return res;
   }
 }
 

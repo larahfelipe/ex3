@@ -1,5 +1,6 @@
 import { api } from '@/lib/axios';
 import type { Pagination, WithId } from '@/types';
+import type { Asset } from './get-assets';
 
 export type TransactionType = 'BUY' | 'SELL';
 
@@ -12,7 +13,7 @@ export type TransactionProperties = {
   assetId: string;
 };
 
-export type GetTransactionPayload = Pick<Transaction, 'assetId'>;
+export type GetTransactionPayload = Pick<Asset, 'symbol'>;
 
 export interface Transaction extends WithId, TransactionProperties {}
 
@@ -22,4 +23,4 @@ type GetTransactionsResponse = {
 };
 
 export const getTransactions = async (payload: GetTransactionPayload) =>
-  await api.get<GetTransactionsResponse>(`/v1/transactions/${payload.assetId}`);
+  await api.get<GetTransactionsResponse>(`/v1/transactions/${payload.symbol}`);
