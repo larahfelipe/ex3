@@ -11,7 +11,7 @@ export interface InputProps
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, leftElement, ...props }, ref) => {
+  ({ className, type, disabled, leftElement, ...props }, ref) => {
     const [showPassword, setShowPassword] = React.useState(false);
 
     const isTypePassword = type === 'password';
@@ -32,6 +32,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             className
           )}
           ref={ref}
+          disabled={disabled}
           {...props}
         />
 
@@ -40,6 +41,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             type="button"
             variant="ghost"
             className="absolute right-0"
+            disabled={disabled}
             onClick={togglePasswordVisibility}
           >
             {showPassword ? <PiEye size={16} /> : <PiEyeClosed size={16} />}

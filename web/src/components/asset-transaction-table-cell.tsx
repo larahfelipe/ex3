@@ -11,7 +11,7 @@ import { useUser } from '@/hooks/use-user';
 import { Skeleton, TableCell } from './ui';
 
 type AssetTransactionTableCell = {
-  assetId: string;
+  symbol: string;
   itemRef: 'total_qty' | 'avg_price';
 };
 
@@ -19,40 +19,38 @@ const getTotalTransactionsTuple = (transactions: Array<Transaction>) => {
   const initialValue: [number, number] = [0, 0];
   if (!transactions?.length) return initialValue;
 
-  const totalTransactions = transactions.reduce<[number, number]>(
+  return transactions.reduce<[number, number]>(
     (acc, curr) =>
       curr.type === TRANSACTION_TYPES[0]
         ? [++acc[0], acc[1]]
         : [acc[0], ++acc[1]],
     initialValue
   );
-
-  return totalTransactions;
 };
 
 const getAssetPriceAverage = (transactions: Array<Transaction>) => {
   if (!transactions?.length) return 0;
 
-  const totalCost = transactions.reduce((acc, curr) => {
-    return acc + curr.price * curr.amount;
-  }, 0);
-  const totalAmount = transactions.reduce(
-    (acc, curr) => (acc += curr.amount),
-    0
+  const total = transactions.reduce(
+    (acc, curr) => ({
+      cost: acc.cost + curr.price * curr.amount,
+      amount: (acc.amount += curr.amount)
+    }),
+    { cost: 0, amount: 0 }
   );
 
-  return totalCost / totalAmount;
+  return total.cost / total.amount;
 };
 
 export const AssetTransactionTableCell: FC<AssetTransactionTableCell> = ({
-  assetId,
+  symbol,
   itemRef
 }): JSX.Element => {
   const { currency } = useUser();
 
   const { data: transactions = [], isLoading } = useQuery({
-    queryKey: ['transactions', assetId],
-    queryFn: () => getTransactions({ assetId }),
+    queryKey: ['transactions', symbol],
+    queryFn: () => getTransactions({ symbol }),
     select: ({ data }) => data.transactions,
     staleTime: 30_000
   });

@@ -16,41 +16,33 @@ export class PortfolioRepository {
   }
 
   async getAll() {
-    const portfolios = await this.prismaClient.portfolio.findMany();
-
-    return portfolios;
+    return this.prismaClient.portfolio.findMany();
   }
 
   async getByUserId(userId: string) {
-    const portfolio = await this.prismaClient.portfolio.findUnique({
+    return this.prismaClient.portfolio.findUnique({
       where: { userId }
     });
-
-    return portfolio;
   }
 
-  async add(relatedUserId: string) {
-    const newPortfolio = await this.prismaClient.portfolio.create({
+  async add(userId: string) {
+    return this.prismaClient.portfolio.create({
       data: {
         assets: {
           create: []
         },
         user: {
           connect: {
-            id: relatedUserId
+            id: userId
           }
         }
       }
     });
-
-    return newPortfolio;
   }
 
-  async delete(relatedUserId: string) {
-    await this.prismaClient.portfolio.delete({
-      where: {
-        userId: relatedUserId
-      }
+  async delete(userId: string) {
+    return this.prismaClient.portfolio.delete({
+      where: { userId }
     });
   }
 }

@@ -1,5 +1,4 @@
 import { AssetMessages, PortfolioMessages } from '@/config';
-import type { Transaction } from '@/domain/models';
 import { NotFoundError } from '@/errors';
 import type {
   AssetRepository,
@@ -7,8 +6,8 @@ import type {
   TransactionRepository
 } from '@/infra/database';
 
-export class GetAllTransactionsService {
-  private static INSTANCE: GetAllTransactionsService;
+export class GetTransactionsCountService {
+  private static INSTANCE: GetTransactionsCountService;
   private readonly transactionRepository: TransactionRepository;
   private readonly portfolioRepository: PortfolioRepository;
   private readonly assetRepository: AssetRepository;
@@ -28,22 +27,20 @@ export class GetAllTransactionsService {
     portfolioRepository: PortfolioRepository,
     assetRepository: AssetRepository
   ) {
-    if (!GetAllTransactionsService.INSTANCE)
-      GetAllTransactionsService.INSTANCE = new GetAllTransactionsService(
+    if (!GetTransactionsCountService.INSTANCE)
+      GetTransactionsCountService.INSTANCE = new GetTransactionsCountService(
         transactionRepository,
         portfolioRepository,
         assetRepository
       );
 
-    return GetAllTransactionsService.INSTANCE;
+    return GetTransactionsCountService.INSTANCE;
   }
 
   async execute({
     assetSymbol,
-    userId,
-    page,
-    limit
-  }: GetAllTransactionsService.DTO): Promise<GetAllTransactionsService.Result> {
+    userId
+  }: GetTransactionsCountService.DTO): Promise<GetTransactionsCountService.Result> {
     const portfolioExists = await this.portfolioRepository.getByUserId(userId);
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
@@ -56,29 +53,19 @@ export class GetAllTransactionsService {
 
     if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
-    const { pagination, docs: transactions } =
-      await this.transactionRepository.getAll({
-        page,
-        limit,
-        assetSymbol: assetExists.symbol
-      });
+    const [buyCount, sellCount] = await Promise.all([
+      this.transactionRepository.count({ type: 'BUY' }),
+      this.transactionRepository.count({ type: 'SELL' })
+    ]);
 
     return {
-      pagination,
-      transactions: transactions as Array<Transaction>
+      buy: buyCount,
+      sell: sellCount
     };
   }
 }
 
-namespace GetAllTransactionsService {
-  export type DTO = {
-    assetSymbol: string;
-    userId: string;
-    page?: number;
-    limit?: number;
-  };
-  export type Result = {
-    transactions: Array<Transaction>;
-    pagination: Record<'page' | 'limit' | 'total' | 'totalPages', number>;
-  };
+namespace GetTransactionsCountService {
+  export type DTO = Record<'assetSymbol' | 'userId', string>;
+  export type Result = Record<'buy' | 'sell', number>;
 }

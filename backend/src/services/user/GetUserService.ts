@@ -27,7 +27,10 @@ export class GetUserService {
     return GetUserService.INSTANCE;
   }
 
-  async execute({ email, password }: GetUserService.DTO) {
+  async execute({
+    email,
+    password
+  }: GetUserService.DTO): Promise<GetUserService.Result> {
     const userExists = await this.userRepository.getByEmail(email);
 
     if (userExists) {
@@ -46,12 +49,10 @@ export class GetUserService {
           accessToken: encryptedAccessToken
         });
 
-        const res: GetUserService.Result = {
+        return {
           ...user,
           accessToken: encryptedAccessToken
         };
-
-        return res;
       }
     }
 

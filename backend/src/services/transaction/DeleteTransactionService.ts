@@ -42,7 +42,10 @@ export class DeleteTransactionService {
     return DeleteTransactionService.INSTANCE;
   }
 
-  async execute({ id, userId }: DeleteTransactionService.DTO) {
+  async execute({
+    id,
+    userId
+  }: DeleteTransactionService.DTO): Promise<DeleteTransactionService.Result> {
     const portfolioExists = this.portfolioRepository.getByUserId(userId);
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
@@ -61,14 +64,12 @@ export class DeleteTransactionService {
           : 'increment',
       amount: transactionExists.amount,
       balance: transactionExists.price * transactionExists.amount,
-      id: transactionExists.assetId
+      symbol: transactionExists.assetSymbol
     });
 
-    const res: DeleteTransactionService.Result = {
+    return {
       message: TransactionMessages.DELETED
     };
-
-    return res;
   }
 }
 

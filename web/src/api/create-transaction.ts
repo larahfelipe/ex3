@@ -5,8 +5,9 @@ import type { Transaction, TransactionProperties } from './get-transactions';
 
 export type CreateTransactionPayload = Omit<
   TransactionProperties,
-  'createdAt' | 'updatedAt'
->;
+  'assetId' | 'createdAt' | 'updatedAt'
+> &
+  Record<'assetSymbol', string>;
 
 export interface CreateTransactionResponse extends WithMessage {
   transaction: Transaction;

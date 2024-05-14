@@ -9,5 +9,9 @@ export const GetTransactionsQuerySchema = z.object({
 });
 
 export const GetTransactionsParamsSchema = z.object({
-  assetId: z.string().transform((value) => value.trim())
+  assetSymbol: z
+    .string()
+    .min(1, 'Asset symbol must have at least 1 character')
+    .max(6, 'Asset symbol must have at most 6 characters')
+    .transform((value) => value.trim().toUpperCase())
 });

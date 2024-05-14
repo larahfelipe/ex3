@@ -1,3 +1,4 @@
+import type { TransactionTypes } from '@/config';
 import type { Transaction } from '@/domain/models';
 
 import { PrismaClient } from './PrismaClient';
@@ -17,21 +18,23 @@ export class TransactionRepository {
     return TransactionRepository.INSTANCE;
   }
 
-  async count() {
-    const count = await this.prismaClient.transaction.count();
+  async count(params?: TransactionRepository.GetCountParams) {
+    const { type } = params ?? {};
 
-    return count;
+    return type
+      ? await this.prismaClient.transaction.count({ where: { type } })
+      : await this.prismaClient.transaction.count();
   }
 
   async getAll(params: TransactionRepository.GetAllParams) {
-    const { assetId, limit, page = 1 } = params;
+    const { assetSymbol, limit, page = 1 } = params;
 
     const limitPerPage = limit || limit === 0 ? limit : 10;
 
     const [total, docs] = await Promise.all([
-      this.prismaClient.transaction.count({ where: { assetId } }),
+      this.prismaClient.transaction.count({ where: { assetSymbol } }),
       this.prismaClient.transaction.findMany({
-        where: { assetId },
+        where: { assetSymbol },
         take: limit !== 0 ? limitPerPage : undefined,
         skip: (page - 1) * limitPerPage || 0
       })
@@ -51,64 +54,53 @@ export class TransactionRepository {
   }
 
   async getById(id: string) {
-    const transaction = await this.prismaClient.transaction.findUnique({
+    return this.prismaClient.transaction.findUnique({
       where: { id }
     });
-
-    return transaction;
   }
 
   async add(params: TransactionRepository.AddParams) {
-    const { assetId, ...rest } = params;
+    const { assetSymbol, ...rest } = params;
 
-    const newTransaction = await this.prismaClient.transaction.create({
+    return this.prismaClient.transaction.create({
       data: {
         ...rest,
-        asset: {
-          connect: {
-            id: assetId
-          }
-        }
+        asset: { connect: { symbol: assetSymbol } }
       }
     });
-
-    return newTransaction;
   }
 
   async update(params: TransactionRepository.UpdateParams) {
     const { id, ...rest } = params;
 
-    const updatedTransaction = await this.prismaClient.transaction.update({
+    return this.prismaClient.transaction.update({
       where: { id },
       data: {
         ...rest
       }
     });
-
-    return updatedTransaction;
   }
 
   async delete(id: string) {
-    await this.prismaClient.transaction.delete({
+    return this.prismaClient.transaction.delete({
       where: { id }
     });
   }
 
-  async deleteAllByAssetId(assetId: string) {
-    const { count } = await this.prismaClient.transaction.deleteMany({
-      where: { assetId }
+  async deleteAllByAssetSymbol(assetSymbol: string) {
+    return this.prismaClient.transaction.deleteMany({
+      where: { assetSymbol }
     });
-
-    return count;
   }
 }
 
 namespace TransactionRepository {
   export type AddParams = Pick<
     Transaction,
-    'assetId' | 'type' | 'amount' | 'price'
+    'type' | 'amount' | 'price' | 'assetSymbol'
   >;
-  export type GetAllParams = Pick<Transaction, 'assetId'> & {
+  export type GetCountParams = Record<'type', keyof typeof TransactionTypes>;
+  export type GetAllParams = Pick<Transaction, 'assetSymbol'> & {
     page?: number;
     limit?: number;
   };

@@ -47,14 +47,17 @@ export class CreateTransactionService {
     type,
     price,
     amount,
-    assetId,
+    assetSymbol,
     userId
-  }: CreateTransactionService.DTO) {
+  }: CreateTransactionService.DTO): Promise<CreateTransactionService.Result> {
     const portfolioExists = await this.portfolioRepository.getByUserId(userId);
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
-    const assetExists = await this.assetRepository.getById(assetId);
+    const assetExists = await this.assetRepository.getBySymbol({
+      symbol: assetSymbol,
+      portfolioId: portfolioExists.id
+    });
 
     if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
@@ -65,7 +68,7 @@ export class CreateTransactionService {
       type,
       amount,
       price,
-      assetId
+      assetSymbol
     });
 
     await this.assetRepository.updatePosition({
@@ -75,21 +78,22 @@ export class CreateTransactionService {
           : 'decrement',
       amount: newTransaction.amount,
       balance: newTransaction.price * newTransaction.amount,
-      id: newTransaction.assetId
+      symbol: newTransaction.assetSymbol
     });
 
-    const res: CreateTransactionService.Result = {
+    return {
       transaction: newTransaction as Transaction,
       message: TransactionMessages.CREATED
     };
-
-    return res;
   }
 }
 
 namespace CreateTransactionService {
-  export type DTO = Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'> &
-    Record<'userId', string>;
+  export type DTO = Omit<
+    Transaction,
+    'id' | 'assetId' | 'createdAt' | 'updatedAt'
+  > &
+    Record<'userId' | 'assetSymbol', string>;
   export type Result = {
     transaction: Transaction;
     message: string;

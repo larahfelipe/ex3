@@ -38,7 +38,10 @@ export class DeleteAssetService {
     return DeleteAssetService.INSTANCE;
   }
 
-  async execute({ userId, symbol }: DeleteAssetService.DTO) {
+  async execute({
+    userId,
+    symbol
+  }: DeleteAssetService.DTO): Promise<DeleteAssetService.Result> {
     const portfolioExists = await this.portfolioRepository.getByUserId(userId);
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
@@ -53,18 +56,18 @@ export class DeleteAssetService {
     const assetHasTransactions = await this.transactionRepository.count();
 
     if (assetHasTransactions)
-      await this.transactionRepository.deleteAllByAssetId(assetExists.id);
+      await this.transactionRepository.deleteAllByAssetSymbol(
+        assetExists.symbol
+      );
 
     await this.assetRepository.delete({
       symbol,
       portfolioId: portfolioExists.id
     });
 
-    const res: DeleteAssetService.Result = {
+    return {
       message: AssetMessages.DELETED
     };
-
-    return res;
   }
 }
 

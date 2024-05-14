@@ -35,6 +35,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
   Select,
   SelectContent,
   SelectItem,
@@ -50,7 +56,7 @@ import {
   TableRow
 } from '@/components/ui';
 import { useUser } from '@/hooks/use-user';
-import type { Maybe, Pagination } from '@/types';
+import type { Maybe, Pagination as TPagination } from '@/types';
 
 import { AssetTransactionTableCell } from './asset-transaction-table-cell';
 
@@ -58,7 +64,7 @@ export type ActionType = (typeof TABLE_ACTIONS)[keyof typeof TABLE_ACTIONS];
 
 type AssetsState = {
   list: Array<Asset>;
-  pagination: Pagination;
+  pagination: TPagination;
   sort: GetAssetsParams['sort'];
 };
 
@@ -66,6 +72,15 @@ type AssetsTableProps = {
   caption?: string;
   revalidate: number;
   onAction: (type: ActionType, payload?: Asset) => void;
+};
+
+const LimitPerPageOptions = ['5', '10', '25', '50'];
+
+const PaginationInitialState: TPagination = {
+  page: 1,
+  total: 1,
+  totalPages: 1,
+  limit: +LimitPerPageOptions[0]
 };
 
 export const AssetsTable: FC<AssetsTableProps> = ({
@@ -78,8 +93,8 @@ export const AssetsTable: FC<AssetsTableProps> = ({
   const [enteredAssetSymbol, setEnteredAssetSymbol] = useState('');
   const [assetCollection, setAssetCollection] = useState<AssetsState>({
     list: [],
-    pagination: {} as Pagination,
-    sort: 'desc'
+    sort: 'desc',
+    pagination: PaginationInitialState
   });
 
   const { currency, changeCurrency } = useUser();
@@ -87,21 +102,28 @@ export const AssetsTable: FC<AssetsTableProps> = ({
   const searchParams = useSearchParams();
 
   const { data, isLoading, isRefetching, refetch } = useQuery({
-    queryKey: ['assets', assetCollection.sort],
-    queryFn: () => getAssets({ sort: assetCollection.sort }),
+    queryKey: ['assets', assetCollection.sort, assetCollection.pagination],
+    queryFn: () =>
+      getAssets({
+        sort: assetCollection.sort,
+        page: assetCollection.pagination.page,
+        limit: assetCollection.pagination.limit
+      }),
     select: ({ data }) => {
       const totalBalance = data.assets.reduce(
         (acc, curr) => (acc += curr.balance),
         0
       );
       const assetsWithDominance = data.assets.map((a) => {
-        a.dominance = formatNumber(a.balance / totalBalance, {
-          style: 'percent',
-          maximumFractionDigits: 2
-        });
+        a.dominance =
+          totalBalance > 0
+            ? formatNumber(a.balance / totalBalance, {
+                style: 'percent',
+                maximumFractionDigits: 2
+              })
+            : '0%';
         return a;
       });
-
       return {
         totalBalance,
         sort: data.sort.order,
@@ -123,6 +145,24 @@ export const AssetsTable: FC<AssetsTableProps> = ({
       sort: v as GetAssetsParams['sort']
     }));
 
+  const handleChangeRowsLimit = (v: string) =>
+    setAssetCollection((state) => ({
+      ...state,
+      pagination: {
+        ...state.pagination,
+        limit: +v
+      }
+    }));
+
+  const handleChangePage = (v: string) =>
+    setAssetCollection((state) => ({
+      ...state,
+      pagination: {
+        ...state.pagination,
+        page: +v
+      }
+    }));
+
   const handleChangeCurrency = (v: string) =>
     changeCurrency(v as keyof typeof CURRENCIES);
 
@@ -140,11 +180,13 @@ export const AssetsTable: FC<AssetsTableProps> = ({
   };
 
   useEffect(() => {
-    const assets = data?.assets;
-    if (!assets?.length) return;
+    if (!data) return;
+    const { sort, pagination, assets } = data;
 
     setAssetCollection((state) => ({
       ...state,
+      sort,
+      pagination,
       list: enteredAssetSymbol
         ? assets.filter(({ symbol }) =>
             symbol.includes(enteredAssetSymbol.toUpperCase())
@@ -164,10 +206,10 @@ export const AssetsTable: FC<AssetsTableProps> = ({
     const dialogCtxRef = searchParams.get('ref');
     if (!assetSymbol || !dialogCtxRef) return;
 
-    const assetExists = data.assets.find((a) => a.symbol === assetSymbol);
-    if (!assetExists) return;
-
-    handleOnAction(dialogCtxRef as ActionType, assetExists);
+    handleOnAction(
+      dialogCtxRef as ActionType,
+      { symbol: assetSymbol } as Asset
+    );
   }, [data, searchParams, handleOnAction]);
 
   return (
@@ -309,13 +351,15 @@ export const AssetsTable: FC<AssetsTableProps> = ({
 
         <TableBody>
           {(isLoading || isRefetching) &&
-            Array.from({ length: 6 }).map((_, i) => (
-              <TableRow key={i}>
-                <TableCell colSpan={8} align="center" className="p-3">
-                  <Skeleton className="w-full h-7" />
-                </TableCell>
-              </TableRow>
-            ))}
+            Array.from({ length: assetCollection.pagination.limit }).map(
+              (_, i) => (
+                <TableRow key={i}>
+                  <TableCell colSpan={8} align="center" className="p-3">
+                    <Skeleton className="w-full h-7" />
+                  </TableCell>
+                </TableRow>
+              )
+            )}
 
           {!isLoading && !isRefetching && !assetCollection.list.length && (
             <TableRow>
@@ -361,14 +405,14 @@ export const AssetsTable: FC<AssetsTableProps> = ({
 
                 <AssetTransactionTableCell
                   itemRef="avg_price"
-                  assetId={asset.id}
+                  symbol={asset.symbol}
                 />
 
                 <TableCell>{asset?.dominance ?? '-'}</TableCell>
 
                 <AssetTransactionTableCell
                   itemRef="total_qty"
-                  assetId={asset.id}
+                  symbol={asset.symbol}
                 />
 
                 <TableCell className="px-0">
@@ -424,37 +468,125 @@ export const AssetsTable: FC<AssetsTableProps> = ({
 
         {!isLoading && !isRefetching && !!assetCollection.list.length && (
           <TableFooter>
-            <TableRow>
-              <TableCell colSpan={7}>Total</TableCell>
+            <TableRow className="hover:bg-gray-50">
+              <TableCell className="px-3 py-1" colSpan={8}>
+                <div className="flex">
+                  <section className="w-1/2 flex justify-between">
+                    <div className="w-fit flex items-center gap-1.5">
+                      <span>Total</span>
 
-              <TableCell align="right">
-                <div className="w-fit flex items-center gap-1.5 font-semibold">
-                  <Select
-                    disabled={isLoading}
-                    defaultValue={currency}
-                    onValueChange={handleChangeCurrency}
-                  >
-                    <SelectTrigger
-                      aria-label="Currency"
-                      className="w-fit h-7 self-end sm:min-w-fit"
-                    >
-                      <SelectValue placeholder="Select currency" />
-                    </SelectTrigger>
+                      <Select
+                        disabled={isLoading}
+                        defaultValue={currency}
+                        onValueChange={handleChangeCurrency}
+                      >
+                        <SelectTrigger
+                          aria-label="Currency"
+                          className="w-fit h-7 sm:min-w-fit"
+                        >
+                          <SelectValue placeholder="Select currency" />
+                        </SelectTrigger>
 
-                    <SelectContent>
-                      {Object.values(CURRENCIES).map(({ id, symbol }) => (
-                        <SelectItem key={id} value={id}>
-                          {symbol}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        <SelectContent>
+                          {Object.values(CURRENCIES).map(({ id, symbol }) => (
+                            <SelectItem key={id} value={id}>
+                              {symbol}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
 
-                  <span>
-                    {formatNumber(data?.totalBalance ?? 0, {
-                      minimumFractionDigits: 2
-                    })}
-                  </span>
+                      <span className="font-semibold">
+                        {formatNumber(data?.totalBalance ?? 0, {
+                          minimumFractionDigits: 2
+                        })}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <Select
+                        disabled={isLoading}
+                        defaultValue={assetCollection.pagination.limit.toString()}
+                        onValueChange={handleChangeRowsLimit}
+                      >
+                        <SelectTrigger
+                          aria-label="Limit per page"
+                          className="w-fit h-7 sm:min-w-fit"
+                        >
+                          <SelectValue placeholder="Select limit" />
+                        </SelectTrigger>
+
+                        <SelectContent>
+                          {LimitPerPageOptions.map((value) => (
+                            <SelectItem key={value} value={value}>
+                              {value}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <span>rows</span>
+                    </div>
+                  </section>
+
+                  {!enteredAssetSymbol.length && (
+                    <section className="w-1/2">
+                      <Pagination className="justify-end">
+                        <PaginationContent className="hover:cursor-pointer">
+                          <Button
+                            variant="link"
+                            className="p-0"
+                            aria-label="Previous"
+                            disabled={assetCollection.pagination.page === 1}
+                          >
+                            <PaginationItem>
+                              <PaginationPrevious
+                                onClick={() =>
+                                  handleChangePage(
+                                    String(assetCollection.pagination.page - 1)
+                                  )
+                                }
+                              />
+                            </PaginationItem>
+                          </Button>
+                          {Array.from({
+                            length: assetCollection.pagination.totalPages
+                          }).map((_, i) => (
+                            <PaginationItem key={i}>
+                              <PaginationLink
+                                aria-label={`Page ${i + 1}`}
+                                isActive={
+                                  assetCollection.pagination.page === i + 1
+                                }
+                                onClick={() => handleChangePage(String(i + 1))}
+                              >
+                                {i + 1}
+                              </PaginationLink>
+                            </PaginationItem>
+                          ))}
+                          <Button
+                            variant="link"
+                            className="p-0"
+                            aria-label="Next"
+                            disabled={
+                              assetCollection.pagination.page ===
+                              assetCollection.pagination.totalPages
+                            }
+                          >
+                            <PaginationItem>
+                              <PaginationNext
+                                onClick={() =>
+                                  handleChangePage(
+                                    String(assetCollection.pagination.page + 1)
+                                  )
+                                }
+                              />
+                            </PaginationItem>
+                          </Button>
+                        </PaginationContent>
+                      </Pagination>
+                    </section>
+                  )}
                 </div>
               </TableCell>
             </TableRow>

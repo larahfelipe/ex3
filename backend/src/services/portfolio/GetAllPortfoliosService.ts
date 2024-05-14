@@ -19,16 +19,16 @@ export class GetAllPortfoliosService {
     return GetAllPortfoliosService.INSTANCE;
   }
 
-  async execute({ userIsAdmin }: GetAllPortfoliosService.DTO) {
+  async execute({
+    userIsAdmin
+  }: GetAllPortfoliosService.DTO): Promise<GetAllPortfoliosService.Result> {
     if (!userIsAdmin) throw new ForbiddenError();
 
     const allPortfolios = await this.portfolioRepository.getAll();
 
-    const res: GetAllPortfoliosService.Result = {
+    return {
       portfolios: allPortfolios as Array<Portfolio>
     };
-
-    return res;
   }
 }
 

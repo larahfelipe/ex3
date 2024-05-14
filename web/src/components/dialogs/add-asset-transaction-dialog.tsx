@@ -82,7 +82,7 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
     await onConfirm({
       ...payload,
       type: payload.type as TransactionType,
-      assetId: data.id
+      assetSymbol: data.symbol
     });
     reset();
   };

@@ -1,4 +1,4 @@
-import { type SortOrderTypes } from '@/config';
+import type { SortOrderTypes } from '@/config';
 import type { Asset } from '@/domain/models';
 
 import { PrismaClient } from './PrismaClient';
@@ -47,30 +47,26 @@ export class AssetRepository {
   }
 
   async getById(id: string) {
-    const asset = await this.prismaClient.asset.findUnique({
+    return this.prismaClient.asset.findUnique({
       where: { id }
     });
-
-    return asset;
   }
 
   async getBySymbol(params: AssetRepository.GetParams) {
     const { symbol, portfolioId } = params;
 
-    const asset = await this.prismaClient.asset.findFirst({
+    return this.prismaClient.asset.findUnique({
       where: {
         portfolioId,
         symbol
       }
     });
-
-    return asset;
   }
 
   async add(params: AssetRepository.AddParams) {
     const { symbol, portfolioId } = params;
 
-    const newAsset = await this.prismaClient.asset.create({
+    return this.prismaClient.asset.create({
       data: {
         symbol,
         transactions: {
@@ -83,14 +79,12 @@ export class AssetRepository {
         }
       }
     });
-
-    return newAsset;
   }
 
   async update(params: AssetRepository.UpdateParams) {
     const { oldSymbol, newSymbol, portfolioId } = params;
 
-    const updatedAsset = await this.prismaClient.asset.updateMany({
+    return this.prismaClient.asset.updateMany({
       where: {
         symbol: oldSymbol,
         portfolioId
@@ -99,15 +93,13 @@ export class AssetRepository {
         symbol: newSymbol
       }
     });
-
-    return updatedAsset.count;
   }
 
   async updatePosition(params: AssetRepository.UpdatePositionParams) {
-    const { id, operation, amount, balance } = params;
+    const { symbol, operation, amount, balance } = params;
 
-    const updatedAsset = await this.prismaClient.asset.update({
-      where: { id },
+    return this.prismaClient.asset.update({
+      where: { symbol },
       data: {
         amount: {
           [operation]: amount
@@ -117,21 +109,17 @@ export class AssetRepository {
         }
       }
     });
-
-    return updatedAsset;
   }
 
   async delete(params: AssetRepository.DeleteParams) {
     const { symbol, portfolioId } = params;
 
-    const deletedAsset = await this.prismaClient.asset.deleteMany({
+    return this.prismaClient.asset.deleteMany({
       where: {
         symbol,
         portfolioId
       }
     });
-
-    return deletedAsset.count;
   }
 }
 
@@ -149,7 +137,7 @@ namespace AssetRepository {
   };
   export type UpdatePositionParams = Pick<
     Asset,
-    'id' | 'amount' | 'balance'
+    'symbol' | 'amount' | 'balance'
   > & {
     operation: 'increment' | 'decrement';
   };
