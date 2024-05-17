@@ -158,7 +158,7 @@ export default function Dashboard() {
         />
       )}
 
-      <div className="mt-12 sm:mx-4">
+      <div className="h-fit p-3 mt-12 rounded-lg border-[1px] border-gray-200 bg-white sm:p-5 sm:mx-4">
         <AssetsTable revalidate={revalidateKey} onAction={handleAction} />
       </div>
     </>

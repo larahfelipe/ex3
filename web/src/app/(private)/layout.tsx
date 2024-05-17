@@ -25,7 +25,7 @@ export default function Layout({ children }: Readonly<Children>) {
     );
 
   return (
-    <main className="h-lvh flex flex-col sm:grid sm:grid-cols-[175px_auto]">
+    <main className="h-lvh flex flex-col bg-gray-50 sm:grid sm:grid-cols-[175px_auto]">
       <Sidebar />
 
       {children}

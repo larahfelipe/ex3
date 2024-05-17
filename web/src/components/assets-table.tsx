@@ -213,22 +213,22 @@ export const AssetsTable: FC<AssetsTableProps> = ({
   }, [data, searchParams, handleOnAction]);
 
   return (
-    <div className="flex flex-col gap-20 sm:gap-4">
-      <div className="h-8 flex flex-col gap-3 mx-1 sm:flex-row sm:justify-between max-sm:mx-4 max-sm:mb-6">
+    <div className="space-y-[8rem] sm:space-y-6">
+      <section className="h-8 flex flex-col gap-3 mx-1 sm:flex-row sm:justify-between max-sm:mb-12">
         <Input
           placeholder="Search asset..."
-          className="sm:w-[12rem] bg-gray-50"
+          className="sm:w-[12rem]"
           disabled={isLoading}
           onChange={handleChangeEnteredAssetName}
           leftElement={<IoSearchOutline size={16} className="text-gray-500" />}
         />
 
         {!isAssetSelectionActive && (
-          <div className="flex items-center sm:gap-2">
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:gap-2">
             <Button
               variant="outline"
               aria-label="Refresh"
-              className="h-8 sm:self-end"
+              className="h-8 sm:self-end max-sm:w-full"
               disabled={isLoading || isRefetching}
               onClick={() => refetch()}
             >
@@ -246,7 +246,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
               <DropdownMenuTrigger asChild>
                 <Button
                   aria-label="Add"
-                  className="h-8 sm:self-end"
+                  className="h-8 sm:self-end max-sm:w-full"
                   disabled={isLoading}
                 >
                   Add
@@ -302,7 +302,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
             </Button>
           </div>
         )}
-      </div>
+      </section>
 
       <Table>
         {caption && <TableCaption>{caption}</TableCaption>}

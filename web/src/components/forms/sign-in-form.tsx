@@ -22,9 +22,9 @@ export const SignInForm: FC = () => {
     register,
     reset,
     handleSubmit,
-    formState: { errors, isSubmitting, isValid }
+    formState: { errors, isSubmitting }
   } = useForm<z.infer<typeof signInSchema>>({
-    mode: 'onBlur',
+    mode: 'onChange',
     resolver: zodResolver(signInSchema),
     defaultValues: {
       email: '',
@@ -86,7 +86,7 @@ export const SignInForm: FC = () => {
 
       <Button
         type="submit"
-        disabled={isSubmitting || !isValid}
+        disabled={isSubmitting}
         className="w-full mt-12 p-6"
         aria-label="Login"
       >

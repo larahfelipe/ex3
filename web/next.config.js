@@ -11,6 +11,9 @@ style-src 'self' 'unsafe-inline' https://fonts.gstatic.com https://fonts.googlea
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   distDir: 'build',
+  images: {
+    unoptimized: true
+  },
   headers: async () => {
     return [
       {

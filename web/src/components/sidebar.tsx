@@ -75,7 +75,7 @@ export const Sidebar: FC = () => {
             variant={path === activeSectionPath ? variant : 'ghost'}
             aria-label={text}
             className={twMerge(
-              `transition-all duration-200 hover:brightness-95 sm:w-full active:scale-90 ${path === activeSectionPath && 'bg-gray-200'}`,
+              `transition-all duration-200 hover:brightness-95 sm:w-full active:scale-90 ${path === activeSectionPath && 'bg-gray-100'}`,
               className?.button
             )}
             onClick={onClick}
@@ -104,7 +104,7 @@ export const Sidebar: FC = () => {
   );
 
   return (
-    <nav className="h-[60px] flex items-center relative bg-gray-50 border-[1px] border-gray-200 sm:h-lvh sm:flex-col">
+    <nav className="h-[60px] flex items-center relative bg-white border-[1px] border-gray-200 sm:h-lvh sm:flex-col">
       <section className="max-sm:ml-4 sm:mt-3">
         <h2
           className={twMerge(

@@ -18,7 +18,7 @@ export default function SignUp() {
       <section className="mx-auto space-y-1.5">
         <h2
           className={twMerge(
-            'text-lg font-bold text-gray-700 text-center',
+            'text-lg font-semibold text-gray-700 text-center',
             raleway.className
           )}
         >
@@ -27,7 +27,7 @@ export default function SignUp() {
 
         <div className="w-full h-[1px] bg-gray-100" />
 
-        <h2 className="text-md font-bold text-gray-500 text-center">
+        <h2 className="text-md font-semibold text-gray-500 text-center">
           Create your account
         </h2>
       </section>

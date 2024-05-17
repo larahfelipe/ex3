@@ -40,9 +40,9 @@ export const SignUpForm: FC = () => {
     register,
     reset,
     handleSubmit,
-    formState: { errors, isSubmitting, isValid }
+    formState: { errors, isSubmitting }
   } = useForm<z.infer<typeof signUpSchema>>({
-    mode: 'onBlur',
+    mode: 'onChange',
     resolver: zodResolver(signUpSchema),
     defaultValues: {
       name: '',
@@ -142,7 +142,7 @@ export const SignUpForm: FC = () => {
 
       <Button
         type="submit"
-        disabled={isSubmitting || !isValid}
+        disabled={isSubmitting}
         className="w-full mt-12 p-6"
         aria-label="Register"
       >

@@ -4,6 +4,9 @@ import { Suspense, type FC, type ReactNode } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { IoRefresh } from 'react-icons/io5';
 
+import { AppProgressBar } from 'next-nprogress-bar';
+import Image from 'next/image';
+
 import {
   QueryClientProvider,
   QueryErrorResetBoundary
@@ -58,7 +61,54 @@ export const AppProvider: FC<Readonly<Children>> = ({ children }) => (
   <QueryClientProvider client={queryClient}>
     <ReactQueryDevtools initialIsOpen={false} />
 
-    <Toaster richColors />
+    <AppProgressBar
+      shallowRouting
+      height="3px"
+      color="#000"
+      options={{ showSpinner: false }}
+    />
+
+    <Toaster
+      position="bottom-right"
+      icons={{
+        error: (
+          <Image
+            src="/icons/error-icon.svg"
+            alt="Error icon"
+            width={32}
+            height={32}
+          />
+        ),
+        success: (
+          <Image
+            src="/icons/success-icon.svg"
+            alt="Success icon"
+            width={32}
+            height={32}
+          />
+        ),
+        warning: (
+          <Image
+            src="/icons/warning-icon.svg"
+            alt="Warning icon"
+            width={32}
+            height={32}
+          />
+        )
+      }}
+      toastOptions={{
+        style: {
+          height: '64px'
+        },
+        classNames: {
+          icon: 'w-[32px] h-[32px]',
+          title: 'text-[14px]',
+          error: 'border-b-[3px] border-b-red-500',
+          success: 'border-b-[3px] border-b-emerald-500',
+          warning: 'border-b-[3px] border-b-yellow-500'
+        }
+      }}
+    />
 
     <QueryErrorResetBoundary>
       {({ reset }) => (

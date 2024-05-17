@@ -1,15 +1,19 @@
+/* eslint-disable react/jsx-newline */
 'use client';
 
 import { useEffect } from 'react';
 
+import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { Loader2 } from 'lucide-react';
-import { twMerge } from 'tailwind-merge';
 
-import { raleway } from '@/common/constants';
+import { currentYear } from '@/common/utils';
 import { useUser } from '@/hooks/use-user';
 import type { Children } from '@/types';
+
+import pkg from '../../../package.json';
 
 export default function Layout({ children }: Readonly<Children>) {
   const { isLoading, user } = useUser();
@@ -30,20 +34,26 @@ export default function Layout({ children }: Readonly<Children>) {
     );
 
   return (
-    <main className="h-screen relative bg-gray-50 lg:grid-cols-2 md:grid">
-      <aside className="absolute right-10 bottom-5">
-        <span
-          className={twMerge(
-            'italic text-[128px] font-extrabold leading-tight text-gray-100 cursor-default',
-            raleway.className
-          )}
-        >
-          EX3
-        </span>
+    <main className="h-screen lg:grid lg:grid-cols-2">
+      <aside className="h-full flex flex-col justify-center align-center relative space-y-8 bg-white">
+        {children}
+
+        <Link href={pkg.author.url} className="absolute bottom-3 self-center">
+          <p className="text-sm text-gray-700">
+            © {pkg.author.name} {currentYear} - v.{pkg.version}
+          </p>
+        </Link>
       </aside>
 
-      <aside className="h-full flex flex-col justify-center align-center relative space-y-8 shadow-sm bg-white border-[1px] border-gray-200">
-        {children}
+      <aside className="relative max-sm:hidden">
+        <Image
+          priority
+          fill
+          objectFit="cover"
+          src="/login-hero.jpeg"
+          alt="Login Hero"
+          className="absolute"
+        />
       </aside>
     </main>
   );
