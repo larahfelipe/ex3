@@ -89,11 +89,8 @@ export class CreateTransactionService {
 }
 
 namespace CreateTransactionService {
-  export type DTO = Omit<
-    Transaction,
-    'id' | 'assetId' | 'createdAt' | 'updatedAt'
-  > &
-    Record<'userId' | 'assetSymbol', string>;
+  export type DTO = Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'> &
+    Record<'userId', string>;
   export type Result = {
     transaction: Transaction;
     message: string;

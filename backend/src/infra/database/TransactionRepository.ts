@@ -75,9 +75,7 @@ export class TransactionRepository {
 
     return this.prismaClient.transaction.update({
       where: { id },
-      data: {
-        ...rest
-      }
+      data: { ...rest }
     });
   }
 
