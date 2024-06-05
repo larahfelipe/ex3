@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useReducer, useState } from 'react';
+import { useCallback, useReducer, useRef } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
 import { useSearchParams } from 'next/navigation';
@@ -15,7 +15,11 @@ import { deleteAsset } from '@/api/delete-asset';
 import type { Asset } from '@/api/get-assets';
 import { TRANSACTION_TYPES } from '@/common/constants';
 import { replaceUrl } from '@/common/utils';
-import { AssetsTable, type ActionType } from '@/components/assets-table';
+import {
+  AssetsTable,
+  type ActionType,
+  type AssetsTableRef
+} from '@/components/assets-table';
 import {
   AddAssetDialog,
   AddAssetSchema,
@@ -25,6 +29,7 @@ import {
   type AddAssetSchemaType,
   type AddAssetTransactionSchemaType
 } from '@/components/dialogs';
+import { Card } from '@/components/ui';
 import type { Maybe } from '@/types';
 
 type DialogContext<TRef, TData = unknown> = {
@@ -60,9 +65,9 @@ const reducer = (state: ReducerState, action: ReducerAction): ReducerState => {
   };
 };
 
-export default function Dashboard() {
+export default function Home() {
   const [dialog, dispatch] = useReducer(reducer, initialState);
-  const [revalidateKey, setRevalidateKey] = useState(0);
+  const assetsTableRef = useRef<AssetsTableRef>(null);
 
   const addAssetFormMethods = useForm<AddAssetSchemaType>({
     mode: 'onChange',
@@ -98,9 +103,9 @@ export default function Dashboard() {
 
   const { mutateAsync: createAssetMutation } = useMutation({
     mutationFn: createAsset,
-    onSuccess: ({ data }) => {
+    onSuccess: async ({ data }) => {
       toast.success(data.message);
-      setRevalidateKey((prev) => prev + 1);
+      await assetsTableRef.current?.refetchData();
     },
     onError: (e: string) => toast.error(e)
   });
@@ -109,7 +114,6 @@ export default function Dashboard() {
     mutationFn: createTransaction,
     onSuccess: ({ data }) => {
       toast.success(data.message);
-      setRevalidateKey((prev) => prev + 1);
       if (searchParams.size) replaceUrl(window.location.pathname);
     },
     onError: (e: string) => toast.error(e)
@@ -117,10 +121,10 @@ export default function Dashboard() {
 
   const { mutateAsync: deleteAssetMutation } = useMutation({
     mutationFn: deleteAsset,
-    onSuccess: ({ data }) => {
+    onSuccess: async ({ data }) => {
       handleCloseDialog();
       toast.success(data.message);
-      setRevalidateKey((prev) => prev + 1);
+      await assetsTableRef.current?.refetchData();
     },
     onError: (e: string) => toast.error(e)
   });
@@ -158,9 +162,9 @@ export default function Dashboard() {
         />
       )}
 
-      <div className="h-fit p-3 mt-12 rounded-lg border-[1px] border-gray-200 bg-white sm:p-5 sm:mx-4">
-        <AssetsTable revalidate={revalidateKey} onAction={handleAction} />
-      </div>
+      <Card className="h-fit mt-12 shadow-none sm:p-5 sm:mx-4 max-sm:py-5">
+        <AssetsTable ref={assetsTableRef} onAction={handleAction} />
+      </Card>
     </>
   );
 }

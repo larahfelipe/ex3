@@ -9,8 +9,6 @@ import {
   type FC
 } from 'react';
 
-import { useRouter } from 'next/navigation';
-
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -47,8 +45,6 @@ const UserProvider: FC<Readonly<Children>> = ({ children }) => {
     CURRENCIES.BRL.id
   );
 
-  const { push } = useRouter();
-
   const changeCurrency = useCallback(
     (c: keyof typeof CURRENCIES) => setCurrency(c),
     []
@@ -82,18 +78,20 @@ const UserProvider: FC<Readonly<Children>> = ({ children }) => {
     setUser(null);
     api.defaults.headers.Authorization = null;
     localStorage.clear();
-    push('/sign-in');
     toast.success('Logged out successfully');
-  }, [push]);
+  }, []);
 
   const loadUserFromStorage = useCallback(() => {
-    const maybeUser = localStorage.getItem(EX3_USER_STORAGE_KEY);
-    if (maybeUser) {
-      const userData: User = JSON.parse(maybeUser);
-      api.defaults.headers.Authorization = `Bearer ${userData.accessToken}`;
-      setUser(userData);
+    try {
+      const maybeUser = localStorage.getItem(EX3_USER_STORAGE_KEY);
+      if (maybeUser) {
+        const userData: User = JSON.parse(maybeUser);
+        api.defaults.headers.Authorization = `Bearer ${userData.accessToken}`;
+        setUser(userData);
+      }
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
   const memoizedValues = useMemo(

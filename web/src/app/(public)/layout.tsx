@@ -1,11 +1,9 @@
 /* eslint-disable react/jsx-newline */
 'use client';
 
-import { useEffect } from 'react';
-
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { redirect } from 'next/navigation';
 
 import { Loader2 } from 'lucide-react';
 
@@ -18,15 +16,9 @@ import pkg from '../../../package.json';
 export default function Layout({ children }: Readonly<Children>) {
   const { isLoading, user } = useUser();
 
-  const { replace } = useRouter();
+  if (!isLoading && user) redirect('/home');
 
-  useEffect(() => {
-    if (!isLoading && user) {
-      replace('/dashboard');
-    }
-  }, [isLoading, user, replace]);
-
-  if (isLoading || user)
+  if (isLoading)
     return (
       <main className="h-lvh flex">
         <Loader2 className="m-auto size-6 animate-spin" />
@@ -34,12 +26,12 @@ export default function Layout({ children }: Readonly<Children>) {
     );
 
   return (
-    <main className="h-screen lg:grid lg:grid-cols-2">
-      <aside className="h-full flex flex-col justify-center align-center relative space-y-8 bg-white">
+    <main className="h-screen bg-black lg:grid lg:grid-cols-2">
+      <aside className="h-full flex flex-col justify-center align-center relative space-y-8">
         {children}
 
         <Link href={pkg.author.url} className="absolute bottom-3 self-center">
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-gray-500">
             © {pkg.author.name} {currentYear} - v.{pkg.version}
           </p>
         </Link>

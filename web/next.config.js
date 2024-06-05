@@ -14,6 +14,13 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
+  redirects: async () => [
+    {
+      source: '/',
+      destination: '/home',
+      permanent: true
+    }
+  ],
   headers: async () => {
     return [
       {

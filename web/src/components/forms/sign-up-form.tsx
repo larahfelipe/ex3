@@ -69,9 +69,7 @@ export const SignUpForm: FC = () => {
     <form onSubmit={handleSubmit(signUpHandler)}>
       <div className="flex-col align-center space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="name" className="text-gray-700">
-            Name
-          </Label>
+          <Label htmlFor="name">Name</Label>
 
           <Input
             id="name"
@@ -86,9 +84,7 @@ export const SignUpForm: FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-gray-700">
-            Email
-          </Label>
+          <Label htmlFor="email">Email</Label>
 
           <Input
             type="email"
@@ -104,9 +100,7 @@ export const SignUpForm: FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-gray-700">
-            Password
-          </Label>
+          <Label htmlFor="password">Password</Label>
 
           <Input
             type="password"
@@ -121,9 +115,7 @@ export const SignUpForm: FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="confirmPassword" className="text-gray-700">
-            Confirm password
-          </Label>
+          <Label htmlFor="confirmPassword">Confirm password</Label>
 
           <Input
             type="password"

@@ -31,7 +31,7 @@ export class GetAllTransactionsController implements Controller {
     const { user, params, query } = req;
 
     try {
-      const [{ assetSymbol }, { page, limit }] = await Promise.all([
+      const [{ assetSymbol }, { page, limit, lastId }] = await Promise.all([
         validate(GetTransactionsParamsSchema, params),
         validate(GetTransactionsQuerySchema, query)
       ]);
@@ -40,6 +40,7 @@ export class GetAllTransactionsController implements Controller {
         assetSymbol,
         page,
         limit,
+        lastId,
         userId: user.id
       });
 

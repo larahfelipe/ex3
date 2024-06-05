@@ -42,7 +42,8 @@ export class GetAllTransactionsService {
     assetSymbol,
     userId,
     page,
-    limit
+    limit,
+    lastId
   }: GetAllTransactionsService.DTO): Promise<GetAllTransactionsService.Result> {
     const portfolioExists = await this.portfolioRepository.getByUserId(userId);
 
@@ -60,6 +61,7 @@ export class GetAllTransactionsService {
       await this.transactionRepository.getAll({
         page,
         limit,
+        lastId,
         assetSymbol: assetExists.symbol
       });
 
@@ -76,9 +78,16 @@ namespace GetAllTransactionsService {
     userId: string;
     page?: number;
     limit?: number;
+    lastId?: string;
   };
   export type Result = {
     transactions: Array<Transaction>;
-    pagination: Record<'page' | 'limit' | 'total' | 'totalPages', number>;
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      lastId: string | null;
+    };
   };
 }

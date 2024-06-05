@@ -34,8 +34,8 @@ type SectionButtonProps = Pick<ButtonProps, 'variant' | 'onClick'> & {
 
 const sections = [
   {
-    name: 'Dashboard',
-    path: '/dashboard'
+    name: 'Home',
+    path: '/home'
   },
   {
     name: 'Account',
@@ -75,7 +75,7 @@ export const Sidebar: FC = () => {
             variant={path === activeSectionPath ? variant : 'ghost'}
             aria-label={text}
             className={twMerge(
-              `transition-all duration-200 hover:brightness-95 sm:w-full active:scale-90 ${path === activeSectionPath && 'bg-gray-100'}`,
+              `transition-all duration-200 sm:w-full active:scale-90 ${path === activeSectionPath && 'bg-muted/70'}`,
               className?.button
             )}
             onClick={onClick}
@@ -104,11 +104,11 @@ export const Sidebar: FC = () => {
   );
 
   return (
-    <nav className="h-[60px] flex items-center relative bg-white border-[1px] border-gray-200 sm:h-lvh sm:flex-col">
+    <nav className="h-[60px] flex items-center relative border sm:h-lvh sm:flex-col">
       <section className="max-sm:ml-4 sm:mt-3">
         <h2
           className={twMerge(
-            'text-lg font-bold text-gray-700 text-center cursor-default',
+            'text-lg font-bold text-center cursor-default',
             raleway.className
           )}
         >
@@ -118,7 +118,7 @@ export const Sidebar: FC = () => {
 
       <section className="max-sm:ml-8 sm:w-[95%] sm:mt-8">
         <SidebarBtn
-          text="Dashboard"
+          text={sections[0].name}
           path={sections[0].path}
           onClick={() => changeActiveSectionPath(sections[0].path)}
           left={<RxDashboard size={18} />}
@@ -137,8 +137,8 @@ export const Sidebar: FC = () => {
           text="Logout"
           variant="ghost"
           onClick={signOut}
-          className={{ button: 'hover:bg-red-50', text: 'text-red-600' }}
-          left={<IoExitOutline size={18} className="text-red-600" />}
+          className={{ button: 'hover:bg-red-950/40', text: 'text-red-500' }}
+          left={<IoExitOutline size={18} className="text-red-500" />}
         />
       </section>
     </nav>
