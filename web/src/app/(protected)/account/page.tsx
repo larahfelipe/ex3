@@ -18,8 +18,6 @@ export default function Account() {
 
   if (!user) return null;
 
-  const [firstName, lastName] = user.name.split(' ');
-
   return (
     <div className="space-y-12 sm:mx-4">
       <Card className="mt-12 shadow-none">
@@ -33,17 +31,23 @@ export default function Account() {
           <section className="space-y-1.5">
             <Label htmlFor="name">Name</Label>
 
-            <div className="flex gap-3">
-              <Input disabled id="name" value={firstName} />
-
-              <Input disabled id="name" value={lastName} />
-            </div>
+            <Input
+              disabled
+              id="name"
+              value={user.name}
+              className="bg-zinc-900"
+            />
           </section>
 
           <section className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
 
-            <Input disabled id="email" value={user.email} />
+            <Input
+              disabled
+              id="email"
+              value={user.email}
+              className="bg-zinc-900"
+            />
           </section>
 
           <section className="space-y-1.5">
@@ -53,6 +57,7 @@ export default function Account() {
               disabled
               id="email"
               value={new Date(user.createdAt).toString()}
+              className="bg-zinc-900"
             />
           </section>
         </CardContent>
@@ -77,13 +82,21 @@ export default function Account() {
           <section className="space-y-1.5">
             <Label>Old password</Label>
 
-            <Input type="password" placeholder="Enter your password" />
+            <Input
+              type="password"
+              placeholder="Enter your password"
+              className="bg-zinc-900"
+            />
           </section>
 
           <section className="space-y-1.5">
             <Label>New password</Label>
 
-            <Input type="password" placeholder="Enter your new password" />
+            <Input
+              type="password"
+              placeholder="Enter your new password"
+              className="bg-zinc-900"
+            />
           </section>
         </CardContent>
 

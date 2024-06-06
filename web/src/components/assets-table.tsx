@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useState,
   type ChangeEvent
 } from 'react';
@@ -74,10 +75,8 @@ type AssetsTableProps = {
 
 const LimitPerPageOptions = ['5', '10', '25', '50'];
 
-const PaginationInitialState: TPagination = {
+const PaginationInitialState: Pick<TPagination, 'page' | 'limit'> = {
   page: 1,
-  total: 1,
-  totalPages: 1,
   limit: +LimitPerPageOptions[0]
 };
 
@@ -86,9 +85,8 @@ export const AssetsTable = forwardRef<AssetsTableRef, AssetsTableProps>(
     const [isAssetSelectionActive, setIsAssetSelectionActive] = useState(false);
     const [selectedAsset, setSelectedAsset] = useState<Maybe<Asset>>(null);
     const [enteredAssetSymbol, setEnteredAssetSymbol] = useState('');
-    const [sort, setSort] = useState<GetAssetsParams['sort']>('desc');
     const [pagination, setPagination] = useState(PaginationInitialState);
-    const [assets, setAssets] = useState<Array<Asset>>([]);
+    const [sort, setSort] = useState<GetAssetsParams['sort']>('desc');
 
     const { currency, changeCurrency } = useUser();
 
@@ -127,6 +125,16 @@ export const AssetsTable = forwardRef<AssetsTableRef, AssetsTableProps>(
       staleTime: 60_000
     });
 
+    const assets = useMemo(
+      () =>
+        enteredAssetSymbol.length
+          ? (data?.assets || []).filter(({ symbol }) =>
+              symbol.includes(enteredAssetSymbol.toUpperCase())
+            )
+          : data?.assets || [],
+      [enteredAssetSymbol, data]
+    );
+
     const handleChangeEnteredAssetName = (e: ChangeEvent<HTMLInputElement>) => {
       const { value } = e.target;
       setEnteredAssetSymbol(value);
@@ -141,10 +149,10 @@ export const AssetsTable = forwardRef<AssetsTableRef, AssetsTableProps>(
         limit: +v
       }));
 
-    const handleChangePage = (v: string) =>
+    const handleChangePage = (v: number) =>
       setPagination((state) => ({
         ...state,
-        page: +v
+        page: v
       }));
 
     const handleChangeCurrency = (v: string) =>
@@ -170,20 +178,6 @@ export const AssetsTable = forwardRef<AssetsTableRef, AssetsTableProps>(
     }));
 
     useEffect(() => {
-      if (!data) return;
-
-      setAssets(
-        enteredAssetSymbol.length
-          ? data.assets.filter(({ symbol }) =>
-              symbol.includes(enteredAssetSymbol.toUpperCase())
-            )
-          : data.assets
-      );
-      setSort(data.sort);
-      setPagination(data.pagination);
-    }, [data, enteredAssetSymbol]);
-
-    useEffect(() => {
       if (!data?.assets?.length) return;
 
       const assetSymbol = searchParams.get('symbol');
@@ -201,7 +195,7 @@ export const AssetsTable = forwardRef<AssetsTableRef, AssetsTableProps>(
         <section className="h-8 flex flex-col gap-3 mx-1 sm:flex-row sm:justify-between max-sm:mb-12">
           <Input
             placeholder="Search asset..."
-            className="sm:w-[12rem]"
+            className="sm:w-[12rem] bg-zinc-900"
             disabled={isLoading}
             onChange={handleChangeEnteredAssetName}
             leftElement={
@@ -214,7 +208,7 @@ export const AssetsTable = forwardRef<AssetsTableRef, AssetsTableProps>(
               <Button
                 variant="outline"
                 aria-label="Refresh"
-                className="h-8 sm:self-end max-sm:w-full"
+                className="h-8 bg-zinc-900 sm:self-end max-sm:w-full"
                 disabled={isLoading || isRefetching}
                 onClick={() => refetch()}
               >
@@ -455,8 +449,8 @@ export const AssetsTable = forwardRef<AssetsTableRef, AssetsTableProps>(
           </TableBody>
 
           {!isLoading && !isRefetching && !!assets.length && (
-            <TableFooter>
-              <TableRow className="bg-zinc-950 hover:bg-zinc-950">
+            <TableFooter className="bg-transparent">
+              <TableRow className="hover:bg-transparent">
                 <TableCell className="px-3 py-1" colSpan={8}>
                   <div className="flex">
                     <section className="w-1/2 flex justify-between">
@@ -470,7 +464,7 @@ export const AssetsTable = forwardRef<AssetsTableRef, AssetsTableProps>(
                         >
                           <SelectTrigger
                             aria-label="Currency"
-                            className="w-fit h-7 sm:min-w-fit"
+                            className="w-fit h-7 bg-zinc-900 sm:min-w-fit"
                           >
                             <SelectValue placeholder="Select currency" />
                           </SelectTrigger>
@@ -499,7 +493,7 @@ export const AssetsTable = forwardRef<AssetsTableRef, AssetsTableProps>(
                         >
                           <SelectTrigger
                             aria-label="Limit per page"
-                            className="w-fit h-7 sm:min-w-fit"
+                            className="w-fit h-7 bg-zinc-900 sm:min-w-fit"
                           >
                             <SelectValue placeholder="Select limit" />
                           </SelectTrigger>
@@ -517,10 +511,10 @@ export const AssetsTable = forwardRef<AssetsTableRef, AssetsTableProps>(
                       </div>
                     </section>
 
-                    {!enteredAssetSymbol.length && (
+                    {!enteredAssetSymbol.length && data?.pagination && (
                       <section className="w-1/2">
                         <Pagination className="justify-end">
-                          <PaginationContent className="hover:cursor-pointer [&>*]:text-gray-300">
+                          <PaginationContent className="hover:cursor-pointer [&>*]:text-gray-200">
                             <Button
                               variant="link"
                               className="p-0"
@@ -530,23 +524,19 @@ export const AssetsTable = forwardRef<AssetsTableRef, AssetsTableProps>(
                               <PaginationItem>
                                 <PaginationPrevious
                                   onClick={() =>
-                                    handleChangePage(
-                                      String(pagination.page - 1)
-                                    )
+                                    handleChangePage(pagination.page - 1)
                                   }
                                 />
                               </PaginationItem>
                             </Button>
                             {Array.from({
-                              length: pagination.totalPages
+                              length: data.pagination.totalPages
                             }).map((_, i) => (
                               <PaginationItem key={i}>
                                 <PaginationLink
                                   aria-label={`Page ${i + 1}`}
                                   isActive={pagination.page === i + 1}
-                                  onClick={() =>
-                                    handleChangePage(String(i + 1))
-                                  }
+                                  onClick={() => handleChangePage(i + 1)}
                                 >
                                   {i + 1}
                                 </PaginationLink>
@@ -557,15 +547,13 @@ export const AssetsTable = forwardRef<AssetsTableRef, AssetsTableProps>(
                               className="p-0"
                               aria-label="Next"
                               disabled={
-                                pagination.page === pagination.totalPages
+                                pagination.page === data.pagination.totalPages
                               }
                             >
                               <PaginationItem>
                                 <PaginationNext
                                   onClick={() =>
-                                    handleChangePage(
-                                      String(pagination.page + 1)
-                                    )
+                                    handleChangePage(pagination.page + 1)
                                   }
                                 />
                               </PaginationItem>

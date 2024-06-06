@@ -104,11 +104,11 @@ export const Sidebar: FC = () => {
   );
 
   return (
-    <nav className="h-[60px] flex items-center relative border sm:h-lvh sm:flex-col">
+    <nav className="h-[60px] flex items-center relative border-r-[1px] sm:h-lvh sm:flex-col">
       <section className="max-sm:ml-4 sm:mt-3">
         <h2
           className={twMerge(
-            'text-lg font-bold text-center cursor-default',
+            'text-lg font-bold text-center cursor-default hover:animate-pulse',
             raleway.className
           )}
         >
