@@ -5,3 +5,5 @@ export const formatNumber = (
 
 export const replaceUrl = (href: string) =>
   window.history.pushState({}, '', href);
+
+export const currentYear = new Date().getFullYear();

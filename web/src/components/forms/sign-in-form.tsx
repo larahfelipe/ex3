@@ -22,9 +22,9 @@ export const SignInForm: FC = () => {
     register,
     reset,
     handleSubmit,
-    formState: { errors, isSubmitting, isValid }
+    formState: { errors, isSubmitting }
   } = useForm<z.infer<typeof signInSchema>>({
-    mode: 'onBlur',
+    mode: 'onChange',
     resolver: zodResolver(signInSchema),
     defaultValues: {
       email: '',
@@ -48,10 +48,8 @@ export const SignInForm: FC = () => {
   return (
     <form onSubmit={handleSubmit(signInHandler)}>
       <div className="flex-col align-center space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-gray-700">
-            Email
-          </Label>
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
 
           <Input
             type="email"
@@ -66,10 +64,8 @@ export const SignInForm: FC = () => {
           )}
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="password" className="text-gray-700">
-            Password
-          </Label>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
 
           <Input
             type="password"
@@ -86,7 +82,7 @@ export const SignInForm: FC = () => {
 
       <Button
         type="submit"
-        disabled={isSubmitting || !isValid}
+        disabled={isSubmitting}
         className="w-full mt-12 p-6"
         aria-label="Login"
       >

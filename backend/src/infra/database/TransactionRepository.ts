@@ -27,16 +27,16 @@ export class TransactionRepository {
   }
 
   async getAll(params: TransactionRepository.GetAllParams) {
-    const { assetSymbol, limit, page = 1 } = params;
+    const { assetSymbol, limit, lastId, page = 1 } = params;
 
     const limitPerPage = limit || limit === 0 ? limit : 10;
 
     const [total, docs] = await Promise.all([
       this.prismaClient.transaction.count({ where: { assetSymbol } }),
       this.prismaClient.transaction.findMany({
-        where: { assetSymbol },
-        take: limit !== 0 ? limitPerPage : undefined,
-        skip: (page - 1) * limitPerPage || 0
+        ...(limit !== 0 && { take: limitPerPage }),
+        where: { assetSymbol, ...(lastId && { id: { lt: lastId } }) },
+        orderBy: { id: 'desc' }
       })
     ]);
 
@@ -48,7 +48,8 @@ export class TransactionRepository {
         page,
         total,
         limit: limitPerPage,
-        totalPages: totalPages !== Infinity ? totalPages : 1
+        totalPages: totalPages !== Infinity ? totalPages : 1,
+        lastId: docs.length > 0 ? docs[docs.length - 1].id : null
       }
     };
   }
@@ -99,6 +100,7 @@ namespace TransactionRepository {
   >;
   export type GetCountParams = Record<'type', keyof typeof TransactionTypes>;
   export type GetAllParams = Pick<Transaction, 'assetSymbol'> & {
+    lastId?: string;
     page?: number;
     limit?: number;
   };

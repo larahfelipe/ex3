@@ -1,7 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
-
 import { redirect } from 'next/navigation';
 
 import { Loader2 } from 'lucide-react';
@@ -13,9 +11,7 @@ import type { Children } from '@/types';
 export default function Layout({ children }: Readonly<Children>) {
   const { isLoading, user } = useUser();
 
-  useEffect(() => {
-    if (!isLoading && !user) redirect('/sign-in');
-  }, [isLoading, user]);
+  if (!isLoading && !user) redirect('/sign-in');
 
   if (isLoading || !user)
     return (
@@ -25,7 +21,7 @@ export default function Layout({ children }: Readonly<Children>) {
     );
 
   return (
-    <main className="h-lvh flex flex-col sm:grid sm:grid-cols-[175px_auto]">
+    <main className="h-lvh flex flex-col bg-black sm:grid sm:grid-cols-[160px_auto]">
       <Sidebar />
 
       {children}

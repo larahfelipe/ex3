@@ -26,10 +26,10 @@ export class AssetRepository {
     const [total, docs] = await Promise.all([
       this.prismaClient.asset.count({ where: { portfolioId } }),
       this.prismaClient.asset.findMany({
+        ...(sort && { orderBy: { balance: sort } }),
+        ...(limit !== 0 && { take: limitPerPage }),
         where: { portfolioId },
-        take: limit !== 0 ? limitPerPage : undefined,
-        skip: (page - 1) * limitPerPage || 0,
-        ...(sort && { orderBy: { balance: sort } })
+        skip: (page - 1) * limitPerPage || 0
       })
     ]);
 

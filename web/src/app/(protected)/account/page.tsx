@@ -18,36 +18,36 @@ export default function Account() {
 
   if (!user) return null;
 
+  const [firstName, lastName] = user.name.split(' ');
+
   return (
-    <div className="space-y-12 mx-4 md:mx-16">
+    <div className="space-y-12 sm:mx-4">
       <Card className="mt-12 shadow-none">
         <CardHeader>
-          <CardTitle className="text-gray-700">Profile</CardTitle>
+          <CardTitle>Profile</CardTitle>
 
           <CardDescription>Your account details</CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-5 [&_label]:text-gray-700">
+        <CardContent className="space-y-5">
           <section className="space-y-1.5">
-            <Label htmlFor="name" className="text-gray-700">
-              Name
-            </Label>
+            <Label htmlFor="name">Name</Label>
 
-            <Input disabled id="name" value={user.name} />
+            <div className="flex gap-3">
+              <Input disabled id="name" value={firstName} />
+
+              <Input disabled id="name" value={lastName} />
+            </div>
           </section>
 
           <section className="space-y-1.5">
-            <Label htmlFor="email" className="text-gray-700">
-              Email
-            </Label>
+            <Label htmlFor="email">Email</Label>
 
             <Input disabled id="email" value={user.email} />
           </section>
 
           <section className="space-y-1.5">
-            <Label htmlFor="creation" className="text-gray-700">
-              Joined at
-            </Label>
+            <Label htmlFor="creation">Joined at</Label>
 
             <Input
               disabled
@@ -66,22 +66,22 @@ export default function Account() {
 
       <Card className="shadow-none">
         <CardHeader>
-          <CardTitle className="text-gray-700">Security</CardTitle>
+          <CardTitle>Security</CardTitle>
 
           <CardDescription>
             Manage your account security details
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-5 [&_label]:text-gray-700">
+        <CardContent className="space-y-5">
           <section className="space-y-1.5">
-            <Label className="text-gray-700">Old password</Label>
+            <Label>Old password</Label>
 
             <Input type="password" placeholder="Enter your password" />
           </section>
 
           <section className="space-y-1.5">
-            <Label className="text-gray-700">New password</Label>
+            <Label>New password</Label>
 
             <Input type="password" placeholder="Enter your new password" />
           </section>

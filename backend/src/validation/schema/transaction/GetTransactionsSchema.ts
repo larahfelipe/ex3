@@ -5,6 +5,10 @@ export const GetTransactionsQuerySchema = z.object({
   limit: z.coerce
     .number()
     .positive('Limit must be greater than zero')
+    .optional(),
+  lastId: z
+    .string()
+    .transform((value) => value.trim())
     .optional()
 });
 

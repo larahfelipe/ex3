@@ -12,9 +12,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<Children>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
-        <meta name="theme-color" content="#FFF" />
+        <meta name="theme-color" content="#000" />
 
         <link rel="shortcut icon" href="favicon.png" type="image/png" />
 

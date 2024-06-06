@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "author": {
-    "name": "larahfelipe"
+    "name": "larahfelipe",
+    "url": "https://github.com/larahfelipe"
   },
   "scripts": {
     "dev": "next dev",
@@ -31,6 +32,7 @@
     "clsx": "^2.1.0",
     "lucide-react": "^0.336.0",
     "next": "14.2.3",
+    "next-nprogress-bar": "^2.3.12",
     "next-pwa": "^5.6.0",
     "next-themes": "^0.3.0",
     "react": "^18",
@@ -38,7 +40,7 @@
     "react-error-boundary": "^4.0.13",
     "react-hook-form": "^7.51.4",
     "react-icons": "^5.0.1",
-    "sonner": "^1.4.2",
+    "sonner": "^1.4.41",
     "tailwind-merge": "^2.2.0",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.22.4"
