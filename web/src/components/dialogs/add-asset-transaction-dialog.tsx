@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import type { ChangeEvent, FC } from 'react';
 import {
   Controller,
   useFormContext,
@@ -87,6 +87,13 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
     reset();
   };
 
+  const handleChangePriceValue = (e: ChangeEvent<HTMLInputElement>) => {
+    let { value } = e.target;
+    value = value.replace(/[^\d]/g, '');
+    if (!value.length) return;
+    return (parseInt(value, 10) / 100).toFixed(2);
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleCancel}>
       <DialogContent>
@@ -137,7 +144,7 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
                     <SelectValue
                       id="type"
                       aria-label="Transaction type"
-                      placeholder="Select the transaction type"
+                      placeholder="Transaction type"
                     />
                   </SelectTrigger>
 
@@ -174,8 +181,9 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
               type="number"
               step="any"
               id="amount"
-              aria-label="Transaction amount"
+              aria-label="Amount"
               placeholder="Enter the transaction amount"
+              min={0}
               disabled={isSubmitting}
               {...register('amount')}
             />
@@ -188,16 +196,25 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
           <div className="space-y-1.5">
             <Label htmlFor="price">Price</Label>
 
-            <Input
-              type="number"
-              step="any"
-              id="price"
-              aria-label="Transaction price"
+            <Controller
+              name="price"
+              control={control}
               disabled={isSubmitting}
-              leftElement={
-                <span className="text-sm">{CURRENCIES[currency].symbol}</span>
-              }
-              {...register('price')}
+              render={({ field }) => (
+                <Input
+                  {...field}
+                  id="price"
+                  step="0.01"
+                  aria-label="Price"
+                  disabled={isSubmitting}
+                  leftElement={
+                    <span className="text-sm">
+                      {CURRENCIES[currency].symbol}
+                    </span>
+                  }
+                  onChange={(e) => field.onChange(handleChangePriceValue(e))}
+                />
+              )}
             />
 
             {!!errors.price?.message && (

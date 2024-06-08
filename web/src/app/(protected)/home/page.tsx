@@ -83,7 +83,6 @@ export default function Home() {
       resolver: zodResolver(AddAssetTransactionSchema),
       defaultValues: {
         type: TRANSACTION_TYPES[0],
-        amount: 0,
         price: 0
       }
     }
@@ -112,9 +111,10 @@ export default function Home() {
 
   const { mutateAsync: createAssetTransactionMutation } = useMutation({
     mutationFn: createTransaction,
-    onSuccess: ({ data }) => {
+    onSuccess: async ({ data }) => {
       toast.success(data.message);
       if (searchParams.size) replaceUrl(window.location.pathname);
+      await assetsTableRef.current?.refetchData();
     },
     onError: (e: string) => toast.error(e)
   });
