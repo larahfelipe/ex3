@@ -1,8 +1,8 @@
 FROM node:18-alpine AS base
 
-FROM base AS deps
-
 WORKDIR /usr/src/app/web
+
+FROM base AS deps
 
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 
@@ -29,15 +29,15 @@ WORKDIR /usr/src/app/web
 
 ENV NODE_ENV production
 
-COPY --from=deps /usr/src/app/web/next.config.js ./
+COPY --from=builder /usr/src/app/web/next.config.js ./
 
-COPY --from=deps /usr/src/app/web/public ./public
+COPY --from=builder /usr/src/app/web/public ./public
+
+COPY --from=builder /usr/src/app/web/build ./build
 
 COPY --from=deps /usr/src/app/web/node_modules ./node_modules
 
 COPY --from=deps /usr/src/app/web/package*.json ./
-
-COPY --from=builder /usr/src/app/web/build ./build
 
 EXPOSE 3000
 
