@@ -4,40 +4,40 @@ FROM base AS deps
 
 RUN apk add --no-cache libc6-compat
 
-WORKDIR /usr/src/app
+WORKDIR /usr/src/app/backend
 
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
 
 COPY prisma ./prisma
 
 RUN \
-  if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
-  elif [ -f package-lock.json ]; then npm install; \
+  if [ -f package-lock.json ]; then npm install --frozen-lockfile; \
+  elif [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
   elif [ -f pnpm-lock.yaml ]; then yarn global add pnpm && pnpm i --frozen-lockfile; \
   else echo "Lockfile not found." && exit 1; \
   fi
 
 FROM base AS builder
 
-WORKDIR /usr/src/app
+WORKDIR /usr/src/app/backend
 
-COPY --from=deps /usr/src/app/node_modules ./node_modules
+COPY --from=deps /usr/src/app/backend/node_modules ./node_modules
 
 COPY . .
 
-RUN yarn build
+RUN npm run build
 
 FROM base AS runner
 
-WORKDIR /usr/src/app
+WORKDIR /usr/src/app/backend
 
 ENV NODE_ENV production
 
-COPY --from=deps /usr/src/app/prisma ./prisma
+COPY --from=deps /usr/src/app/backend/prisma ./prisma
 
-COPY --from=deps /usr/src/app/node_modules ./node_modules
+COPY --from=deps /usr/src/app/backend/node_modules ./node_modules
 
-COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/backend/dist ./dist
 
 EXPOSE 8080
 

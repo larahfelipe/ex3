@@ -2,10 +2,14 @@
 
 import { Suspense, type FC, type ReactNode } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { IoRefresh } from 'react-icons/io5';
+import {
+  IoCheckmarkCircleOutline,
+  IoRefresh,
+  IoWarningOutline
+} from 'react-icons/io5';
+import { MdOutlineErrorOutline } from 'react-icons/md';
 
 import { AppProgressBar } from 'next-nprogress-bar';
-import Image from 'next/image';
 
 import {
   QueryClientProvider,
@@ -71,38 +75,23 @@ export const AppProvider: FC<Readonly<Children>> = ({ children }) => (
     <Toaster
       position="bottom-right"
       icons={{
-        error: (
-          <Image
-            src="/icons/error-icon.svg"
-            alt="Error icon"
-            width={32}
-            height={32}
-          />
-        ),
+        error: <MdOutlineErrorOutline size={26} className="text-red-500" />,
         success: (
-          <Image
-            src="/icons/success-icon.svg"
-            alt="Success icon"
-            width={32}
-            height={32}
-          />
+          <IoCheckmarkCircleOutline size={26} className="text-emerald-500" />
         ),
-        warning: (
-          <Image
-            src="/icons/warning-icon.svg"
-            alt="Warning icon"
-            width={32}
-            height={32}
-          />
-        )
+        warning: <IoWarningOutline size={26} className="text-yellow-500" />
       }}
       toastOptions={{
         style: {
-          height: '64px'
+          height: '64px',
+          borderTop: '#0F0F0F',
+          borderLeft: '#0F0F0F',
+          borderRight: '#0F0F0F',
+          backgroundColor: '#0F0F0F'
         },
         classNames: {
           icon: 'w-[32px] h-[32px]',
-          title: 'text-[14px]',
+          title: 'text-[14px] text-white',
           error: 'border-b-[3px] border-b-red-500',
           success: 'border-b-[3px] border-b-emerald-500',
           warning: 'border-b-[3px] border-b-yellow-500'

@@ -1,5 +1,15 @@
-import { useCallback, useMemo, useState, type FC } from 'react';
-import { useFormContext, type SubmitHandler } from 'react-hook-form';
+import {
+  useCallback,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type FC
+} from 'react';
+import {
+  Controller,
+  useFormContext,
+  type SubmitHandler
+} from 'react-hook-form';
 import { LuArrowDownUp } from 'react-icons/lu';
 
 import { Loader2, Plus } from 'lucide-react';
@@ -46,9 +56,8 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
   const [assetSymbol, setAssetSymbol] = useState('');
 
   const {
-    register,
+    control,
     handleSubmit,
-    getFieldState,
     reset,
     formState: {
       errors,
@@ -82,6 +91,11 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
       replaceUrl(`?symbol=${assetSymbol}&ref=add-transaction`);
   }, [onCancel, isSubmitSuccessful, assetSymbol]);
 
+  const handleChangeSymbolValue = (e: ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    return value.toUpperCase();
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleCancel}>
       <DialogContent>
@@ -103,12 +117,19 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
           <div className="space-y-1.5">
             <Label htmlFor="symbol">Asset</Label>
 
-            <Input
-              id="symbol"
-              aria-label="Asset symbol"
-              placeholder="Enter the asset symbol"
+            <Controller
+              name="symbol"
+              control={control}
               disabled={isSubmitting}
-              {...register('symbol')}
+              render={({ field }) => (
+                <Input
+                  id="symbol"
+                  aria-label="Asset symbol"
+                  placeholder="Enter the asset symbol"
+                  {...field}
+                  onChange={(e) => field.onChange(handleChangeSymbolValue(e))}
+                />
+              )}
             />
 
             {!!errors.symbol?.message && (
@@ -118,7 +139,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
         </form>
 
         <DialogFooter className="max-sm:space-y-4">
-          {isSubmittedSuccessfully && !getFieldState('symbol').isDirty && (
+          {isSubmittedSuccessfully && !!assetSymbol.length && (
             <Button
               variant="ghost"
               className="sm:absolute sm:left-6 max-sm:mt-6"
