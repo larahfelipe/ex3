@@ -6,7 +6,15 @@ steps:
     args: ["push", "gcr.io/$PROJECT_ID/backend:$COMMIT_SHA"]
 
   - name: "gcr.io/cloud-builders/docker"
-    args: ["build", "-t", "gcr.io/$PROJECT_ID/web:$COMMIT_SHA", "web"]
+    args:
+      [
+        "build",
+        "--build-arg",
+        "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL",
+        "-t",
+        "gcr.io/$PROJECT_ID/web:$COMMIT_SHA",
+        "web",
+      ]
 
   - name: "gcr.io/cloud-builders/docker"
     args: ["push", "gcr.io/$PROJECT_ID/web:$COMMIT_SHA"]

@@ -4,24 +4,23 @@ WORKDIR /usr/src/app/web
 
 FROM base AS deps
 
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml* ./
 
-RUN \
-  if [ -f package-lock.json ]; then npm install --frozen-lockfile; \
-  elif [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
-  elif [ -f pnpm-lock.yaml ]; then yarn global add pnpm && pnpm i --frozen-lockfile; \
-  else echo "Lockfile not found." && exit 1; \
-  fi
+RUN yarn global add pnpm && pnpm i --frozen-lockfile
 
 FROM base AS builder
 
 WORKDIR /usr/src/app/web
 
+ARG NEXT_PUBLIC_API_URL
+
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
 COPY --from=deps /usr/src/app/web/node_modules ./node_modules
 
-COPY . .
+COPY . ./
 
-RUN npm run build
+RUN yarn build
 
 FROM base AS runner
 
@@ -41,4 +40,4 @@ COPY --from=deps /usr/src/app/web/package*.json ./
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["yarn", "start"]
