@@ -6,16 +6,11 @@ RUN apk add --no-cache libc6-compat
 
 WORKDIR /usr/src/app/backend
 
-COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml* ./
 
 COPY prisma ./prisma
 
-RUN \
-  if [ -f package-lock.json ]; then npm install --frozen-lockfile; \
-  elif [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
-  elif [ -f pnpm-lock.yaml ]; then yarn global add pnpm && pnpm i --frozen-lockfile; \
-  else echo "Lockfile not found." && exit 1; \
-  fi
+RUN yarn global add pnpm && pnpm i --frozen-lockfile
 
 FROM base AS builder
 
@@ -23,9 +18,9 @@ WORKDIR /usr/src/app/backend
 
 COPY --from=deps /usr/src/app/backend/node_modules ./node_modules
 
-COPY . .
+COPY . ./
 
-RUN npm run build
+RUN yarn build
 
 FROM base AS runner
 
