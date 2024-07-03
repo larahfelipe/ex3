@@ -1,18 +1,25 @@
 {
   "name": "web",
   "version": "0.0.0",
-  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/larahfelipe/ex3"
+  },
   "author": {
     "name": "larahfelipe",
     "url": "https://github.com/larahfelipe"
   },
+  "license": "MIT",
+  "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "lint:fix": "next lint --fix",
-    "typecheck": "tsc --project tsconfig.json --noEmit"
+    "lint": "next lint --ext .ts,.tsx",
+    "lint:fix": "next lint --ext .ts,.tsx --fix",
+    "prettier": "prettier --check \"src/**/*.{ts,tsx}\"",
+    "prettier:fix": "prettier \"src/**/*.{ts,tsx}\" --write",
+    "typecheck": "tsc --diagnostics --noEmit --project tsconfig.json"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",

@@ -19,8 +19,8 @@ export default function Account() {
   if (!user) return null;
 
   return (
-    <div className="space-y-12 sm:mx-4">
-      <Card className="mt-12 shadow-none">
+    <div className="space-y-8 sm:mx-4">
+      <Card className="mt-8 shadow-none">
         <CardHeader>
           <CardTitle>Profile</CardTitle>
 
@@ -46,17 +46,6 @@ export default function Account() {
               disabled
               id="email"
               value={user.email}
-              className="bg-zinc-900"
-            />
-          </section>
-
-          <section className="space-y-1.5">
-            <Label htmlFor="creation">Joined at</Label>
-
-            <Input
-              disabled
-              id="email"
-              value={new Date(user.createdAt).toString()}
               className="bg-zinc-900"
             />
           </section>
