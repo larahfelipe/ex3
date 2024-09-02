@@ -12,11 +12,13 @@ FROM base AS builder
 
 WORKDIR /usr/src/app/web
 
+ARG NEXT_PUBLIC_API_URL
+
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
 COPY --from=deps /usr/src/app/web/node_modules ./node_modules
 
 COPY . ./
-
-COPY .env.production .env.production
 
 RUN yarn build
 
