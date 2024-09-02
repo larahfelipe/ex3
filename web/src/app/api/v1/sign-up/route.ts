@@ -26,8 +26,7 @@ export const POST = async (req: NextRequest) => {
       { status, statusText }
     );
   } catch (e) {
-    const { message } = e as Error;
-    const { status, statusText, ...error }: ApiError = JSON.parse(message);
+    const { status, statusText, ...error } = e as ApiError;
 
     return NextResponse.json<ApiErrorData>(error, { status, statusText });
   }

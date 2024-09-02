@@ -20,7 +20,13 @@ export const server = axios.create(axiosConfig);
 
 client.interceptors.response.use(
   (res) => res,
-  (err: AxiosError<Error>) => Promise.reject<Error>(err.response!.data)
+  (err: AxiosError<ApiError>) => {
+    const error: Partial<ApiError> = err.response?.data ?? {
+      message: 'Something went wrong. Please try again later'
+    };
+
+    return Promise.reject<ApiError>(error);
+  }
 );
 
 server.interceptors.response.use(
@@ -42,6 +48,6 @@ server.interceptors.response.use(
       error.status = status;
     }
 
-    return Promise.reject<Error>(new Error(JSON.stringify(error)));
+    return Promise.reject<ApiError>(error);
   }
 );

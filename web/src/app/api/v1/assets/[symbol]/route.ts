@@ -29,8 +29,7 @@ export const DELETE = async (req: NextRequest) => {
       statusText
     });
   } catch (e) {
-    const { message } = e as Error;
-    const { status, statusText, ...error }: ApiError = JSON.parse(message);
+    const { status, statusText, ...error } = e as ApiError;
 
     return NextResponse.json<ApiErrorData>(error, { status, statusText });
   }
