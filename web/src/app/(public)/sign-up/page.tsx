@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { twMerge } from 'tailwind-merge';
 
 import { raleway } from '@/common/constants';
-import { SignUpForm } from '@/components/forms';
+
+import { SignUpForm } from './_components/sign-up-form';
 
 export const metadata: Metadata = {
   title: 'EX3 | Sign Up'

@@ -16,7 +16,7 @@ import pkg from '../../../package.json';
 export default function Layout({ children }: Readonly<Children>) {
   const { isLoading, user } = useUser();
 
-  if (!isLoading && user) redirect('/home');
+  if (!isLoading && user) redirect('/assets');
 
   if (isLoading)
     return (
@@ -41,10 +41,10 @@ export default function Layout({ children }: Readonly<Children>) {
         <Image
           priority
           fill
-          objectFit="cover"
           src="/login-hero.jpeg"
           alt="Login Hero"
-          className="absolute"
+          className="w-full h-full absolute"
+          style={{ objectFit: 'cover' }}
         />
       </aside>
     </main>

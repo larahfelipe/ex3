@@ -1,23 +1,26 @@
 const cspHeader = `
 default-src 'self';
-connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL};
+connect-src 'self' ${process.env.API_URL};
 font-src 'self' https://fonts.gstatic.com;
-frame-src 'self' ${process.env.NEXT_PUBLIC_API_URL};
+frame-src 'self' ${process.env.API_URL};
 img-src 'self' data: *;
-script-src 'self' 'unsafe-inline' 'unsafe-eval' ${process.env.NEXT_PUBLIC_API_URL};
+script-src 'self' 'unsafe-inline' 'unsafe-eval' ${process.env.API_URL};
 style-src 'self' 'unsafe-inline' https://fonts.gstatic.com https://fonts.googleapis.com;
 `;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   distDir: 'build',
+  env: {
+    API_URL: process.env.API_URL
+  },
   images: {
     unoptimized: true
   },
   redirects: async () => [
     {
       source: '/',
-      destination: '/home',
+      destination: '/assets',
       permanent: true
     }
   ],

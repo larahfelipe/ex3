@@ -1,9 +1,8 @@
 'use client';
 
-import { useCallback, useState, type FC, type HTMLAttributes } from 'react';
-import { IoExitOutline } from 'react-icons/io5';
+import { useState, type FC, type HTMLAttributes } from 'react';
 import { LuUser2 } from 'react-icons/lu';
-import { RxDashboard } from 'react-icons/rx';
+import { RxDashboard, RxExit } from 'react-icons/rx';
 
 import { useRouter } from 'next/navigation';
 
@@ -34,8 +33,8 @@ type SectionButtonProps = Pick<ButtonProps, 'variant' | 'onClick'> & {
 
 const sections = [
   {
-    name: 'Home',
-    path: '/home'
+    name: 'Assets',
+    path: '/assets'
   },
   {
     name: 'Account',
@@ -48,17 +47,16 @@ export const Sidebar: FC = () => {
     sections[0].path
   );
 
-  const { user, signOut } = useUser();
+  const { user, signOutMutation } = useUser();
 
   const { push } = useRouter();
 
-  const changeActiveSectionPath = useCallback(
-    (path: string) => {
-      setActiveSectionPath(path);
-      push(path);
-    },
-    [push]
-  );
+  const changeActiveSectionPath = (path: string) => {
+    setActiveSectionPath(path);
+    push(path);
+  };
+
+  const handleSignOut = () => signOutMutation();
 
   const SidebarBtn = ({
     onClick,
@@ -104,7 +102,7 @@ export const Sidebar: FC = () => {
   );
 
   return (
-    <nav className="h-[60px] flex items-center relative border-r-[1px] sm:h-lvh sm:flex-col">
+    <nav className="h-[60px] flex items-center relative sm:h-lvh sm:flex-col">
       <section className="max-sm:ml-4 sm:mt-3">
         <h2
           className={twMerge(
@@ -136,9 +134,9 @@ export const Sidebar: FC = () => {
         <SidebarBtn
           text="Logout"
           variant="ghost"
-          onClick={signOut}
+          onClick={handleSignOut}
           className={{ button: 'hover:bg-red-950/40', text: 'text-red-500' }}
-          left={<IoExitOutline size={18} className="text-red-500" />}
+          left={<RxExit size={18} className="text-red-500" />}
         />
       </section>
     </nav>

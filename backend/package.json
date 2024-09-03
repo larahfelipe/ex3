@@ -2,8 +2,14 @@
   "name": "backend",
   "version": "0.0.0",
   "main": "index.js",
-  "repository": "https://github.com/larahfelipe/ex3.git",
-  "author": "larahfelipe",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/larahfelipe/ex3"
+  },
+  "author": {
+    "name": "larahfelipe",
+    "url": "https://github.com/larahfelipe"
+  },
   "license": "MIT",
   "private": true,
   "scripts": {
