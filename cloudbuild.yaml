@@ -10,13 +10,13 @@ steps:
       [
         "build",
         "--build-arg",
-        "${_NEXT_PUBLIC_API_URL}",
+        "NEXT_PUBLIC_API_URL=${_NEXT_PUBLIC_API_URL}",
         "-t",
         "gcr.io/$PROJECT_ID/web:$COMMIT_SHA",
         "web",
       ]
     env:
-      - "NEXT_PUBLIC_API_URL=$_NEXT_PUBLIC_API_URL",
+      - "NEXT_PUBLIC_API_URL=${_NEXT_PUBLIC_API_URL}"
 
   - name: "gcr.io/cloud-builders/docker"
     args: ["push", "gcr.io/$PROJECT_ID/web:$COMMIT_SHA"]
