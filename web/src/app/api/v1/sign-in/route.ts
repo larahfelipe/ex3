@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { COOKIE_OPTIONS, EX3_STORAGE_KEYS } from '@/common/constants';
+import { APP_STORAGE_KEYS, COOKIE_OPTIONS } from '@/common/constants';
 import api, { type ApiError, type ApiErrorData } from '@/lib/axios';
 
 import type { SignInRequestPayload, SignInResponseData, User } from './types';
@@ -17,7 +17,7 @@ export const POST = async (req: NextRequest) => {
     const { accessToken, ...user } = data;
 
     if (accessToken)
-      cookies().set(EX3_STORAGE_KEYS.Token, accessToken, COOKIE_OPTIONS);
+      cookies().set(APP_STORAGE_KEYS.Token, accessToken, COOKIE_OPTIONS);
 
     return NextResponse.json<SignInResponseData>(user, { status, statusText });
   } catch (e) {

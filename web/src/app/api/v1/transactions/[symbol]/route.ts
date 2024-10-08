@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { EX3_STORAGE_KEYS } from '@/common/constants';
+import { APP_STORAGE_KEYS } from '@/common/constants';
 import api, { type ApiError, type ApiErrorData } from '@/lib/axios';
 
 import { type GetTransactionsResponseData } from '../types';
@@ -11,7 +11,7 @@ export const GET = async (req: NextRequest) => {
     const assetSymbol = req.nextUrl.pathname.split('/').at(-1);
     if (!assetSymbol) throw new Error('Missing asset symbol');
 
-    const authToken = cookies().get(EX3_STORAGE_KEYS.Token);
+    const authToken = cookies().get(APP_STORAGE_KEYS.Token);
     if (!authToken?.value) throw new Error('Missing access token');
 
     const headers = {

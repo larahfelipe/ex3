@@ -1,5 +1,4 @@
 /* eslint-disable react/jsx-newline */
-
 import type { Metadata } from 'next';
 import Link from 'next/link';
 

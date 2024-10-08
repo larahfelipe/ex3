@@ -76,14 +76,14 @@ type AssetsTableProps = {
   loading?: boolean;
   caption?: string;
   data: AssetTableData;
-  dispatch: (type: DispatchType, payload?: unknown) => void;
+  onDispatch: (type: DispatchType, payload?: unknown) => void;
 };
 
 export const AssetsTable: FC<AssetsTableProps> = ({
   loading,
   caption,
   data,
-  dispatch
+  onDispatch
 }) => {
   const [isAssetSelectionActive, setIsAssetSelectionActive] = useState(false);
   const [searchedAssetSymbol, setSearchedAssetSymbol] = useState('');
@@ -112,7 +112,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
 
   const handleChangeActiveAssetSelection = () => {
     setIsAssetSelectionActive((prev) => !prev);
-    if (data.selectedAsset) dispatch('setSelectedAsset', null);
+    if (data.selectedAsset) onDispatch('setSelectedAsset', null);
   };
 
   return (
@@ -133,7 +133,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
               aria-label="Refresh"
               className="h-8 bg-zinc-900 sm:self-end max-sm:w-full"
               disabled={loading}
-              onClick={() => dispatch('refetchAssets')}
+              onClick={() => onDispatch('refetchAssets')}
             >
               <div className="flex items-center gap-2">
                 <RefreshCw
@@ -161,7 +161,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                   <DropdownMenuItem
                     className="space-x-2"
                     disabled={isAssetSelectionActive}
-                    onClick={() => dispatch('createAsset')}
+                    onClick={() => onDispatch('createAsset')}
                   >
                     <LuCoins size={16} className="text-gray-500" />
 
@@ -197,7 +197,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
               aria-label="Confirm"
               className="h-8"
               disabled={!data.selectedAsset}
-              onClick={() => dispatch('createAssetTransaction')}
+              onClick={() => onDispatch('createAssetTransaction')}
             >
               Confirm
             </Button>
@@ -284,7 +284,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                     <Checkbox
                       checked={asset.symbol === data.selectedAsset?.symbol}
                       onCheckedChange={(checked) =>
-                        dispatch('setSelectedAsset', checked ? asset : null)
+                        onDispatch('setSelectedAsset', checked ? asset : null)
                       }
                     />
                   </TableCell>
@@ -338,7 +338,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                           aria-label="Edit"
                           className="space-x-2"
                           disabled={isAssetSelectionActive}
-                          onClick={() => dispatch('editAsset', asset)}
+                          onClick={() => onDispatch('editAsset', asset)}
                         >
                           <FiEdit size={16} className="text-gray-500" />
 
@@ -349,7 +349,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                           aria-label="Delete"
                           className="space-x-2"
                           disabled={isAssetSelectionActive}
-                          onClick={() => dispatch('deleteAsset', asset)}
+                          onClick={() => onDispatch('deleteAsset', asset)}
                         >
                           <IoTrashBinOutline
                             size={16}
@@ -410,7 +410,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                           data?.pagination.limit ?? PaginationInitialState.limit
                         )}
                         onValueChange={(value: string) =>
-                          dispatch('setLimit', value)
+                          onDispatch('setLimit', value)
                         }
                       >
                         <SelectTrigger
@@ -446,7 +446,10 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                             <PaginationItem>
                               <PaginationPrevious
                                 onClick={() =>
-                                  dispatch('setPage', data.pagination.page - 1)
+                                  onDispatch(
+                                    'setPage',
+                                    data.pagination.page - 1
+                                  )
                                 }
                               />
                             </PaginationItem>
@@ -458,7 +461,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                               <PaginationLink
                                 aria-label={`Page ${i + 1}`}
                                 isActive={data.pagination.page === i + 1}
-                                onClick={() => dispatch('setPage', i + 1)}
+                                onClick={() => onDispatch('setPage', i + 1)}
                               >
                                 {i + 1}
                               </PaginationLink>
@@ -476,7 +479,10 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                             <PaginationItem>
                               <PaginationNext
                                 onClick={() =>
-                                  dispatch('setPage', data.pagination.page + 1)
+                                  onDispatch(
+                                    'setPage',
+                                    data.pagination.page + 1
+                                  )
                                 }
                               />
                             </PaginationItem>

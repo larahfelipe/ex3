@@ -61,7 +61,7 @@ const FallbackContent: FC<FallbackContentProps> = ({
   );
 };
 
-export const AppProvider: FC<Readonly<Children>> = ({ children }) => (
+export const AppProvider: FC<Children> = ({ children }) => (
   <QueryClientProvider client={queryClient}>
     <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
 

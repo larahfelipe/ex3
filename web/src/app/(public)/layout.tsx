@@ -3,7 +3,6 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 
 import { Loader2 } from 'lucide-react';
 
@@ -13,14 +12,12 @@ import type { Children } from '@/types';
 
 import pkg from '../../../package.json';
 
-export default function Layout({ children }: Readonly<Children>) {
-  const { isLoading, user } = useUser();
-
-  if (!isLoading && user) redirect('/assets');
+export default function Layout({ children }: Children) {
+  const { isLoading } = useUser();
 
   if (isLoading)
     return (
-      <main className="h-lvh flex">
+      <main className="h-screen flex">
         <Loader2 className="m-auto size-6 animate-spin" />
       </main>
     );

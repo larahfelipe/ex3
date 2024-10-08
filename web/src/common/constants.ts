@@ -15,11 +15,11 @@ export const raleway = Raleway({
 
 export const COOKIE_OPTIONS: Partial<ResponseCookie> = {
   httpOnly: true,
-  secure: true,
-  sameSite: 'strict'
+  sameSite: 'strict',
+  secure: process.env.NODE_ENV === 'production'
 };
 
-export const EX3_STORAGE_KEYS = {
+export const APP_STORAGE_KEYS = {
   User: 'ex3:user',
   Token: 'ex3:token'
 };
