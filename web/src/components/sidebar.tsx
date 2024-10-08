@@ -114,16 +114,16 @@ export const Sidebar: FC = () => {
         </h2>
       </section>
 
-      <section className="max-sm:ml-8 sm:w-[95%] sm:mt-8">
+      <menu className="max-sm:ml-8 sm:w-[95%] sm:mt-8">
         <SidebarBtn
           text={sections[0].name}
           path={sections[0].path}
           onClick={() => changeActiveSectionPath(sections[0].path)}
           left={<RxDashboard size={18} />}
         />
-      </section>
+      </menu>
 
-      <section className="flex gap-2 absolute max-sm:right-1 sm:w-[95%] sm:flex-col sm:items-center sm:bottom-3">
+      <menu className="flex gap-2 absolute max-sm:right-1 sm:w-[95%] sm:flex-col sm:items-center sm:bottom-3">
         <SidebarBtn
           text={user?.name}
           path={sections[1].path}
@@ -138,7 +138,7 @@ export const Sidebar: FC = () => {
           className={{ button: 'hover:bg-red-950/40', text: 'text-red-500' }}
           left={<RxExit size={18} className="text-red-500" />}
         />
-      </section>
+      </menu>
     </nav>
   );
 };

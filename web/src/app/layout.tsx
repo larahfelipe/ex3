@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: 'EX3 - Portfolio Tracker'
 };
 
-export default function RootLayout({ children }: Readonly<Children>) {
+export default function RootLayout({ children }: Children) {
   return (
     <html lang="en" className="dark">
       <head>

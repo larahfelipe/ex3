@@ -283,7 +283,7 @@ export default function Assets() {
         <AssetsTable
           data={{ pagination, selectedAsset, result: data }}
           loading={isLoading || isRefetching}
-          dispatch={handleDispatch}
+          onDispatch={handleDispatch}
         />
       </Card>
     </>

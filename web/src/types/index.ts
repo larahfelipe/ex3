@@ -6,7 +6,7 @@ export type WithMessage = Record<'message', string>;
 
 export type WithTimestamps = Record<'createdAt' | 'updatedAt', string>;
 
-export type Children = Record<'children', ReactNode>;
+export type Children = Readonly<Record<'children', ReactNode>>;
 
 export type Maybe<T> = T | null | undefined;
 

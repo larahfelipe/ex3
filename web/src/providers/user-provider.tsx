@@ -8,6 +8,8 @@ import {
   type FC
 } from 'react';
 
+import { useRouter } from 'next/navigation';
+
 import {
   useMutation,
   type UseMutateAsyncFunction
@@ -25,7 +27,7 @@ import type {
   SignUpRequestPayload,
   SignUpResponseData
 } from '@/app/api/v1/sign-up';
-import { CURRENCIES, EX3_STORAGE_KEYS } from '@/common/constants';
+import { APP_STORAGE_KEYS, CURRENCIES } from '@/common/constants';
 import api, { type ApiErrorData } from '@/lib/axios';
 import type { Children, Maybe } from '@/types';
 
@@ -50,12 +52,14 @@ type UserContextProps = {
 
 const UserContext = createContext({} as UserContextProps);
 
-const UserProvider: FC<Readonly<Children>> = ({ children }) => {
+const UserProvider: FC<Children> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<Maybe<SignInResponseData>>(null);
   const [currency, setCurrency] = useState<keyof typeof CURRENCIES>(
     CURRENCIES.BRL.id
   );
+
+  const { push } = useRouter();
 
   const changeCurrency = (c: keyof typeof CURRENCIES) => setCurrency(c);
 
@@ -67,8 +71,9 @@ const UserProvider: FC<Readonly<Children>> = ({ children }) => {
     mutationFn: (payload) => api.client.post('/v1/sign-in', payload),
     onSuccess: ({ data: userData }) => {
       setUser(userData);
-      localStorage.setItem(EX3_STORAGE_KEYS.User, JSON.stringify(userData));
+      localStorage.setItem(APP_STORAGE_KEYS.User, JSON.stringify(userData));
       toast.success(`Logged in as ${userData.name}`);
+      push('/assets');
     },
     onError: (e) => toast.error(e.message)
   });
@@ -82,9 +87,10 @@ const UserProvider: FC<Readonly<Children>> = ({ children }) => {
     onSuccess: ({ data }) => {
       const { message, user: userData } = data;
       setUser(userData);
-      localStorage.setItem(EX3_STORAGE_KEYS.User, JSON.stringify(userData));
+      localStorage.setItem(APP_STORAGE_KEYS.User, JSON.stringify(userData));
       toast.success(message);
       toast.success(`Logged in as ${userData.name}`);
+      push('/assets');
     },
     onError: (e) => toast.error(e.message)
   });
@@ -97,13 +103,14 @@ const UserProvider: FC<Readonly<Children>> = ({ children }) => {
       setUser(null);
       localStorage.clear();
       toast.success('Logged out successfully');
+      push('/sign-in');
     },
     onError: () => toast.error('Something went wrong. Please try again later')
   });
 
-  const loadUserFromStorage = useCallback(() => {
+  const loadDataFromStorage = useCallback(() => {
     try {
-      const maybeUser = localStorage.getItem(EX3_STORAGE_KEYS.User);
+      const maybeUser = localStorage.getItem(APP_STORAGE_KEYS.User);
       if (maybeUser) {
         const userData: SignInResponseData = JSON.parse(maybeUser);
         setUser(userData);
@@ -119,8 +126,8 @@ const UserProvider: FC<Readonly<Children>> = ({ children }) => {
       return;
     }
 
-    loadUserFromStorage();
-  }, [user, loadUserFromStorage]);
+    loadDataFromStorage();
+  }, [user, loadDataFromStorage]);
 
   return (
     <UserContext.Provider
