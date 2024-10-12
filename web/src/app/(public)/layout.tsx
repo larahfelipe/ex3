@@ -24,10 +24,14 @@ export default function Layout({ children }: Children) {
 
   return (
     <main className="h-screen bg-black lg:grid lg:grid-cols-2">
-      <aside className="h-full flex flex-col justify-center align-center relative space-y-8">
+      <aside className="h-full min-h-[42rem] flex flex-col justify-center align-center relative space-y-8">
         {children}
 
-        <Link href={pkg.author.url} className="absolute bottom-3 self-center">
+        <Link
+          href={pkg.author.url}
+          rel="noopener noreferrer"
+          className="absolute bottom-3 self-center"
+        >
           <p className="text-sm text-gray-500">
             © {pkg.author.name} {currentYear} - v.{pkg.version}
           </p>

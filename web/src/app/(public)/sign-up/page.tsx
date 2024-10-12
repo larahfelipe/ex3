@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import { twMerge } from 'tailwind-merge';
 
-import { raleway } from '@/common/constants';
+import { APP_ROUTES, raleway } from '@/common/constants';
 
 import { SignUpForm } from './_components/sign-up-form';
 
@@ -38,7 +38,7 @@ export default function SignUp() {
         <p className="mt-6 text-center text-sm text-gray-400">
           Already registered?{' '}
           <Link
-            href="/sign-in"
+            href={APP_ROUTES.Public.SignIn}
             className="leading-6 text-white hover:text-white/90"
           >
             Login instead

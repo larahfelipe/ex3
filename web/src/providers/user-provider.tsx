@@ -27,7 +27,7 @@ import type {
   SignUpRequestPayload,
   SignUpResponseData
 } from '@/app/api/v1/sign-up';
-import { APP_STORAGE_KEYS, CURRENCIES } from '@/common/constants';
+import { APP_ROUTES, APP_STORAGE_KEYS, CURRENCIES } from '@/common/constants';
 import api, { type ApiErrorData } from '@/lib/axios';
 import type { Children, Maybe } from '@/types';
 
@@ -73,7 +73,7 @@ const UserProvider: FC<Children> = ({ children }) => {
       setUser(userData);
       localStorage.setItem(APP_STORAGE_KEYS.User, JSON.stringify(userData));
       toast.success(`Logged in as ${userData.name}`);
-      push('/assets');
+      push(APP_ROUTES.Protected.Assets);
     },
     onError: (e) => toast.error(e.message)
   });
@@ -90,7 +90,7 @@ const UserProvider: FC<Children> = ({ children }) => {
       localStorage.setItem(APP_STORAGE_KEYS.User, JSON.stringify(userData));
       toast.success(message);
       toast.success(`Logged in as ${userData.name}`);
-      push('/assets');
+      push(APP_ROUTES.Protected.Assets);
     },
     onError: (e) => toast.error(e.message)
   });
@@ -103,7 +103,7 @@ const UserProvider: FC<Children> = ({ children }) => {
       setUser(null);
       localStorage.clear();
       toast.success('Logged out successfully');
-      push('/sign-in');
+      push(APP_ROUTES.Public.SignIn);
     },
     onError: () => toast.error('Something went wrong. Please try again later')
   });
