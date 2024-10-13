@@ -19,7 +19,7 @@ export default function Account() {
   if (!user) return null;
 
   return (
-    <div className="space-y-8 sm:mx-4">
+    <div className="space-y-8 my-2 sm:mx-4">
       <Card className="mt-8 shadow-none">
         <CardHeader>
           <CardTitle>Profile</CardTitle>

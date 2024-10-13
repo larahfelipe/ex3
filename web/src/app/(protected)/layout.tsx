@@ -17,10 +17,10 @@ export default function Layout({ children }: Children) {
     );
 
   return (
-    <main className="h-full flex flex-col bg-black sm:grid sm:grid-cols-[160px_auto]">
+    <main className="h-full flex flex-col bg-black sm:grid">
       <Sidebar />
 
-      {children}
+      <div className="sm:ml-[160px]">{children}</div>
     </main>
   );
 }

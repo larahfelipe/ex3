@@ -5,7 +5,7 @@ import {
   type NextRequest
 } from 'next/server';
 
-import { APP_STORAGE_KEYS } from './common/constants';
+import { APP_ROUTES, APP_STORAGE_KEYS } from './common/constants';
 
 export const middleware = async ({ url, nextUrl }: NextRequest) => {
   const { pathname } = nextUrl;
@@ -14,13 +14,14 @@ export const middleware = async ({ url, nextUrl }: NextRequest) => {
   const isAuth = !!authToken;
 
   const isPubRoute =
-    pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up');
+    pathname.startsWith(APP_ROUTES.Public.SignIn) ||
+    pathname.startsWith(APP_ROUTES.Public.SignUp);
 
   if (!isPubRoute && !isAuth)
-    return NextResponse.redirect(new URL('/sign-in', url));
+    return NextResponse.redirect(new URL(APP_ROUTES.Public.SignIn, url));
 
   if (isPubRoute && isAuth)
-    return NextResponse.redirect(new URL('/assets', url));
+    return NextResponse.redirect(new URL(APP_ROUTES.Protected.Assets, url));
 
   return NextResponse.next();
 };

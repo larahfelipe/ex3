@@ -53,3 +53,14 @@ export const ASSET_DIALOG_ACTIONS = {
   Edit: 'edit-asset',
   Delete: 'delete-asset'
 } as const;
+
+export const APP_ROUTES = {
+  Public: {
+    SignIn: '/sign-in',
+    SignUp: '/sign-up'
+  },
+  Protected: {
+    Account: '/account',
+    Assets: '/assets'
+  }
+} as const;

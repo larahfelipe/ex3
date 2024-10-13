@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 
-import { raleway } from '@/common/constants';
+import { APP_ROUTES, raleway } from '@/common/constants';
 import { useUser } from '@/hooks/use-user';
 
 import {
@@ -34,11 +34,11 @@ type SectionButtonProps = Pick<ButtonProps, 'variant' | 'onClick'> & {
 const sections = [
   {
     name: 'Assets',
-    path: '/assets'
+    path: APP_ROUTES.Protected.Assets
   },
   {
     name: 'Account',
-    path: '/account'
+    path: APP_ROUTES.Protected.Account
   }
 ] as const;
 
@@ -102,7 +102,7 @@ export const Sidebar: FC = () => {
   );
 
   return (
-    <nav className="h-[60px] flex items-center relative sm:h-lvh sm:flex-col">
+    <nav className="h-[60px] flex items-center relative sm:w-[160px] sm:h-screen sm:flex-col sm:fixed">
       <section className="max-sm:ml-4 sm:mt-3">
         <h2
           className={twMerge(
