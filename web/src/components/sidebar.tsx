@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type FC, type HTMLAttributes } from 'react';
-import { LuUser2 } from 'react-icons/lu';
+import { LuUser } from 'react-icons/lu';
 import { RxDashboard, RxExit } from 'react-icons/rx';
 
 import { useRouter } from 'next/navigation';
@@ -47,7 +47,7 @@ export const Sidebar: FC = () => {
     sections[0].path
   );
 
-  const { user, signOutMutation } = useUser();
+  const { user, signOutMutationFn } = useUser();
 
   const { push } = useRouter();
 
@@ -56,7 +56,7 @@ export const Sidebar: FC = () => {
     push(path);
   };
 
-  const handleSignOut = () => signOutMutation();
+  const handleSignOut = () => signOutMutationFn();
 
   const SidebarBtn = ({
     onClick,
@@ -128,7 +128,7 @@ export const Sidebar: FC = () => {
           text={user?.name}
           path={sections[1].path}
           onClick={() => changeActiveSectionPath(sections[1].path)}
-          left={<LuUser2 size={18} />}
+          left={<LuUser size={18} />}
         />
 
         <SidebarBtn

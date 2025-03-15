@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type FC
 } from 'react';
@@ -28,7 +29,8 @@ import type {
   SignUpResponseData
 } from '@/app/api/v1/sign-up';
 import { APP_ROUTES, APP_STORAGE_KEYS, CURRENCIES } from '@/common/constants';
-import api, { type ApiErrorData } from '@/lib/axios';
+import api, { type ApiProxyErrorData } from '@/lib/axios';
+import { queryClient } from '@/lib/react-query';
 import type { Children, Maybe } from '@/types';
 
 type UserContextProps = {
@@ -37,22 +39,22 @@ type UserContextProps = {
   currency: keyof typeof CURRENCIES;
   user: Maybe<UserProperties>;
   changeCurrency: (currency: keyof typeof CURRENCIES) => void;
-  signInMutation: UseMutateAsyncFunction<
+  signInMutationFn: UseMutateAsyncFunction<
     AxiosResponse<SignInResponseData>,
-    ApiErrorData,
+    ApiProxyErrorData,
     SignInRequestPayload
   >;
-  signUpMutation: UseMutateAsyncFunction<
+  signUpMutationFn: UseMutateAsyncFunction<
     AxiosResponse<SignUpResponseData>,
-    ApiErrorData,
+    ApiProxyErrorData,
     SignUpRequestPayload
   >;
-  signOutMutation: UseMutateAsyncFunction<AxiosResponse<SignOutResponseData>>;
+  signOutMutationFn: UseMutateAsyncFunction<AxiosResponse<SignOutResponseData>>;
 };
 
-const UserContext = createContext({} as UserContextProps);
+export const UserContext = createContext({} as UserContextProps);
 
-const UserProvider: FC<Children> = ({ children }) => {
+export const UserProvider: FC<Children> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<Maybe<SignInResponseData>>(null);
   const [currency, setCurrency] = useState<keyof typeof CURRENCIES>(
@@ -61,47 +63,53 @@ const UserProvider: FC<Children> = ({ children }) => {
 
   const { push } = useRouter();
 
-  const changeCurrency = (c: keyof typeof CURRENCIES) => setCurrency(c);
+  const changeCurrency = useCallback(
+    (c: keyof typeof CURRENCIES) => setCurrency(c),
+    []
+  );
 
-  const { mutateAsync: signInMutation, status: signInStatus } = useMutation<
-    AxiosResponse<SignInResponseData>,
-    ApiErrorData,
-    SignInRequestPayload
-  >({
-    mutationFn: (payload) => api.client.post('/v1/sign-in', payload),
-    onSuccess: ({ data: userData }) => {
-      setUser(userData);
-      localStorage.setItem(APP_STORAGE_KEYS.User, JSON.stringify(userData));
-      toast.success(`Logged in as ${userData.name}`);
-      push(APP_ROUTES.Protected.Assets);
-    },
-    onError: (e) => toast.error(e.message)
-  });
+  const { mutateAsync: signInMutationFn, status: signInMutationStatus } =
+    useMutation<
+      AxiosResponse<SignInResponseData>,
+      ApiProxyErrorData,
+      SignInRequestPayload
+    >({
+      mutationFn: (payload) => api.getInstance().post('/v1/sign-in', payload),
+      onSuccess: ({ data: userData }) => {
+        setUser(userData);
+        localStorage.setItem(APP_STORAGE_KEYS.User, JSON.stringify(userData));
+        toast.success(`Logged in as ${userData.name}`);
+        push(APP_ROUTES.Protected.Assets);
+      },
+      onError: (e) => toast.error(e.message)
+    });
 
-  const { mutateAsync: signUpMutation, status: signUpStatus } = useMutation<
-    AxiosResponse<SignUpResponseData>,
-    ApiErrorData,
-    SignUpRequestPayload
-  >({
-    mutationFn: (payload) => api.client.post('/v1/sign-up', payload),
-    onSuccess: ({ data }) => {
-      const { message, user: userData } = data;
-      setUser(userData);
-      localStorage.setItem(APP_STORAGE_KEYS.User, JSON.stringify(userData));
-      toast.success(message);
-      toast.success(`Logged in as ${userData.name}`);
-      push(APP_ROUTES.Protected.Assets);
-    },
-    onError: (e) => toast.error(e.message)
-  });
+  const { mutateAsync: signUpMutationFn, status: signUpMutationStatus } =
+    useMutation<
+      AxiosResponse<SignUpResponseData>,
+      ApiProxyErrorData,
+      SignUpRequestPayload
+    >({
+      mutationFn: (payload) => api.getInstance().post('/v1/sign-up', payload),
+      onSuccess: ({ data }) => {
+        const { message, user: userData } = data;
+        setUser(userData);
+        localStorage.setItem(APP_STORAGE_KEYS.User, JSON.stringify(userData));
+        toast.success(message);
+        toast.success(`Logged in as ${userData.name}`);
+        push(APP_ROUTES.Protected.Assets);
+      },
+      onError: (e) => toast.error(e.message)
+    });
 
-  const { mutateAsync: signOutMutation } = useMutation<
+  const { mutateAsync: signOutMutationFn } = useMutation<
     AxiosResponse<SignOutResponseData>
   >({
-    mutationFn: () => api.client.post('/v1/sign-out'),
-    onSuccess: () => {
+    mutationFn: () => api.getInstance().post('/v1/sign-out'),
+    onSuccess: async () => {
       setUser(null);
       localStorage.clear();
+      await queryClient.invalidateQueries({ refetchType: 'none' });
       toast.success('Logged out successfully');
       push(APP_ROUTES.Public.SignIn);
     },
@@ -129,22 +137,30 @@ const UserProvider: FC<Children> = ({ children }) => {
     loadDataFromStorage();
   }, [user, loadDataFromStorage]);
 
-  return (
-    <UserContext.Provider
-      value={{
-        changeCurrency,
-        signInMutation,
-        signUpMutation,
-        signOutMutation,
-        currency,
-        user,
-        isLoading,
-        isFetching: signInStatus === 'pending' || signUpStatus === 'pending'
-      }}
-    >
-      {children}
-    </UserContext.Provider>
+  const value = useMemo(
+    () => ({
+      changeCurrency,
+      signInMutationFn,
+      signUpMutationFn,
+      signOutMutationFn,
+      currency,
+      user,
+      isLoading,
+      isFetching:
+        signInMutationStatus === 'pending' || signUpMutationStatus === 'pending'
+    }),
+    [
+      changeCurrency,
+      signInMutationFn,
+      signUpMutationFn,
+      signOutMutationFn,
+      currency,
+      user,
+      isLoading,
+      signInMutationStatus,
+      signUpMutationStatus
+    ]
   );
-};
 
-export { UserContext, UserProvider };
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
+};

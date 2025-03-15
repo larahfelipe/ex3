@@ -11,6 +11,8 @@ import { z } from 'zod';
 import { Button, Input, Label } from '@/components/ui';
 import { useUser } from '@/hooks/use-user';
 
+type SignUpFormValues = z.infer<typeof signUpSchema>;
+
 const signUpSchema = z
   .object({
     name: z
@@ -34,14 +36,14 @@ const signUpSchema = z
   });
 
 export const SignUpForm: FC = () => {
-  const { signUpMutation } = useUser();
+  const { signUpMutationFn } = useUser();
 
   const {
     register,
     reset,
     handleSubmit,
     formState: { errors, isSubmitting }
-  } = useForm<z.infer<typeof signUpSchema>>({
+  } = useForm<SignUpFormValues>({
     mode: 'onChange',
     resolver: zodResolver(signUpSchema),
     defaultValues: {
@@ -52,16 +54,16 @@ export const SignUpForm: FC = () => {
     }
   });
 
-  const signUpHandler: SubmitHandler<z.infer<typeof signUpSchema>> = async ({
+  const handleSignUp: SubmitHandler<SignUpFormValues> = async ({
     confirmPassword,
     ...formData
   }) => {
-    await signUpMutation(formData);
+    await signUpMutationFn(formData);
     reset();
   };
 
   return (
-    <form onSubmit={handleSubmit(signUpHandler)}>
+    <form onSubmit={handleSubmit(handleSignUp)}>
       <div className="flex-col align-center space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="name">Name</Label>

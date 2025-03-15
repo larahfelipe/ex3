@@ -1,6 +1,2 @@
-import { client, server } from './axios';
-
-const api = { client, server };
-
-export default api;
-export * from './types';
+export { default } from './axios';
+export * from './errors';

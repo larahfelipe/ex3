@@ -16,7 +16,7 @@ import {
 type DeleteAssetDialogProps = {
   open: boolean;
   data: Asset;
-  onCancel: () => void;
+  onCancel: VoidFunction;
   onConfirm: (payload: DeleteAssetRequestPayload) => Promise<unknown>;
 };
 

@@ -26,7 +26,7 @@ import type { Children } from '@/types';
 
 type FallbackContentProps = {
   error?: ReactNode;
-  resetErrorBoundary?: () => void;
+  resetErrorBoundary?: VoidFunction;
 };
 
 const FallbackContent: FC<FallbackContentProps> = ({

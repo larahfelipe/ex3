@@ -1,7 +1,7 @@
 /* eslint-disable react/jsx-newline */
 'use client';
 
-import { useMemo, useState, type ChangeEvent, type FC } from 'react';
+import { useState, type ChangeEvent, type FC } from 'react';
 import { FiEdit } from 'react-icons/fi';
 import {
   IoEllipsisHorizontal,
@@ -13,7 +13,10 @@ import { LuArrowDownUp, LuCoins } from 'react-icons/lu';
 import { SelectValue } from '@radix-ui/react-select';
 import { RefreshCw } from 'lucide-react';
 
-import { type Asset } from '@/app/api/v1/assets';
+import {
+  type Asset,
+  type GetAssetWithTotalBalanceResponseData
+} from '@/app/api/v1/assets';
 import { CURRENCIES } from '@/common/constants';
 import { formatNumber } from '@/common/utils';
 import {
@@ -48,11 +51,7 @@ import {
 import { useUser } from '@/hooks/use-user';
 import type { Maybe, Pagination as TPagination } from '@/types';
 
-import {
-  LimitPerPageOptions,
-  PaginationInitialState,
-  type AssetsResult
-} from '../page';
+import { LimitPerPageOptions, PaginationInitialState } from '../page';
 import { AssetTransactionTableCell } from './asset-transaction-table-cell';
 
 export type DispatchType =
@@ -69,7 +68,7 @@ export type DispatchType =
 type AssetTableData = {
   pagination: TPagination;
   selectedAsset: Maybe<Asset>;
-  result: Maybe<AssetsResult>;
+  result: Maybe<GetAssetWithTotalBalanceResponseData>;
 };
 
 type AssetsTableProps = {
@@ -90,15 +89,11 @@ export const AssetsTable: FC<AssetsTableProps> = ({
 
   const { currency, changeCurrency } = useUser();
 
-  const assets = useMemo(
-    () =>
-      searchedAssetSymbol.length
-        ? (data?.result?.assets || []).filter(({ symbol }) =>
-            symbol.toUpperCase().includes(searchedAssetSymbol.toUpperCase())
-          )
-        : data?.result?.assets || [],
-    [searchedAssetSymbol, data]
-  );
+  const assets = searchedAssetSymbol.length
+    ? (data?.result?.assets || []).filter(({ symbol }) =>
+        symbol.toUpperCase().includes(searchedAssetSymbol.toUpperCase())
+      )
+    : data?.result?.assets || [];
 
   const handleChangeSearchedAssetSymbol = (
     e: ChangeEvent<HTMLInputElement>

@@ -16,17 +16,17 @@ import type {
   CreateAssetResponseData,
   DeleteAssetRequestPayload,
   DeleteAssetResponseData,
-  GetAssetResponseData
+  GetAssetWithTotalBalanceResponseData
 } from '@/app/api/v1/assets';
 import type {
   CreateTransactionRequestPayload,
   CreateTransactionResponseData
 } from '@/app/api/v1/transactions';
 import { ASSET_DIALOG_ACTIONS, TRANSACTION_TYPES } from '@/common/constants';
-import { formatNumber, replaceUrl } from '@/common/utils';
+import { replaceUrl } from '@/common/utils';
 import { Card } from '@/components/ui';
 import { useDisclosure } from '@/hooks/use-disclosure';
-import api, { type ApiErrorData } from '@/lib/axios';
+import api, { type ApiProxyErrorData } from '@/lib/axios';
 import type { Maybe, Pagination as TPagination } from '@/types';
 
 import {
@@ -44,11 +44,6 @@ import { DeleteAssetDialog } from './_components/delete-asset-dialog';
 
 type AssetDialogActions =
   (typeof ASSET_DIALOG_ACTIONS)[keyof typeof ASSET_DIALOG_ACTIONS];
-
-export type AssetsResult = Omit<GetAssetResponseData, 'sort'> & {
-  totalBalance: number;
-  sort?: GetAssetResponseData['sort']['order'];
-};
 
 export const LimitPerPageOptions = ['5', '10', '25', '50'];
 
@@ -90,7 +85,6 @@ export default function Assets() {
   const handleToggleDialog = useCallback(
     (action?: AssetDialogActions) => {
       if (opened && !action) replaceUrl(window.location.pathname);
-
       if (action && action !== dialogAction) setDialogAction(action);
 
       toggle();
@@ -99,62 +93,30 @@ export default function Assets() {
   );
 
   const { data, isLoading, isRefetching, refetch } = useQuery<
-    AxiosResponse<GetAssetResponseData>,
-    ApiErrorData,
-    AssetsResult
+    AxiosResponse<GetAssetWithTotalBalanceResponseData>,
+    ApiProxyErrorData,
+    GetAssetWithTotalBalanceResponseData
   >({
     queryKey: ['assets', pagination],
     queryFn: () =>
-      api.client.get('/v1/assets', {
+      api.getInstance().get('/v1/assets', {
         params: {
           sort: 'desc',
           page: pagination.page,
           limit: pagination.limit
         }
       }),
-    select: ({ data }) => {
-      let result: AssetsResult = {
-        assets: [],
-        totalBalance: 0,
-        pagination: PaginationInitialState
-      };
-
-      try {
-        const totalBalance = data.assets.reduce(
-          (acc, curr) => (acc += curr.balance),
-          0
-        );
-        const assetsWithDominance = data.assets.map((a) => {
-          a.dominance =
-            totalBalance > 0
-              ? formatNumber(a.balance / totalBalance, {
-                  style: 'percent',
-                  maximumFractionDigits: 2
-                })
-              : '0%';
-          return a;
-        });
-        result = {
-          totalBalance,
-          assets: assetsWithDominance,
-          pagination: data.pagination,
-          ...(data?.sort?.order && { sort: data.sort.order })
-        };
-      } catch (e) {
-        console.error(e);
-      }
-
-      return result;
-    },
+    select: ({ data }) => data,
     staleTime: 60_000
   });
 
   const { mutateAsync: createAssetMutation } = useMutation<
     AxiosResponse<CreateAssetResponseData>,
-    ApiErrorData,
+    ApiProxyErrorData,
     CreateAssetRequestPayload
   >({
-    mutationFn: (payload) => api.client.post('/v1/assets/create', payload),
+    mutationFn: (payload) =>
+      api.getInstance().post('/v1/assets/create', payload),
     onSuccess: async ({ data }) => {
       toast.success(data.message);
       await refetch();
@@ -164,10 +126,11 @@ export default function Assets() {
 
   const { mutateAsync: createAssetTransactionMutation } = useMutation<
     AxiosResponse<CreateTransactionResponseData>,
-    ApiErrorData,
+    ApiProxyErrorData,
     CreateTransactionRequestPayload
   >({
-    mutationFn: (payload) => api.client.post('/v1/transactions', payload),
+    mutationFn: (payload) =>
+      api.getInstance().post('/v1/transactions', payload),
     onSuccess: async ({ data }) => {
       toast.success(data.message);
       if (searchParams.size) replaceUrl(window.location.pathname);
@@ -178,10 +141,11 @@ export default function Assets() {
 
   const { mutateAsync: deleteAssetMutation } = useMutation<
     AxiosResponse<DeleteAssetResponseData>,
-    ApiErrorData,
+    ApiProxyErrorData,
     DeleteAssetRequestPayload
   >({
-    mutationFn: ({ symbol }) => api.client.delete(`/v1/assets/${symbol}`),
+    mutationFn: ({ symbol }) =>
+      api.getInstance().delete(`/v1/assets/${symbol}`),
     onSuccess: async ({ data }) => {
       toast.success(data.message);
       await refetch();

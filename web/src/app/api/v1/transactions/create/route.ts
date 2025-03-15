@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 
 import { APP_STORAGE_KEYS } from '@/common/constants';
-import api, { type ApiError, type ApiErrorData } from '@/lib/axios';
+import api, { ApiProxyError, type ApiProxyErrorData } from '@/lib/axios';
 
 import {
   type CreateTransactionRequestPayload,
@@ -14,26 +14,29 @@ export const POST = async (req: NextRequest) => {
     const payload = (await req.json()) as CreateTransactionRequestPayload;
 
     const authToken = cookies().get(APP_STORAGE_KEYS.Token);
-    if (!authToken?.value) throw new Error('Missing access token');
+    if (!authToken?.value)
+      throw new ApiProxyError('Missing access token', {
+        status: 401,
+        statusText: 'Unauthorized'
+      });
 
     const headers = {
       Authorization: `Bearer ${authToken.value}`
     };
 
-    const { data, status, statusText } =
-      await api.server.post<CreateTransactionResponseData>(
-        '/v1/transaction',
-        payload,
-        { headers }
-      );
+    const { data, status, statusText } = await api
+      .getInstance()
+      .post<CreateTransactionResponseData>('/v1/transaction', payload, {
+        headers
+      });
 
     return NextResponse.json<CreateTransactionResponseData>(data, {
       status,
       statusText
     });
   } catch (e) {
-    const { status, statusText, ...error } = e as ApiError;
+    const { status, statusText, ...error } = e as ApiProxyError;
 
-    return NextResponse.json<ApiErrorData>(error, { status, statusText });
+    return NextResponse.json<ApiProxyErrorData>(error, { status, statusText });
   }
 };
