@@ -10,20 +10,22 @@ import { z } from 'zod';
 import { Button, Input, Label } from '@/components/ui';
 import { useUser } from '@/hooks/use-user';
 
+type SignInFormValues = z.infer<typeof signInSchema>;
+
 const signInSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().trim().min(1, 'Password is required')
 });
 
 export const SignInForm: FC = () => {
-  const { signInMutation } = useUser();
+  const { signInMutationFn } = useUser();
 
   const {
     register,
     reset,
     handleSubmit,
     formState: { errors, isSubmitting }
-  } = useForm<z.infer<typeof signInSchema>>({
+  } = useForm<SignInFormValues>({
     mode: 'onChange',
     resolver: zodResolver(signInSchema),
     defaultValues: {
@@ -32,15 +34,13 @@ export const SignInForm: FC = () => {
     }
   });
 
-  const signInHandler: SubmitHandler<z.infer<typeof signInSchema>> = async (
-    formData
-  ) => {
-    await signInMutation(formData);
+  const handleSignIn: SubmitHandler<SignInFormValues> = async (formData) => {
+    await signInMutationFn(formData);
     reset();
   };
 
   return (
-    <form onSubmit={handleSubmit(signInHandler)}>
+    <form onSubmit={handleSubmit(handleSignIn)}>
       <div className="flex-col align-center space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>

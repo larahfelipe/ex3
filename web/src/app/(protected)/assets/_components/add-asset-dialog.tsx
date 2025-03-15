@@ -17,7 +17,7 @@ import { z } from 'zod';
 
 import type { Asset, CreateAssetRequestPayload } from '@/app/api/v1/assets';
 import { ASSET_DIALOG_ACTIONS } from '@/common/constants';
-import { replaceUrl } from '@/common/utils';
+import { replaceUrl, sanitizeInputValue } from '@/common/utils';
 import {
   Button,
   Dialog,
@@ -33,7 +33,7 @@ import {
 type AddAssetDialogProps = {
   open: boolean;
   data: Asset;
-  onCancel: () => void;
+  onCancel: VoidFunction;
   onConfirm: (payload: CreateAssetRequestPayload) => Promise<unknown>;
 };
 
@@ -46,6 +46,20 @@ export const AddAssetSchema = z.object({
     .max(6, 'Asset symbol must have at most 6 characters')
     .transform((value) => value.trim().toUpperCase())
 });
+
+const handleChangeFormFieldValue = (
+  fieldName: keyof AddAssetSchemaType,
+  event: ChangeEvent<HTMLInputElement>
+) => {
+  let { value } = event.target;
+
+  if (fieldName === 'symbol') {
+    value = sanitizeInputValue(value, 'alphanumeric').toUpperCase();
+    return value;
+  }
+
+  return value;
+};
 
 export const AddAssetDialog: FC<AddAssetDialogProps> = ({
   open,
@@ -92,11 +106,6 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
       );
   }, [onCancel, isSubmitSuccessful, assetSymbol]);
 
-  const handleChangeSymbolValue = (e: ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    return value.toUpperCase();
-  };
-
   return (
     <Dialog open={open} onOpenChange={handleCancel}>
       <DialogContent>
@@ -128,7 +137,9 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
                   aria-label="Asset symbol"
                   placeholder="Enter the asset symbol"
                   {...field}
-                  onChange={(e) => field.onChange(handleChangeSymbolValue(e))}
+                  onChange={(e) =>
+                    field.onChange(handleChangeFormFieldValue('symbol', e))
+                  }
                 />
               )}
             />

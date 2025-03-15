@@ -11,7 +11,7 @@ import { TRANSACTION_TYPES } from '@/common/constants';
 import { formatNumber } from '@/common/utils';
 import { Skeleton, TableCell } from '@/components/ui';
 import { useUser } from '@/hooks/use-user';
-import api, { type ApiErrorData } from '@/lib/axios';
+import api, { type ApiProxyErrorData } from '@/lib/axios';
 
 type AssetTransactionTableCell = {
   symbol: string;
@@ -53,11 +53,11 @@ export const AssetTransactionTableCell: FC<AssetTransactionTableCell> = ({
 
   const { data: transactions = [], isLoading } = useQuery<
     AxiosResponse<GetTransactionsResponseData>,
-    ApiErrorData,
+    ApiProxyErrorData,
     Array<Transaction>
   >({
     queryKey: ['transactions', symbol],
-    queryFn: () => api.client.get(`/v1/transactions/${symbol}`),
+    queryFn: () => api.getInstance().get(`/v1/transactions/${symbol}`),
     select: ({ data }) => data.transactions,
     staleTime: 30_000
   });

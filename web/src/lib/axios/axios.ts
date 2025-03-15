@@ -1,53 +1,69 @@
 import axios, {
   type AxiosError,
-  type AxiosResponse,
   type CreateAxiosDefaults,
   isAxiosError
 } from 'axios';
+import { toast } from 'sonner';
 
-import type { ApiError, ServerErrorData } from './types';
+import { type SignOutResponseData } from '@/app/api/v1/sign-out';
+import { APP_ROUTES } from '@/common/constants';
 
-const axiosConfig: CreateAxiosDefaults = {
+import type { ApiServerErrorData, IApiProxyError } from './errors';
+import { ApiProxyError } from './errors';
+
+const baseAxiosConfig: CreateAxiosDefaults = {
   headers: { 'Content-Type': 'application/json' },
   timeoutErrorMessage: 'Axios: Request timeout reached',
-  timeout: 20_000, // 20s,
-  baseURL: typeof window === 'undefined' ? process.env.API_URL : '/api'
+  timeout: 20_000 // 20s,
 };
 
-export const client = axios.create(axiosConfig);
+const proxyApi = axios.create({
+  ...baseAxiosConfig,
+  baseURL: '/api'
+});
 
-export const server = axios.create(axiosConfig);
+const serverApi = axios.create({
+  ...baseAxiosConfig,
+  baseURL: process.env.API_URL
+});
 
-client.interceptors.response.use(
+proxyApi.interceptors.response.use(
   (res) => res,
-  (err: AxiosError<ApiError>) => {
-    const error: Partial<ApiError> = err.response?.data ?? {
+  async (err: AxiosError<IApiProxyError>) => {
+    if (err.response?.status === 401) {
+      const { data } = await proxyApi.post<SignOutResponseData>('/sign-out');
+      if (data?.success) {
+        toast.error('Session expired. Please, log in again');
+        window.location.href = APP_ROUTES.Public.SignIn;
+      }
+    }
+    const error = err.response?.data ?? {
       message: 'Something went wrong. Please try again later'
     };
-
-    return Promise.reject<ApiError>(error);
+    return Promise.reject(new ApiProxyError(error.message, error));
   }
 );
 
-server.interceptors.response.use(
+serverApi.interceptors.response.use(
   (res) => res,
   (err) => {
-    const error: ApiError = {
-      _error: null,
-      status: 500,
-      statusText: 'Internal Server Error',
-      message: 'Something went wrong. Please try again later'
-    };
-
-    if (isAxiosError(err)) {
-      const { data, statusText, status } =
-        (err.response as AxiosResponse<ServerErrorData>) ?? {};
-      error._error = data;
-      error.message = data.message;
-      error.statusText = statusText;
-      error.status = status;
+    if (process.env.NODE_ENV !== 'production') console.error(err);
+    const error = new ApiProxyError(
+      'Something went wrong. Please try again later'
+    );
+    if (isAxiosError<ApiServerErrorData>(err)) {
+      const { data, statusText, status } = err.response ?? {};
+      if (data) error._error = data;
+      if (data?.message) error.message = data.message;
+      if (statusText) error.statusText = statusText;
+      if (status) error.status = status;
     }
-
-    return Promise.reject<ApiError>(error);
+    return Promise.reject(error);
   }
 );
+
+const api = {
+  getInstance: () => (typeof window !== 'undefined' ? proxyApi : serverApi)
+};
+
+export default api;

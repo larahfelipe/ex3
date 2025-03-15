@@ -16,6 +16,7 @@ import type {
   TransactionType
 } from '@/app/api/v1/transactions';
 import { CURRENCIES, TRANSACTION_TYPES } from '@/common/constants';
+import { sanitizeInputValue } from '@/common/utils';
 import {
   Button,
   Dialog,
@@ -38,7 +39,7 @@ import { useUser } from '@/hooks/use-user';
 type AddAssetTransactionDialogProps = {
   open: boolean;
   data: Asset;
-  onCancel: () => void;
+  onCancel: VoidFunction;
   onConfirm: (payload: CreateTransactionRequestPayload) => Promise<unknown>;
 };
 
@@ -55,6 +56,17 @@ export const AddAssetTransactionSchema = z.object({
   amount: z.coerce.number().positive('Transaction amount must be positive'),
   price: z.coerce.number().positive('Transaction price must be positive')
 });
+
+const handleChangeFormFieldValue = (
+  fieldName: keyof AddAssetTransactionSchemaType,
+  event: ChangeEvent<HTMLInputElement>
+) => {
+  const { value } = event.target;
+
+  if (fieldName === 'price') return sanitizeInputValue(value, 'number');
+
+  return value;
+};
 
 export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
   open,
@@ -87,13 +99,6 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
       assetId: ''
     });
     reset();
-  };
-
-  const handleChangePriceValue = (e: ChangeEvent<HTMLInputElement>) => {
-    let { value } = e.target;
-    value = value.replace(/[^\d]/g, '');
-    if (!value.length) return;
-    return (parseInt(value, 10) / 100).toFixed(2);
   };
 
   return (
@@ -214,7 +219,9 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
                       {CURRENCIES[currency].symbol}
                     </span>
                   }
-                  onChange={(e) => field.onChange(handleChangePriceValue(e))}
+                  onChange={(e) =>
+                    field.onChange(handleChangeFormFieldValue('price', e))
+                  }
                 />
               )}
             />

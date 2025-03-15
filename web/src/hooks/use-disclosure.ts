@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 
 export const useDisclosure = (
   initialState = false,
-  cb?: { onOpen?: () => void; onClose?: () => void }
+  cb?: { onOpen?: VoidFunction; onClose?: VoidFunction }
 ) => {
   const { onOpen, onClose } = cb || {};
   const [opened, setOpened] = useState(initialState);

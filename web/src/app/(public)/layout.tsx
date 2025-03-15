@@ -6,7 +6,6 @@ import Link from 'next/link';
 
 import { Loader2 } from 'lucide-react';
 
-import { currentYear } from '@/common/utils';
 import { useUser } from '@/hooks/use-user';
 import type { Children } from '@/types';
 
@@ -33,7 +32,7 @@ export default function Layout({ children }: Children) {
           className="absolute bottom-3 self-center"
         >
           <p className="text-sm text-gray-500">
-            © {pkg.author.name} {currentYear} - v.{pkg.version}
+            © {pkg.author.name} {new Date().getFullYear()} - v.{pkg.version}
           </p>
         </Link>
       </aside>

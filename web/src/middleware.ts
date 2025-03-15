@@ -7,21 +7,21 @@ import {
 
 import { APP_ROUTES, APP_STORAGE_KEYS } from './common/constants';
 
-export const middleware = async ({ url, nextUrl }: NextRequest) => {
-  const { pathname } = nextUrl;
+const isPubRoute = (pathname: string) =>
+  pathname.startsWith(APP_ROUTES.Public.SignIn) ||
+  pathname.startsWith(APP_ROUTES.Public.SignUp);
 
-  const authToken = cookies().get(APP_STORAGE_KEYS.Token)?.value;
-  const isAuth = !!authToken;
+export const middleware = async (req: NextRequest) => {
+  const token = cookies().get(APP_STORAGE_KEYS.Token)?.value;
+  const isAuthenticated = !!token;
 
-  const isPubRoute =
-    pathname.startsWith(APP_ROUTES.Public.SignIn) ||
-    pathname.startsWith(APP_ROUTES.Public.SignUp);
+  const { pathname } = req.nextUrl;
 
-  if (!isPubRoute && !isAuth)
-    return NextResponse.redirect(new URL(APP_ROUTES.Public.SignIn, url));
+  if (!isPubRoute(pathname) && !isAuthenticated)
+    return NextResponse.redirect(new URL(APP_ROUTES.Public.SignIn, req.url));
 
-  if (isPubRoute && isAuth)
-    return NextResponse.redirect(new URL(APP_ROUTES.Protected.Assets, url));
+  if (isPubRoute(pathname) && isAuthenticated)
+    return NextResponse.redirect(new URL(APP_ROUTES.Protected.Assets, req.url));
 
   return NextResponse.next();
 };
