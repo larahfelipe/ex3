@@ -20,17 +20,7 @@ type SizeType = 'px' | 'rem' | 'em' | '%';
 export type Size = `${number}${SizeType}`;
 
 export type TailwindColorsIntensity =
-  | 50
-  | 100
-  | 200
-  | 300
-  | 400
-  | 500
-  | 600
-  | 700
-  | 800
-  | 900
-  | 950;
+  50 | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900 | 950;
 
 export type TailwindColorsName =
   | 'slate'

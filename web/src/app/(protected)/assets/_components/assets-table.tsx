@@ -111,11 +111,11 @@ export const AssetsTable: FC<AssetsTableProps> = ({
   };
 
   return (
-    <div className="space-y-[8rem] sm:space-y-6">
+    <div className="space-y-32 sm:space-y-6">
       <section className="h-8 flex flex-col gap-3 mx-1 sm:flex-row sm:justify-between max-sm:mb-12">
         <Input
           placeholder="Search asset..."
-          className="sm:w-[12rem] bg-zinc-900"
+          className="sm:w-48 bg-zinc-900"
           disabled={loading}
           onChange={handleChangeSearchedAssetSymbol}
           leftElement={<IoSearchOutline size={16} className="text-gray-500" />}
@@ -272,7 +272,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
           {!loading &&
             assets?.map((asset, i) => (
               <TableRow key={asset.id}>
-                {!isAssetSelectionActive && <TableCell>{++i}</TableCell>}
+                {!isAssetSelectionActive && <TableCell>{i + 1}</TableCell>}
 
                 {isAssetSelectionActive && (
                   <TableCell>
@@ -317,7 +317,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                         variant="ghost"
                         size="sm"
                         aria-label="Action"
-                        className="h-8 sm:w-[fit-content] sm:self-end"
+                        className="h-8 sm:w-fit sm:self-end"
                         disabled={loading}
                       >
                         <IoEllipsisHorizontal
@@ -431,7 +431,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                   {!searchedAssetSymbol.length && data?.pagination && (
                     <section className="w-1/2">
                       <Pagination className="justify-end">
-                        <PaginationContent className="hover:cursor-pointer [&>*]:text-gray-200">
+                        <PaginationContent className="hover:cursor-pointer *:text-gray-200">
                           <Button
                             variant="link"
                             className="p-0"

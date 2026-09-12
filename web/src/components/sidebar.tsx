@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FC, type HTMLAttributes } from 'react';
+import { useState, type FC, type HTMLAttributes, type JSX } from 'react';
 import { LuUser } from 'react-icons/lu';
 import { RxDashboard, RxExit } from 'react-icons/rx';
 

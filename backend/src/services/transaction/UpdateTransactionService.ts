@@ -1,13 +1,7 @@
-import {
-  AssetMessages,
-  PortfolioMessages,
-  TransactionMessages,
-  TransactionTypes
-} from '@/config';
+import { PortfolioMessages, TransactionMessages } from '@/config';
 import type { Transaction } from '@/domain/models';
 import { BadRequestError, NotFoundError } from '@/errors';
 import type {
-  AssetRepository,
   PortfolioRepository,
   TransactionRepository
 } from '@/infra/database';
@@ -16,28 +10,23 @@ export class UpdateTransactionService {
   private static INSTANCE: UpdateTransactionService;
   private readonly transactionRepository: TransactionRepository;
   private readonly portfolioRepository: PortfolioRepository;
-  private readonly assetRepository: AssetRepository;
 
   private constructor(
     transactionRepository: TransactionRepository,
-    portfolioRepository: PortfolioRepository,
-    assetRepository: AssetRepository
+    portfolioRepository: PortfolioRepository
   ) {
     this.transactionRepository = transactionRepository;
     this.portfolioRepository = portfolioRepository;
-    this.assetRepository = assetRepository;
   }
 
   static getInstance(
     transactionRepository: TransactionRepository,
-    portfolioRepository: PortfolioRepository,
-    assetRepository: AssetRepository
+    portfolioRepository: PortfolioRepository
   ) {
     if (!UpdateTransactionService.INSTANCE)
       UpdateTransactionService.INSTANCE = new UpdateTransactionService(
         transactionRepository,
-        portfolioRepository,
-        assetRepository
+        portfolioRepository
       );
 
     return UpdateTransactionService.INSTANCE;
@@ -54,40 +43,22 @@ export class UpdateTransactionService {
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
-    const transactionExists = await this.transactionRepository.getById(id);
-
-    if (!transactionExists)
-      throw new NotFoundError(TransactionMessages.NOT_FOUND);
-
-    const assetExists = await this.assetRepository.getBySymbol({
-      symbol: transactionExists.assetSymbol,
-      portfolioId: portfolioExists.id
-    });
-
-    if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
-
-    if (type === TransactionTypes.SELL && assetExists.amount < amount)
-      throw new BadRequestError(TransactionMessages.ACC_NEGATIVE_AMOUNT);
-
-    const updatedTransaction = await this.transactionRepository.update({
+    const ledgerWrite = await this.transactionRepository.update({
       id,
       type,
       price,
-      amount
+      amount,
+      portfolioId: portfolioExists.id
     });
 
-    await this.assetRepository.updatePosition({
-      operation:
-        updatedTransaction.type === TransactionTypes.BUY
-          ? 'increment'
-          : 'decrement',
-      amount: updatedTransaction.amount,
-      balance: updatedTransaction.price * updatedTransaction.amount,
-      symbol: updatedTransaction.assetSymbol
-    });
+    if (ledgerWrite.outcome === 'not-found')
+      throw new NotFoundError(TransactionMessages.NOT_FOUND);
+
+    if (ledgerWrite.outcome === 'negative-amount')
+      throw new BadRequestError(TransactionMessages.ACC_NEGATIVE_AMOUNT);
 
     return {
-      message: TransactionMessages.CREATED
+      message: TransactionMessages.UPDATED
     };
   }
 }

@@ -5,45 +5,105 @@ on:
     branches:
       - master
       - develop
+  pull_request:
+    branches:
+      - master
+      - develop
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend:
+    name: Backend
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    # Credentials match backend/.env.test, which is the only connection string
+    # the test suite reads. Keeping them identical locally and here means no
+    # database configuration is duplicated in this workflow.
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_USER: ex3
+          POSTGRES_PASSWORD: ex3
+          POSTGRES_DB: ex3_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username=ex3 --dbname=ex3_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Node setup
-        uses: actions/setup-node@v3
-      - name: Cache dependencies
-        uses: actions/cache@v2
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          path: backend/node_modules
-          key: ${{ runner.os }}-backend-${{ hashFiles('backend/package-lock.json') }}
+          node-version-file: .node-version
+          cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
+
       - name: Install dependencies
-        run: cd backend && npm install
-      - name: Build
-        run: cd backend && npm run build
+        run: pnpm install --frozen-lockfile
+
       - name: Lint
-        run: cd backend && npm run lint
+        run: pnpm lint
+
       - name: Type check
-        run: cd backend && npm run typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: Integration tests
+        run: pnpm test:integration
+
+      - name: Build
+        run: pnpm build
+
   web:
+    name: Web
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Node setup
-        uses: actions/setup-node@v3
-      - name: Cache dependencies
-        uses: actions/cache@v2
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          path: web/node_modules
-          key: ${{ runner.os }}-web-${{ hashFiles('web/package-lock.json') }}
+          node-version-file: .node-version
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
       - name: Install dependencies
-        run: cd web && npm install
-      - name: Build
-        run: cd web && npm run build
+        run: pnpm install --frozen-lockfile
+
       - name: Lint
-        run: cd web && npm run lint
+        run: pnpm lint
+
       - name: Type check
-        run: cd web && npm run typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: echo "No web unit tests — the web suite is E2E only, see FASE 17"
+
+      - name: Build
+        run: pnpm build
+
+      - name: E2E tests
+        run: echo "No e2e tests yet — see FASE 17"

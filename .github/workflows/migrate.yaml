@@ -6,19 +6,31 @@ on:
       - master
 
 jobs:
-  deploy:
+  migrate:
+    name: Prisma migrate deploy
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Node setup
-        uses: actions/setup-node@v3
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
+
       - name: Install dependencies
-        run: cd backend && npm install
-      - name: Build
-        run: cd backend && npm run build
+        run: pnpm install --frozen-lockfile
+
       - name: Prisma migration
-        run: cd backend && npx prisma migrate deploy
+        run: pnpm exec prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}

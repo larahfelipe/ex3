@@ -14,7 +14,7 @@ type SignInFormValues = z.infer<typeof signInSchema>;
 
 const signInSchema = z.object({
   email: z.string().trim().email(),
-  password: z.string().trim().min(1, 'Password is required')
+  password: z.string().min(1, 'Password is required')
 });
 
 export const SignInForm: FC = () => {

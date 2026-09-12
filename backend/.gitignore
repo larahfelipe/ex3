@@ -1,5 +1,4 @@
 node_modules
-prisma/migrations
 dist
 .env
 .env*.local

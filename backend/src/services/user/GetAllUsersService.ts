@@ -22,15 +22,16 @@ export class GetAllUsersService {
   }: GetAllUsersService.DTO): Promise<GetAllUsersService.Result> {
     if (!isAdmin) throw new ForbiddenError();
 
-    const allUsers = await this.userRepository.getAll();
-
     return {
-      users: allUsers as Array<User>
+      users: await this.userRepository.getAll()
     };
   }
 }
 
 namespace GetAllUsersService {
   export type DTO = Pick<User, 'isAdmin'>;
-  export type Result = Record<'users', Array<User>>;
+  export type Result = Record<
+    'users',
+    Array<Omit<User, 'password' | 'sessionVersion' | 'portfolio'>>
+  >;
 }

@@ -37,6 +37,7 @@ import {
 import {
   AddAssetTransactionDialog,
   AddAssetTransactionSchema,
+  type AddAssetTransactionSchemaInput,
   type AddAssetTransactionSchemaType
 } from './_components/add-asset-transaction-dialog';
 import { AssetsTable, type DispatchType } from './_components/assets-table';
@@ -71,16 +72,18 @@ export default function Assets() {
     }
   });
 
-  const addAssetTransactionFormMethods = useForm<AddAssetTransactionSchemaType>(
-    {
-      mode: 'onBlur',
-      resolver: zodResolver(AddAssetTransactionSchema),
-      defaultValues: {
-        type: TRANSACTION_TYPES[0],
-        price: 0
-      }
+  const addAssetTransactionFormMethods = useForm<
+    AddAssetTransactionSchemaInput,
+    unknown,
+    AddAssetTransactionSchemaType
+  >({
+    mode: 'onBlur',
+    resolver: zodResolver(AddAssetTransactionSchema),
+    defaultValues: {
+      type: TRANSACTION_TYPES[0],
+      price: 0
     }
-  );
+  });
 
   const handleToggleDialog = useCallback(
     (action?: AssetDialogActions) => {

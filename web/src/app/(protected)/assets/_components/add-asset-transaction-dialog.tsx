@@ -43,9 +43,23 @@ type AddAssetTransactionDialogProps = {
   onConfirm: (payload: CreateTransactionRequestPayload) => Promise<unknown>;
 };
 
-export type AddAssetTransactionSchemaType = z.infer<
+export type AddAssetTransactionSchemaInput = z.input<
   typeof AddAssetTransactionSchema
 >;
+
+export type AddAssetTransactionSchemaType = z.output<
+  typeof AddAssetTransactionSchema
+>;
+
+/**
+ * Number inputs hand their value over as a string, so the field accepts both
+ * and the schema is what narrows it to a number.
+ */
+const positiveNumberField = (message: string) =>
+  z
+    .union([z.string(), z.number()])
+    .transform(Number)
+    .pipe(z.number().positive(message));
 
 export const AddAssetTransactionSchema = z.object({
   type: z
@@ -53,8 +67,8 @@ export const AddAssetTransactionSchema = z.object({
     .refine((value) => TRANSACTION_TYPES.includes(value as TransactionType), {
       message: 'Transaction type must be either `BUY` or `SELL`'
     }),
-  amount: z.coerce.number().positive('Transaction amount must be positive'),
-  price: z.coerce.number().positive('Transaction price must be positive')
+  amount: positiveNumberField('Transaction amount must be positive'),
+  price: positiveNumberField('Transaction price must be positive')
 });
 
 const handleChangeFormFieldValue = (
@@ -82,7 +96,11 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
     handleSubmit,
     reset,
     formState: { errors, isSubmitting, isValid }
-  } = useFormContext<AddAssetTransactionSchemaType>();
+  } = useFormContext<
+    AddAssetTransactionSchemaInput,
+    unknown,
+    AddAssetTransactionSchemaType
+  >();
 
   const handleCancel = () => {
     onCancel();

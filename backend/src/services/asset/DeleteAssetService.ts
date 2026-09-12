@@ -1,38 +1,29 @@
 import { AssetMessages, PortfolioMessages } from '@/config';
 import type { Asset } from '@/domain/models';
-import { BadRequestError, NotFoundError } from '@/errors';
-import type {
-  AssetRepository,
-  PortfolioRepository,
-  TransactionRepository
-} from '@/infra/database';
+import { NotFoundError } from '@/errors';
+import type { AssetRepository, PortfolioRepository } from '@/infra/database';
 
 export class DeleteAssetService {
   private static INSTANCE: DeleteAssetService;
   private readonly assetRepository: AssetRepository;
   private readonly portfolioRepository: PortfolioRepository;
-  private readonly transactionRepository: TransactionRepository;
 
   private constructor(
     assetRepository: AssetRepository,
-    portfolioRepository: PortfolioRepository,
-    transactionRepository: TransactionRepository
+    portfolioRepository: PortfolioRepository
   ) {
     this.assetRepository = assetRepository;
     this.portfolioRepository = portfolioRepository;
-    this.transactionRepository = transactionRepository;
   }
 
   static getInstance(
     assetRepository: AssetRepository,
-    portfolioRepository: PortfolioRepository,
-    transactionRepository: TransactionRepository
+    portfolioRepository: PortfolioRepository
   ) {
     if (!DeleteAssetService.INSTANCE)
       DeleteAssetService.INSTANCE = new DeleteAssetService(
         assetRepository,
-        portfolioRepository,
-        transactionRepository
+        portfolioRepository
       );
 
     return DeleteAssetService.INSTANCE;
@@ -51,14 +42,7 @@ export class DeleteAssetService {
       portfolioId: portfolioExists.id
     });
 
-    if (!assetExists) throw new BadRequestError(AssetMessages.NOT_FOUND);
-
-    const assetHasTransactions = await this.transactionRepository.count();
-
-    if (assetHasTransactions)
-      await this.transactionRepository.deleteAllByAssetSymbol(
-        assetExists.symbol
-      );
+    if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
     await this.assetRepository.delete({
       symbol,

@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import type { FC, JSX } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 import { type AxiosResponse } from 'axios';

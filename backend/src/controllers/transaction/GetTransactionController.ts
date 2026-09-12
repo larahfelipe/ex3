@@ -1,7 +1,5 @@
 import type { Request, Response } from 'express';
 
-import { Errors } from '@/config';
-import type { ApplicationError } from '@/errors';
 import type { Controller } from '@/interfaces';
 import type { GetTransactionService } from '@/services/transaction';
 import { validate } from '@/validation';
@@ -25,20 +23,15 @@ export class GetTransactionController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    try {
-      const { id } = await validate(GetTransactionSchema, req.params);
+    const { user, params } = req;
 
-      const result = await this.getTransactionService.execute({ id });
+    const { id } = await validate(GetTransactionSchema, params);
 
-      return res.status(200).json(result);
-    } catch (e) {
-      const {
-        status = Errors.INTERNAL_SERVER_ERROR.status,
-        name = Errors.INTERNAL_SERVER_ERROR.name,
-        message = Errors.INTERNAL_SERVER_ERROR.message
-      } = e as ApplicationError;
+    const result = await this.getTransactionService.execute({
+      id,
+      userId: user.id
+    });
 
-      return res.status(status).json({ name, message });
-    }
+    return res.status(200).json(result);
   }
 }

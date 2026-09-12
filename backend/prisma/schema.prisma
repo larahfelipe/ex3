@@ -7,21 +7,22 @@ generator client {
 
 datasource db {
   provider     = "postgresql"
-  url          = env("DATABASE_URL")
-  directUrl    = env("DIRECT_URL")
   relationMode = "prisma"
 }
 
 model User {
-  id          String     @id @default(uuid())
-  name        String?
-  email       String     @unique
-  password    String
-  portfolio   Portfolio?
-  accessToken String?
-  isAdmin     Boolean    @default(false)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id             String     @id @default(uuid())
+  name           String?
+  email          String     @unique
+  password       String
+  portfolio      Portfolio?
+  /// Sign-up issues the first token at the initial value; sign-in, sign-out
+  /// and password change bump it. An access token is honoured only while it
+  /// carries the current value.
+  sessionVersion Int        @default(0)
+  isAdmin        Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   @@map("users")
 }

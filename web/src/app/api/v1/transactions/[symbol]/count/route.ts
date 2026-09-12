@@ -15,7 +15,7 @@ export const GET = async (req: NextRequest) => {
         statusText: 'Bad Request'
       });
 
-    const authToken = cookies().get(APP_STORAGE_KEYS.Token);
+    const authToken = (await cookies()).get(APP_STORAGE_KEYS.Token);
     if (!authToken?.value)
       throw new ApiProxyError('Missing access token', {
         status: 401,
@@ -29,7 +29,7 @@ export const GET = async (req: NextRequest) => {
     const { data, status, statusText } = await api
       .getInstance()
       .get<GetTransactionCountResponseData>(
-        `/v1/transaction/${assetSymbol}/count`,
+        `/v1/transactions/${assetSymbol}/count`,
         { headers }
       );
 

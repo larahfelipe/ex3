@@ -42,7 +42,7 @@ export class UpdateAssetService {
       portfolioId: portfolioExists.id
     });
 
-    if (!assetExists) throw new BadRequestError(AssetMessages.NOT_FOUND);
+    if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
     const assetAlreadyExists = await this.assetRepository.getBySymbol({
       symbol: newSymbol,

@@ -25,7 +25,7 @@ export default function SignIn() {
           EX3
         </h2>
 
-        <div className="w-full h-[1px] bg-gray-700" />
+        <div className="w-full h-px bg-gray-700" />
 
         <h2 className="text-md text-gray-400 text-center">
           Sign in to your account

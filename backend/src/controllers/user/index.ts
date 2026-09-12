@@ -2,12 +2,13 @@ import type { Request, Response } from 'express';
 
 import { envs } from '@/config';
 import { Bcrypt, Jwt } from '@/infra/cryptography';
-import { PortfolioRepository, UserRepository } from '@/infra/database';
+import { UserRepository } from '@/infra/database';
 import {
   CreateUserService,
   DeleteUserService,
   GetAllUsersService,
   GetUserService,
+  SignOutUserService,
   UpdateUserService
 } from '@/services/user';
 
@@ -15,18 +16,14 @@ import { CreateUserController } from './CreateUserController';
 import { DeleteUserController } from './DeleteUserController';
 import { GetAllUsersController } from './GetAllUsersController';
 import { GetUserController } from './GetUserController';
+import { SignOutUserController } from './SignOutUserController';
 import { UpdateUserController } from './UpdateUserController';
 
 export const createUserControllerHandler = (req: Request, res: Response) => {
   const userRepository = UserRepository.getInstance();
-  const portfolioRepository = PortfolioRepository.getInstance();
-  const jwt = Jwt.getInstance(envs.jwtSecret);
+  const jwt = Jwt.getInstance(envs.jwtSecret, envs.jwtExpirationSeconds);
 
-  const createUserService = CreateUserService.getInstance(
-    userRepository,
-    portfolioRepository,
-    jwt
-  );
+  const createUserService = CreateUserService.getInstance(userRepository, jwt);
 
   const createUserController =
     CreateUserController.getInstance(createUserService);
@@ -36,12 +33,10 @@ export const createUserControllerHandler = (req: Request, res: Response) => {
 
 export const deleteUserControllerHandler = (req: Request, res: Response) => {
   const userRepository = UserRepository.getInstance();
-  const portfolioRepository = PortfolioRepository.getInstance();
-  const bcrypt = Bcrypt.getInstance(+envs.bcryptSalt);
+  const bcrypt = Bcrypt.getInstance(envs.bcryptSalt);
 
   const deleteUserService = DeleteUserService.getInstance(
     userRepository,
-    portfolioRepository,
     bcrypt
   );
 
@@ -64,8 +59,8 @@ export const getAllUsersControllerHandler = (req: Request, res: Response) => {
 
 export const getUserControllerHandler = (req: Request, res: Response) => {
   const userRepository = UserRepository.getInstance();
-  const bcrypt = Bcrypt.getInstance(+envs.bcryptSalt);
-  const jwt = Jwt.getInstance(envs.jwtSecret);
+  const bcrypt = Bcrypt.getInstance(envs.bcryptSalt);
+  const jwt = Jwt.getInstance(envs.jwtSecret, envs.jwtExpirationSeconds);
 
   const getUserService = GetUserService.getInstance(
     userRepository,
@@ -78,9 +73,20 @@ export const getUserControllerHandler = (req: Request, res: Response) => {
   return getUserController.handle(req, res);
 };
 
+export const signOutUserControllerHandler = (req: Request, res: Response) => {
+  const userRepository = UserRepository.getInstance();
+
+  const signOutUserService = SignOutUserService.getInstance(userRepository);
+
+  const signOutUserController =
+    SignOutUserController.getInstance(signOutUserService);
+
+  return signOutUserController.handle(req, res);
+};
+
 export const updateUserControllerHandler = (req: Request, res: Response) => {
   const userRepository = UserRepository.getInstance();
-  const bcrypt = Bcrypt.getInstance(+envs.bcryptSalt);
+  const bcrypt = Bcrypt.getInstance(envs.bcryptSalt);
 
   const updateUserService = UpdateUserService.getInstance(
     userRepository,
