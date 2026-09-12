@@ -31,9 +31,13 @@ export class GetAssetService {
 
   async execute({
     userId,
+    portfolioId,
     symbol
   }: GetAssetService.DTO): Promise<GetAssetService.Result> {
-    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
+    const portfolioExists = await this.portfolioRepository.getById({
+      id: portfolioId,
+      userId
+    });
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
@@ -49,6 +53,7 @@ export class GetAssetService {
 }
 
 namespace GetAssetService {
-  export type DTO = Pick<Asset, 'symbol'> & Record<'userId', string>;
-  export type Result = Omit<Asset, 'transactions'>;
+  export type DTO = Pick<Asset, 'symbol' | 'portfolioId'> &
+    Record<'userId', string>;
+  export type Result = Asset;
 }

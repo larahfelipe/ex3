@@ -25,11 +25,11 @@ export type GetTransactionCountRequestPayload = Pick<Asset, 'symbol'>;
 
 export type GetTransactionCountResponseData = Record<'buy' | 'sell', number>;
 
-export type CreateTransactionRequestPayload = Omit<
+export type CreateTransactionRequestPayload = Pick<
   TransactionProperties,
-  'assetId' & WithTimestamps
+  'type' | 'amount' | 'price'
 > &
-  Record<'assetSymbol', string>;
+  Record<'assetSymbol' | 'portfolioId', string>;
 
 export interface CreateTransactionResponseData extends WithMessage {
   transaction: Transaction;

@@ -32,6 +32,6 @@ namespace GetAllUsersService {
   export type DTO = Pick<User, 'isAdmin'>;
   export type Result = Record<
     'users',
-    Array<Omit<User, 'password' | 'sessionVersion' | 'portfolio'>>
+    Array<Omit<User, 'password' | 'sessionVersion' | 'portfolios'>>
   >;
 }

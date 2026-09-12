@@ -7,5 +7,6 @@ export type Transaction = {
   price: number;
   createdAt: Date;
   updatedAt: Date;
-  assetSymbol: string;
+  portfolioId: string;
+  instrumentId: string;
 };

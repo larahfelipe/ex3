@@ -4,12 +4,14 @@ import { before, describe, it } from 'node:test';
 import {
   AssetMessages,
   Errors,
+  PortfolioMessages,
   TransactionMessages,
   TransactionTypes
 } from '@/config';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 import { apiRequest, bearer, signIn } from '@/test/ApiClient';
 import {
+  FIXTURE_ASSET_SYMBOL,
   FIXTURE_PASSWORD,
   FIXTURE_USER_EMAIL,
   createAsset,
@@ -36,6 +38,9 @@ const INTRUDER_SYMBOL = 'ETH';
 
 /** Well-formed, and held by no transaction: the baseline a foreign id must be indistinguishable from. */
 const MISSING_TRANSACTION_ID = '00000000-0000-4000-8000-000000000000';
+
+/** Well-formed, and naming no portfolio: the baseline a foreign portfolio id must be indistinguishable from. */
+const MISSING_PORTFOLIO_ID = '00000000-0000-4000-8000-000000000000';
 
 const MISSING_ASSET_SYMBOL = 'XRP';
 
@@ -151,11 +156,19 @@ describe('transactions', () => {
       const foreign = await client
         .post(CREATE_TRANSACTION_ROUTE)
         .set(bearer(intruder.accessToken))
-        .send({ ...entry, assetSymbol: holder.asset.symbol });
+        .send({
+          ...entry,
+          assetSymbol: holder.asset.symbol,
+          portfolioId: intruder.portfolio.id
+        });
       const missing = await client
         .post(CREATE_TRANSACTION_ROUTE)
         .set(bearer(intruder.accessToken))
-        .send({ ...entry, assetSymbol: MISSING_ASSET_SYMBOL });
+        .send({
+          ...entry,
+          assetSymbol: MISSING_ASSET_SYMBOL,
+          portfolioId: intruder.portfolio.id
+        });
 
       assert.equal(foreign.status, Errors.NOT_FOUND.status);
       assert.equal(foreign.body.message, AssetMessages.NOT_FOUND);
@@ -190,24 +203,23 @@ describe('transactions', () => {
 
     it("counts only the transactions of the caller's asset", async () => {
       const { holder, holderToken, intruder } = await seedHolderAndIntruder();
-      await createAsset({
+      const intruderAsset = await createAsset({
         portfolioId: intruder.portfolio.id,
         symbol: INTRUDER_SYMBOL
       });
       await Promise.all([
-        createTransaction({ assetSymbol: INTRUDER_SYMBOL }),
-        createTransaction({ assetSymbol: INTRUDER_SYMBOL }),
-        createTransaction({
-          assetSymbol: INTRUDER_SYMBOL,
-          type: TransactionTypes.SELL
-        })
+        createTransaction(intruderAsset),
+        createTransaction(intruderAsset),
+        createTransaction(intruderAsset, { type: TransactionTypes.SELL })
       ]);
 
       const holderCount = await client
         .get(transactionsCountRoute(holder.asset.symbol))
+        .query({ portfolioId: holder.portfolio.id })
         .set(bearer(holderToken));
       const intruderCount = await client
         .get(transactionsCountRoute(INTRUDER_SYMBOL))
+        .query({ portfolioId: intruder.portfolio.id })
         .set(bearer(intruder.accessToken));
 
       assert.equal(holderCount.status, 200);
@@ -222,11 +234,57 @@ describe('transactions', () => {
         transactionsRoute(holder.asset.symbol),
         transactionsCountRoute(holder.asset.symbol)
       ]) {
-        const res = await client.get(route).set(bearer(intruder.accessToken));
+        const res = await client
+          .get(route)
+          .query({ portfolioId: intruder.portfolio.id })
+          .set(bearer(intruder.accessToken));
 
         assert.equal(res.status, Errors.NOT_FOUND.status, route);
         assert.equal(res.body.message, AssetMessages.NOT_FOUND, route);
       }
+    });
+
+    it('keeps apart the ledgers of two portfolios holding the same instrument', async () => {
+      const { holder, holderToken, intruder } = await seedHolderAndIntruder();
+      const intruderAsset = await createAsset({
+        portfolioId: intruder.portfolio.id,
+        symbol: holder.asset.symbol
+      });
+      await createTransaction(intruderAsset, { type: TransactionTypes.SELL });
+
+      const recorded = await client
+        .post(CREATE_TRANSACTION_ROUTE)
+        .set(bearer(intruder.accessToken))
+        .send({
+          type: TransactionTypes.BUY,
+          amount: 1,
+          price: 1,
+          assetSymbol: holder.asset.symbol,
+          portfolioId: intruder.portfolio.id
+        });
+      const holderListed = await client
+        .get(transactionsRoute(holder.asset.symbol))
+        .query({ portfolioId: holder.portfolio.id })
+        .set(bearer(holderToken));
+      const intruderCounted = await client
+        .get(transactionsCountRoute(holder.asset.symbol))
+        .query({ portfolioId: intruder.portfolio.id })
+        .set(bearer(intruder.accessToken));
+
+      assert.equal(recorded.status, 201);
+      assert.deepEqual(
+        holderListed.body.transactions.map(({ id }: { id: string }) => id),
+        [holder.transaction.id]
+      );
+      assert.deepEqual(intruderCounted.body, { buy: 1, sell: 1 });
+      assert.deepEqual(await storedPosition(holder.asset.id), {
+        amount: holder.asset.amount,
+        balance: holder.asset.balance
+      });
+      assert.deepEqual(await storedPosition(intruderAsset.id), {
+        amount: 1,
+        balance: 1
+      });
     });
 
     it('lists and counts transactions for every asset of a portfolio larger than one page', async () => {
@@ -238,16 +296,18 @@ describe('transactions', () => {
       );
 
       for (const symbol of symbols) {
-        await createAsset({ portfolioId: portfolio.id, symbol });
-        await createTransaction({ assetSymbol: symbol });
+        const asset = await createAsset({ portfolioId: portfolio.id, symbol });
+        await createTransaction(asset);
       }
 
       for (const symbol of symbols) {
         const listed = await client
           .get(transactionsRoute(symbol))
+          .query({ portfolioId: portfolio.id })
           .set(bearer(accessToken));
         const counted = await client
           .get(transactionsCountRoute(symbol))
+          .query({ portfolioId: portfolio.id })
           .set(bearer(accessToken));
 
         assert.equal(
@@ -258,6 +318,113 @@ describe('transactions', () => {
         assert.equal(listed.body.transactions.length, 1, symbol);
         assert.deepEqual(counted.body, { buy: 1, sell: 0 }, symbol);
       }
+    });
+
+    it('reaches a transaction by id in whichever portfolio of its owner holds it', async () => {
+      const { holder, holderToken } = await seedHolderAndIntruder();
+      const secondPortfolio = await createPortfolio(holder.user.id);
+      const asset = await createAsset({
+        portfolioId: secondPortfolio.id,
+        amount: 2,
+        balance: 2
+      });
+      const transaction = await createTransaction(asset, {
+        amount: 2,
+        price: 1
+      });
+
+      const read = await client
+        .get(transactionRoute(transaction.id))
+        .set(bearer(holderToken));
+      const edited = await client
+        .patch(transactionRoute(transaction.id))
+        .set(bearer(holderToken))
+        .send({ type: TransactionTypes.BUY, amount: 3, price: 1 });
+      const deleted = await client
+        .delete(transactionRoute(transaction.id))
+        .set(bearer(holderToken));
+
+      assert.equal(read.status, 200);
+      assert.equal(read.body.portfolioId, secondPortfolio.id);
+      assert.equal(edited.status, 200);
+      assert.equal(deleted.status, 200);
+      assert.deepEqual(await storedPosition(asset.id), {
+        amount: 0,
+        balance: 0
+      });
+      assert.deepEqual(await storedPosition(holder.asset.id), {
+        amount: holder.asset.amount,
+        balance: holder.asset.balance
+      });
+    });
+  });
+
+  describe('portfolio scope', () => {
+    const scopedRequests = {
+      'POST transaction': (accessToken: string, portfolioId?: string) =>
+        client.post(CREATE_TRANSACTION_ROUTE).set(bearer(accessToken)).send({
+          type: TransactionTypes.BUY,
+          amount: 1,
+          price: 1,
+          assetSymbol: FIXTURE_ASSET_SYMBOL,
+          portfolioId
+        }),
+      'GET transactions': (accessToken: string, portfolioId?: string) =>
+        client
+          .get(transactionsRoute(FIXTURE_ASSET_SYMBOL))
+          .query({ portfolioId })
+          .set(bearer(accessToken)),
+      'GET transactions count': (accessToken: string, portfolioId?: string) =>
+        client
+          .get(transactionsCountRoute(FIXTURE_ASSET_SYMBOL))
+          .query({ portfolioId })
+          .set(bearer(accessToken))
+    };
+
+    it("answers another user's portfolio exactly like one that does not exist and records nothing", async () => {
+      const { holder, intruder } = await seedHolderAndIntruder();
+      await createAsset({ portfolioId: intruder.portfolio.id });
+
+      for (const [request, send] of Object.entries(scopedRequests)) {
+        const foreign = await send(intruder.accessToken, holder.portfolio.id);
+        const missing = await send(intruder.accessToken, MISSING_PORTFOLIO_ID);
+
+        assert.equal(foreign.status, Errors.NOT_FOUND.status, request);
+        assert.equal(
+          foreign.body.message,
+          PortfolioMessages.NOT_FOUND,
+          request
+        );
+        assert.deepEqual(foreign.body, missing.body, request);
+      }
+
+      assert.deepEqual(await prismaClient.transaction.findMany(), [
+        holder.transaction
+      ]);
+      assert.deepEqual(await storedPosition(holder.asset.id), {
+        amount: holder.asset.amount,
+        balance: holder.asset.balance
+      });
+    });
+
+    it('rejects a request without a well-formed portfolio id and records nothing', async () => {
+      const { holder, holderToken } = await seedHolderAndIntruder();
+
+      for (const [request, send] of Object.entries(scopedRequests)) {
+        for (const portfolioId of [undefined, 'not-a-uuid']) {
+          const res = await send(holderToken, portfolioId);
+
+          assert.equal(
+            res.status,
+            Errors.BAD_REQUEST.status,
+            `${request} ${portfolioId}`
+          );
+        }
+      }
+
+      assert.deepEqual(await prismaClient.transaction.findMany(), [
+        holder.transaction
+      ]);
     });
   });
 
@@ -270,11 +437,15 @@ describe('transactions', () => {
     type LedgerEntry = { type: string; amount: number; price: number };
 
     const recorderOn =
-      (assetSymbol: string, accessToken: string) => (entry: LedgerEntry) =>
+      (
+        { symbol, portfolioId }: Record<'symbol' | 'portfolioId', string>,
+        accessToken: string
+      ) =>
+      (entry: LedgerEntry) =>
         client
           .post(CREATE_TRANSACTION_ROUTE)
           .set(bearer(accessToken))
-          .send({ ...entry, assetSymbol });
+          .send({ ...entry, assetSymbol: symbol, portfolioId });
 
     /** An owner whose asset starts empty, so every change to the position comes from the API. */
     const openEmptyPosition = async () => {
@@ -286,7 +457,7 @@ describe('transactions', () => {
         portfolio,
         asset,
         accessToken,
-        record: recorderOn(asset.symbol, accessToken)
+        record: recorderOn(asset, accessToken)
       };
     };
 
@@ -296,7 +467,7 @@ describe('transactions', () => {
       entries: LedgerEntry[]
     ) => {
       const asset = await createAsset({ portfolioId, symbol: REPLAY_SYMBOL });
-      const record = recorderOn(asset.symbol, accessToken);
+      const record = recorderOn(asset, accessToken);
 
       for (const entry of entries) await record(entry);
 
@@ -425,7 +596,8 @@ describe('transactions', () => {
     });
 
     it('records a transaction as sent and answers with the stored entry', async () => {
-      const { asset, accessToken, record } = await openEmptyPosition();
+      const { portfolio, asset, accessToken, record } =
+        await openEmptyPosition();
       const entry = { type: TransactionTypes.BUY, amount: 2, price: 5 };
 
       const created = await record(entry);
@@ -435,7 +607,8 @@ describe('transactions', () => {
 
       assert.equal(created.status, 201);
       assert.deepEqual(await storedEntry(created.body.transaction.id), entry);
-      assert.equal(created.body.transaction.assetSymbol, asset.symbol);
+      assert.equal(created.body.transaction.portfolioId, portfolio.id);
+      assert.equal(created.body.transaction.instrumentId, asset.instrumentId);
       assert.deepEqual(read.body, created.body.transaction);
     });
 
@@ -573,7 +746,8 @@ describe('transactions', () => {
           type: ' buy ',
           amount: 1,
           price: 1,
-          assetSymbol: asset.symbol
+          assetSymbol: asset.symbol,
+          portfolioId: portfolio.id
         });
 
       assert.equal(res.status, 201);
@@ -589,7 +763,13 @@ describe('transactions', () => {
         const res = await client
           .post(CREATE_TRANSACTION_ROUTE)
           .set(bearer(accessToken))
-          .send({ type, amount: 1, price: 1, assetSymbol: asset.symbol });
+          .send({
+            type,
+            amount: 1,
+            price: 1,
+            assetSymbol: asset.symbol,
+            portfolioId: portfolio.id
+          });
 
         assert.equal(res.status, Errors.BAD_REQUEST.status, `"${type}"`);
       }
@@ -630,7 +810,11 @@ describe('transactions', () => {
         const created = await client
           .post(CREATE_TRANSACTION_ROUTE)
           .set(bearer(holderToken))
-          .send({ ...entry, assetSymbol: holder.asset.symbol });
+          .send({
+            ...entry,
+            assetSymbol: holder.asset.symbol,
+            portfolioId: holder.portfolio.id
+          });
         const edited = await client
           .patch(transactionRoute(holder.transaction.id))
           .set(bearer(holderToken))
@@ -674,7 +858,8 @@ describe('transactions', () => {
             type: TransactionTypes.BUY,
             amount: 1e200,
             price: 1e200,
-            assetSymbol: asset.symbol
+            assetSymbol: asset.symbol,
+            portfolioId: portfolio.id
           });
 
         assert.equal(res.status, Errors.BAD_REQUEST.status);

@@ -7,7 +7,14 @@ import type { User } from '@/domain/models';
 import { Bcrypt } from '@/infra/cryptography';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 import { apiRequest, bearer, signIn } from '@/test/ApiClient';
-import { FIXTURE_PASSWORD, createUser, seedPortfolio } from '@/test/Fixtures';
+import {
+  FIXTURE_PASSWORD,
+  createAsset,
+  createPortfolio,
+  createTransaction,
+  createUser,
+  seedPortfolio
+} from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
 
 const SIGN_UP_ROUTE = '/v1/user/create';
@@ -16,8 +23,11 @@ const SIGN_OUT_ROUTE = '/v1/user/sign-out';
 const ACCOUNT_ROUTE = '/v1/user';
 const USERS_ROUTE = '/v1/users';
 
-/** Answers 200 only when the caller's portfolio exists, so it also proves sign-up created one. */
-const PORTFOLIO_SCOPED_ROUTE = '/v1/assets';
+/** Answers 200 to any caller holding a current session, so its status reflects authentication alone. */
+const AUTHENTICATED_ROUTE = '/v1/portfolios';
+
+/** Mirrors the name `CreateUserService` gives the portfolio every account starts with. */
+const FIRST_PORTFOLIO_NAME = 'Main';
 
 /**
  * Enough requests to pass an existence check together; below the sign-up rate
@@ -42,7 +52,8 @@ const EXPIRED_AT_EPOCH_SECONDS = 1;
 const NEW_USER = {
   name: 'Newcomer',
   email: 'newcomer@ex3.app',
-  password: 'newcomer-password'
+  password: 'newcomer-password',
+  baseCurrency: 'USD'
 };
 
 const REPLACEMENT_PASSWORD = 'replacement-password';
@@ -56,11 +67,15 @@ const PROTECTED_ROUTES: ReadonlyArray<readonly [HttpMethod, string]> = [
   ['post', SIGN_OUT_ROUTE],
   ['get', '/v1/portfolio'],
   ['get', '/v1/portfolios'],
+  ['post', '/v1/portfolio'],
   ['get', '/v1/assets'],
   ['get', '/v1/asset/BTC'],
   ['post', '/v1/asset'],
   ['patch', '/v1/asset/BTC'],
   ['delete', '/v1/asset/BTC'],
+  ['get', '/v1/instruments'],
+  ['post', '/v1/instrument'],
+  ['patch', '/v1/instrument/BTC'],
   ['get', '/v1/transaction/unknown-id'],
   ['get', '/v1/transactions/BTC'],
   ['get', '/v1/transactions/BTC/count'],
@@ -102,7 +117,7 @@ describe('authentication', () => {
     client.post(SIGN_UP_ROUTE).send({ ...NEW_USER, password });
 
   describe('sign-up', () => {
-    it('creates an account whose token authenticates immediately', async () => {
+    it('creates an account whose token authenticates immediately, holding one portfolio in the chosen currency', async () => {
       const res = await client.post(SIGN_UP_ROUTE).send(NEW_USER);
 
       assert.equal(res.status, 201);
@@ -112,11 +127,23 @@ describe('authentication', () => {
       assert.equal(res.body.user.sessionVersion, undefined);
       assert.equal(res.body.user.isAdmin, undefined);
 
-      const scoped = await client
-        .get(PORTFOLIO_SCOPED_ROUTE)
+      const listed = await client
+        .get(AUTHENTICATED_ROUTE)
         .set(bearer(res.body.user.accessToken));
 
-      assert.equal(scoped.status, 200);
+      assert.equal(listed.status, 200);
+      assert.deepEqual(
+        listed.body.portfolios.map(
+          ({
+            name,
+            baseCurrency
+          }: Record<'name' | 'baseCurrency', string>) => ({
+            name,
+            baseCurrency
+          })
+        ),
+        [{ name: FIRST_PORTFOLIO_NAME, baseCurrency: NEW_USER.baseCurrency }]
+      );
     });
 
     it('stores a password digest that still verifies', async () => {
@@ -167,6 +194,23 @@ describe('authentication', () => {
         .send({ ...NEW_USER, email: 'not-an-email' });
 
       assert.equal(res.status, Errors.BAD_REQUEST.status);
+    });
+
+    it('rejects a missing or unknown base currency and creates nothing', async () => {
+      for (const baseCurrency of [undefined, '', 'US', 'ZZZ']) {
+        const res = await client
+          .post(SIGN_UP_ROUTE)
+          .send({ ...NEW_USER, baseCurrency });
+
+        assert.equal(
+          res.status,
+          Errors.BAD_REQUEST.status,
+          `"${baseCurrency}"`
+        );
+      }
+
+      assert.equal(await prismaClient.user.count(), 0);
+      assert.equal(await prismaClient.portfolio.count(), 0);
     });
 
     it('rejects a password one character below the minimum', async () => {
@@ -249,7 +293,7 @@ describe('authentication', () => {
       assert.equal(res.body.isAdmin, undefined);
 
       const scoped = await client
-        .get(PORTFOLIO_SCOPED_ROUTE)
+        .get(AUTHENTICATED_ROUTE)
         .set(bearer(res.body.accessToken));
 
       assert.equal(scoped.status, 200);
@@ -322,7 +366,7 @@ describe('authentication', () => {
         .send({ email: user.email, password: `${FIXTURE_PASSWORD}-wrong` });
 
       const res = await client
-        .get(PORTFOLIO_SCOPED_ROUTE)
+        .get(AUTHENTICATED_ROUTE)
         .set(bearer(accessToken));
 
       assert.equal(res.status, 200);
@@ -338,12 +382,8 @@ describe('authentication', () => {
 
       assert.notEqual(first, second);
 
-      const revoked = await client
-        .get(PORTFOLIO_SCOPED_ROUTE)
-        .set(bearer(first));
-      const active = await client
-        .get(PORTFOLIO_SCOPED_ROUTE)
-        .set(bearer(second));
+      const revoked = await client.get(AUTHENTICATED_ROUTE).set(bearer(first));
+      const active = await client.get(AUTHENTICATED_ROUTE).set(bearer(second));
 
       assert.equal(revoked.status, Errors.UNAUTHORIZED.status);
       assert.match(revoked.body.message, /no longer active/i);
@@ -359,7 +399,7 @@ describe('authentication', () => {
         `${envs.jwtSecret}-rotated`
       );
 
-      const res = await client.get(PORTFOLIO_SCOPED_ROUTE).set(bearer(forged));
+      const res = await client.get(AUTHENTICATED_ROUTE).set(bearer(forged));
 
       assert.equal(res.status, Errors.UNAUTHORIZED.status);
       assert.match(res.body.message, /invalid/i);
@@ -369,7 +409,7 @@ describe('authentication', () => {
       const { user } = await seedPortfolio();
       const forged = unsignedToken(currentSessionClaims(user));
 
-      const res = await client.get(PORTFOLIO_SCOPED_ROUTE).set(bearer(forged));
+      const res = await client.get(AUTHENTICATED_ROUTE).set(bearer(forged));
 
       assert.equal(res.status, Errors.UNAUTHORIZED.status);
     });
@@ -378,7 +418,7 @@ describe('authentication', () => {
       const { user } = await seedPortfolio();
       const legacy = signToken({ id: user.id });
 
-      const res = await client.get(PORTFOLIO_SCOPED_ROUTE).set(bearer(legacy));
+      const res = await client.get(AUTHENTICATED_ROUTE).set(bearer(legacy));
 
       assert.equal(res.status, Errors.UNAUTHORIZED.status);
       assert.match(res.body.message, /invalid/i);
@@ -386,7 +426,7 @@ describe('authentication', () => {
 
     it('rejects a value that is not a JWT', async () => {
       const res = await client
-        .get(PORTFOLIO_SCOPED_ROUTE)
+        .get(AUTHENTICATED_ROUTE)
         .set(bearer('not-a-jwt'));
 
       assert.equal(res.status, Errors.UNAUTHORIZED.status);
@@ -401,7 +441,7 @@ describe('authentication', () => {
         exp: EXPIRED_AT_EPOCH_SECONDS
       });
 
-      const res = await client.get(PORTFOLIO_SCOPED_ROUTE).set(bearer(expired));
+      const res = await client.get(AUTHENTICATED_ROUTE).set(bearer(expired));
 
       assert.equal(res.status, Errors.UNAUTHORIZED.status);
       assert.match(res.body.message, /expired/i);
@@ -422,7 +462,7 @@ describe('authentication', () => {
       assert.equal(res.body.message, UserMessages.SIGNED_OUT);
 
       const revoked = await client
-        .get(PORTFOLIO_SCOPED_ROUTE)
+        .get(AUTHENTICATED_ROUTE)
         .set(bearer(accessToken));
 
       assert.equal(revoked.status, Errors.UNAUTHORIZED.status);
@@ -457,7 +497,7 @@ describe('authentication', () => {
       assert.equal(res.body.user.sessionVersion, undefined);
 
       const revoked = await client
-        .get(PORTFOLIO_SCOPED_ROUTE)
+        .get(AUTHENTICATED_ROUTE)
         .set(bearer(accessToken));
       const previousPassword = await client
         .post(SIGN_IN_ROUTE)
@@ -495,7 +535,7 @@ describe('authentication', () => {
       assert.equal(res.body.message, UserMessages.INVALID_PASSWORD);
 
       const scoped = await client
-        .get(PORTFOLIO_SCOPED_ROUTE)
+        .get(AUTHENTICATED_ROUTE)
         .set(bearer(accessToken));
 
       assert.equal(scoped.status, 200);
@@ -541,8 +581,12 @@ describe('authentication', () => {
         prismaClient.transaction.count()
       ]);
 
-    it('removes the account with everything it holds and ends its session', async () => {
+    it('removes the account with every portfolio it holds and ends its session', async () => {
       const { user } = await seedPortfolio();
+      const secondPortfolio = await createPortfolio(user.id);
+      await createTransaction(
+        await createAsset({ portfolioId: secondPortfolio.id })
+      );
       await seedPortfolio(OTHER_USER);
       const accessToken = await signIn({
         email: user.email,
@@ -563,7 +607,7 @@ describe('authentication', () => {
       );
 
       const afterDeletion = await client
-        .get(PORTFOLIO_SCOPED_ROUTE)
+        .get(AUTHENTICATED_ROUTE)
         .set(bearer(accessToken));
 
       assert.equal(afterDeletion.status, Errors.UNAUTHORIZED.status);
@@ -636,7 +680,7 @@ describe('authentication', () => {
       });
 
       const res = await client
-        .get(PORTFOLIO_SCOPED_ROUTE)
+        .get(AUTHENTICATED_ROUTE)
         .set('Authorization', `Basic ${accessToken}`);
 
       assert.equal(res.status, Errors.UNAUTHORIZED.status);

@@ -26,11 +26,15 @@ export class GetAllAssetsController implements Controller {
   async handle(req: Request, res: Response) {
     const { user, query } = req;
 
-    const { page, limit, sort } = await validate(GetAssetsSchema, query);
+    const { page, limit, sort, portfolioId } = await validate(
+      GetAssetsSchema,
+      query
+    );
 
     const result = await this.getAllAssetsService.execute({
       page,
       limit,
+      portfolioId,
       userId: user.id,
       sort: sort as (typeof SortOrderTypes)[keyof typeof SortOrderTypes]
     });

@@ -1,10 +1,10 @@
-import type { Transaction } from './Transaction';
+import type { Instrument } from './Instrument';
 
 export type Asset = {
   id: string;
-  symbol: string;
+  symbol: Instrument['symbol'];
   amount: number;
   balance: number;
-  transactions: Array<Transaction>;
   portfolioId: string;
+  instrumentId: string;
 };

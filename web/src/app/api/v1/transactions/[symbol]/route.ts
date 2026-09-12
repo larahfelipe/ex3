@@ -29,7 +29,8 @@ export const GET = async (req: NextRequest) => {
     const { data, status, statusText } = await api
       .getInstance()
       .get<GetTransactionsResponseData>(`/v1/transactions/${assetSymbol}`, {
-        headers
+        headers,
+        params: req.nextUrl.searchParams
       });
 
     return NextResponse.json<GetTransactionsResponseData>(data, {

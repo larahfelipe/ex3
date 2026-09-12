@@ -30,7 +30,7 @@ export const GET = async (req: NextRequest) => {
       .getInstance()
       .get<GetTransactionCountResponseData>(
         `/v1/transactions/${assetSymbol}/count`,
-        { headers }
+        { headers, params: req.nextUrl.searchParams }
       );
 
     return NextResponse.json<GetTransactionCountResponseData>(data, {

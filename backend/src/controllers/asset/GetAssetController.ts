@@ -21,12 +21,16 @@ export class GetAssetController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    const { user, params } = req;
+    const { user, params, query } = req;
 
-    const { symbol } = await validate(GetAssetSchema, params);
+    const { symbol, portfolioId } = await validate(GetAssetSchema, {
+      symbol: params.symbol,
+      portfolioId: query.portfolioId
+    });
 
     const result = await this.getAssetService.execute({
       symbol,
+      portfolioId,
       userId: user.id
     });
 

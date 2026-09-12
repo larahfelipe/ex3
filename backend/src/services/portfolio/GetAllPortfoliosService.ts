@@ -1,5 +1,4 @@
 import type { Portfolio } from '@/domain/models';
-import { ForbiddenError } from '@/errors';
 import type { PortfolioRepository } from '@/infra/database';
 
 export class GetAllPortfoliosService {
@@ -20,19 +19,24 @@ export class GetAllPortfoliosService {
   }
 
   async execute({
-    userIsAdmin
+    userId,
+    page,
+    limit
   }: GetAllPortfoliosService.DTO): Promise<GetAllPortfoliosService.Result> {
-    if (!userIsAdmin) throw new ForbiddenError();
+    const { pagination, docs: portfolios } =
+      await this.portfolioRepository.getAll({ userId, page, limit });
 
-    const allPortfolios = await this.portfolioRepository.getAll();
-
-    return {
-      portfolios: allPortfolios as Array<Portfolio>
-    };
+    return { pagination, portfolios };
   }
 }
 
 namespace GetAllPortfoliosService {
-  export type DTO = Record<'userIsAdmin', boolean>;
-  export type Result = Record<'portfolios', Array<Portfolio>>;
+  export type DTO = Record<'userId', string> & {
+    page?: number;
+    limit?: number;
+  };
+  export type Result = {
+    portfolios: Array<Omit<Portfolio, 'assets'>>;
+    pagination: Record<'page' | 'limit' | 'total' | 'totalPages', number>;
+  };
 }

@@ -45,11 +45,9 @@ export const deleteTransactionControllerHandler = (
   res: Response
 ) => {
   const transactionRepository = TransactionRepository.getInstance();
-  const portfolioRepository = PortfolioRepository.getInstance();
 
   const deleteTransactionService = DeleteTransactionService.getInstance(
-    transactionRepository,
-    portfolioRepository
+    transactionRepository
   );
 
   const deleteTransactionController = DeleteTransactionController.getInstance(
@@ -85,11 +83,9 @@ export const getTransactionControllerHandler = (
   res: Response
 ) => {
   const transactionRepository = TransactionRepository.getInstance();
-  const portfolioRepository = PortfolioRepository.getInstance();
 
   const getTransactionService = GetTransactionService.getInstance(
-    transactionRepository,
-    portfolioRepository
+    transactionRepository
   );
 
   const getTransactionController = GetTransactionController.getInstance(
@@ -124,11 +120,9 @@ export const updateTransactionControllerHandler = (
   res: Response
 ) => {
   const transactionRepository = TransactionRepository.getInstance();
-  const portfolioRepository = PortfolioRepository.getInstance();
 
   const updateTransactionService = UpdateTransactionService.getInstance(
-    transactionRepository,
-    portfolioRepository
+    transactionRepository
   );
 
   const updateTransactionController = UpdateTransactionController.getInstance(

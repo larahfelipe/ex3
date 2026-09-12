@@ -59,7 +59,7 @@ namespace UpdateUserService {
     passwordChange?: Record<'oldPassword' | 'newPassword', string>;
   };
   export type Result = {
-    user: Omit<User, 'password' | 'isAdmin' | 'sessionVersion' | 'portfolio'>;
+    user: Omit<User, 'password' | 'isAdmin' | 'sessionVersion' | 'portfolios'>;
     message: string;
   };
 }

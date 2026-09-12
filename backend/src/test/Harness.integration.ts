@@ -32,7 +32,8 @@ describe('test harness', () => {
 
     assert.equal(portfolio.userId, user.id);
     assert.equal(asset.portfolioId, portfolio.id);
-    assert.equal(transaction.assetSymbol, asset.symbol);
+    assert.equal(transaction.portfolioId, portfolio.id);
+    assert.equal(transaction.instrumentId, asset.instrumentId);
     assert.equal(asset.amount, transaction.amount);
   });
 
@@ -44,22 +45,26 @@ describe('test harness', () => {
     const counts = await Promise.all([
       prismaClient.user.count(),
       prismaClient.portfolio.count(),
+      prismaClient.instrument.count(),
       prismaClient.asset.count(),
       prismaClient.transaction.count()
     ]);
 
-    assert.deepEqual(counts, [0, 0, 0, 0]);
+    assert.deepEqual(counts, [0, 0, 0, 0, 0]);
   });
 
   it('authenticates a seeded user and reaches a protected route', async () => {
-    const { user, asset } = await seedPortfolio();
+    const { user, portfolio, asset } = await seedPortfolio();
 
     const accessToken = await signIn({
       email: user.email,
       password: FIXTURE_PASSWORD
     });
 
-    const res = await client.get(ASSETS_ROUTE).set(bearer(accessToken));
+    const res = await client
+      .get(ASSETS_ROUTE)
+      .query({ portfolioId: portfolio.id })
+      .set(bearer(accessToken));
 
     assert.equal(res.status, 200);
     assert.deepEqual(

@@ -40,7 +40,9 @@ type AddAssetTransactionDialogProps = {
   open: boolean;
   data: Asset;
   onCancel: VoidFunction;
-  onConfirm: (payload: CreateTransactionRequestPayload) => Promise<unknown>;
+  onConfirm: (
+    payload: Omit<CreateTransactionRequestPayload, 'portfolioId'>
+  ) => Promise<unknown>;
 };
 
 export type AddAssetTransactionSchemaInput = z.input<
@@ -113,8 +115,7 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
     await onConfirm({
       ...payload,
       type: payload.type as TransactionType,
-      assetSymbol: data.symbol,
-      assetId: ''
+      assetSymbol: data.symbol
     });
     reset();
   };

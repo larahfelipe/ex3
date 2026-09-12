@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { CreatePortfolioSchema } from '../portfolio/CreatePortfolioSchema';
 import { NewPasswordSchema } from './PasswordSchema';
 
 export const CreateUserSchema = z.object({
@@ -9,5 +10,6 @@ export const CreateUserSchema = z.object({
     .min(3, 'Email must have at least 3 characters')
     .max(255, 'Email must have at most 255 characters')
     .transform((value) => value.trim().toLowerCase()),
-  password: NewPasswordSchema
+  password: NewPasswordSchema,
+  baseCurrency: CreatePortfolioSchema.shape.baseCurrency
 });

@@ -40,12 +40,16 @@ export class GetAllTransactionsService {
 
   async execute({
     assetSymbol,
+    portfolioId,
     userId,
     page,
     limit,
     lastId
   }: GetAllTransactionsService.DTO): Promise<GetAllTransactionsService.Result> {
-    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
+    const portfolioExists = await this.portfolioRepository.getById({
+      id: portfolioId,
+      userId
+    });
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
@@ -61,7 +65,7 @@ export class GetAllTransactionsService {
         page,
         limit,
         lastId,
-        assetSymbol: assetExists.symbol,
+        instrumentId: assetExists.instrumentId,
         portfolioId: portfolioExists.id
       });
 
@@ -75,6 +79,7 @@ export class GetAllTransactionsService {
 namespace GetAllTransactionsService {
   export type DTO = {
     assetSymbol: string;
+    portfolioId: string;
     userId: string;
     page?: number;
     limit?: number;

@@ -21,9 +21,13 @@ export class GetPortfolioService {
   }
 
   async execute({
-    userId
+    userId,
+    portfolioId
   }: GetPortfolioService.DTO): Promise<GetPortfolioService.Result> {
-    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
+    const portfolioExists = await this.portfolioRepository.getById({
+      id: portfolioId,
+      userId
+    });
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
@@ -32,6 +36,6 @@ export class GetPortfolioService {
 }
 
 namespace GetPortfolioService {
-  export type DTO = Record<'userId', string>;
+  export type DTO = Record<'userId' | 'portfolioId', string>;
   export type Result = Omit<Portfolio, 'assets'>;
 }

@@ -1,5 +1,11 @@
-import { TransactionTypes, envs } from '@/config';
-import type { Asset, Transaction, User } from '@/domain/models';
+import { InstrumentTypes, TransactionTypes, envs } from '@/config';
+import type {
+  Asset,
+  Instrument,
+  Portfolio,
+  Transaction,
+  User
+} from '@/domain/models';
 import { Bcrypt } from '@/infra/cryptography';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 
@@ -11,7 +17,9 @@ export const FIXTURE_PASSWORD = 'fixture-password';
 
 export const FIXTURE_USER_EMAIL = 'holder@ex3.app';
 export const FIXTURE_ASSET_SYMBOL = 'BTC';
+export const FIXTURE_BASE_CURRENCY = 'BRL';
 
+const FIXTURE_PORTFOLIO_NAME = 'Fixture Portfolio';
 const FIXTURE_TRANSACTION_AMOUNT = 2;
 const FIXTURE_TRANSACTION_PRICE = 50_000;
 
@@ -42,34 +50,82 @@ export const createUser = async (
     }
   });
 
-export const createPortfolio = async (userId: string) =>
-  prismaClient.portfolio.create({ data: { userId } });
-
-export const createAsset = async (
-  params: Pick<Asset, 'portfolioId'> &
-    Partial<Pick<Asset, 'symbol' | 'amount' | 'balance'>>
+export const createPortfolio = async (
+  userId: string,
+  overrides: Partial<
+    Pick<Portfolio, 'name' | 'baseCurrency' | 'createdAt'>
+  > = {}
 ) =>
-  prismaClient.asset.create({
-    data: { symbol: FIXTURE_ASSET_SYMBOL, ...params }
+  prismaClient.portfolio.create({
+    data: {
+      userId,
+      name: FIXTURE_PORTFOLIO_NAME,
+      baseCurrency: FIXTURE_BASE_CURRENCY,
+      ...overrides
+    }
   });
 
+export const createInstrument = async (
+  overrides: Partial<
+    Pick<Instrument, 'symbol' | 'name' | 'type' | 'market' | 'currency'>
+  > = {}
+) =>
+  prismaClient.instrument.create({
+    data: {
+      symbol: FIXTURE_ASSET_SYMBOL,
+      name: 'Fixture Instrument',
+      type: InstrumentTypes.CRYPTO,
+      ...overrides
+    }
+  });
+
+/**
+ * Positions in one symbol share its catalog instrument, so the instrument is
+ * registered by the first position in the symbol and reused by the others.
+ */
+export const createAsset = async ({
+  portfolioId,
+  symbol = FIXTURE_ASSET_SYMBOL,
+  ...position
+}: Pick<Asset, 'portfolioId'> &
+  Partial<Pick<Asset, 'symbol' | 'amount' | 'balance'>>) => {
+  const { instrument, ...asset } = await prismaClient.asset.create({
+    data: {
+      ...position,
+      portfolio: { connect: { id: portfolioId } },
+      instrument: {
+        connectOrCreate: {
+          where: { symbol },
+          create: { symbol, name: symbol, type: InstrumentTypes.OTHER }
+        }
+      }
+    },
+    include: { instrument: true }
+  });
+
+  return { ...asset, symbol: instrument.symbol };
+};
+
 export const createTransaction = async (
-  params: Pick<Transaction, 'assetSymbol'> &
-    Partial<Pick<Transaction, 'type' | 'amount' | 'price'>>
+  { portfolioId, instrumentId }: Pick<Asset, 'portfolioId' | 'instrumentId'>,
+  overrides: Partial<Pick<Transaction, 'type' | 'amount' | 'price'>> = {}
 ) =>
   prismaClient.transaction.create({
     data: {
+      portfolioId,
+      instrumentId,
       type: TransactionTypes.BUY,
       amount: FIXTURE_TRANSACTION_AMOUNT,
       price: FIXTURE_TRANSACTION_PRICE,
-      ...params
+      ...overrides
     }
   });
 
 /**
  * Smallest coherent graph the API can operate on: a user with a portfolio
  * holding one asset with one transaction. The asset position is stated
- * explicitly instead of derived, because deriving it is what FASE 4 changes.
+ * explicitly instead of derived from its transactions, so a fixture does not
+ * depend on how the API derives it.
  */
 export const seedPortfolio = async (
   overrides: { email?: string; symbol?: string } = {}
@@ -86,7 +142,7 @@ export const seedPortfolio = async (
     ...(symbol && { symbol })
   });
 
-  const transaction = await createTransaction({ assetSymbol: asset.symbol });
+  const transaction = await createTransaction(asset);
 
   return { user, portfolio, asset, transaction };
 };

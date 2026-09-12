@@ -34,7 +34,9 @@ type AddAssetDialogProps = {
   open: boolean;
   data: Asset;
   onCancel: VoidFunction;
-  onConfirm: (payload: CreateAssetRequestPayload) => Promise<unknown>;
+  onConfirm: (
+    payload: Omit<CreateAssetRequestPayload, 'portfolioId'>
+  ) => Promise<unknown>;
 };
 
 export type AddAssetSchemaType = z.infer<typeof AddAssetSchema>;
