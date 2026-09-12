@@ -1,16 +1,9 @@
-import type { Transaction as TransactionRow } from '@prisma/client';
+import type { Prisma, Transaction as TransactionRow } from '@prisma/client';
 
 import { TransactionTypes } from '@/config';
-import type { Asset, Transaction } from '@/domain/models';
+import type { Transaction } from '@/domain/models';
 
 import { PrismaClient } from './PrismaClient';
-
-/**
- * Lookups are filtered through the owning asset's portfolio, so a transaction id
- * or an asset symbol taken from a request never reaches another user's rows.
- * Writes by id follow such a lookup inside the same database transaction.
- */
-const ownedBy = (portfolioId: string) => ({ asset: { portfolioId } });
 
 /**
  * What a transaction contributes to its asset's position: a BUY adds its
@@ -26,6 +19,28 @@ const positionImpactOf = ({
   return { amount: direction * amount, balance: direction * amount * price };
 };
 
+/**
+ * Deleting or moving an asset takes its transactions along in the same database
+ * transaction, so a stored transaction without the asset it moves is a broken
+ * invariant, surfaced instead of answered as a missing row.
+ */
+const assetMovedBy = (
+  transactionClient: Prisma.TransactionClient,
+  {
+    portfolioId,
+    instrumentId
+  }: Pick<TransactionRow, 'portfolioId' | 'instrumentId'>
+) =>
+  transactionClient.asset.findUniqueOrThrow({
+    where: { portfolioId_instrumentId: { portfolioId, instrumentId } }
+  });
+
+/**
+ * Lookups by asset are filtered by a portfolio the caller already proved to own,
+ * and lookups by transaction id by the owner of the transaction's portfolio, so
+ * an id or a symbol taken from a request never reaches another user's rows.
+ * Writes by id follow such a lookup inside the same database transaction.
+ */
 export class TransactionRepository {
   private static INSTANCE: TransactionRepository;
   private prismaClient: PrismaClient;
@@ -42,18 +57,18 @@ export class TransactionRepository {
   }
 
   async count(params: TransactionRepository.CountParams) {
-    const { type, assetSymbol, portfolioId } = params;
+    const { type, instrumentId, portfolioId } = params;
 
     return this.prismaClient.transaction.count({
-      where: { type, assetSymbol, ...ownedBy(portfolioId) }
+      where: { type, instrumentId, portfolioId }
     });
   }
 
   async getAll(params: TransactionRepository.GetAllParams) {
-    const { assetSymbol, portfolioId, limit, lastId, page = 1 } = params;
+    const { instrumentId, portfolioId, limit, lastId, page = 1 } = params;
 
     const limitPerPage = limit || limit === 0 ? limit : 10;
-    const ownedByAsset = { assetSymbol, ...ownedBy(portfolioId) };
+    const ownedByAsset = { instrumentId, portfolioId };
 
     const [total, docs] = await Promise.all([
       this.prismaClient.transaction.count({ where: ownedByAsset }),
@@ -79,10 +94,10 @@ export class TransactionRepository {
   }
 
   async getById(params: TransactionRepository.GetByIdParams) {
-    const { id, portfolioId } = params;
+    const { id, userId } = params;
 
     return this.prismaClient.transaction.findFirst({
-      where: { id, ...ownedBy(portfolioId) }
+      where: { id, portfolio: { userId } }
     });
   }
 
@@ -99,7 +114,7 @@ export class TransactionRepository {
     return this.prismaClient.runSerializable<TransactionRepository.LedgerAddition>(
       async (transactionClient) => {
         const asset = await transactionClient.asset.findFirst({
-          where: { symbol: assetSymbol, portfolioId }
+          where: { portfolioId, instrument: { symbol: assetSymbol } }
         });
 
         if (!asset) return { outcome: 'not-found' };
@@ -113,7 +128,7 @@ export class TransactionRepository {
         if (position.amount < 0) return { outcome: 'negative-amount' };
 
         const transaction = await transactionClient.transaction.create({
-          data: { ...entry, assetSymbol: asset.symbol }
+          data: { ...entry, portfolioId, instrumentId: asset.instrumentId }
         });
         await transactionClient.asset.update({
           where: { id: asset.id },
@@ -133,22 +148,22 @@ export class TransactionRepository {
   async update(
     params: TransactionRepository.UpdateParams
   ): Promise<TransactionRepository.LedgerWrite> {
-    const { id, portfolioId, ...entry } = params;
+    const { id, userId, ...entry } = params;
 
     return this.prismaClient.runSerializable<TransactionRepository.LedgerWrite>(
       async (transactionClient) => {
         const previous = await transactionClient.transaction.findFirst({
-          where: { id, ...ownedBy(portfolioId) },
-          include: { asset: true }
+          where: { id, portfolio: { userId } }
         });
 
         if (!previous) return { outcome: 'not-found' };
 
+        const asset = await assetMovedBy(transactionClient, previous);
         const undone = positionImpactOf(previous);
         const applied = positionImpactOf(entry);
         const position = {
-          amount: previous.asset.amount - undone.amount + applied.amount,
-          balance: previous.asset.balance - undone.balance + applied.balance
+          amount: asset.amount - undone.amount + applied.amount,
+          balance: asset.balance - undone.balance + applied.balance
         };
 
         if (position.amount < 0) return { outcome: 'negative-amount' };
@@ -158,7 +173,7 @@ export class TransactionRepository {
           data: entry
         });
         await transactionClient.asset.update({
-          where: { id: previous.asset.id },
+          where: { id: asset.id },
           data: position
         });
 
@@ -171,28 +186,28 @@ export class TransactionRepository {
   async delete(
     params: TransactionRepository.GetByIdParams
   ): Promise<TransactionRepository.LedgerWrite> {
-    const { id, portfolioId } = params;
+    const { id, userId } = params;
 
     return this.prismaClient.runSerializable<TransactionRepository.LedgerWrite>(
       async (transactionClient) => {
         const previous = await transactionClient.transaction.findFirst({
-          where: { id, ...ownedBy(portfolioId) },
-          include: { asset: true }
+          where: { id, portfolio: { userId } }
         });
 
         if (!previous) return { outcome: 'not-found' };
 
+        const asset = await assetMovedBy(transactionClient, previous);
         const undone = positionImpactOf(previous);
         const position = {
-          amount: previous.asset.amount - undone.amount,
-          balance: previous.asset.balance - undone.balance
+          amount: asset.amount - undone.amount,
+          balance: asset.balance - undone.balance
         };
 
         if (position.amount < 0) return { outcome: 'negative-amount' };
 
         await transactionClient.transaction.delete({ where: { id } });
         await transactionClient.asset.update({
-          where: { id: previous.asset.id },
+          where: { id: asset.id },
           data: position
         });
 
@@ -203,13 +218,12 @@ export class TransactionRepository {
 }
 
 namespace TransactionRepository {
-  export type AssetScope = Pick<Transaction, 'assetSymbol'> &
-    Pick<Asset, 'portfolioId'>;
+  export type AssetScope = Pick<Transaction, 'instrumentId' | 'portfolioId'>;
   export type AddParams = Pick<
     Transaction,
-    'type' | 'amount' | 'price' | 'assetSymbol'
+    'type' | 'amount' | 'price' | 'portfolioId'
   > &
-    Pick<Asset, 'portfolioId'>;
+    Record<'assetSymbol', string>;
   export type CountParams = AssetScope &
     Record<'type', keyof typeof TransactionTypes>;
   export type GetAllParams = AssetScope & {
@@ -218,13 +232,13 @@ namespace TransactionRepository {
     limit?: number;
   };
   export type GetByIdParams = Pick<Transaction, 'id'> &
-    Pick<Asset, 'portfolioId'>;
+    Record<'userId', string>;
   export type UpdateParams = Pick<
     Transaction,
     'id' | 'type' | 'amount' | 'price'
   > &
-    Pick<Asset, 'portfolioId'>;
-  /** `not-found` answers a transaction or asset outside the caller's portfolio exactly like a missing one. */
+    Record<'userId', string>;
+  /** `not-found` answers a transaction or asset outside the caller's portfolios exactly like a missing one. */
   export type LedgerRejection =
     { outcome: 'not-found' } | { outcome: 'negative-amount' };
   export type LedgerWrite = { outcome: 'recorded' } | LedgerRejection;

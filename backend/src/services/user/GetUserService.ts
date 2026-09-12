@@ -73,7 +73,7 @@ namespace GetUserService {
   export type DTO = Pick<User, 'email' | 'password'>;
   export type Result = Omit<
     User,
-    'password' | 'isAdmin' | 'sessionVersion' | 'portfolio'
+    'password' | 'isAdmin' | 'sessionVersion' | 'portfolios'
   > &
     Record<'accessToken', string>;
 }

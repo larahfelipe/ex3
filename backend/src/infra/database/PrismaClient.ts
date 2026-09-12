@@ -7,6 +7,9 @@ import { envs } from '@/config';
 /** Prisma's code for a transaction Postgres aborted over a write conflict or a deadlock. */
 const TRANSACTION_WRITE_CONFLICT = 'P2034';
 
+/** Prisma's code for a write rejected by a unique index. */
+const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
+
 /**
  * Assumed, not measured: a conflict needs a concurrent write to the same rows,
  * so a third failure in a row is contention worth surfacing, not retrying.
@@ -26,6 +29,13 @@ export class PrismaClient extends _PrismaClient {
     if (!PrismaClient.INSTANCE) PrismaClient.INSTANCE = new PrismaClient();
 
     return PrismaClient.INSTANCE;
+  }
+
+  static isUniqueConstraintViolation(error: unknown) {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === UNIQUE_CONSTRAINT_VIOLATION
+    );
   }
 
   isConnected() {

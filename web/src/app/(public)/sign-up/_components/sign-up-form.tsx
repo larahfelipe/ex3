@@ -2,13 +2,23 @@
 'use client';
 
 import { type FC } from 'react';
-import { useForm, type SubmitHandler } from 'react-hook-form';
+import { Controller, useForm, type SubmitHandler } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
-import { Button, Input, Label } from '@/components/ui';
+import { CURRENCIES } from '@/common/constants';
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui';
 import { useUser } from '@/hooks/use-user';
 
 type SignUpFormValues = z.infer<typeof signUpSchema>;
@@ -21,6 +31,8 @@ const PASSWORD_MIN_CODE_POINTS = 15;
 const PASSWORD_MAX_BYTES = 72;
 
 const utf8Encoder = new TextEncoder();
+
+const CURRENCY_IDS = Object.values(CURRENCIES).map(({ id }) => id);
 
 const signUpSchema = z
   .object({
@@ -41,7 +53,8 @@ const signUpSchema = z
         `Password must be at most ${PASSWORD_MAX_BYTES} bytes long`
       )
       .refine((value) => value.trim().length > 0, 'Password must not be blank'),
-    confirmPassword: z.string().min(1, 'Confirm password is required')
+    confirmPassword: z.string().min(1, 'Confirm password is required'),
+    baseCurrency: z.enum(CURRENCY_IDS, 'Select a valid base currency')
   })
   .refine(({ password, confirmPassword }) => password === confirmPassword, {
     message: 'Passwords must match',
@@ -52,6 +65,7 @@ export const SignUpForm: FC = () => {
   const { signUpMutationFn } = useUser();
 
   const {
+    control,
     register,
     reset,
     handleSubmit,
@@ -63,7 +77,8 @@ export const SignUpForm: FC = () => {
       name: '',
       email: '',
       password: '',
-      confirmPassword: ''
+      confirmPassword: '',
+      baseCurrency: CURRENCIES.BRL.id
     }
   });
 
@@ -137,6 +152,45 @@ export const SignUpForm: FC = () => {
           {!!errors.confirmPassword?.message && (
             <small className="text-red-500">
               {errors.confirmPassword.message}
+            </small>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="baseCurrency">Base currency</Label>
+
+          <Controller
+            name="baseCurrency"
+            control={control}
+            render={({ field }) => (
+              <Select
+                name={field.name}
+                value={field.value}
+                disabled={isSubmitting}
+                onValueChange={field.onChange}
+              >
+                <SelectTrigger
+                  id="baseCurrency"
+                  className="w-full"
+                  onBlur={field.onBlur}
+                >
+                  <SelectValue placeholder="Select a currency" />
+                </SelectTrigger>
+
+                <SelectContent>
+                  {Object.values(CURRENCIES).map(({ id, name, symbol }) => (
+                    <SelectItem key={id} value={id}>
+                      {`${name} (${symbol})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+
+          {!!errors.baseCurrency?.message && (
+            <small className="text-red-500">
+              {errors.baseCurrency.message}
             </small>
           )}
         </div>

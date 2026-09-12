@@ -301,6 +301,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                 <AssetTransactionTableCell
                   itemRef="avg_price"
                   symbol={asset.symbol}
+                  portfolioId={asset.portfolioId}
                 />
 
                 <TableCell>{asset?.dominance ?? '-'}</TableCell>
@@ -308,6 +309,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                 <AssetTransactionTableCell
                   itemRef="total_qty"
                   symbol={asset.symbol}
+                  portfolioId={asset.portfolioId}
                 />
 
                 <TableCell className="px-0">

@@ -1,8 +1,14 @@
 import { UserMessages } from '@/config';
-import type { User } from '@/domain/models';
+import type { Portfolio, User } from '@/domain/models';
 import { BadRequestError } from '@/errors';
 import type { Jwt } from '@/infra/cryptography';
 import type { UserRepository } from '@/infra/database';
+
+/**
+ * The portfolio every account starts with, and the name the migration gave to
+ * the ones created before an account could hold more than one.
+ */
+const FIRST_PORTFOLIO_NAME = 'Main';
 
 export class CreateUserService {
   private static INSTANCE: CreateUserService;
@@ -24,12 +30,14 @@ export class CreateUserService {
   async execute({
     name,
     email,
-    password
+    password,
+    baseCurrency
   }: CreateUserService.DTO): Promise<CreateUserService.Result> {
     const account = await this.userRepository.add({
       email,
       password,
-      name: name ?? ''
+      name: name ?? '',
+      portfolio: { name: FIRST_PORTFOLIO_NAME, baseCurrency }
     });
 
     if (!account) throw new BadRequestError(UserMessages.ALREADY_EXISTS);
@@ -50,9 +58,10 @@ export class CreateUserService {
 }
 
 namespace CreateUserService {
-  export type DTO = Pick<User, 'name' | 'email' | 'password'>;
+  export type DTO = Pick<User, 'name' | 'email' | 'password'> &
+    Pick<Portfolio, 'baseCurrency'>;
   export type Result = {
-    user: Omit<User, 'password' | 'isAdmin' | 'sessionVersion' | 'portfolio'> &
+    user: Omit<User, 'password' | 'isAdmin' | 'sessionVersion' | 'portfolios'> &
       Record<'accessToken', string>;
     message: string;
   };

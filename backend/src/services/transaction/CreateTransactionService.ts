@@ -41,9 +41,13 @@ export class CreateTransactionService {
     price,
     amount,
     assetSymbol,
+    portfolioId,
     userId
   }: CreateTransactionService.DTO): Promise<CreateTransactionService.Result> {
-    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
+    const portfolioExists = await this.portfolioRepository.getById({
+      id: portfolioId,
+      userId
+    });
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
@@ -69,8 +73,11 @@ export class CreateTransactionService {
 }
 
 namespace CreateTransactionService {
-  export type DTO = Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'> &
-    Record<'userId', string>;
+  export type DTO = Pick<
+    Transaction,
+    'type' | 'amount' | 'price' | 'portfolioId'
+  > &
+    Record<'assetSymbol' | 'userId', string>;
   export type Result = {
     transaction: Transaction;
     message: string;

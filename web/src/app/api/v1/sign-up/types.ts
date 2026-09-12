@@ -6,6 +6,7 @@ export type SignUpRequestPayload = {
   name: string;
   email: string;
   password: string;
+  baseCurrency: string;
 };
 
 export interface SignUpResponseData extends WithMessage {

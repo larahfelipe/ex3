@@ -29,7 +29,10 @@ export type GetAssetResponseData = {
 export type GetAssetWithTotalBalanceResponseData = GetAssetResponseData &
   Record<'totalBalance', number>;
 
-export type CreateAssetRequestPayload = Pick<AssetProperties, 'symbol'>;
+export type CreateAssetRequestPayload = Pick<
+  AssetProperties,
+  'symbol' | 'portfolioId'
+>;
 
 export interface CreateAssetResponseData extends WithMessage {
   asset: Asset;

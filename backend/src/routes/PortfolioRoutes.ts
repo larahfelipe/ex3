@@ -1,6 +1,7 @@
 import { Router, type Application } from 'express';
 
 import {
+  createPortfolioControllerHandler,
   getAllPortfoliosControllerHandler,
   getPortfolioControllerHandler
 } from '@/controllers/portfolio';
@@ -18,6 +19,12 @@ portfolioRouter.get(
   '/v1/portfolios',
   authMiddleware,
   getAllPortfoliosControllerHandler as Application
+);
+
+portfolioRouter.post(
+  '/v1/portfolio',
+  authMiddleware,
+  createPortfolioControllerHandler as Application
 );
 
 export { portfolioRouter };

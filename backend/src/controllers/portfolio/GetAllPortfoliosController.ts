@@ -2,6 +2,8 @@ import type { Request, Response } from 'express';
 
 import type { Controller } from '@/interfaces';
 import type { GetAllPortfoliosService } from '@/services/portfolio';
+import { validate } from '@/validation';
+import { PaginationQuerySchema } from '@/validation/schema';
 
 export class GetAllPortfoliosController implements Controller {
   private static INSTANCE: GetAllPortfoliosController;
@@ -21,10 +23,14 @@ export class GetAllPortfoliosController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    const { user } = req;
+    const { user, query } = req;
+
+    const { page, limit } = await validate(PaginationQuerySchema, query);
 
     const result = await this.getAllPortfoliosService.execute({
-      userIsAdmin: user.isAdmin
+      userId: user.id,
+      page,
+      limit
     });
 
     return res.status(200).json(result);

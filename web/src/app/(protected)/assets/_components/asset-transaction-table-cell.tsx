@@ -15,6 +15,7 @@ import api, { type ApiProxyErrorData } from '@/lib/axios';
 
 type AssetTransactionTableCell = {
   symbol: string;
+  portfolioId: string;
   itemRef: 'total_qty' | 'avg_price';
 };
 
@@ -47,6 +48,7 @@ const getAssetPriceAverage = (transactions: Array<Transaction>) => {
 
 export const AssetTransactionTableCell: FC<AssetTransactionTableCell> = ({
   symbol,
+  portfolioId,
   itemRef
 }): JSX.Element => {
   const { currency } = useUser();
@@ -56,8 +58,11 @@ export const AssetTransactionTableCell: FC<AssetTransactionTableCell> = ({
     ApiProxyErrorData,
     Array<Transaction>
   >({
-    queryKey: ['transactions', symbol],
-    queryFn: () => api.getInstance().get(`/v1/transactions/${symbol}`),
+    queryKey: ['transactions', portfolioId, symbol],
+    queryFn: () =>
+      api.getInstance().get(`/v1/transactions/${symbol}`, {
+        params: { portfolioId }
+      }),
     select: ({ data }) => data.transactions,
     staleTime: 30_000
   });

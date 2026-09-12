@@ -31,11 +31,15 @@ export class GetAllAssetsService {
 
   async execute({
     userId,
+    portfolioId,
     page,
     limit,
     sort
   }: GetAllAssetsService.DTO): Promise<GetAllAssetsService.Result> {
-    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
+    const portfolioExists = await this.portfolioRepository.getById({
+      id: portfolioId,
+      userId
+    });
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
@@ -57,6 +61,7 @@ export class GetAllAssetsService {
 namespace GetAllAssetsService {
   export type DTO = {
     userId: string;
+    portfolioId: string;
     page?: number;
     limit?: number;
     sort?: (typeof SortOrderTypes)[keyof typeof SortOrderTypes];

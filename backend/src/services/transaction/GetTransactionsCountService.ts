@@ -39,9 +39,13 @@ export class GetTransactionsCountService {
 
   async execute({
     assetSymbol,
+    portfolioId,
     userId
   }: GetTransactionsCountService.DTO): Promise<GetTransactionsCountService.Result> {
-    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
+    const portfolioExists = await this.portfolioRepository.getById({
+      id: portfolioId,
+      userId
+    });
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
@@ -53,7 +57,7 @@ export class GetTransactionsCountService {
     if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
     const assetScope = {
-      assetSymbol: assetExists.symbol,
+      instrumentId: assetExists.instrumentId,
       portfolioId: portfolioExists.id
     };
 
@@ -76,6 +80,6 @@ export class GetTransactionsCountService {
 }
 
 namespace GetTransactionsCountService {
-  export type DTO = Record<'assetSymbol' | 'userId', string>;
+  export type DTO = Record<'assetSymbol' | 'portfolioId' | 'userId', string>;
   export type Result = Record<'buy' | 'sell', number>;
 }

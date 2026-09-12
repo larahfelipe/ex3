@@ -3,8 +3,10 @@ import { z } from 'zod';
 import { SortOrderTypes } from '@/config';
 
 import { PaginationQuerySchema } from '../PaginationQuerySchema';
+import { PortfolioScopeSchema } from '../PortfolioScopeSchema';
 
 export const GetAssetsSchema = z.object({
+  ...PortfolioScopeSchema.shape,
   ...PaginationQuerySchema.shape,
   sort: z
     .string()

@@ -3,7 +3,10 @@ import type { Request, Response } from 'express';
 import type { Controller } from '@/interfaces';
 import type { GetTransactionsCountService } from '@/services/transaction';
 import { validate } from '@/validation';
-import { GetTransactionsParamsSchema } from '@/validation/schema';
+import {
+  GetTransactionsParamsSchema,
+  PortfolioScopeSchema
+} from '@/validation/schema';
 
 export class GetTransactionsCountController implements Controller {
   private static INSTANCE: GetTransactionsCountController;
@@ -24,12 +27,16 @@ export class GetTransactionsCountController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    const { user, params } = req;
+    const { user, params, query } = req;
 
-    const { assetSymbol } = await validate(GetTransactionsParamsSchema, params);
+    const [{ assetSymbol }, { portfolioId }] = await Promise.all([
+      validate(GetTransactionsParamsSchema, params),
+      validate(PortfolioScopeSchema, query)
+    ]);
 
     const result = await this.getTransactionsCountService.execute({
       assetSymbol,
+      portfolioId,
       userId: user.id
     });
 

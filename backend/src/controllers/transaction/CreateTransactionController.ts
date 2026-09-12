@@ -26,7 +26,7 @@ export class CreateTransactionController implements Controller {
   async handle(req: Request, res: Response) {
     const { user, body } = req;
 
-    const { type, price, amount, assetSymbol } = await validate(
+    const { type, price, amount, assetSymbol, portfolioId } = await validate(
       CreateTransactionSchema,
       body
     );
@@ -35,6 +35,7 @@ export class CreateTransactionController implements Controller {
       price,
       amount,
       assetSymbol,
+      portfolioId,
       type: type as TransactionType,
       userId: user.id
     });

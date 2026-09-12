@@ -1,32 +1,20 @@
-import { PortfolioMessages, TransactionMessages } from '@/config';
+import { TransactionMessages } from '@/config';
 import type { Transaction } from '@/domain/models';
 import { BadRequestError, NotFoundError } from '@/errors';
-import type {
-  PortfolioRepository,
-  TransactionRepository
-} from '@/infra/database';
+import type { TransactionRepository } from '@/infra/database';
 
 export class UpdateTransactionService {
   private static INSTANCE: UpdateTransactionService;
   private readonly transactionRepository: TransactionRepository;
-  private readonly portfolioRepository: PortfolioRepository;
 
-  private constructor(
-    transactionRepository: TransactionRepository,
-    portfolioRepository: PortfolioRepository
-  ) {
+  private constructor(transactionRepository: TransactionRepository) {
     this.transactionRepository = transactionRepository;
-    this.portfolioRepository = portfolioRepository;
   }
 
-  static getInstance(
-    transactionRepository: TransactionRepository,
-    portfolioRepository: PortfolioRepository
-  ) {
+  static getInstance(transactionRepository: TransactionRepository) {
     if (!UpdateTransactionService.INSTANCE)
       UpdateTransactionService.INSTANCE = new UpdateTransactionService(
-        transactionRepository,
-        portfolioRepository
+        transactionRepository
       );
 
     return UpdateTransactionService.INSTANCE;
@@ -39,16 +27,12 @@ export class UpdateTransactionService {
     amount,
     userId
   }: UpdateTransactionService.DTO): Promise<UpdateTransactionService.Result> {
-    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
-
-    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
-
     const ledgerWrite = await this.transactionRepository.update({
       id,
       type,
       price,
       amount,
-      portfolioId: portfolioExists.id
+      userId
     });
 
     if (ledgerWrite.outcome === 'not-found')
@@ -64,10 +48,7 @@ export class UpdateTransactionService {
 }
 
 namespace UpdateTransactionService {
-  export type DTO = Omit<
-    Transaction,
-    'assetSymbol' | 'createdAt' | 'updatedAt'
-  > &
+  export type DTO = Pick<Transaction, 'id' | 'type' | 'amount' | 'price'> &
     Record<'userId', string>;
   export type Result = Record<'message', string>;
 }

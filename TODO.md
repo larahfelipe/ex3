@@ -27,13 +27,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** a ordem da listagem não corresponde à ordem das operações, e `page=2` sem `lastId` repete a primeira página. O ramo sem `take` volta a permitir listagem ilimitada (OWASP API4:2023) se o schema for relaxado.
 - **Proposta:** ordenar pela data de execução (`executedAt`, TASK 4.5) com desempate por `id`; adotar um único mecanismo de paginação (cursor opaco validado, ou `page`/`limit` com `skip`); remover o ramo sem `take`.
 
-### TD-003 — Exclusão de ativo sem teste com o mesmo símbolo em outra carteira
-
-- **Origem:** TASK 3.3 · **Tipo:** teste · **Prioridade:** média · **Encaminhamento:** TASK 4.2
-- **Contexto:** a exclusão de ativo remove as transações filtrando pela carteira, mas enquanto `Asset.symbol` for `@unique` global (baseline #19) não existem dois ativos com o mesmo símbolo, e o caso não é reproduzível.
-- **Impacto:** o filtro por carteira da exclusão em lote fica sem teste que o proteja durante a remodelagem.
-- **Proposta:** quando o `todo` "lets two portfolios hold the same symbol" de `backend/src/routes/Assets.integration.ts` passar, acrescentar o teste em que excluir o ativo de uma carteira preserva as transações do mesmo símbolo na outra.
-
 ### TD-004 — Enumeração de e-mails no sign-up (risco aceito)
 
 - **Origem:** revisão de segurança posterior à TASK 3.3 · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** TASK 20.4
@@ -76,6 +69,51 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** a posição do próprio usuário fica corrompida sem erro (`Infinity`, que o JSON devolve como `null`), e escritas seguintes sobre ela podem gravar `NaN` (`Infinity − Infinity`). Não alcança outras carteiras. Não foi corrigido na TASK 3.4 porque o critério da task é reproduzir antes de corrigir, e o limite correto depende da precisão das colunas definida na TASK 4.5; um teto escolhido agora seria substituído na remodelagem.
 - **Proposta:** limites derivados da precisão e escala das colunas `Decimal` (TD-001), validados no schema, e checagem de que a posição resultante cabe na coluna antes de gravar.
 
+### TD-010 — Catálogo de instrumentos sem cadastro pelo web
+
+- **Origem:** catálogo de instrumentos, `docs/domain-model.md` · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** só admin escreve no catálogo, e só pela API (`POST /v1/instrument`, `PATCH /v1/instrument/:symbol`). O web não tem tela de administração nem seleção de instrumento, `GET /v1/instruments` não busca por símbolo ou nome, e não há carga de instrumentos além da migração, que criou os dos ativos existentes com `name` igual ao símbolo, tipo `OTHER` e sem `market` e `currency`.
+- **Impacto:** adicionar ativo de símbolo que ainda não está no catálogo responde `404 Instrument not found in catalog`, e o usuário depende de um admin chamar a API. Os instrumentos migrados não têm moeda de cotação, que valuation e consolidação por moeda exigem.
+- **Proposta:** busca no catálogo pela API, seleção do instrumento no cadastro de ativo e tela de administração no web, com a permissão de admin verificada pela API; completar os instrumentos migrados antes de qualquer cálculo que dependa de `currency`.
+
+### TD-011 — Criação de carteiras sem limite por usuário
+
+- **Origem:** várias carteiras por usuário · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** `POST /v1/portfolio` exige só autenticação: não há teto de carteiras por usuário nem rate limit na rota. A listagem é paginada com `limit` até 100, então o custo de cada leitura não cresce com o total. A criação de transações tem a mesma ausência de teto, anterior às várias carteiras.
+- **Impacto:** um usuário autenticado cria carteiras sem limite e faz a tabela `portfolios` crescer na vazão que a API aceitar (OWASP API4:2023). O teto é decisão de produto e não foi fixado por conveniência da implementação.
+- **Proposta:** definir com o produto o número máximo de carteiras por usuário, recusar a criação acima dele sem gravar e aplicar um rate limit às rotas de escrita.
+
+### TD-012 — Carteira não pode ser renomeada nem excluída
+
+- **Origem:** várias carteiras por usuário · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** a API cria, lista e busca carteiras (`POST /v1/portfolio`, `GET /v1/portfolios`, `GET /v1/portfolio`), sem rota de edição nem de exclusão. Uma carteira só sai do banco com a exclusão da conta.
+- **Impacto:** carteira criada por engano, com nome errado ou na moeda errada fica na conta, e a criação sem limite (TD-011) agrava o acúmulo.
+- **Proposta:** edição de `name` e exclusão que remove ativos e transações da carteira numa transação serializável, como a exclusão de ativo. Decidir com o produto se `baseCurrency` pode mudar depois que a carteira tem transações e se a última carteira do usuário pode ser excluída.
+
+### TD-013 — Web opera só a carteira mais antiga e ignora a moeda base
+
+- **Origem:** várias carteiras por usuário · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** a tela de ativos pede `GET /v1/portfolios` com `page=1&limit=1` e usa essa carteira, a mais antiga, em todas as chamadas; o web não tem seletor nem criação de carteira. Os valores são formatados com a moeda de `useUser` (`web/src/providers/user-provider.tsx`), que começa em BRL e muda pelo seletor da tabela de ativos, sem relação com `Portfolio.baseCurrency` e sem conversão.
+- **Impacto:** carteiras criadas pela API não aparecem no web. Quem escolhe USD ou EUR no sign-up vê os valores rotulados em BRL até trocar o seletor, e trocar o seletor só muda o símbolo exibido.
+- **Proposta:** seletor e criação de carteira no web, com o rótulo inicial vindo da `baseCurrency` da carteira selecionada. Decidir com o produto se o seletor de moeda continua existindo enquanto não houver conversão cambial.
+
+### TD-014 — Nome do usuário sem limite de tamanho
+
+- **Origem:** revisão de segurança do sign-up com moeda base · **Tipo:** segurança · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** `name` é `z.string().optional()` em `CreateUserSchema` e `UpdateUserSchema`, sem `trim` nem máximo; o único teto é o limite do corpo JSON (`RequestLimits.JSON_BODY_SIZE`, 100 kB). O nome da carteira já usa `boundedTextSchema`.
+- **Impacto:** cada conta grava um nome de até cerca de 100 kB, devolvido nas respostas que trazem o usuário, inclusive a listagem de admin (OWASP API4:2023). Nome só de espaços é aceito.
+- **Proposta:** `boundedTextSchema` com máximo nomeado e documentado nos dois schemas, mantendo o campo opcional.
+
+### TD-015 — Tamanho de página padrão repetido em cada repositório
+
+- **Origem:** várias carteiras por usuário · **Tipo:** qualidade · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** o `limit` padrão é o literal `10` em `AssetRepository.getAll` e `TransactionRepository.getAll`, e uma constante `DEFAULT_PAGE_LIMIT` local em `PortfolioRepository` e em `InstrumentRepository`. O teto de 100 fica em `PaginationQuerySchema`.
+- **Impacto:** mudar o tamanho padrão exige tocar quatro arquivos, e os literais escapam de uma busca pela constante.
+- **Proposta:** uma constante de paginação compartilhada, junto do teto do schema, usada pelos quatro repositórios.
+
 ## Resolvidos
 
-Nenhum item até o momento.
+### TD-003 — Exclusão de ativo sem teste com o mesmo símbolo em outra carteira
+
+- **Tipo:** teste · **Prioridade:** média
+- **Resolução:** com o catálogo de instrumentos, duas carteiras podem ter o mesmo instrumento. O teste "keeps the asset and transactions another portfolio holds in the same instrument" de `backend/src/routes/Assets.integration.ts` exclui o ativo de uma carteira e confirma que o ativo e as transações da outra ficam intactos.

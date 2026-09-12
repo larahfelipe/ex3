@@ -28,7 +28,10 @@ export const DELETE = async (req: NextRequest) => {
 
     const { data, status, statusText } = await api
       .getInstance()
-      .delete<DeleteAssetResponseData>(`/v1/asset/${assetSymbol}`, { headers });
+      .delete<DeleteAssetResponseData>(`/v1/asset/${assetSymbol}`, {
+        headers,
+        params: req.nextUrl.searchParams
+      });
 
     return NextResponse.json<DeleteAssetResponseData>(data, {
       status,

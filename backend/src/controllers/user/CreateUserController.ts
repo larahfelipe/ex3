@@ -23,7 +23,7 @@ export class CreateUserController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    const { name, email, password } = await validate(
+    const { name, email, password, baseCurrency } = await validate(
       CreateUserSchema,
       req.body
     );
@@ -31,6 +31,7 @@ export class CreateUserController implements Controller {
     const result = await this.createUserService.execute({
       email,
       password,
+      baseCurrency,
       name: name as string
     });
 

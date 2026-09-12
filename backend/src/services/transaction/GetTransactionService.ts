@@ -1,32 +1,20 @@
-import { PortfolioMessages, TransactionMessages } from '@/config';
+import { TransactionMessages } from '@/config';
 import type { Transaction } from '@/domain/models';
 import { NotFoundError } from '@/errors';
-import type {
-  PortfolioRepository,
-  TransactionRepository
-} from '@/infra/database';
+import type { TransactionRepository } from '@/infra/database';
 
 export class GetTransactionService {
   private static INSTANCE: GetTransactionService;
   private readonly transactionRepository: TransactionRepository;
-  private readonly portfolioRepository: PortfolioRepository;
 
-  private constructor(
-    transactionRepository: TransactionRepository,
-    portfolioRepository: PortfolioRepository
-  ) {
+  private constructor(transactionRepository: TransactionRepository) {
     this.transactionRepository = transactionRepository;
-    this.portfolioRepository = portfolioRepository;
   }
 
-  static getInstance(
-    transactionRepository: TransactionRepository,
-    portfolioRepository: PortfolioRepository
-  ) {
+  static getInstance(transactionRepository: TransactionRepository) {
     if (!GetTransactionService.INSTANCE)
       GetTransactionService.INSTANCE = new GetTransactionService(
-        transactionRepository,
-        portfolioRepository
+        transactionRepository
       );
 
     return GetTransactionService.INSTANCE;
@@ -36,13 +24,9 @@ export class GetTransactionService {
     id,
     userId
   }: GetTransactionService.DTO): Promise<GetTransactionService.Result> {
-    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
-
-    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
-
     const transactionExists = await this.transactionRepository.getById({
       id,
-      portfolioId: portfolioExists.id
+      userId
     });
 
     if (!transactionExists)

@@ -28,13 +28,15 @@ export class GetAllTransactionsController implements Controller {
   async handle(req: Request, res: Response) {
     const { user, params, query } = req;
 
-    const [{ assetSymbol }, { page, limit, lastId }] = await Promise.all([
-      validate(GetTransactionsParamsSchema, params),
-      validate(GetTransactionsQuerySchema, query)
-    ]);
+    const [{ assetSymbol }, { page, limit, lastId, portfolioId }] =
+      await Promise.all([
+        validate(GetTransactionsParamsSchema, params),
+        validate(GetTransactionsQuerySchema, query)
+      ]);
 
     const result = await this.getAllTransactionsService.execute({
       assetSymbol,
+      portfolioId,
       page,
       limit,
       lastId,

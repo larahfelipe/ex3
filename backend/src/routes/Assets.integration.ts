@@ -1,14 +1,21 @@
 import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
 
-import { AssetMessages, Errors, PortfolioMessages } from '@/config';
+import {
+  AssetMessages,
+  Errors,
+  InstrumentMessages,
+  PortfolioMessages
+} from '@/config';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 import { apiRequest, bearer, signIn } from '@/test/ApiClient';
 import {
   FIXTURE_ASSET_SYMBOL,
   FIXTURE_PASSWORD,
   createAsset,
+  createInstrument,
   createPortfolio,
+  createTransaction,
   createUser,
   seedPortfolio
 } from '@/test/Fixtures';
@@ -89,11 +96,15 @@ describe('assets', () => {
   describe('add', () => {
     it('opens an empty position in the caller portfolio', async () => {
       const { portfolio, accessToken } = await signInWithPortfolio();
+      const instrument = await createInstrument({ symbol: UNHELD_SYMBOL });
 
       const res = await client
         .post(CREATE_ASSET_ROUTE)
         .set(bearer(accessToken))
-        .send({ symbol: UNHELD_SYMBOL.toLowerCase() });
+        .send({
+          symbol: UNHELD_SYMBOL.toLowerCase(),
+          portfolioId: portfolio.id
+        });
 
       assert.equal(res.status, 201);
       assert.equal(res.body.message, AssetMessages.CREATED);
@@ -101,27 +112,30 @@ describe('assets', () => {
       assert.equal(res.body.asset.amount, 0);
       assert.equal(res.body.asset.balance, 0);
       assert.equal(res.body.asset.portfolioId, portfolio.id);
+      assert.equal(res.body.asset.instrumentId, instrument.id);
     });
 
     it('accepts a symbol of exactly the maximum length', async () => {
-      const { accessToken } = await signInWithPortfolio();
+      const symbol = 'A'.repeat(SYMBOL_MAX_LENGTH);
+      const { portfolio, accessToken } = await signInWithPortfolio();
+      await createInstrument({ symbol });
 
       const res = await client
         .post(CREATE_ASSET_ROUTE)
         .set(bearer(accessToken))
-        .send({ symbol: 'A'.repeat(SYMBOL_MAX_LENGTH) });
+        .send({ symbol, portfolioId: portfolio.id });
 
       assert.equal(res.status, 201);
     });
 
     it('rejects an empty symbol and one past the maximum length', async () => {
-      const { accessToken } = await signInWithPortfolio();
+      const { portfolio, accessToken } = await signInWithPortfolio();
 
       for (const symbol of ['', 'A'.repeat(SYMBOL_MAX_LENGTH + 1)]) {
         const res = await client
           .post(CREATE_ASSET_ROUTE)
           .set(bearer(accessToken))
-          .send({ symbol });
+          .send({ symbol, portfolioId: portfolio.id });
 
         assert.equal(res.status, Errors.BAD_REQUEST.status, symbol);
       }
@@ -130,37 +144,43 @@ describe('assets', () => {
     });
 
     it('rejects a symbol the portfolio already holds, regardless of case', async () => {
-      const { accessToken } = await signInSeeded();
+      const { portfolio, accessToken } = await signInSeeded();
 
       const res = await client
         .post(CREATE_ASSET_ROUTE)
         .set(bearer(accessToken))
-        .send({ symbol: FIXTURE_ASSET_SYMBOL.toLowerCase() });
+        .send({
+          symbol: FIXTURE_ASSET_SYMBOL.toLowerCase(),
+          portfolioId: portfolio.id
+        });
 
       assert.equal(res.status, Errors.BAD_REQUEST.status);
       assert.equal(res.body.message, AssetMessages.ALREADY_EXISTS);
     });
 
     it('rejects a blank symbol', async () => {
-      const { accessToken } = await signInWithPortfolio();
+      const { portfolio, accessToken } = await signInWithPortfolio();
 
       const res = await client
         .post(CREATE_ASSET_ROUTE)
         .set(bearer(accessToken))
-        .send({ symbol: ' '.repeat(SYMBOL_MAX_LENGTH) });
+        .send({
+          symbol: ' '.repeat(SYMBOL_MAX_LENGTH),
+          portfolioId: portfolio.id
+        });
 
       assert.equal(res.status, Errors.BAD_REQUEST.status);
       assert.equal(await prismaClient.asset.count(), 0);
     });
 
     it('rejects a symbol with characters other than letters and digits', async () => {
-      const { accessToken } = await signInWithPortfolio();
+      const { portfolio, accessToken } = await signInWithPortfolio();
 
       for (const symbol of [LEGACY_SYMBOL, 'B$', '<b>', 'ÉTH']) {
         const res = await client
           .post(CREATE_ASSET_ROUTE)
           .set(bearer(accessToken))
-          .send({ symbol });
+          .send({ symbol, portfolioId: portfolio.id });
 
         assert.equal(res.status, Errors.BAD_REQUEST.status, symbol);
       }
@@ -168,31 +188,42 @@ describe('assets', () => {
       assert.equal(await prismaClient.asset.count(), 0);
     });
 
-    it(
-      'lets two portfolios hold the same symbol',
-      {
-        todo: '`Asset.symbol` is globally unique (baseline #19, TASK 4.2): the first holder of a symbol denies it to every other user, who gets a 500'
-      },
-      async () => {
-        await seedPortfolio();
-        const { accessToken } = await signInWithPortfolio(OTHER_USER_EMAIL);
+    it('lets two portfolios hold the one instrument of a symbol', async () => {
+      const holder = await seedPortfolio();
+      const { portfolio, accessToken } =
+        await signInWithPortfolio(OTHER_USER_EMAIL);
 
-        const res = await client
-          .post(CREATE_ASSET_ROUTE)
-          .set(bearer(accessToken))
-          .send({ symbol: FIXTURE_ASSET_SYMBOL });
+      const res = await client
+        .post(CREATE_ASSET_ROUTE)
+        .set(bearer(accessToken))
+        .send({ symbol: FIXTURE_ASSET_SYMBOL, portfolioId: portfolio.id });
 
-        assert.equal(res.status, 201);
-      }
-    );
+      assert.equal(res.status, 201);
+      assert.equal(res.body.asset.instrumentId, holder.asset.instrumentId);
+      assert.equal(await prismaClient.instrument.count(), 1);
+    });
+
+    it('answers not found for a symbol outside the catalog and opens nothing', async () => {
+      const { portfolio, accessToken } = await signInWithPortfolio();
+
+      const res = await client
+        .post(CREATE_ASSET_ROUTE)
+        .set(bearer(accessToken))
+        .send({ symbol: UNHELD_SYMBOL, portfolioId: portfolio.id });
+
+      assert.equal(res.status, Errors.NOT_FOUND.status);
+      assert.equal(res.body.message, InstrumentMessages.NOT_FOUND);
+      assert.equal(await prismaClient.asset.count(), 0);
+    });
   });
 
   describe('get', () => {
     it('returns a held asset, matching the symbol case-insensitively', async () => {
-      const { asset, accessToken } = await signInSeeded();
+      const { portfolio, asset, accessToken } = await signInSeeded();
 
       const res = await client
         .get(assetRoute(asset.symbol.toLowerCase()))
+        .query({ portfolioId: portfolio.id })
         .set(bearer(accessToken));
 
       assert.equal(res.status, 200);
@@ -203,10 +234,11 @@ describe('assets', () => {
     });
 
     it('answers not found for a symbol the portfolio does not hold', async () => {
-      const { accessToken } = await signInSeeded();
+      const { portfolio, accessToken } = await signInSeeded();
 
       const res = await client
         .get(assetRoute(UNHELD_SYMBOL))
+        .query({ portfolioId: portfolio.id })
         .set(bearer(accessToken));
 
       assert.equal(res.status, Errors.NOT_FOUND.status);
@@ -215,13 +247,16 @@ describe('assets', () => {
 
     it("answers another user's asset exactly like one that does not exist", async () => {
       await seedPortfolio();
-      const { accessToken } = await signInWithPortfolio(OTHER_USER_EMAIL);
+      const { portfolio, accessToken } =
+        await signInWithPortfolio(OTHER_USER_EMAIL);
 
       const foreign = await client
         .get(assetRoute(FIXTURE_ASSET_SYMBOL))
+        .query({ portfolioId: portfolio.id })
         .set(bearer(accessToken));
       const missing = await client
         .get(assetRoute(UNHELD_SYMBOL))
+        .query({ portfolioId: portfolio.id })
         .set(bearer(accessToken));
 
       assert.equal(foreign.status, Errors.NOT_FOUND.status);
@@ -229,10 +264,11 @@ describe('assets', () => {
     });
 
     it('rejects a symbol past the maximum length', async () => {
-      const { accessToken } = await signInSeeded();
+      const { portfolio, accessToken } = await signInSeeded();
 
       const res = await client
         .get(assetRoute('A'.repeat(SYMBOL_MAX_LENGTH + 1)))
+        .query({ portfolioId: portfolio.id })
         .set(bearer(accessToken));
 
       assert.equal(res.status, Errors.BAD_REQUEST.status);
@@ -244,6 +280,7 @@ describe('assets', () => {
 
       const res = await client
         .get(assetRoute(LEGACY_SYMBOL.toLowerCase()))
+        .query({ portfolioId: portfolio.id })
         .set(bearer(accessToken));
 
       assert.equal(res.status, 200);
@@ -258,7 +295,10 @@ describe('assets', () => {
         await signInWithPortfolio(OTHER_USER_EMAIL);
       await createAsset({ portfolioId: portfolio.id, symbol: UNHELD_SYMBOL });
 
-      const res = await client.get(ASSETS_ROUTE).set(bearer(accessToken));
+      const res = await client
+        .get(ASSETS_ROUTE)
+        .query({ portfolioId: portfolio.id })
+        .set(bearer(accessToken));
 
       assert.equal(res.status, 200);
       assert.deepEqual(symbolsOf(res.body.assets), [UNHELD_SYMBOL]);
@@ -267,9 +307,12 @@ describe('assets', () => {
     });
 
     it('describes an empty portfolio', async () => {
-      const { accessToken } = await signInWithPortfolio();
+      const { portfolio, accessToken } = await signInWithPortfolio();
 
-      const res = await client.get(ASSETS_ROUTE).set(bearer(accessToken));
+      const res = await client
+        .get(ASSETS_ROUTE)
+        .query({ portfolioId: portfolio.id })
+        .set(bearer(accessToken));
 
       assert.equal(res.status, 200);
       assert.deepEqual(res.body, {
@@ -282,19 +325,6 @@ describe('assets', () => {
         assets: []
       });
     });
-
-    it('answers not found when the caller has no portfolio', async () => {
-      const user = await createUser();
-      const accessToken = await signIn({
-        email: user.email,
-        password: FIXTURE_PASSWORD
-      });
-
-      const res = await client.get(ASSETS_ROUTE).set(bearer(accessToken));
-
-      assert.equal(res.status, Errors.NOT_FOUND.status);
-      assert.equal(res.body.message, PortfolioMessages.NOT_FOUND);
-    });
   });
 
   describe('pagination', () => {
@@ -303,7 +333,10 @@ describe('assets', () => {
       const { portfolio, accessToken } = await signInWithPortfolio();
       await holdAssets(portfolio.id, heldCount);
 
-      const res = await client.get(ASSETS_ROUTE).set(bearer(accessToken));
+      const res = await client
+        .get(ASSETS_ROUTE)
+        .query({ portfolioId: portfolio.id })
+        .set(bearer(accessToken));
 
       assert.equal(res.status, 200);
       assert.equal(res.body.assets.length, DEFAULT_PAGE_LIMIT);
@@ -327,7 +360,7 @@ describe('assets', () => {
       for (let page = 1; page <= totalPages; page += 1) {
         const res = await client
           .get(ASSETS_ROUTE)
-          .query({ page, limit, sort: 'asc' })
+          .query({ portfolioId: portfolio.id, page, limit, sort: 'asc' })
           .set(bearer(accessToken));
 
         assert.equal(res.status, 200);
@@ -353,7 +386,7 @@ describe('assets', () => {
 
       const res = await client
         .get(ASSETS_ROUTE)
-        .query({ page: 2 })
+        .query({ portfolioId: portfolio.id, page: 2 })
         .set(bearer(accessToken));
 
       assert.equal(res.status, 200);
@@ -363,7 +396,7 @@ describe('assets', () => {
     });
 
     it('rejects a page or limit that is not a positive number', async () => {
-      const { accessToken } = await signInWithPortfolio();
+      const { portfolio, accessToken } = await signInWithPortfolio();
 
       for (const query of [
         { page: 0 },
@@ -373,7 +406,7 @@ describe('assets', () => {
       ]) {
         const res = await client
           .get(ASSETS_ROUTE)
-          .query(query)
+          .query({ ...query, portfolioId: portfolio.id })
           .set(bearer(accessToken));
 
         assert.equal(
@@ -385,12 +418,12 @@ describe('assets', () => {
     });
 
     it('rejects a fractional page or limit', async () => {
-      const { accessToken } = await signInWithPortfolio();
+      const { portfolio, accessToken } = await signInWithPortfolio();
 
       for (const query of [{ page: 1.5 }, { limit: 2.5 }]) {
         const res = await client
           .get(ASSETS_ROUTE)
-          .query(query)
+          .query({ ...query, portfolioId: portfolio.id })
           .set(bearer(accessToken));
 
         assert.equal(
@@ -402,15 +435,15 @@ describe('assets', () => {
     });
 
     it('bounds the page size', async () => {
-      const { accessToken } = await signInWithPortfolio();
+      const { portfolio, accessToken } = await signInWithPortfolio();
 
       const atBound = await client
         .get(ASSETS_ROUTE)
-        .query({ limit: MAX_PAGE_LIMIT })
+        .query({ portfolioId: portfolio.id, limit: MAX_PAGE_LIMIT })
         .set(bearer(accessToken));
       const pastBound = await client
         .get(ASSETS_ROUTE)
-        .query({ limit: MAX_PAGE_LIMIT + 1 })
+        .query({ portfolioId: portfolio.id, limit: MAX_PAGE_LIMIT + 1 })
         .set(bearer(accessToken));
 
       assert.equal(atBound.status, 200);
@@ -427,11 +460,11 @@ describe('assets', () => {
 
       const ascending = await client
         .get(ASSETS_ROUTE)
-        .query({ sort: 'asc' })
+        .query({ portfolioId: portfolio.id, sort: 'asc' })
         .set(bearer(accessToken));
       const descending = await client
         .get(ASSETS_ROUTE)
-        .query({ sort: 'DESC' })
+        .query({ portfolioId: portfolio.id, sort: 'DESC' })
         .set(bearer(accessToken));
 
       assert.deepEqual(
@@ -450,11 +483,11 @@ describe('assets', () => {
     });
 
     it('rejects an unknown sort order', async () => {
-      const { accessToken } = await signInWithPortfolio();
+      const { portfolio, accessToken } = await signInWithPortfolio();
 
       const res = await client
         .get(ASSETS_ROUTE)
-        .query({ sort: 'up' })
+        .query({ portfolioId: portfolio.id, sort: 'up' })
         .set(bearer(accessToken));
 
       assert.equal(res.status, Errors.BAD_REQUEST.status);
@@ -475,7 +508,12 @@ describe('assets', () => {
 
       const res = await client
         .get(ASSETS_ROUTE)
-        .query({ symbol: heldSymbol(0), search: heldSymbol(0), sort: 'asc' })
+        .query({
+          portfolioId: portfolio.id,
+          symbol: heldSymbol(0),
+          search: heldSymbol(0),
+          sort: 'asc'
+        })
         .set(bearer(accessToken));
 
       assert.equal(res.status, 200);
@@ -486,21 +524,35 @@ describe('assets', () => {
   describe('rename', () => {
     const RENAMED_SYMBOL = 'XBT';
 
-    const renameAsset = (accessToken: string, from: string, to: string) =>
+    const renameAsset = (
+      {
+        accessToken,
+        portfolio
+      }: Awaited<ReturnType<typeof signInWithPortfolio>>,
+      from: string,
+      to: string
+    ) =>
       client
         .patch(assetRoute(from))
         .set(bearer(accessToken))
-        .send({ newSymbol: to });
+        .send({ newSymbol: to, portfolioId: portfolio.id });
 
-    const storedSymbolOf = async (id: string) =>
-      (await prismaClient.asset.findUniqueOrThrow({ where: { id } })).symbol;
+    const storedSymbolOf = async (id: string) => {
+      const { instrument } = await prismaClient.asset.findUniqueOrThrow({
+        where: { id },
+        select: { instrument: { select: { symbol: true } } }
+      });
+
+      return instrument.symbol;
+    };
 
     it('renames a held asset, matching the old symbol case-insensitively', async () => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-      const asset = await createAsset({ portfolioId: portfolio.id });
+      const caller = await signInWithPortfolio();
+      const asset = await createAsset({ portfolioId: caller.portfolio.id });
+      await createInstrument({ symbol: UNHELD_SYMBOL });
 
       const res = await renameAsset(
-        accessToken,
+        caller,
         asset.symbol.toLowerCase(),
         UNHELD_SYMBOL.toLowerCase()
       );
@@ -511,11 +563,14 @@ describe('assets', () => {
     });
 
     it('carries the transactions of the renamed asset along', async () => {
-      const { asset, transaction, accessToken } = await signInSeeded();
+      const caller = await signInSeeded();
+      const { portfolio, asset, transaction, accessToken } = caller;
+      await createInstrument({ symbol: RENAMED_SYMBOL });
 
-      const res = await renameAsset(accessToken, asset.symbol, RENAMED_SYMBOL);
+      const res = await renameAsset(caller, asset.symbol, RENAMED_SYMBOL);
       const listed = await client
         .get(`/v1/transactions/${RENAMED_SYMBOL}`)
+        .query({ portfolioId: portfolio.id })
         .set(bearer(accessToken));
 
       assert.equal(res.status, 200);
@@ -526,26 +581,30 @@ describe('assets', () => {
       );
       assert.equal(
         await prismaClient.transaction.count({
-          where: { assetSymbol: asset.symbol }
+          where: { instrumentId: asset.instrumentId }
         }),
         0
       );
     });
 
     it('renames a stored symbol outside the allowlist for new symbols', async () => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-      await createAsset({ portfolioId: portfolio.id, symbol: LEGACY_SYMBOL });
+      const caller = await signInWithPortfolio();
+      await createAsset({
+        portfolioId: caller.portfolio.id,
+        symbol: LEGACY_SYMBOL
+      });
+      await createInstrument({ symbol: UNHELD_SYMBOL });
 
-      const res = await renameAsset(accessToken, LEGACY_SYMBOL, UNHELD_SYMBOL);
+      const res = await renameAsset(caller, LEGACY_SYMBOL, UNHELD_SYMBOL);
 
       assert.equal(res.status, 200);
     });
 
     it('rejects a new symbol outside the allowlist, keeping the old one', async () => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-      const asset = await createAsset({ portfolioId: portfolio.id });
+      const caller = await signInWithPortfolio();
+      const asset = await createAsset({ portfolioId: caller.portfolio.id });
 
-      const res = await renameAsset(accessToken, asset.symbol, LEGACY_SYMBOL);
+      const res = await renameAsset(caller, asset.symbol, LEGACY_SYMBOL);
 
       assert.equal(res.status, Errors.BAD_REQUEST.status);
       assert.equal(await storedSymbolOf(asset.id), asset.symbol);
@@ -554,15 +613,11 @@ describe('assets', () => {
     it("answers another user's asset like a missing one and leaves it untouched", async () => {
       const { portfolio } = await signInWithPortfolio();
       const asset = await createAsset({ portfolioId: portfolio.id });
-      const { accessToken } = await signInWithPortfolio(OTHER_USER_EMAIL);
+      const intruder = await signInWithPortfolio(OTHER_USER_EMAIL);
 
-      const foreign = await renameAsset(
-        accessToken,
-        asset.symbol,
-        RENAMED_SYMBOL
-      );
+      const foreign = await renameAsset(intruder, asset.symbol, RENAMED_SYMBOL);
       const missing = await renameAsset(
-        accessToken,
+        intruder,
         UNHELD_SYMBOL,
         RENAMED_SYMBOL
       );
@@ -571,36 +626,105 @@ describe('assets', () => {
       assert.deepEqual(foreign.body, missing.body);
       assert.equal(await storedSymbolOf(asset.id), asset.symbol);
     });
+
+    it('answers not found for a new symbol outside the catalog, keeping the old one', async () => {
+      const caller = await signInWithPortfolio();
+      const asset = await createAsset({ portfolioId: caller.portfolio.id });
+
+      const res = await renameAsset(caller, asset.symbol, RENAMED_SYMBOL);
+
+      assert.equal(res.status, Errors.NOT_FOUND.status);
+      assert.equal(res.body.message, InstrumentMessages.NOT_FOUND);
+      assert.equal(await storedSymbolOf(asset.id), asset.symbol);
+    });
+
+    it('rejects a new symbol the portfolio already holds, keeping both assets and the transactions', async () => {
+      const caller = await signInSeeded();
+      const { portfolio, asset, transaction } = caller;
+      const held = await createAsset({
+        portfolioId: portfolio.id,
+        symbol: RENAMED_SYMBOL
+      });
+
+      for (const newSymbol of [held.symbol, asset.symbol]) {
+        const res = await renameAsset(caller, asset.symbol, newSymbol);
+
+        assert.equal(res.status, Errors.BAD_REQUEST.status, newSymbol);
+        assert.equal(res.body.message, AssetMessages.ALREADY_EXISTS, newSymbol);
+      }
+
+      assert.equal(await storedSymbolOf(asset.id), asset.symbol);
+      assert.equal(await storedSymbolOf(held.id), held.symbol);
+      assert.deepEqual(
+        await prismaClient.transaction.findUniqueOrThrow({
+          where: { id: transaction.id }
+        }),
+        transaction
+      );
+    });
   });
 
   describe('delete', () => {
     it('removes the asset and its transactions, keeping the rest', async () => {
       const { portfolio, asset, accessToken } = await signInSeeded();
-      await createAsset({ portfolioId: portfolio.id, symbol: UNHELD_SYMBOL });
+      const kept = await createAsset({
+        portfolioId: portfolio.id,
+        symbol: UNHELD_SYMBOL
+      });
 
       const res = await client
         .delete(assetRoute(asset.symbol.toLowerCase()))
+        .query({ portfolioId: portfolio.id })
         .set(bearer(accessToken));
 
       assert.equal(res.status, 200);
       assert.equal(res.body.message, AssetMessages.DELETED);
 
       const [remaining, transactions] = await Promise.all([
-        prismaClient.asset.findMany({ where: { portfolioId: portfolio.id } }),
+        prismaClient.asset.findMany({
+          where: { portfolioId: portfolio.id },
+          select: { id: true }
+        }),
         prismaClient.transaction.count({
-          where: { assetSymbol: asset.symbol }
+          where: { portfolioId: portfolio.id }
         })
       ]);
 
-      assert.deepEqual(symbolsOf(remaining), [UNHELD_SYMBOL]);
+      assert.deepEqual(remaining, [{ id: kept.id }]);
       assert.equal(transactions, 0);
     });
 
+    it('keeps the asset and transactions another portfolio holds in the same instrument', async () => {
+      const holder = await seedPortfolio();
+      const { portfolio, accessToken } =
+        await signInWithPortfolio(OTHER_USER_EMAIL);
+      const asset = await createAsset({
+        portfolioId: portfolio.id,
+        symbol: holder.asset.symbol
+      });
+      await createTransaction(asset);
+
+      const res = await client
+        .delete(assetRoute(asset.symbol))
+        .query({ portfolioId: portfolio.id })
+        .set(bearer(accessToken));
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(
+        await prismaClient.asset.findMany({ select: { id: true } }),
+        [{ id: holder.asset.id }]
+      );
+      assert.deepEqual(await prismaClient.transaction.findMany(), [
+        holder.transaction
+      ]);
+    });
+
     it('answers not found for a symbol the portfolio does not hold', async () => {
-      const { accessToken } = await signInSeeded();
+      const { portfolio, accessToken } = await signInSeeded();
 
       const res = await client
         .delete(assetRoute(UNHELD_SYMBOL))
+        .query({ portfolioId: portfolio.id })
         .set(bearer(accessToken));
 
       assert.equal(res.status, Errors.NOT_FOUND.status);
@@ -609,13 +733,16 @@ describe('assets', () => {
 
     it("answers another user's asset like a missing one and leaves it and its transactions untouched", async () => {
       const { asset } = await seedPortfolio();
-      const { accessToken } = await signInWithPortfolio(OTHER_USER_EMAIL);
+      const { portfolio, accessToken } =
+        await signInWithPortfolio(OTHER_USER_EMAIL);
 
       const foreign = await client
         .delete(assetRoute(asset.symbol))
+        .query({ portfolioId: portfolio.id })
         .set(bearer(accessToken));
       const missing = await client
         .delete(assetRoute(UNHELD_SYMBOL))
+        .query({ portfolioId: portfolio.id })
         .set(bearer(accessToken));
 
       assert.equal(foreign.status, Errors.NOT_FOUND.status);
@@ -624,12 +751,139 @@ describe('assets', () => {
       const [assets, transactions] = await Promise.all([
         prismaClient.asset.count({ where: { id: asset.id } }),
         prismaClient.transaction.count({
-          where: { assetSymbol: asset.symbol }
+          where: { instrumentId: asset.instrumentId }
         })
       ]);
 
       assert.equal(assets, 1);
       assert.equal(transactions, 1);
+    });
+  });
+
+  describe('portfolio scope', () => {
+    /** Well-formed, and naming no portfolio: the baseline a foreign portfolio id must be indistinguishable from. */
+    const MISSING_PORTFOLIO_ID = '00000000-0000-4000-8000-000000000000';
+
+    const scopedRequests = {
+      'POST asset': (accessToken: string, portfolioId?: string) =>
+        client
+          .post(CREATE_ASSET_ROUTE)
+          .set(bearer(accessToken))
+          .send({ symbol: UNHELD_SYMBOL, portfolioId }),
+      'GET assets': (accessToken: string, portfolioId?: string) =>
+        client
+          .get(ASSETS_ROUTE)
+          .query({ portfolioId })
+          .set(bearer(accessToken)),
+      'GET asset': (accessToken: string, portfolioId?: string) =>
+        client
+          .get(assetRoute(FIXTURE_ASSET_SYMBOL))
+          .query({ portfolioId })
+          .set(bearer(accessToken)),
+      'PATCH asset': (accessToken: string, portfolioId?: string) =>
+        client
+          .patch(assetRoute(FIXTURE_ASSET_SYMBOL))
+          .set(bearer(accessToken))
+          .send({ newSymbol: UNHELD_SYMBOL, portfolioId }),
+      'DELETE asset': (accessToken: string, portfolioId?: string) =>
+        client
+          .delete(assetRoute(FIXTURE_ASSET_SYMBOL))
+          .query({ portfolioId })
+          .set(bearer(accessToken))
+    };
+
+    const storedAssets = () =>
+      prismaClient.asset.findMany({
+        select: { id: true, instrumentId: true, amount: true, balance: true }
+      });
+
+    it("answers another user's portfolio exactly like one that does not exist and changes nothing", async () => {
+      const holder = await seedPortfolio();
+      await createInstrument({ symbol: UNHELD_SYMBOL });
+      const { accessToken } = await signInWithPortfolio(OTHER_USER_EMAIL);
+
+      for (const [request, send] of Object.entries(scopedRequests)) {
+        const foreign = await send(accessToken, holder.portfolio.id);
+        const missing = await send(accessToken, MISSING_PORTFOLIO_ID);
+
+        assert.equal(foreign.status, Errors.NOT_FOUND.status, request);
+        assert.equal(
+          foreign.body.message,
+          PortfolioMessages.NOT_FOUND,
+          request
+        );
+        assert.deepEqual(foreign.body, missing.body, request);
+      }
+
+      const { id, instrumentId, amount, balance } = holder.asset;
+
+      assert.deepEqual(await storedAssets(), [
+        { id, instrumentId, amount, balance }
+      ]);
+      assert.deepEqual(await prismaClient.transaction.findMany(), [
+        holder.transaction
+      ]);
+    });
+
+    it('rejects a request without a well-formed portfolio id and changes nothing', async () => {
+      const { asset, accessToken } = await signInSeeded();
+      await createInstrument({ symbol: UNHELD_SYMBOL });
+
+      for (const [request, send] of Object.entries(scopedRequests)) {
+        for (const portfolioId of [undefined, 'not-a-uuid']) {
+          const res = await send(accessToken, portfolioId);
+
+          assert.equal(
+            res.status,
+            Errors.BAD_REQUEST.status,
+            `${request} ${portfolioId}`
+          );
+        }
+      }
+
+      const { id, instrumentId, amount, balance } = asset;
+
+      assert.deepEqual(await storedAssets(), [
+        { id, instrumentId, amount, balance }
+      ]);
+      assert.equal(await prismaClient.transaction.count(), 1);
+    });
+
+    it('keeps apart the positions two portfolios of one caller hold in the same instrument', async () => {
+      const { user, portfolio, asset, accessToken } = await signInSeeded();
+      const secondPortfolio = await createPortfolio(user.id);
+
+      const opened = await client
+        .post(CREATE_ASSET_ROUTE)
+        .set(bearer(accessToken))
+        .send({ symbol: asset.symbol, portfolioId: secondPortfolio.id });
+      const listedIds = async (portfolioId: string) => {
+        const res = await client
+          .get(ASSETS_ROUTE)
+          .query({ portfolioId })
+          .set(bearer(accessToken));
+
+        return res.body.assets.map(({ id }: { id: string }) => id);
+      };
+
+      assert.equal(opened.status, 201);
+      assert.equal(opened.body.asset.instrumentId, asset.instrumentId);
+      assert.deepEqual(await listedIds(portfolio.id), [asset.id]);
+      assert.deepEqual(await listedIds(secondPortfolio.id), [
+        opened.body.asset.id
+      ]);
+
+      const deleted = await client
+        .delete(assetRoute(asset.symbol))
+        .query({ portfolioId: secondPortfolio.id })
+        .set(bearer(accessToken));
+
+      assert.equal(deleted.status, 200);
+      assert.deepEqual(
+        await prismaClient.asset.findMany({ select: { id: true } }),
+        [{ id: asset.id }]
+      );
+      assert.equal(await prismaClient.transaction.count(), 1);
     });
   });
 });

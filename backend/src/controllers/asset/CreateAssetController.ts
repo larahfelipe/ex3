@@ -25,10 +25,11 @@ export class CreateAssetController implements Controller {
   async handle(req: Request, res: Response) {
     const { user, body } = req;
 
-    const { symbol } = await validate(CreateAssetSchema, body);
+    const { symbol, portfolioId } = await validate(CreateAssetSchema, body);
 
     const result = await this.createAssetService.execute({
       symbol,
+      portfolioId,
       userId: user.id
     });
 

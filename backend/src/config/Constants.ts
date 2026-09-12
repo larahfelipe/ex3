@@ -1,4 +1,4 @@
-import type { TransactionType } from '@/domain/models';
+import type { InstrumentType, TransactionType } from '@/domain/models';
 
 export const Errors = {
   BAD_REQUEST: {
@@ -53,8 +53,16 @@ export const AssetMessages = {
   DELETED: 'Asset deleted successfully'
 };
 
+export const InstrumentMessages = {
+  NOT_FOUND: 'Instrument not found in catalog',
+  ALREADY_EXISTS: 'Instrument already exists in catalog',
+  CREATED: 'Instrument created successfully',
+  UPDATED: 'Instrument updated successfully'
+};
+
 export const PortfolioMessages = {
-  NOT_FOUND: 'Portfolio not found for this user'
+  NOT_FOUND: 'Portfolio not found for this user',
+  CREATED: 'Portfolio created successfully'
 };
 
 export const TransactionMessages = {
@@ -79,6 +87,18 @@ export const UserMessages = {
 export const TransactionTypes: Record<TransactionType, TransactionType> = {
   BUY: 'BUY',
   SELL: 'SELL'
+} as const;
+
+export const InstrumentTypes: Record<InstrumentType, InstrumentType> = {
+  STOCK: 'STOCK',
+  ETF: 'ETF',
+  FUND: 'FUND',
+  REIT: 'REIT',
+  CRYPTO: 'CRYPTO',
+  BOND: 'BOND',
+  TREASURY: 'TREASURY',
+  CASH: 'CASH',
+  OTHER: 'OTHER'
 } as const;
 
 export const SortOrderTypes = {

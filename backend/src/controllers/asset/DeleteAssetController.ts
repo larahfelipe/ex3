@@ -23,12 +23,16 @@ export class DeleteAssetController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    const { user, params } = req;
+    const { user, params, query } = req;
 
-    const { symbol } = await validate(DeleteAssetSchema, params);
+    const { symbol, portfolioId } = await validate(DeleteAssetSchema, {
+      symbol: params.symbol,
+      portfolioId: query.portfolioId
+    });
 
     const result = await this.deleteAssetService.execute({
       symbol,
+      portfolioId,
       userId: user.id
     });
 

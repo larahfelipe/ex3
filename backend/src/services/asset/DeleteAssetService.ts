@@ -31,9 +31,13 @@ export class DeleteAssetService {
 
   async execute({
     userId,
+    portfolioId,
     symbol
   }: DeleteAssetService.DTO): Promise<DeleteAssetService.Result> {
-    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
+    const portfolioExists = await this.portfolioRepository.getById({
+      id: portfolioId,
+      userId
+    });
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
@@ -45,7 +49,7 @@ export class DeleteAssetService {
     if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
     await this.assetRepository.delete({
-      symbol,
+      instrumentId: assetExists.instrumentId,
       portfolioId: portfolioExists.id
     });
 
@@ -56,6 +60,7 @@ export class DeleteAssetService {
 }
 
 namespace DeleteAssetService {
-  export type DTO = Pick<Asset, 'symbol'> & Record<'userId', string>;
+  export type DTO = Pick<Asset, 'symbol' | 'portfolioId'> &
+    Record<'userId', string>;
   export type Result = Record<'message', string>;
 }

@@ -7,7 +7,7 @@ export type User = {
   password: string;
   sessionVersion: number;
   isAdmin: boolean;
-  portfolio: Portfolio;
+  portfolios: Array<Portfolio>;
   createdAt: Date;
   updatedAt: Date;
 };

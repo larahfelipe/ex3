@@ -19,6 +19,11 @@ import type {
   GetAssetWithTotalBalanceResponseData
 } from '@/app/api/v1/assets';
 import type {
+  GetPortfoliosRequestParams,
+  GetPortfoliosResponseData,
+  Portfolio
+} from '@/app/api/v1/portfolios';
+import type {
   CreateTransactionRequestPayload,
   CreateTransactionResponseData
 } from '@/app/api/v1/transactions';
@@ -52,6 +57,12 @@ export const PaginationInitialState = {
   page: 1,
   limit: +LimitPerPageOptions[0]
 } as TPagination;
+
+/** Portfolios are listed in creation order, so this page holds the one the account was created with. */
+const PRIMARY_PORTFOLIO_PAGE: GetPortfoliosRequestParams = {
+  page: 1,
+  limit: 1
+};
 
 export default function Assets() {
   const [dialogAction, setDialogAction] = useState('' as AssetDialogActions);
@@ -95,31 +106,56 @@ export default function Assets() {
     [dialogAction, opened, toggle]
   );
 
+  const { data: portfolio, isLoading: isLoadingPortfolio } = useQuery<
+    AxiosResponse<GetPortfoliosResponseData>,
+    ApiProxyErrorData,
+    Maybe<Portfolio>
+  >({
+    queryKey: ['portfolios', PRIMARY_PORTFOLIO_PAGE],
+    queryFn: () =>
+      api
+        .getInstance()
+        .get('/v1/portfolios', { params: PRIMARY_PORTFOLIO_PAGE }),
+    select: ({ data }) => data.portfolios.at(0),
+    staleTime: 60_000
+  });
+
+  const requirePortfolioId = () => {
+    if (!portfolio) throw new Error('Missing portfolio');
+
+    return portfolio.id;
+  };
+
   const { data, isLoading, isRefetching, refetch } = useQuery<
     AxiosResponse<GetAssetWithTotalBalanceResponseData>,
     ApiProxyErrorData,
     GetAssetWithTotalBalanceResponseData
   >({
-    queryKey: ['assets', pagination],
+    queryKey: ['assets', portfolio?.id, pagination],
     queryFn: () =>
       api.getInstance().get('/v1/assets', {
         params: {
+          portfolioId: requirePortfolioId(),
           sort: 'desc',
           page: pagination.page,
           limit: pagination.limit
         }
       }),
     select: ({ data }) => data,
+    enabled: !!portfolio,
     staleTime: 60_000
   });
 
   const { mutateAsync: createAssetMutation } = useMutation<
     AxiosResponse<CreateAssetResponseData>,
     ApiProxyErrorData,
-    CreateAssetRequestPayload
+    Omit<CreateAssetRequestPayload, 'portfolioId'>
   >({
     mutationFn: (payload) =>
-      api.getInstance().post('/v1/assets/create', payload),
+      api.getInstance().post('/v1/assets/create', {
+        ...payload,
+        portfolioId: requirePortfolioId()
+      } satisfies CreateAssetRequestPayload),
     onSuccess: async ({ data }) => {
       toast.success(data.message);
       await refetch();
@@ -130,10 +166,13 @@ export default function Assets() {
   const { mutateAsync: createAssetTransactionMutation } = useMutation<
     AxiosResponse<CreateTransactionResponseData>,
     ApiProxyErrorData,
-    CreateTransactionRequestPayload
+    Omit<CreateTransactionRequestPayload, 'portfolioId'>
   >({
     mutationFn: (payload) =>
-      api.getInstance().post('/v1/transactions', payload),
+      api.getInstance().post('/v1/transactions/create', {
+        ...payload,
+        portfolioId: requirePortfolioId()
+      } satisfies CreateTransactionRequestPayload),
     onSuccess: async ({ data }) => {
       toast.success(data.message);
       if (searchParams.size) replaceUrl(window.location.pathname);
@@ -148,7 +187,9 @@ export default function Assets() {
     DeleteAssetRequestPayload
   >({
     mutationFn: ({ symbol }) =>
-      api.getInstance().delete(`/v1/assets/${symbol}`),
+      api.getInstance().delete(`/v1/assets/${symbol}`, {
+        params: { portfolioId: requirePortfolioId() }
+      }),
     onSuccess: async ({ data }) => {
       toast.success(data.message);
       await refetch();
@@ -249,7 +290,7 @@ export default function Assets() {
       <Card className="h-fit mt-8 px-5 py-8 mx-3 shadow-none sm:mx-4 sm:pt-6 sm:pb-2">
         <AssetsTable
           data={{ pagination, selectedAsset, result: data }}
-          loading={isLoading || isRefetching}
+          loading={isLoadingPortfolio || isLoading || isRefetching}
           onDispatch={handleDispatch}
         />
       </Card>
