@@ -27,12 +27,10 @@ export const createTransactionControllerHandler = (
 ) => {
   const transactionRepository = TransactionRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
-  const assetRepository = AssetRepository.getInstance();
 
   const createTransactionService = CreateTransactionService.getInstance(
     transactionRepository,
-    portfolioRepository,
-    assetRepository
+    portfolioRepository
   );
 
   const createTransactionController = CreateTransactionController.getInstance(
@@ -48,12 +46,10 @@ export const deleteTransactionControllerHandler = (
 ) => {
   const transactionRepository = TransactionRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
-  const assetRepository = AssetRepository.getInstance();
 
   const deleteTransactionService = DeleteTransactionService.getInstance(
     transactionRepository,
-    portfolioRepository,
-    assetRepository
+    portfolioRepository
   );
 
   const deleteTransactionController = DeleteTransactionController.getInstance(
@@ -89,9 +85,11 @@ export const getTransactionControllerHandler = (
   res: Response
 ) => {
   const transactionRepository = TransactionRepository.getInstance();
+  const portfolioRepository = PortfolioRepository.getInstance();
 
   const getTransactionService = GetTransactionService.getInstance(
-    transactionRepository
+    transactionRepository,
+    portfolioRepository
   );
 
   const getTransactionController = GetTransactionController.getInstance(
@@ -127,12 +125,10 @@ export const updateTransactionControllerHandler = (
 ) => {
   const transactionRepository = TransactionRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
-  const assetRepository = AssetRepository.getInstance();
 
   const updateTransactionService = UpdateTransactionService.getInstance(
     transactionRepository,
-    portfolioRepository,
-    assetRepository
+    portfolioRepository
   );
 
   const updateTransactionController = UpdateTransactionController.getInstance(

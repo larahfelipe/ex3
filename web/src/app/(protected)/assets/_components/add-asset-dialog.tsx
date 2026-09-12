@@ -39,12 +39,21 @@ type AddAssetDialogProps = {
 
 export type AddAssetSchemaType = z.infer<typeof AddAssetSchema>;
 
+/** Mirrors the API's rule for a new symbol, so the form rejects what the API would. */
+const SYMBOL_MAX_LENGTH = 6;
+const SYMBOL_PATTERN = /^[A-Z0-9]+$/;
+
 export const AddAssetSchema = z.object({
   symbol: z
     .string()
+    .trim()
+    .toUpperCase()
     .min(1, 'Asset symbol must have at least 1 character')
-    .max(6, 'Asset symbol must have at most 6 characters')
-    .transform((value) => value.trim().toUpperCase())
+    .max(
+      SYMBOL_MAX_LENGTH,
+      `Asset symbol must have at most ${SYMBOL_MAX_LENGTH} characters`
+    )
+    .regex(SYMBOL_PATTERN, 'Asset symbol must contain only letters and digits')
 });
 
 const handleChangeFormFieldValue = (

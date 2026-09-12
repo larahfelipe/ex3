@@ -5,31 +5,52 @@ import {
   deleteUserControllerHandler,
   getAllUsersControllerHandler,
   getUserControllerHandler,
+  signOutUserControllerHandler,
   updateUserControllerHandler
 } from '@/controllers/user';
-import { authMiddleware } from '@/middleware';
+import { authMiddleware, authRateLimitMiddleware } from '@/middleware';
 
 const userRouter = Router();
 
-userRouter.post('/v1/user', getUserControllerHandler as Application);
+userRouter.post(
+  '/v1/user',
+  authRateLimitMiddleware,
+  getUserControllerHandler as Application
+);
 
 userRouter.get(
   '/v1/users',
-  authMiddleware as Application,
+  authMiddleware,
   getAllUsersControllerHandler as Application
 );
 
-userRouter.post('/v1/user/create', createUserControllerHandler as Application);
+userRouter.post(
+  '/v1/user/create',
+  authRateLimitMiddleware,
+  createUserControllerHandler as Application
+);
 
+userRouter.post(
+  '/v1/user/sign-out',
+  authMiddleware,
+  signOutUserControllerHandler as Application
+);
+
+/**
+ * Both routes verify the account password, so they share the sign-in limit: a
+ * stolen session must not become an unthrottled password-guessing oracle.
+ */
 userRouter.patch(
   '/v1/user',
-  authMiddleware as Application,
+  authRateLimitMiddleware,
+  authMiddleware,
   updateUserControllerHandler as Application
 );
 
 userRouter.delete(
   '/v1/user',
-  authMiddleware as Application,
+  authRateLimitMiddleware,
+  authMiddleware,
   deleteUserControllerHandler as Application
 );
 

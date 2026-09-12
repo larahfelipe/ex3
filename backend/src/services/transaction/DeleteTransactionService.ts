@@ -1,12 +1,7 @@
-import {
-  PortfolioMessages,
-  TransactionMessages,
-  TransactionTypes
-} from '@/config';
+import { PortfolioMessages, TransactionMessages } from '@/config';
 import type { Transaction } from '@/domain/models';
-import { NotFoundError } from '@/errors';
+import { BadRequestError, NotFoundError } from '@/errors';
 import type {
-  AssetRepository,
   PortfolioRepository,
   TransactionRepository
 } from '@/infra/database';
@@ -15,28 +10,23 @@ export class DeleteTransactionService {
   private static INSTANCE: DeleteTransactionService;
   private readonly transactionRepository: TransactionRepository;
   private readonly portfolioRepository: PortfolioRepository;
-  private readonly assetRepository: AssetRepository;
 
   private constructor(
     transactionRepository: TransactionRepository,
-    portfolioRepository: PortfolioRepository,
-    assetRepository: AssetRepository
+    portfolioRepository: PortfolioRepository
   ) {
     this.transactionRepository = transactionRepository;
     this.portfolioRepository = portfolioRepository;
-    this.assetRepository = assetRepository;
   }
 
   static getInstance(
     transactionRepository: TransactionRepository,
-    portfolioRepository: PortfolioRepository,
-    assetRepository: AssetRepository
+    portfolioRepository: PortfolioRepository
   ) {
     if (!DeleteTransactionService.INSTANCE)
       DeleteTransactionService.INSTANCE = new DeleteTransactionService(
         transactionRepository,
-        portfolioRepository,
-        assetRepository
+        portfolioRepository
       );
 
     return DeleteTransactionService.INSTANCE;
@@ -46,26 +36,20 @@ export class DeleteTransactionService {
     id,
     userId
   }: DeleteTransactionService.DTO): Promise<DeleteTransactionService.Result> {
-    const portfolioExists = this.portfolioRepository.getByUserId(userId);
+    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
-    const transactionExists = await this.transactionRepository.getById(id);
+    const ledgerWrite = await this.transactionRepository.delete({
+      id,
+      portfolioId: portfolioExists.id
+    });
 
-    if (!transactionExists)
+    if (ledgerWrite.outcome === 'not-found')
       throw new NotFoundError(TransactionMessages.NOT_FOUND);
 
-    await this.transactionRepository.delete(id);
-
-    await this.assetRepository.updatePosition({
-      operation:
-        transactionExists.type === TransactionTypes.BUY
-          ? 'decrement'
-          : 'increment',
-      amount: transactionExists.amount,
-      balance: transactionExists.price * transactionExists.amount,
-      symbol: transactionExists.assetSymbol
-    });
+    if (ledgerWrite.outcome === 'negative-amount')
+      throw new BadRequestError(TransactionMessages.ACC_NEGATIVE_AMOUNT);
 
     return {
       message: TransactionMessages.DELETED

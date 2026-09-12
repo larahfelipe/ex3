@@ -27,13 +27,13 @@ export class UpdateUserService {
   async execute({
     user,
     name,
-    oldPassword,
-    newPassword
+    passwordChange
   }: UpdateUserService.DTO): Promise<UpdateUserService.Result> {
-    let isPasswordValid = false;
-
-    if (oldPassword?.length) {
-      isPasswordValid = await this.bcrypt.compare(oldPassword, user.password);
+    if (passwordChange) {
+      const isPasswordValid = await this.bcrypt.compare(
+        passwordChange.oldPassword,
+        user.password
+      );
 
       if (!isPasswordValid)
         throw new BadRequestError(UserMessages.INVALID_PASSWORD);
@@ -42,7 +42,7 @@ export class UpdateUserService {
     const updatedUser = await this.userRepository.update({
       id: user.id,
       name: name ?? null,
-      password: isPasswordValid ? (newPassword as string) : null
+      password: passwordChange?.newPassword ?? null
     });
 
     return {
@@ -56,11 +56,10 @@ namespace UpdateUserService {
   export type DTO = {
     user: User;
     name?: string;
-    oldPassword?: string;
-    newPassword?: string;
+    passwordChange?: Record<'oldPassword' | 'newPassword', string>;
   };
   export type Result = {
-    user: Omit<User, 'password' | 'isAdmin' | 'portfolio'>;
+    user: Omit<User, 'password' | 'isAdmin' | 'sessionVersion' | 'portfolio'>;
     message: string;
   };
 }

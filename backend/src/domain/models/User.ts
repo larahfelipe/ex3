@@ -5,7 +5,7 @@ export type User = {
   name: string | null;
   email: string;
   password: string;
-  accessToken: string | null;
+  sessionVersion: number;
   isAdmin: boolean;
   portfolio: Portfolio;
   createdAt: Date;

@@ -1,11 +1,10 @@
 import { z } from 'zod';
 
+import { AssetSymbolSchema } from '../asset/AssetSymbolSchema';
+import { PaginationQuerySchema } from '../PaginationQuerySchema';
+
 export const GetTransactionsQuerySchema = z.object({
-  page: z.coerce.number().positive('Page must be greater than zero').optional(),
-  limit: z.coerce
-    .number()
-    .positive('Limit must be greater than zero')
-    .optional(),
+  ...PaginationQuerySchema.shape,
   lastId: z
     .string()
     .transform((value) => value.trim())
@@ -13,9 +12,5 @@ export const GetTransactionsQuerySchema = z.object({
 });
 
 export const GetTransactionsParamsSchema = z.object({
-  assetSymbol: z
-    .string()
-    .min(1, 'Asset symbol must have at least 1 character')
-    .max(6, 'Asset symbol must have at most 6 characters')
-    .transform((value) => value.trim().toUpperCase())
+  assetSymbol: AssetSymbolSchema
 });

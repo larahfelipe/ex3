@@ -24,25 +24,4 @@ export class PortfolioRepository {
       where: { userId }
     });
   }
-
-  async add(userId: string) {
-    return this.prismaClient.portfolio.create({
-      data: {
-        assets: {
-          create: []
-        },
-        user: {
-          connect: {
-            id: userId
-          }
-        }
-      }
-    });
-  }
-
-  async delete(userId: string) {
-    return this.prismaClient.portfolio.delete({
-      where: { userId }
-    });
-  }
 }

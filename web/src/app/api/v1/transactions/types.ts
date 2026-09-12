@@ -12,9 +12,7 @@ export type TransactionProperties = {
 };
 
 export interface Transaction
-  extends WithId,
-    WithTimestamps,
-    TransactionProperties {}
+  extends WithId, WithTimestamps, TransactionProperties {}
 
 export type GetTransactionRequestPayload = Pick<Asset, 'symbol'>;
 

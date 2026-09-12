@@ -2,35 +2,21 @@ import { UserMessages } from '@/config';
 import type { User } from '@/domain/models';
 import { BadRequestError } from '@/errors';
 import type { Jwt } from '@/infra/cryptography';
-import type { PortfolioRepository, UserRepository } from '@/infra/database';
+import type { UserRepository } from '@/infra/database';
 
 export class CreateUserService {
   private static INSTANCE: CreateUserService;
   private readonly userRepository: UserRepository;
-  private readonly portfolioRepository: PortfolioRepository;
   private readonly jwt: Jwt;
 
-  private constructor(
-    userRepository: UserRepository,
-    portfolioRepository: PortfolioRepository,
-    jwt: Jwt
-  ) {
+  private constructor(userRepository: UserRepository, jwt: Jwt) {
     this.userRepository = userRepository;
-    this.portfolioRepository = portfolioRepository;
     this.jwt = jwt;
   }
 
-  static getInstance(
-    userRepository: UserRepository,
-    portfolioRepository: PortfolioRepository,
-    jwt: Jwt
-  ) {
+  static getInstance(userRepository: UserRepository, jwt: Jwt) {
     if (!CreateUserService.INSTANCE)
-      CreateUserService.INSTANCE = new CreateUserService(
-        userRepository,
-        portfolioRepository,
-        jwt
-      );
+      CreateUserService.INSTANCE = new CreateUserService(userRepository, jwt);
 
     return CreateUserService.INSTANCE;
   }
@@ -40,31 +26,24 @@ export class CreateUserService {
     email,
     password
   }: CreateUserService.DTO): Promise<CreateUserService.Result> {
-    const userAlreadyExists = await this.userRepository.getByEmail(email);
-
-    if (userAlreadyExists)
-      throw new BadRequestError(UserMessages.ALREADY_EXISTS);
-
-    const newUser = await this.userRepository.add({
+    const account = await this.userRepository.add({
       email,
       password,
       name: name ?? ''
     });
 
-    await this.portfolioRepository.add(newUser.id);
+    if (!account) throw new BadRequestError(UserMessages.ALREADY_EXISTS);
 
-    const encryptedAccessToken = await this.jwt.encrypt(newUser.id);
+    const { sessionVersion, ...newUser } = account;
 
-    await this.userRepository.updateAccessToken({
-      id: newUser.id,
-      accessToken: encryptedAccessToken
+    // The row was created by this call, so no other token carries its version.
+    const accessToken = await this.jwt.encrypt({
+      sub: newUser.id,
+      sessionVersion
     });
 
     return {
-      user: {
-        ...newUser,
-        accessToken: encryptedAccessToken
-      },
+      user: { ...newUser, accessToken },
       message: UserMessages.CREATED
     };
   }
@@ -73,7 +52,8 @@ export class CreateUserService {
 namespace CreateUserService {
   export type DTO = Pick<User, 'name' | 'email' | 'password'>;
   export type Result = {
-    user: Omit<User, 'password' | 'isAdmin' | 'portfolio'>;
+    user: Omit<User, 'password' | 'isAdmin' | 'sessionVersion' | 'portfolio'> &
+      Record<'accessToken', string>;
     message: string;
   };
 }

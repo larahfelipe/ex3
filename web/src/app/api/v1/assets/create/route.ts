@@ -13,7 +13,7 @@ export const POST = async (req: NextRequest) => {
   try {
     const payload = (await req.json()) as CreateAssetRequestPayload;
 
-    const authToken = cookies().get(APP_STORAGE_KEYS.Token);
+    const authToken = (await cookies()).get(APP_STORAGE_KEYS.Token);
     if (!authToken?.value)
       throw new ApiProxyError('Missing access token', {
         status: 401,

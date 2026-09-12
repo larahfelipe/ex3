@@ -1,8 +1,7 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { APP_STORAGE_KEYS, COOKIE_OPTIONS } from '@/common/constants';
 import api, { type ApiProxyError, type ApiProxyErrorData } from '@/lib/axios';
+import { setSessionCookie } from '@/lib/session';
 
 import type { SignInRequestPayload, SignInResponseData, User } from './types';
 
@@ -16,8 +15,7 @@ export const POST = async (req: NextRequest) => {
 
     const { accessToken, ...user } = data;
 
-    if (accessToken)
-      cookies().set(APP_STORAGE_KEYS.Token, accessToken, COOKIE_OPTIONS);
+    if (accessToken) await setSessionCookie(accessToken);
 
     const res: SignInResponseData = user;
 

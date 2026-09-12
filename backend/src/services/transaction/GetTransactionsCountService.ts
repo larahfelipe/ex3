@@ -1,4 +1,4 @@
-import { AssetMessages, PortfolioMessages } from '@/config';
+import { AssetMessages, PortfolioMessages, TransactionTypes } from '@/config';
 import { NotFoundError } from '@/errors';
 import type {
   AssetRepository,
@@ -45,17 +45,27 @@ export class GetTransactionsCountService {
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
-    const { docs: assets } = await this.assetRepository.getAll({
+    const assetExists = await this.assetRepository.getBySymbol({
+      symbol: assetSymbol,
       portfolioId: portfolioExists.id
     });
 
-    const assetExists = assets?.find((a) => a.symbol === assetSymbol);
-
     if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
+    const assetScope = {
+      assetSymbol: assetExists.symbol,
+      portfolioId: portfolioExists.id
+    };
+
     const [buyCount, sellCount] = await Promise.all([
-      this.transactionRepository.count({ type: 'BUY' }),
-      this.transactionRepository.count({ type: 'SELL' })
+      this.transactionRepository.count({
+        ...assetScope,
+        type: TransactionTypes.BUY
+      }),
+      this.transactionRepository.count({
+        ...assetScope,
+        type: TransactionTypes.SELL
+      })
     ]);
 
     return {

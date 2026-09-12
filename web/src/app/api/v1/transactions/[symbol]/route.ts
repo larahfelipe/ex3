@@ -15,7 +15,7 @@ export const GET = async (req: NextRequest) => {
         statusText: 'Bad Request'
       });
 
-    const authToken = cookies().get(APP_STORAGE_KEYS.Token);
+    const authToken = (await cookies()).get(APP_STORAGE_KEYS.Token);
     if (!authToken?.value)
       throw new ApiProxyError('Missing access token', {
         status: 401,

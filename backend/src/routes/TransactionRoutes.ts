@@ -14,37 +14,37 @@ const transactionRouter = Router();
 
 transactionRouter.get(
   '/v1/transaction/:id',
-  authMiddleware as Application,
+  authMiddleware,
   getTransactionControllerHandler as Application
 );
 
 transactionRouter.get(
   '/v1/transactions/:assetSymbol',
-  authMiddleware as Application,
+  authMiddleware,
   getAllTransactionsControllerHandler as Application
 );
 
 transactionRouter.get(
   '/v1/transactions/:assetSymbol/count',
-  authMiddleware as Application,
+  authMiddleware,
   getTransactionsCountControllerHandler as Application
 );
 
 transactionRouter.post(
   '/v1/transaction',
-  authMiddleware as Application,
+  authMiddleware,
   createTransactionControllerHandler as Application
 );
 
 transactionRouter.patch(
   '/v1/transaction/:id',
-  authMiddleware as Application,
+  authMiddleware,
   updateTransactionControllerHandler as Application
 );
 
 transactionRouter.delete(
   '/v1/transaction/:id',
-  authMiddleware as Application,
+  authMiddleware,
   deleteTransactionControllerHandler as Application
 );
 

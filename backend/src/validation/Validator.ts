@@ -1,9 +1,9 @@
-import type { ZodError, ZodSchema } from 'zod';
+import type { ZodError, ZodType } from 'zod';
 
 import { BadRequestError } from '@/errors';
 
 export const validate = async <T>(
-  schema: ZodSchema<T>,
+  schema: ZodType<T>,
   payload: unknown
 ): Promise<T> => {
   try {

@@ -13,31 +13,31 @@ const assetRouter = Router();
 
 assetRouter.get(
   '/v1/asset/:symbol',
-  authMiddleware as Application,
+  authMiddleware,
   getAssetControllerHandler as Application
 );
 
 assetRouter.get(
   '/v1/assets',
-  authMiddleware as Application,
+  authMiddleware,
   getAllAssetsControllerHandler as Application
 );
 
 assetRouter.post(
   '/v1/asset',
-  authMiddleware as Application,
+  authMiddleware,
   createAssetControllerHandler as Application
 );
 
 assetRouter.patch(
   '/v1/asset/:symbol',
-  authMiddleware as Application,
+  authMiddleware,
   updateAssetControllerHandler as Application
 );
 
 assetRouter.delete(
   '/v1/asset/:symbol',
-  authMiddleware as Application,
+  authMiddleware,
   deleteAssetControllerHandler as Application
 );
 

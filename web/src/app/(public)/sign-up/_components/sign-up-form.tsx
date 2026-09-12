@@ -13,6 +13,15 @@ import { useUser } from '@/hooks/use-user';
 
 type SignUpFormValues = z.infer<typeof signUpSchema>;
 
+/**
+ * Mirror of the API's new-password policy, so the form flags violations before
+ * submitting; the API stays authoritative. Passwords are never trimmed.
+ */
+const PASSWORD_MIN_CODE_POINTS = 15;
+const PASSWORD_MAX_BYTES = 72;
+
+const utf8Encoder = new TextEncoder();
+
 const signUpSchema = z
   .object({
     name: z
@@ -23,12 +32,16 @@ const signUpSchema = z
     email: z.string().trim().email(),
     password: z
       .string()
-      .trim()
-      .min(6, 'Password must be at least 6 characters long'),
-    confirmPassword: z
-      .string()
-      .trim()
-      .min(6, 'Confirm password must be at least 6 characters long')
+      .refine(
+        (value) => [...value].length >= PASSWORD_MIN_CODE_POINTS,
+        `Password must be at least ${PASSWORD_MIN_CODE_POINTS} characters long`
+      )
+      .refine(
+        (value) => utf8Encoder.encode(value).byteLength <= PASSWORD_MAX_BYTES,
+        `Password must be at most ${PASSWORD_MAX_BYTES} bytes long`
+      )
+      .refine((value) => value.trim().length > 0, 'Password must not be blank'),
+    confirmPassword: z.string().min(1, 'Confirm password is required')
   })
   .refine(({ password, confirmPassword }) => password === confirmPassword, {
     message: 'Passwords must match',

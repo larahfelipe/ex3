@@ -49,11 +49,10 @@ export class GetAllTransactionsService {
 
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
-    const { docs: assets } = await this.assetRepository.getAll({
+    const assetExists = await this.assetRepository.getBySymbol({
+      symbol: assetSymbol,
       portfolioId: portfolioExists.id
     });
-
-    const assetExists = assets?.find((a) => a.symbol === assetSymbol);
 
     if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
@@ -62,7 +61,8 @@ export class GetAllTransactionsService {
         page,
         limit,
         lastId,
-        assetSymbol: assetExists.symbol
+        assetSymbol: assetExists.symbol,
+        portfolioId: portfolioExists.id
       });
 
     return {

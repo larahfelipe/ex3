@@ -2,12 +2,10 @@ import { z } from 'zod';
 
 import { SortOrderTypes } from '@/config';
 
+import { PaginationQuerySchema } from '../PaginationQuerySchema';
+
 export const GetAssetsSchema = z.object({
-  page: z.coerce.number().positive('Page must be greater than zero').optional(),
-  limit: z.coerce
-    .number()
-    .positive('Limit must be greater than zero')
-    .optional(),
+  ...PaginationQuerySchema.shape,
   sort: z
     .string()
     .transform((value) => value.trim().toLowerCase())

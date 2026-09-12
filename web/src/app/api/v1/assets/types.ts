@@ -37,4 +37,4 @@ export interface CreateAssetResponseData extends WithMessage {
 
 export type DeleteAssetRequestPayload = Pick<Asset, 'symbol'>;
 
-export interface DeleteAssetResponseData extends WithMessage {}
+export type DeleteAssetResponseData = WithMessage;

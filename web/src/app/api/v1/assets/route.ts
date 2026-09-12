@@ -6,17 +6,13 @@ import { formatNumber } from '@/common/utils';
 import api, { ApiProxyError, type ApiProxyErrorData } from '@/lib/axios';
 
 import type {
-  GetAssetRequestParams,
   GetAssetResponseData,
   GetAssetWithTotalBalanceResponseData
 } from './types';
 
-export const GET = async (
-  _: NextRequest,
-  { params }: Record<'params', GetAssetRequestParams>
-) => {
+export const GET = async (req: NextRequest) => {
   try {
-    const authToken = cookies().get(APP_STORAGE_KEYS.Token);
+    const authToken = (await cookies()).get(APP_STORAGE_KEYS.Token);
     if (!authToken?.value)
       throw new ApiProxyError('Missing access token', {
         status: 401,
@@ -31,7 +27,7 @@ export const GET = async (
       .getInstance()
       .get<GetAssetResponseData>('/v1/assets', {
         headers,
-        params
+        params: req.nextUrl.searchParams
       });
 
     const totalBalance = data.assets.reduce((acc, curr) => {

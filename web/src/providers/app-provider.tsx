@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, type FC, type ReactNode } from 'react';
+import { Suspense, type FC } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import {
   IoCheckmarkCircleOutline,
@@ -25,7 +25,7 @@ import { UserProvider } from '@/providers/user-provider';
 import type { Children } from '@/types';
 
 type FallbackContentProps = {
-  error?: ReactNode;
+  error?: unknown;
   resetErrorBoundary?: VoidFunction;
 };
 

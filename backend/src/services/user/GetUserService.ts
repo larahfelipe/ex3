@@ -1,14 +1,22 @@
 import { UserMessages } from '@/config';
 import type { User } from '@/domain/models';
-import { NotFoundError } from '@/errors';
+import { UnauthorizedError } from '@/errors';
 import type { Bcrypt, Jwt } from '@/infra/cryptography';
 import type { UserRepository } from '@/infra/database';
+
+/**
+ * Verified against when the email is unknown, so a missing account costs the
+ * same bcrypt work as a wrong password and response time does not reveal which
+ * emails are registered. Its value is irrelevant: the outcome is discarded.
+ */
+const UNKNOWN_ACCOUNT_PASSWORD = 'unknown-account-password';
 
 export class GetUserService {
   private static INSTANCE: GetUserService;
   private readonly userRepository: UserRepository;
   private readonly bcrypt: Bcrypt;
   private readonly jwt: Jwt;
+  private unknownAccountDigest?: Promise<string>;
 
   private constructor(
     userRepository: UserRepository,
@@ -31,36 +39,41 @@ export class GetUserService {
     email,
     password
   }: GetUserService.DTO): Promise<GetUserService.Result> {
-    const userExists = await this.userRepository.getByEmail(email);
+    const account = await this.userRepository.getByEmail(email);
 
-    if (userExists) {
-      const isPasswordValid = await this.bcrypt.compare(
-        password,
-        userExists.password
-      );
+    const isPasswordValid = await this.bcrypt.compare(
+      password,
+      account?.password ?? (await this.getUnknownAccountDigest())
+    );
 
-      if (isPasswordValid) {
-        const user = (({ password, isAdmin, ...rest }) => rest)(userExists);
+    if (!account || !isPasswordValid)
+      throw new UnauthorizedError(UserMessages.INVALID_CREDENTIALS);
 
-        const encryptedAccessToken = await this.jwt.encrypt(user.id);
+    const user = (({ password, isAdmin, sessionVersion, ...rest }) => rest)(
+      account
+    );
 
-        await this.userRepository.updateAccessToken({
-          id: user.id,
-          accessToken: encryptedAccessToken
-        });
+    const accessToken = await this.jwt.encrypt({
+      sub: user.id,
+      sessionVersion: await this.userRepository.rotateSessionVersion(user.id)
+    });
 
-        return {
-          ...user,
-          accessToken: encryptedAccessToken
-        };
-      }
-    }
+    return { ...user, accessToken };
+  }
 
-    throw new NotFoundError(UserMessages.NOT_FOUND);
+  /** Hashed with the configured cost, so both branches do equal work. */
+  private getUnknownAccountDigest() {
+    this.unknownAccountDigest ??= this.bcrypt.hash(UNKNOWN_ACCOUNT_PASSWORD);
+
+    return this.unknownAccountDigest;
   }
 }
 
 namespace GetUserService {
   export type DTO = Pick<User, 'email' | 'password'>;
-  export type Result = Omit<User, 'password' | 'isAdmin' | 'portfolio'>;
+  export type Result = Omit<
+    User,
+    'password' | 'isAdmin' | 'sessionVersion' | 'portfolio'
+  > &
+    Record<'accessToken', string>;
 }

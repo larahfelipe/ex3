@@ -21,12 +21,28 @@ export const Errors = {
     status: 401,
     message: 'Authentication required'
   },
+  TOO_MANY_REQUESTS: {
+    name: 'TooManyRequestsError',
+    status: 429,
+    message: 'Too many requests, please try again later'
+  },
   INTERNAL_SERVER_ERROR: {
     name: 'InternalServerError',
     status: 500,
     message: 'An unexpected error occurred'
   }
 };
+
+const ONE_MINUTE_IN_MS = 60_000;
+
+export const RateLimits = {
+  AUTH: { windowMs: 15 * ONE_MINUTE_IN_MS, limit: 10 },
+  API: { windowMs: ONE_MINUTE_IN_MS, limit: 120 }
+} as const;
+
+export const RequestLimits = {
+  JSON_BODY_SIZE: '100kb'
+} as const;
 
 export const AssetMessages = {
   NOT_FOUND: 'Asset not found in portfolio',
@@ -51,9 +67,10 @@ export const TransactionMessages = {
 };
 
 export const UserMessages = {
-  NOT_FOUND: 'User not found',
   ALREADY_EXISTS: 'User already exists',
   INVALID_PASSWORD: 'Invalid password',
+  INVALID_CREDENTIALS: 'Invalid email or password',
+  SIGNED_OUT: 'Signed out successfully',
   CREATED: 'User created successfully',
   UPDATED: 'User updated successfully',
   DELETED: 'User deleted successfully'

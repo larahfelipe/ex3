@@ -2,33 +2,22 @@ import { UserMessages } from '@/config';
 import type { User } from '@/domain/models';
 import { BadRequestError } from '@/errors';
 import type { Bcrypt } from '@/infra/cryptography';
-import type { PortfolioRepository, UserRepository } from '@/infra/database';
+import type { UserRepository } from '@/infra/database';
 
 export class DeleteUserService {
   private static INSTANCE: DeleteUserService;
   private readonly userRepository: UserRepository;
-  private readonly portfolioRepository: PortfolioRepository;
   private readonly bcrypt: Bcrypt;
 
-  private constructor(
-    userRepository: UserRepository,
-    portfolioRepository: PortfolioRepository,
-    bcrypt: Bcrypt
-  ) {
+  private constructor(userRepository: UserRepository, bcrypt: Bcrypt) {
     this.userRepository = userRepository;
-    this.portfolioRepository = portfolioRepository;
     this.bcrypt = bcrypt;
   }
 
-  static getInstance(
-    userRepository: UserRepository,
-    portfolioRepository: PortfolioRepository,
-    bcrypt: Bcrypt
-  ) {
+  static getInstance(userRepository: UserRepository, bcrypt: Bcrypt) {
     if (!DeleteUserService.INSTANCE)
       DeleteUserService.INSTANCE = new DeleteUserService(
         userRepository,
-        portfolioRepository,
         bcrypt
       );
 
@@ -43,8 +32,6 @@ export class DeleteUserService {
 
     if (!isPasswordValid)
       throw new BadRequestError(UserMessages.INVALID_PASSWORD);
-
-    await this.portfolioRepository.delete(user.id);
 
     await this.userRepository.delete(user.id);
 

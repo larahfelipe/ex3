@@ -8,10 +8,7 @@ export type UserProperties = {
 };
 
 export interface User
-  extends WithId,
-    WithAccessToken,
-    WithTimestamps,
-    UserProperties {}
+  extends WithId, WithAccessToken, WithTimestamps, UserProperties {}
 
 export type SignInRequestPayload = {
   email: string;
@@ -19,6 +16,4 @@ export type SignInRequestPayload = {
 };
 
 export interface SignInResponseData
-  extends UserProperties,
-    WithId,
-    WithTimestamps {}
+  extends UserProperties, WithId, WithTimestamps {}

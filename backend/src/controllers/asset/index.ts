@@ -1,10 +1,6 @@
 import type { Request, Response } from 'express';
 
-import {
-  AssetRepository,
-  PortfolioRepository,
-  TransactionRepository
-} from '@/infra/database';
+import { AssetRepository, PortfolioRepository } from '@/infra/database';
 import {
   CreateAssetService,
   DeleteAssetService,
@@ -37,12 +33,10 @@ export const createAssetControllerHandler = (req: Request, res: Response) => {
 export const deleteAssetControllerHandler = (req: Request, res: Response) => {
   const assetRepository = AssetRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
-  const transactionRepository = TransactionRepository.getInstance();
 
   const deleteAssetService = DeleteAssetService.getInstance(
     assetRepository,
-    portfolioRepository,
-    transactionRepository
+    portfolioRepository
   );
 
   const deleteAssetController =

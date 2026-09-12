@@ -1,47 +1,46 @@
-import type { NextFunction, Request, Response } from 'express';
+import type { RequestHandler } from 'express';
 
-import { UserMessages, envs } from '@/config';
+import { envs } from '@/config';
 import type { User } from '@/domain/models';
-import {
-  BadRequestError,
-  NotFoundError,
-  UnauthorizedError,
-  type ApplicationError
-} from '@/errors';
+import { UnauthorizedError } from '@/errors';
 import { Jwt } from '@/infra/cryptography';
 import { UserRepository } from '@/infra/database';
 
-export const authMiddleware = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const { authorization } = req.headers;
+const BEARER_SCHEME = 'Bearer';
 
+const extractBearerToken = (authorization?: string) => {
+  const [scheme, token] = authorization?.split(' ') ?? [];
+
+  return scheme === BEARER_SCHEME && token?.length ? token : null;
+};
+
+/**
+ * Authentication is stateful on purpose: a signed, unexpired token grants access
+ * only while its session version is still the one stored on the user row.
+ * Signing in, signing out or changing the password bumps that version and
+ * revokes every token issued before it.
+ */
+export const authMiddleware: RequestHandler = async (req, _res, next) => {
   try {
-    if (!authorization?.length)
-      throw new UnauthorizedError('Invalid authorization header');
+    const accessToken = extractBearerToken(req.headers.authorization);
 
-    const [_, accessToken] = authorization.split(' ');
+    if (!accessToken)
+      throw new UnauthorizedError('Missing or malformed authorization header');
 
-    const jwt = Jwt.getInstance(envs.jwtSecret);
+    const jwt = Jwt.getInstance(envs.jwtSecret, envs.jwtExpirationSeconds);
     const userRepository = UserRepository.getInstance();
 
-    const { id: decryptedAccessToken } = await jwt.decrypt(accessToken);
+    const { sub, sessionVersion } = await jwt.decrypt(accessToken);
 
-    if (!decryptedAccessToken)
-      throw new BadRequestError('Invalid access token');
+    const activeUser = await userRepository.getById(sub);
 
-    const userExists = await userRepository.getByAccessToken(accessToken);
+    if (!activeUser || activeUser.sessionVersion !== sessionVersion)
+      throw new UnauthorizedError('Session is no longer active');
 
-    if (!userExists) throw new NotFoundError(UserMessages.NOT_FOUND);
+    req.user = activeUser as User;
 
-    req.user = userExists as User;
-
-    return next();
+    next();
   } catch (e) {
-    const { status, name, message } = e as ApplicationError;
-
-    return res.status(status).json({ name, message });
+    next(e);
   }
 };

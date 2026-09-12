@@ -95,30 +95,22 @@ export class AssetRepository {
     });
   }
 
-  async updatePosition(params: AssetRepository.UpdatePositionParams) {
-    const { symbol, operation, amount, balance } = params;
-
-    return this.prismaClient.asset.update({
-      where: { symbol },
-      data: {
-        amount: {
-          [operation]: amount
-        },
-        balance: {
-          [operation]: balance
-        }
-      }
-    });
-  }
-
+  /**
+   * The asset and its transactions go in one serializable transaction, so a
+   * transaction recorded concurrently cannot survive as an orphan that a later
+   * asset with the same symbol would inherit.
+   */
   async delete(params: AssetRepository.DeleteParams) {
     const { symbol, portfolioId } = params;
 
-    return this.prismaClient.asset.deleteMany({
-      where: {
-        symbol,
-        portfolioId
-      }
+    return this.prismaClient.runSerializable(async (transactionClient) => {
+      await transactionClient.transaction.deleteMany({
+        where: { assetSymbol: symbol, asset: { portfolioId } }
+      });
+
+      return transactionClient.asset.deleteMany({
+        where: { symbol, portfolioId }
+      });
     });
   }
 }
@@ -134,12 +126,6 @@ namespace AssetRepository {
   export type UpdateParams = Pick<Asset, 'portfolioId'> & {
     oldSymbol: string;
     newSymbol: string;
-  };
-  export type UpdatePositionParams = Pick<
-    Asset,
-    'symbol' | 'amount' | 'balance'
-  > & {
-    operation: 'increment' | 'decrement';
   };
   export type DeleteParams = Pick<Asset, 'symbol' | 'portfolioId'>;
 }

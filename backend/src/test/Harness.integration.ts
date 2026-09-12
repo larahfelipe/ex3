@@ -1,0 +1,91 @@
+import assert from 'node:assert/strict';
+import { before, describe, it } from 'node:test';
+
+import { PrismaClient } from '@/infra/database/PrismaClient';
+
+import {
+  apiRequest,
+  bearer,
+  resetRateLimits,
+  signIn,
+  trackedRateLimitKeys
+} from './ApiClient';
+import { FIXTURE_PASSWORD, seedPortfolio } from './Fixtures';
+import { registerIntegrationHooks } from './IntegrationHooks';
+import { resetDatabase } from './TestDatabase';
+
+const ASSETS_ROUTE = '/v1/assets';
+
+const prismaClient = PrismaClient.getInstance();
+
+describe('test harness', () => {
+  let client: Awaited<ReturnType<typeof apiRequest>>;
+
+  registerIntegrationHooks();
+
+  before(async () => {
+    client = await apiRequest();
+  });
+
+  it('seeds a portfolio holding one asset with one transaction', async () => {
+    const { user, portfolio, asset, transaction } = await seedPortfolio();
+
+    assert.equal(portfolio.userId, user.id);
+    assert.equal(asset.portfolioId, portfolio.id);
+    assert.equal(transaction.assetSymbol, asset.symbol);
+    assert.equal(asset.amount, transaction.amount);
+  });
+
+  it('empties every data table on reset', async () => {
+    await seedPortfolio();
+
+    await resetDatabase();
+
+    const counts = await Promise.all([
+      prismaClient.user.count(),
+      prismaClient.portfolio.count(),
+      prismaClient.asset.count(),
+      prismaClient.transaction.count()
+    ]);
+
+    assert.deepEqual(counts, [0, 0, 0, 0]);
+  });
+
+  it('authenticates a seeded user and reaches a protected route', async () => {
+    const { user, asset } = await seedPortfolio();
+
+    const accessToken = await signIn({
+      email: user.email,
+      password: FIXTURE_PASSWORD
+    });
+
+    const res = await client.get(ASSETS_ROUTE).set(bearer(accessToken));
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(
+      res.body.assets.map(({ symbol }: { symbol: string }) => symbol),
+      [asset.symbol]
+    );
+  });
+
+  it('rejects a protected route without a token', async () => {
+    const res = await client.get(ASSETS_ROUTE);
+
+    assert.equal(res.status, 401);
+  });
+
+  it('clears the rate limit counters the limiter actually keeps', async () => {
+    const { user } = await seedPortfolio();
+
+    await signIn({ email: user.email, password: FIXTURE_PASSWORD });
+
+    assert.ok(
+      (await trackedRateLimitKeys()).length > 0,
+      'no loopback key was tracked, so resetRateLimits clears nothing'
+    );
+
+    resetRateLimits();
+
+    assert.deepEqual(await trackedRateLimitKeys(), []);
+  });
+});

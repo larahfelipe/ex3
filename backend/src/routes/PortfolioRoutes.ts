@@ -10,13 +10,13 @@ const portfolioRouter = Router();
 
 portfolioRouter.get(
   '/v1/portfolio',
-  authMiddleware as Application,
+  authMiddleware,
   getPortfolioControllerHandler as Application
 );
 
 portfolioRouter.get(
   '/v1/portfolios',
-  authMiddleware as Application,
+  authMiddleware,
   getAllPortfoliosControllerHandler as Application
 );
 

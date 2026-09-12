@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { connection } from 'next/server';
 
 import { inter } from '@/common/constants';
 import { AppProvider } from '@/providers/app-provider';
@@ -10,7 +11,14 @@ export const metadata: Metadata = {
   description: 'EX3 - Portfolio Tracker'
 };
 
-export default function RootLayout({ children }: Children) {
+/**
+ * Next.js stamps its scripts with the nonce of the request's CSP only while
+ * rendering that request. A page prerendered at build time carries no nonce and
+ * the browser blocks its scripts, so every route renders per request.
+ */
+export default async function RootLayout({ children }: Children) {
+  await connection();
+
   return (
     <html lang="en" className="dark">
       <head>
