@@ -123,3 +123,27 @@ Os achados da task foram corrigidos, e os testes que os fixavam passaram a prote
 * `src/routes/Transactions.integration.ts`, razão: `BUY` soma e `SELL` subtrai da posição; `SELL` além da posição recusado sem gravar; edição substitui o impacto em vez de somar; edição ou exclusão que levaria a posição abaixo de zero recusada sem alterar nada; de três `SELL`s concorrentes sobre posição 1, só um passa. Validação: `type` em qualquer caixa e com espaços aceito, em branco ou desconhecido recusado sem gravar; id que não é UUID → 400 em `GET`, `PATCH` e `DELETE`.
 * `src/config/App.integration.ts`: falha não prevista responde 500 genérico, sem detalhe interno, e é registrada uma única vez.
 * `src/routes/Authentication.integration.ts`: sign-ups concorrentes para o mesmo e-mail e exclusão de conta (ver `docs/authentication.md`).
+
+## Transações atuais — TASK 3.4
+
+`src/routes/Transactions.integration.ts` cobre, pela API HTTP, criação, edição e exclusão de `BUY` e `SELL` e a recusa por saldo insuficiente. A maior parte já existia desde as correções posteriores à TASK 3.3 (razão, posse e validação, acima). A task acrescentou o que faltava ao escopo:
+
+* a criação responde com a linha gravada, e o `GET` do id devolve o mesmo corpo;
+* criar transação em ativo de outra carteira responde como ativo inexistente, sem gravar nem mover a posição;
+* a edição que troca `BUY` por `SELL` move a posição nos dois sentidos;
+* a exclusão de um `SELL` devolve à posição o que ele tinha retirado;
+* `amount` ou `price` zero, negativo ou string recebem 400 em `POST` e `PATCH`, sem alterar nada. String numérica não é convertida, porque o schema não faz coerção.
+
+**Bugs de consistência conhecidos.** Os do baseline já corrigidos continuam fixados pelos testes que protegem a correção: dupla contabilização na edição (#15), checagem de carteira sem `await` na exclusão (#16, primeira parte), escritas não atômicas (#17) e mensagem de criação na edição (#21). Os que dependem da remodelagem da FASE 4 são reproduzidos por testes `todo`, na convenção da TASK 3.3:
+
+| Teste `todo` | Comportamento hoje | Origem |
+| --- | --- | --- |
+| custo das unidades mantidas após `SELL` | `balance` soma o custo da compra e subtrai o valor da venda: `BUY 10 @ 10` e `SELL 5 @ 30` deixam 5 unidades com `balance` −50 | baseline #18, TASK 4.10 |
+| vender posição fracionária até zero | `0.3 − 0.1 − 0.2` fica abaixo de zero em `Float`, e o último `SELL` recebe 400 | TD-001, TASK 4.5 |
+| posição editada igual à sequência editada recalculada | a edição move a posição por incremento em ponto flutuante: `0.1 + 0.3` editado para `0.3 + 0.3` grava `0.6000000000000001` | TD-001, TASKs 4.6 e 4.7 |
+| posição após exclusão igual às transações restantes recalculadas | a exclusão subtrai o impacto em ponto flutuante: `0.1 + 0.2` sem o `0.1` grava `0.20000000000000004` | baseline #16, TD-001, TASKs 4.6 e 4.8 |
+| custo acima do maior número finito | `amount` e `price` não têm limite superior: `1e200 × 1e200` responde 201 e grava `Infinity` no `balance` | TD-009, TASK 4.5 |
+
+**Recálculo como referência.** Os critérios das TASKs 4.7 e 4.8 comparam a posição com a que a sequência de transações produziria. Os testes gravam essa sequência, pela API, num segundo ativo da mesma carteira e comparam as duas posições, em vez de fixar o valor esperado. Assim, o teste continua valendo quando a posição passar a ser reconstruída a partir do razão (TASK 4.6). As sequências fracionárias foram escolhidas porque divergem na aritmética de `double` usada hoje, o que foi conferido antes de virarem teste.
+
+**Pendências.** O que a task encontrou sem ser necessário para concluí-la está em [`TODO.md`](../TODO.md): TD-001 (tipo numérico), TD-002 (paginação da listagem de transações) e TD-009 (limite superior de `amount` e `price`).

@@ -37,6 +37,8 @@ const INTRUDER_SYMBOL = 'ETH';
 /** Well-formed, and held by no transaction: the baseline a foreign id must be indistinguishable from. */
 const MISSING_TRANSACTION_ID = '00000000-0000-4000-8000-000000000000';
 
+const MISSING_ASSET_SYMBOL = 'XRP';
+
 const TRANSACTION_EDIT = { type: TransactionTypes.SELL, amount: 1, price: 1 };
 
 const prismaClient = PrismaClient.getInstance();
@@ -142,6 +144,29 @@ describe('transactions', () => {
       });
     });
 
+    it('does not let another user record a transaction on an asset they do not hold', async () => {
+      const { holder, intruder } = await seedHolderAndIntruder();
+      const entry = { type: TransactionTypes.BUY, amount: 1, price: 1 };
+
+      const foreign = await client
+        .post(CREATE_TRANSACTION_ROUTE)
+        .set(bearer(intruder.accessToken))
+        .send({ ...entry, assetSymbol: holder.asset.symbol });
+      const missing = await client
+        .post(CREATE_TRANSACTION_ROUTE)
+        .set(bearer(intruder.accessToken))
+        .send({ ...entry, assetSymbol: MISSING_ASSET_SYMBOL });
+
+      assert.equal(foreign.status, Errors.NOT_FOUND.status);
+      assert.equal(foreign.body.message, AssetMessages.NOT_FOUND);
+      assert.deepEqual(foreign.body, missing.body);
+      assert.equal(await prismaClient.transaction.count(), 1);
+      assert.deepEqual(await storedPosition(holder.asset.id), {
+        amount: holder.asset.amount,
+        balance: holder.asset.balance
+      });
+    });
+
     it('lets the owner read and delete a transaction, reverting the position it built', async () => {
       const { holder, holderToken } = await seedHolderAndIntruder();
 
@@ -240,7 +265,16 @@ describe('transactions', () => {
     /** Below the API rate limit; enough to pass a balance check together. */
     const CONCURRENT_SELLS = 3;
 
+    const REPLAY_SYMBOL = 'SOL';
+
     type LedgerEntry = { type: string; amount: number; price: number };
+
+    const recorderOn =
+      (assetSymbol: string, accessToken: string) => (entry: LedgerEntry) =>
+        client
+          .post(CREATE_TRANSACTION_ROUTE)
+          .set(bearer(accessToken))
+          .send({ ...entry, assetSymbol });
 
     /** An owner whose asset starts empty, so every change to the position comes from the API. */
     const openEmptyPosition = async () => {
@@ -248,13 +282,25 @@ describe('transactions', () => {
         await signInWithPortfolio(FIXTURE_USER_EMAIL);
       const asset = await createAsset({ portfolioId: portfolio.id });
 
-      const record = (entry: LedgerEntry) =>
-        client
-          .post(CREATE_TRANSACTION_ROUTE)
-          .set(bearer(accessToken))
-          .send({ ...entry, assetSymbol: asset.symbol });
+      return {
+        portfolio,
+        asset,
+        accessToken,
+        record: recorderOn(asset.symbol, accessToken)
+      };
+    };
 
-      return { asset, accessToken, record };
+    const replayedPosition = async (
+      portfolioId: string,
+      accessToken: string,
+      entries: LedgerEntry[]
+    ) => {
+      const asset = await createAsset({ portfolioId, symbol: REPLAY_SYMBOL });
+      const record = recorderOn(asset.symbol, accessToken);
+
+      for (const entry of entries) await record(entry);
+
+      return storedPosition(asset.id);
     };
 
     const storedEntry = (id: string) =>
@@ -377,6 +423,141 @@ describe('transactions', () => {
         balance: 0
       });
     });
+
+    it('records a transaction as sent and answers with the stored entry', async () => {
+      const { asset, accessToken, record } = await openEmptyPosition();
+      const entry = { type: TransactionTypes.BUY, amount: 2, price: 5 };
+
+      const created = await record(entry);
+      const read = await client
+        .get(transactionRoute(created.body.transaction.id))
+        .set(bearer(accessToken));
+
+      assert.equal(created.status, 201);
+      assert.deepEqual(await storedEntry(created.body.transaction.id), entry);
+      assert.equal(created.body.transaction.assetSymbol, asset.symbol);
+      assert.deepEqual(read.body, created.body.transaction);
+    });
+
+    it('moves the position across when an edit turns a BUY into a SELL', async () => {
+      const { asset, accessToken, record } = await openEmptyPosition();
+      await record({ type: 'BUY', amount: 10, price: 10 });
+      const bought = await record({ type: 'BUY', amount: 5, price: 10 });
+
+      const res = await client
+        .patch(transactionRoute(bought.body.transaction.id))
+        .set(bearer(accessToken))
+        .send({ type: 'SELL', amount: 5, price: 10 });
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(await storedPosition(asset.id), {
+        amount: 5,
+        balance: 50
+      });
+    });
+
+    it('restores the position when a SELL is deleted', async () => {
+      const { asset, accessToken, record } = await openEmptyPosition();
+      await record({ type: 'BUY', amount: 10, price: 10 });
+      const sold = await record({ type: 'SELL', amount: 4, price: 20 });
+
+      const res = await client
+        .delete(transactionRoute(sold.body.transaction.id))
+        .set(bearer(accessToken));
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(await storedPosition(asset.id), {
+        amount: 10,
+        balance: 100
+      });
+    });
+
+    it(
+      'keeps the cost of the units still held after a SELL',
+      {
+        todo: '`Asset.balance` adds purchase cost and subtracts sale proceeds (baseline #18, TASK 4.10): selling above cost leaves a held position with a negative balance'
+      },
+      async () => {
+        const { asset, record } = await openEmptyPosition();
+        await record({ type: 'BUY', amount: 10, price: 10 });
+        await record({ type: 'SELL', amount: 5, price: 30 });
+
+        assert.deepEqual(await storedPosition(asset.id), {
+          amount: 5,
+          balance: 50
+        });
+      }
+    );
+
+    it(
+      'sells a fractional position down to exactly zero',
+      {
+        todo: '`amount` and `price` are `Float` (FASE 4): 0.3 - 0.1 - 0.2 leaves a residue below zero and the last SELL is rejected'
+      },
+      async () => {
+        const { asset, record } = await openEmptyPosition();
+        await record({ type: 'BUY', amount: 0.3, price: 1 });
+        await record({ type: 'SELL', amount: 0.1, price: 1 });
+
+        const res = await record({ type: 'SELL', amount: 0.2, price: 1 });
+
+        assert.equal(res.status, 201);
+        assert.deepEqual(await storedPosition(asset.id), {
+          amount: 0,
+          balance: 0
+        });
+      }
+    );
+
+    it(
+      'leaves an edited position equal to replaying the edited sequence',
+      {
+        todo: 'the edit moves the position by floating-point increments instead of rebuilding it from the ledger (TASKs 4.6 and 4.7): 0.1 + 0.3 edited to 0.3 + 0.3 stores 0.6000000000000001'
+      },
+      async () => {
+        const { portfolio, asset, accessToken, record } =
+          await openEmptyPosition();
+        const first = await record({ type: 'BUY', amount: 0.1, price: 1 });
+        const second = { type: 'BUY', amount: 0.3, price: 1 };
+        await record(second);
+        const edit = { type: 'BUY', amount: 0.3, price: 1 };
+
+        const res = await client
+          .patch(transactionRoute(first.body.transaction.id))
+          .set(bearer(accessToken))
+          .send(edit);
+
+        assert.equal(res.status, 200);
+        assert.deepEqual(
+          await storedPosition(asset.id),
+          await replayedPosition(portfolio.id, accessToken, [edit, second])
+        );
+      }
+    );
+
+    it(
+      'leaves a position after a deletion equal to replaying the remaining transactions',
+      {
+        todo: 'the deletion subtracts the removed impact in floating point instead of rebuilding the position from the ledger (TASKs 4.6 and 4.8): 0.1 + 0.2 without 0.1 stores 0.20000000000000004'
+      },
+      async () => {
+        const { portfolio, asset, accessToken, record } =
+          await openEmptyPosition();
+        const first = await record({ type: 'BUY', amount: 0.1, price: 1 });
+        const remaining = { type: 'BUY', amount: 0.2, price: 1 };
+        await record(remaining);
+
+        const res = await client
+          .delete(transactionRoute(first.body.transaction.id))
+          .set(bearer(accessToken));
+
+        assert.equal(res.status, 200);
+        assert.deepEqual(
+          await storedPosition(asset.id),
+          await replayedPosition(portfolio.id, accessToken, [remaining])
+        );
+      }
+    );
   });
 
   describe('validation', () => {
@@ -435,5 +616,74 @@ describe('transactions', () => {
       for (const [method, res] of responses)
         assert.equal(res.status, Errors.BAD_REQUEST.status, method);
     });
+
+    it('rejects a non-positive or non-numeric amount or price and changes nothing', async () => {
+      const { holder, holderToken } = await seedHolderAndIntruder();
+      const valid = { type: TransactionTypes.BUY, amount: 1, price: 1 };
+      const invalidEntries = [0, -1, '1'].flatMap((value) => [
+        { ...valid, amount: value },
+        { ...valid, price: value }
+      ]);
+
+      for (const entry of invalidEntries) {
+        const label = JSON.stringify(entry);
+        const created = await client
+          .post(CREATE_TRANSACTION_ROUTE)
+          .set(bearer(holderToken))
+          .send({ ...entry, assetSymbol: holder.asset.symbol });
+        const edited = await client
+          .patch(transactionRoute(holder.transaction.id))
+          .set(bearer(holderToken))
+          .send(entry);
+
+        assert.equal(
+          created.status,
+          Errors.BAD_REQUEST.status,
+          `POST ${label}`
+        );
+        assert.equal(
+          edited.status,
+          Errors.BAD_REQUEST.status,
+          `PATCH ${label}`
+        );
+      }
+
+      assert.deepEqual(await prismaClient.transaction.findMany(), [
+        holder.transaction
+      ]);
+      assert.deepEqual(await storedPosition(holder.asset.id), {
+        amount: holder.asset.amount,
+        balance: holder.asset.balance
+      });
+    });
+
+    it(
+      'rejects an entry whose cost overflows a finite number and records nothing',
+      {
+        todo: '`amount` and `price` have no upper bound: 1e200 × 1e200 overflows to Infinity in the position balance'
+      },
+      async () => {
+        const { portfolio, accessToken } =
+          await signInWithPortfolio(FIXTURE_USER_EMAIL);
+        const asset = await createAsset({ portfolioId: portfolio.id });
+
+        const res = await client
+          .post(CREATE_TRANSACTION_ROUTE)
+          .set(bearer(accessToken))
+          .send({
+            type: TransactionTypes.BUY,
+            amount: 1e200,
+            price: 1e200,
+            assetSymbol: asset.symbol
+          });
+
+        assert.equal(res.status, Errors.BAD_REQUEST.status);
+        assert.equal(await prismaClient.transaction.count(), 0);
+        assert.deepEqual(await storedPosition(asset.id), {
+          amount: 0,
+          balance: 0
+        });
+      }
+    );
   });
 });
