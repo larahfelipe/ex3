@@ -1151,23 +1151,57 @@ describe('transactions', () => {
     it('leaves a position after a deletion equal to replaying the remaining transactions', async () => {
       const { portfolio, asset, accessToken, record } =
         await openEmptyPosition();
-      const first = await record({
+      const bought = {
         type: 'BUY',
-        quantity: '0.1',
-        unitPrice: '1'
+        quantity: '10',
+        unitPrice: '10',
+        fees: '1'
+      };
+      const sold = { type: 'SELL', quantity: '8', unitPrice: '20' };
+      const boughtAgain = {
+        type: 'BUY',
+        quantity: '4',
+        unitPrice: '15',
+        taxes: '0.5'
+      };
+      await record(bought);
+      const deleted = await record({
+        type: 'BUY',
+        quantity: '5',
+        unitPrice: '30',
+        taxes: '2'
       });
-      const remaining = { type: 'BUY', quantity: '0.2', unitPrice: '1' };
-      await record(remaining);
+      await record(sold);
+      await record(boughtAgain);
 
       const res = await client
-        .delete(transactionRoute(first.body.transaction.id))
+        .delete(transactionRoute(deleted.body.transaction.id))
         .set(bearer(accessToken));
 
       assert.equal(res.status, 200);
       assert.deepEqual(
         await storedPosition(asset.id),
-        await replayedPosition(portfolio.id, accessToken, [remaining])
+        await replayedPosition(portfolio.id, accessToken, [
+          bought,
+          sold,
+          boughtAgain
+        ])
       );
+    });
+
+    it('rolls back the deletion when writing the position fails, keeping the transaction', async (t) => {
+      const { asset, accessToken, record } = await openEmptyPosition();
+      const bought = { type: 'BUY', quantity: '10', unitPrice: '10' };
+      const recorded = await record(bought);
+      await prismaClient.position.delete({ where: { id: asset.id } });
+      t.mock.method(console, 'error', () => undefined);
+
+      const res = await client
+        .delete(transactionRoute(recorded.body.transaction.id))
+        .set(bearer(accessToken));
+
+      assert.equal(res.status, Errors.INTERNAL_SERVER_ERROR.status);
+      assert.deepEqual(await storedEntry(recorded.body.transaction.id), bought);
     });
   });
 

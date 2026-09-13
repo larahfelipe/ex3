@@ -228,3 +228,10 @@ O bloco de validação cobre, em `POST` e `PATCH`, sem gravar nem mover a posiç
 **Ordem de gravação.** `Transaction.sequence` é `BIGINT` único, preenchido pelo banco na inserção e nunca devolvido pela API. `createTransaction` aceita `id` e `createdAt`, o que permite gravar transações no mesmo instante com ids em ordem contrária à de gravação.
 
 **Migração.** Conferida à parte, sobre um banco com as migrations anteriores: numera as transações existentes em ordem `createdAt`, `id`, através das posições; em tabela vazia, a primeira inserção recebe 1; a inserção seguinte continua do maior número; a coluna é `bigint` não nula, com o default da sequência que ela possui, e o índice único recusa número repetido. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
+
+## Exclusão de transação
+
+`TransactionRepository.delete` reconstrói a posição a partir das transações restantes e grava a exclusão e a posição na mesma transação serializável. Além dos testes de exclusão do bloco `ledger` (devolver o que um `SELL` retirou, reprecificar as linhas seguintes, recusar a exclusão de um `BUY` do qual um `SELL` depende), dois cobrem a consistência da exclusão:
+
+* "leaves a position after a deletion equal to replaying the remaining transactions" exclui um `BUY` do meio de um razão com taxas, impostos e um `SELL` e um `BUY` posteriores, e compara a posição com a obtida gravando só as transações restantes numa posição vazia. Nesse razão, retirar o impacto da linha excluída por delta daria outro custo médio.
+* "rolls back the deletion when writing the position fails, keeping the transaction" remove a posição direto no banco, para que a gravação dela falhe depois de a linha ser excluída, e confirma a resposta 500 com a transação ainda gravada.
