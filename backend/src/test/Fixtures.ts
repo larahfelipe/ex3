@@ -19,7 +19,7 @@ export const FIXTURE_USER_EMAIL = 'holder@ex3.app';
 export const FIXTURE_ASSET_SYMBOL = 'BTC';
 export const FIXTURE_BASE_CURRENCY = 'BRL';
 
-/** Shared by every fixture transaction, so ledger order among them falls to creation time. */
+/** Shared by every fixture transaction, so ledger order among them falls to recording order. */
 export const FIXTURE_EXECUTED_AT = new Date('2026-01-05T13:00:00.000Z');
 
 const FIXTURE_PORTFOLIO_NAME = 'Fixture Portfolio';
@@ -116,7 +116,13 @@ export const createTransaction = async (
   overrides: Partial<
     Pick<
       Transaction,
-      'type' | 'quantity' | 'unitPrice' | 'currency' | 'executedAt'
+      | 'id'
+      | 'type'
+      | 'quantity'
+      | 'unitPrice'
+      | 'currency'
+      | 'executedAt'
+      | 'createdAt'
     >
   > = {}
 ) =>

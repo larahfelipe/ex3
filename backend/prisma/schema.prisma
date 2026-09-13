@@ -102,6 +102,7 @@ enum TransactionType {
 
 model Transaction {
   id           String          @id @default(uuid())
+  sequence     BigInt          @unique @default(autoincrement())
   type         TransactionType
   quantity     Decimal         @db.Decimal(38, 18)
   unitPrice    Decimal         @db.Decimal(38, 18)

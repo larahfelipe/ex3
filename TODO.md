@@ -18,7 +18,7 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Origem:** TASK 3.4 · **Tipo:** API · **Prioridade:** média · **Encaminhamento:** TASK 6.4
 - **Contexto:** `TransactionRepository.getAll` ordena por `id desc` e pagina pelo cursor `id < lastId`, mas o `id` é UUID v4 (`@default(uuid())`), aleatório. `page` é devolvido na resposta sem deslocar a consulta, e `lastId` só passa por `trim`, sem validação de formato. O ramo `limit === 0`, que omite o `take`, é inalcançável hoje porque `PaginationQuerySchema` exige `limit` positivo.
 - **Impacto:** a ordem da listagem não corresponde à ordem das operações, e `page=2` sem `lastId` repete a primeira página. O ramo sem `take` volta a permitir listagem ilimitada (OWASP API4:2023) se o schema for relaxado.
-- **Proposta:** ordenar na ordem do razão (`executedAt`, `createdAt`, `id`); adotar um único mecanismo de paginação (cursor opaco validado, ou `page`/`limit` com `skip`); remover o ramo sem `take`.
+- **Proposta:** ordenar na ordem do razão (`executedAt`, depois `sequence`); adotar um único mecanismo de paginação (cursor opaco validado, ou `page`/`limit` com `skip`); remover o ramo sem `take`.
 
 ### TD-004 — Enumeração de e-mails no sign-up (risco aceito)
 
@@ -97,19 +97,12 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** mudar o tamanho padrão exige tocar quatro arquivos, e os literais escapam de uma busca pela constante.
 - **Proposta:** uma constante de paginação compartilhada, junto do teto do schema, usada pelos quatro repositórios.
 
-### TD-016 — Ordem do razão entre transações com o mesmo `executedAt` e `createdAt`
-
-- **Origem:** posição reconstruída do razão · **Tipo:** domínio · **Prioridade:** média · **Encaminhamento:** TASK 4.6
-- **Contexto:** o razão é percorrido em ordem `executedAt`, depois `createdAt`, depois `id`. `executedAt` é informado por quem registra e pode se repetir entre operações; `createdAt` tem resolução de milissegundo e `id` é UUID v4, aleatório. Duas transações da mesma posição com o mesmo `executedAt`, gravadas no mesmo milissegundo, ficam na ordem dos ids, não na de gravação. A criação confere o razão com a linha nova depois das que têm `executedAt` igual ou anterior, onde o `createdAt` dela normalmente a coloca.
-- **Impacto:** exige duas escritas na mesma posição, com o mesmo `executedAt`, no mesmo milissegundo. Quando acontece, a ordem conferida na criação pode não ser a da reconstrução seguinte: uma edição ou exclusão posterior pode ser recusada por um `SELL` que passou a vir antes da compra que o cobria, e a próxima escrita na posição pode gravar outro custo médio para as mesmas linhas. As migrações da posição e da transação percorrem o razão em `createdAt`, `id`. Os testes de ordem de `backend/src/routes/Transactions.integration.ts` gravam por requisições sequenciais e contam com milissegundos distintos.
-- **Proposta:** desempatar por um número de sequência monotônico atribuído pelo banco na gravação, no lugar do `id`, com uma migração que numera as linhas existentes na ordem atual.
-
 ### TD-017 — API recusa os tipos de transação além de `BUY` e `SELL`
 
-- **Origem:** remodelagem da transação · **Tipo:** domínio · **Prioridade:** média · **Encaminhamento:** TASK 4.6 para os tipos que movem a posição; TASK 10.1 para `DIVIDEND` e `INTEREST`
-- **Contexto:** o enum `TransactionType` guarda os 11 tipos de `docs/domain-model.md`, mas `TransactionTypeSchema` aceita só `RecordableTransactionTypes` (`BUY` e `SELL`), e `replayLedger` lança para qualquer outro tipo. O efeito de `DEPOSIT`, `WITHDRAWAL` e `ADJUSTMENT` está nas decisões em aberto do modelo de domínio, e `quantity` e `unitPrice` positivos obrigatórios não descrevem todos os tipos (um `SPLIT` tem fator, não preço).
+- **Origem:** remodelagem da transação · **Tipo:** domínio · **Prioridade:** média · **Encaminhamento:** `avulso` para os tipos que movem a posição, até a representação de cada um estar definida; TASK 10.1 para `DIVIDEND` e `INTEREST`
+- **Contexto:** o enum `TransactionType` guarda os 11 tipos de `docs/domain-model.md`, mas `TransactionTypeSchema` aceita só `RecordableTransactionTypes` (`BUY` e `SELL`), e `rebuildPosition` (`backend/src/domain/PositionLedger.ts`) lança para qualquer outro tipo. O efeito de `DEPOSIT`, `WITHDRAWAL` e `ADJUSTMENT` está nas decisões em aberto do modelo de domínio, e `quantity` e `unitPrice` positivos obrigatórios não descrevem todos os tipos (um `SPLIT` tem fator, não preço).
 - **Impacto:** proventos, desdobramentos, bonificações, transferências, aportes e ajustes não são registráveis; enviar um deles responde 400 sem gravar.
-- **Proposta:** implementar em `replayLedger` o efeito de cada tipo definido no modelo de domínio, com a validação de campos própria do tipo e testes, e só então incluí-lo em `RecordableTransactionTypes`; decidir com o produto os tipos em aberto antes de aceitá-los.
+- **Proposta:** implementar em `rebuildPosition` o efeito de cada tipo definido no modelo de domínio, com a validação de campos própria do tipo e testes, e só então incluí-lo em `RecordableTransactionTypes`; decidir com o produto os tipos em aberto antes de aceitá-los.
 
 ### TD-018 — Formulário de transação do web sem taxas, impostos, corretora e notas
 
@@ -119,6 +112,11 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Proposta:** incluir os quatro campos no formulário, com os mesmos limites da API, junto com a edição e a exclusão de transação no web.
 
 ## Resolvidos
+
+### TD-016 — Ordem do razão entre transações com o mesmo `executedAt` e `createdAt`
+
+- **Tipo:** domínio · **Prioridade:** média
+- **Resolução:** depois de `executedAt`, o razão é desempatado por `Transaction.sequence`, `BIGINT` único atribuído pelo banco na gravação, no lugar de `createdAt` e `id`. A migration `20260913000000_transaction_sequence` numerou as linhas existentes na ordem `createdAt`, `id`, que o razão seguia, sem mudar nenhuma posição. `rebuildPosition`, em `backend/src/domain/PositionLedger.ts`, ordena o razão que recebe. O teste "replays entries executed and created at the same instant in recording order, not id order" de `backend/src/routes/Transactions.integration.ts` fixa o desempate. Ver `docs/domain-model.md`, §Razão e posição.
 
 ### TD-001 — Valores financeiros em ponto flutuante
 

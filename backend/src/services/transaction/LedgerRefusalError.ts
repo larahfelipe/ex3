@@ -1,11 +1,6 @@
 import { TransactionMessages } from '@/config/Constants';
+import type { LedgerRefusal } from '@/domain/PositionLedger';
 import { BadRequestError } from '@/errors';
-import type { TransactionRepository } from '@/infra/database';
-
-type LedgerRefusal = Exclude<
-  Awaited<ReturnType<TransactionRepository['delete']>>,
-  { outcome: 'recorded' | 'not-found' }
->;
 
 const REFUSAL_MESSAGES = {
   'negative-amount': TransactionMessages.ACC_NEGATIVE_AMOUNT,
