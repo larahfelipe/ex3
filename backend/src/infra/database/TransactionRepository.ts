@@ -1,38 +1,17 @@
-import { Prisma, type Transaction as TransactionRow } from '@prisma/client';
+import type { Prisma, Transaction as TransactionRow } from '@prisma/client';
 
-import { DecimalColumn, TransactionTypes } from '@/config/Constants';
-import type { Position, Transaction, TransactionEntry } from '@/domain/models';
+import type { TransactionTypes } from '@/config/Constants';
+import type { Transaction, TransactionEntry } from '@/domain/models';
+import {
+  type LedgerRefusal,
+  type RebuiltPosition,
+  rebuildPosition
+} from '@/domain/PositionLedger';
 
 import { PrismaClient } from './PrismaClient';
 
-type LedgerEntry = Pick<Transaction, 'type' | 'currency'> &
-  Record<'quantity' | 'unitPrice' | 'fees' | 'taxes', Prisma.Decimal | string>;
-type LedgerPlacement = Pick<Transaction, 'id' | 'executedAt' | 'createdAt'>;
-type RebuiltPosition = Pick<Position, 'quantity' | 'averageCost' | 'balance'>;
-type LedgerReplay =
-  | { outcome: 'rebuilt'; position: RebuiltPosition }
-  | TransactionRepository.LedgerRefusal;
-
-/**
- * No operation of a replay rounds at this precision. Every position it passes
- * through fits the columns, so a product of two column values has at most
- * 2 × PRECISION significant digits, adding the rest of a BUY's cost carries at
- * most one more, and the average cost is the integer quotient of that cost,
- * shifted by the scale, by a quantity of at least one unit of the scale.
- */
-const LEDGER_ARITHMETIC_PRECISION = 2 * DecimalColumn.PRECISION + 1;
-
-const LedgerDecimal = Prisma.Decimal.clone({
-  precision: LEDGER_ARITHMETIC_PRECISION
-});
-
-const ZERO = new LedgerDecimal(0);
-const COLUMN_SCALE_FACTOR = new LedgerDecimal(10).pow(DecimalColumn.SCALE);
-const COLUMN_MAGNITUDE_BOUND = new LedgerDecimal(10).pow(
-  DecimalColumn.PRECISION - DecimalColumn.SCALE
-);
-
 const toTransaction = ({
+  sequence,
   quantity,
   unitPrice,
   fees,
@@ -46,97 +25,24 @@ const toTransaction = ({
   taxes: taxes.toFixed()
 });
 
-/**
- * A ledger holds one currency, since costs in different currencies do not add
- * up. A BUY adds its quantity and its cost, quantity × unit price plus fees and
- * taxes, and truncates the new average cost to the column scale; a SELL leaves
- * the average cost unchanged, back to zero once nothing is held, and is refused
- * when it exceeds what the ledger holds at that point. `balance` keeps its
- * legacy meaning, the running sum of ±quantity × unit price, truncated to the
- * column scale at the end. A ledger passing through a position that does not
- * fit the columns is refused. The migration that converted the ledger to
- * decimals repeats these operations, so both reach the same values.
- */
-const replayLedger = (ledger: ReadonlyArray<LedgerEntry>): LedgerReplay => {
-  if (new Set(ledger.map(({ currency }) => currency)).size > 1)
-    return { outcome: 'currency-mismatch' };
-
-  let quantity = ZERO;
-  let averageCost = ZERO;
-  let balance = ZERO;
-
-  for (const entry of ledger) {
-    const entryQuantity = new LedgerDecimal(entry.quantity);
-    const grossValue = entryQuantity.mul(entry.unitPrice);
-
-    if (entry.type === TransactionTypes.BUY) {
-      const heldQuantity = quantity.add(entryQuantity);
-      const totalCost = quantity
-        .mul(averageCost)
-        .add(grossValue)
-        .add(entry.fees)
-        .add(entry.taxes);
-
-      averageCost = totalCost
-        .mul(COLUMN_SCALE_FACTOR)
-        .divToInt(heldQuantity)
-        .div(COLUMN_SCALE_FACTOR);
-      quantity = heldQuantity;
-      balance = balance.add(grossValue);
-    } else if (entry.type === TransactionTypes.SELL) {
-      if (entryQuantity.gt(quantity)) return { outcome: 'negative-amount' };
-
-      quantity = quantity.sub(entryQuantity);
-      averageCost = quantity.isZero() ? ZERO : averageCost;
-      balance = balance.sub(grossValue);
-    } else {
-      throw new Error(`The ledger replay does not implement ${entry.type}`);
-    }
-
-    if (
-      [quantity, averageCost, balance.abs()].some((value) =>
-        value.gte(COLUMN_MAGNITUDE_BOUND)
-      )
-    )
-      return { outcome: 'out-of-range' };
-  }
-
-  return {
-    outcome: 'rebuilt',
-    position: {
-      quantity: quantity.toFixed(),
-      averageCost: averageCost.toFixed(),
-      balance: balance
-        .toDecimalPlaces(DecimalColumn.SCALE, LedgerDecimal.ROUND_DOWN)
-        .toFixed()
-    }
-  };
-};
-
 const ledgerOf = (
   transactionClient: Prisma.TransactionClient,
   { portfolioId, instrumentId }: TransactionRepository.AssetScope
 ) =>
   transactionClient.transaction.findMany({
     where: { portfolioId, instrumentId },
-    orderBy: [{ executedAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
     select: {
       id: true,
+      sequence: true,
       type: true,
       quantity: true,
       unitPrice: true,
       fees: true,
       taxes: true,
       currency: true,
-      executedAt: true,
-      createdAt: true
+      executedAt: true
     }
   });
-
-const byLedgerOrder = (a: LedgerPlacement, b: LedgerPlacement) =>
-  a.executedAt.getTime() - b.executedAt.getTime() ||
-  a.createdAt.getTime() - b.createdAt.getTime() ||
-  (a.id < b.id ? -1 : Number(a.id > b.id));
 
 /**
  * Deleting or moving a position takes its transactions along, so a ledger
@@ -146,11 +52,11 @@ const byLedgerOrder = (a: LedgerPlacement, b: LedgerPlacement) =>
 const storePosition = (
   transactionClient: Prisma.TransactionClient,
   { portfolioId, instrumentId }: TransactionRepository.AssetScope,
-  position: RebuiltPosition
+  { quantity, averageCost, balance }: RebuiltPosition
 ) =>
   transactionClient.position.update({
     where: { portfolioId_instrumentId: { portfolioId, instrumentId } },
-    data: position
+    data: { quantity, averageCost, balance }
   });
 
 /**
@@ -225,8 +131,9 @@ export class TransactionRepository {
    * The position is rebuilt from the ledger as it will stand after the write,
    * and both are written in one serializable transaction, so the ledger a SELL
    * is checked against cannot change before the write commits. A refused write
-   * touches nothing. A new row goes after every row executed at or before its
-   * execution time, which is where its creation time places it.
+   * touches nothing. The new row has no sequence until it is recorded, so it is
+   * replayed after every row executed at the same time, which is where the
+   * sequence the database assigns places it.
    */
   async add(
     params: TransactionRepository.AddParams
@@ -242,23 +149,14 @@ export class TransactionRepository {
         if (!position) return { outcome: 'not-found' };
 
         const ledger = await ledgerOf(transactionClient, position);
-        const insertAt =
-          ledger.findLastIndex(
-            ({ executedAt }) =>
-              executedAt.getTime() <= entry.executedAt.getTime()
-          ) + 1;
-        const replay = replayLedger([
-          ...ledger.slice(0, insertAt),
-          entry,
-          ...ledger.slice(insertAt)
-        ]);
+        const rebuild = rebuildPosition([...ledger, entry]);
 
-        if (replay.outcome !== 'rebuilt') return replay;
+        if (rebuild.outcome !== 'rebuilt') return rebuild;
 
         const transaction = await transactionClient.transaction.create({
           data: { ...entry, portfolioId, instrumentId: position.instrumentId }
         });
-        await storePosition(transactionClient, position, replay.position);
+        await storePosition(transactionClient, position, rebuild.position);
 
         return {
           outcome: 'recorded',
@@ -268,7 +166,7 @@ export class TransactionRepository {
     );
   }
 
-  /** Replaces the row and moves it to its place in the ledger, under the guarantees of `add`. */
+  /** Replaces the row, keeping its recording order, under the guarantees of `add`. */
   async update(
     params: TransactionRepository.UpdateParams
   ): Promise<TransactionRepository.LedgerWrite> {
@@ -283,19 +181,17 @@ export class TransactionRepository {
         if (!previous) return { outcome: 'not-found' };
 
         const ledger = await ledgerOf(transactionClient, previous);
-        const replay = replayLedger(
-          ledger
-            .map((row) => (row.id === id ? { ...row, ...entry } : row))
-            .toSorted(byLedgerOrder)
+        const rebuild = rebuildPosition(
+          ledger.map((row) => (row.id === id ? { ...row, ...entry } : row))
         );
 
-        if (replay.outcome !== 'rebuilt') return replay;
+        if (rebuild.outcome !== 'rebuilt') return rebuild;
 
         await transactionClient.transaction.update({
           where: { id },
           data: entry
         });
-        await storePosition(transactionClient, previous, replay.position);
+        await storePosition(transactionClient, previous, rebuild.position);
 
         return { outcome: 'recorded' };
       }
@@ -317,12 +213,12 @@ export class TransactionRepository {
         if (!previous) return { outcome: 'not-found' };
 
         const ledger = await ledgerOf(transactionClient, previous);
-        const replay = replayLedger(ledger.filter((row) => row.id !== id));
+        const rebuild = rebuildPosition(ledger.filter((row) => row.id !== id));
 
-        if (replay.outcome !== 'rebuilt') return replay;
+        if (rebuild.outcome !== 'rebuilt') return rebuild;
 
         await transactionClient.transaction.delete({ where: { id } });
-        await storePosition(transactionClient, previous, replay.position);
+        await storePosition(transactionClient, previous, rebuild.position);
 
         return { outcome: 'recorded' };
       }
@@ -345,10 +241,6 @@ namespace TransactionRepository {
   export type GetByIdParams = Pick<Transaction, 'id'> &
     Record<'userId', string>;
   export type UpdateParams = TransactionEntry & GetByIdParams;
-  export type LedgerRefusal =
-    | { outcome: 'negative-amount' }
-    | { outcome: 'currency-mismatch' }
-    | { outcome: 'out-of-range' };
   /** `not-found` answers a transaction or asset outside the caller's portfolios exactly like a missing one. */
   export type LedgerRejection = { outcome: 'not-found' } | LedgerRefusal;
   export type LedgerWrite = { outcome: 'recorded' } | LedgerRejection;

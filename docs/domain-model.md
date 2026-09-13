@@ -61,13 +61,13 @@ Toda transação pertence a uma carteira e referencia um instrumento; a posiçã
 
 A posição é função das transações da carteira naquele instrumento, e só delas: a mesma sequência de transações produz sempre a mesma `quantity`, o mesmo `averageCost` e o mesmo `investedValue`. Criar, editar ou excluir uma transação reconstrói a posição e grava as duas numa única transação de banco.
 
-A ordem do razão é `executedAt`, depois `createdAt`, depois `id`.
+A ordem do razão é `executedAt`, depois a ordem de gravação, o `sequence` que o banco atribui a cada transação. A transação ainda não gravada entra depois das gravadas com o mesmo `executedAt`. A reconstrução ordena o razão que recebe, então a ordem em que as transações chegam a ela não altera o resultado.
 
-**Dados anteriores à posição.** A migração que renomeou `assets` para `positions` reconstruiu `quantity`, `averageCost` e `balance` de cada posição a partir das suas transações, na ordem `createdAt`, `id`, e substituiu o valor gravado quando divergia. Ela aborta sem alterar nada se o razão de alguma posição vende mais do que detém.
+**Dados anteriores à posição.** A migração que renomeou `assets` para `positions` reconstruiu `quantity`, `averageCost` e `balance` de cada posição a partir das suas transações, na ordem `createdAt`, `id`, e substituiu o valor gravado quando divergia. Ela aborta sem alterar nada se o razão de alguma posição vende mais do que detém. A migração que criou `sequence` numerou as transações existentes na ordem `createdAt`, `id`, a mesma que o razão seguia até então, e nenhuma posição mudou.
 
 ### Custo
 
-* `investedValue = quantity × averageCost`.
+* `investedValue = quantity × averageCost`, calculado pela reconstrução, não gravado.
 * **Custo médio ponderado.** A compra soma à quantidade e ao custo total (`quantity × unitPrice + fees + taxes`). A venda reduz a quantidade e retira do custo total `quantity × averageCost`, sem alterar o custo médio; a diferença entre o líquido da venda e esse custo é lucro realizado.
 * O método é o da apuração de ganho de capital em renda variável no Brasil e é o único compatível com uma posição que guarda quantidade e custo médio, sem lotes.
 * Venda acima da quantidade detida é recusada sem gravar nada.
@@ -103,7 +103,7 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend: o 
 ## Valores, moedas e datas
 
 * Quantidades e valores monetários são decimais exatos, nunca ponto flutuante: `DECIMAL(38,18)`, até 20 dígitos inteiros e 18 casas, em transação e posição. A API os recebe e devolve como string decimal, e valor que a coluna arredondaria é recusado, não arredondado.
-* O custo médio é truncado em 18 casas a cada `BUY`, e `balance` uma vez, ao fim da reconstrução. Razão que passa por posição fora de `DECIMAL(38,18)` é recusado, mesmo que a posição final caiba.
+* O custo médio é truncado em 18 casas a cada `BUY`, e `investedValue` e `balance` uma vez, ao fim da reconstrução. Razão que passa por posição fora de `DECIMAL(38,18)`, `investedValue` incluído, é recusado, mesmo que a posição final caiba.
 * Todo valor monetário tem moeda explícita. `Instrument.currency` é a moeda de cotação, `Transaction.currency` a da operação e `Portfolio.baseCurrency` a de consolidação.
 * Valores em moedas diferentes só se somam por conversão com cotação de câmbio explícita; sem cotação, o total não é calculado.
 * Instantes são gravados em UTC. `executedAt` é quando a operação aconteceu, informado por quem registra; `createdAt` e `updatedAt` são quando o registro foi gravado e alterado.

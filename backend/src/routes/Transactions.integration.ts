@@ -492,6 +492,9 @@ describe('transactions', () => {
     const EXECUTED_BEFORE_CONTEXT = '2026-01-04T13:00:00.000Z';
     const EXECUTED_AFTER_CONTEXT = '2026-01-06T13:00:00.000Z';
 
+    const ID_SORTED_FIRST = '00000000-0000-4000-8000-000000000001';
+    const ID_SORTED_LAST = 'ffffffff-ffff-4fff-bfff-ffffffffffff';
+
     type LedgerEntry = Record<'type' | 'quantity' | 'unitPrice', string> &
       Partial<Record<keyof typeof ENTRY_CONTEXT | 'fees' | 'taxes', string>>;
 
@@ -990,6 +993,36 @@ describe('transactions', () => {
         quantity: '5',
         averageCost: '13.333333333333333333',
         balance: '100'
+      });
+    });
+
+    it('replays entries executed and created at the same instant in recording order, not id order', async () => {
+      const { asset, record } = await openEmptyPosition();
+      const sameInstant = new Date(EXECUTED_BEFORE_CONTEXT);
+      await createTransaction(asset, {
+        id: ID_SORTED_LAST,
+        type: 'BUY',
+        quantity: '1',
+        unitPrice: '10',
+        executedAt: sameInstant,
+        createdAt: sameInstant
+      });
+      await createTransaction(asset, {
+        id: ID_SORTED_FIRST,
+        type: 'SELL',
+        quantity: '1',
+        unitPrice: '10',
+        executedAt: sameInstant,
+        createdAt: sameInstant
+      });
+
+      const res = await record({ type: 'BUY', quantity: '2', unitPrice: '20' });
+
+      assert.equal(res.status, 201);
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: '2',
+        averageCost: '20',
+        balance: '40'
       });
     });
 

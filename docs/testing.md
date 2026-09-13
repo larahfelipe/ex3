@@ -191,13 +191,13 @@ A unicidade já estava coberta pela suíte de ativos: símbolo que a carteira j�
 
 **Recusa sem escrita.** Criação, edição e exclusão conferem em memória o razão candidato, com a linha nova no ponto da sua data de execução, a editada reordenada pela data nova ou sem a excluída, e só gravam quando ele é aceito, pelo motivo descrito em "Razão e posição na mesma transação".
 
-**Ordem.** O razão é percorrido em ordem `executedAt`, `createdAt`, `id`. Os testes gravam por requisições sequenciais; duas transações da mesma posição com o mesmo `executedAt` no mesmo milissegundo seriam ordenadas pelo id, que é aleatório (TD-016).
+**Ordem.** O razão é percorrido em ordem `executedAt`, depois ordem de gravação. O teste "replays entries executed and created at the same instant in recording order, not id order" grava, com o mesmo `executedAt` e `createdAt`, um `BUY` com o id que ordena por último e depois um `SELL` com o que ordena primeiro, e confirma que a escrita seguinte na posição é aceita e reconstrói a posição nessa ordem.
 
 **Migração.** Conferida à parte, sobre um banco com as migrations anteriores e dados no formato antigo: renomeia `assets` para `positions`, com chave primária e índices; reconstrói `quantity`, `averageCost` e `balance` de cada posição a partir das suas transações, substituindo o valor gravado quando diverge e zerando a posição sem transações; transações no mesmo instante seguem a ordem do id; o resultado é igual, bit a bit, à reconstrução em TypeScript, inclusive com valores fracionários; um razão que vende mais do que detém aborta a migração sem alterar nada. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
 
 ## Transação remodelada
 
-`Transaction` grava `quantity`, `unitPrice`, `fees`, `taxes`, `currency`, `executedAt`, `broker` e `notes`, e `type` é o enum `TransactionType`. Quantidades e valores de transação e posição são `DECIMAL(38,18)` e trafegam como string decimal. As fixtures gravam strings e compartilham `FIXTURE_EXECUTED_AT`, então a ordem do razão entre elas cai para `createdAt`. Os testes comparam decimais pela string de `toFixed()`, porque o `toJSON` de `Prisma.Decimal` usa expoente em valores pequenos.
+`Transaction` grava `quantity`, `unitPrice`, `fees`, `taxes`, `currency`, `executedAt`, `broker` e `notes`, e `type` é o enum `TransactionType`. Quantidades e valores de transação e posição são `DECIMAL(38,18)` e trafegam como string decimal. As fixtures gravam strings e compartilham `FIXTURE_EXECUTED_AT`, então a ordem do razão entre elas cai para a ordem de gravação. Os testes comparam decimais pela string de `toFixed()`, porque o `toJSON` de `Prisma.Decimal` usa expoente em valores pequenos.
 
 O bloco `ledger` de `src/routes/Transactions.integration.ts` passou a cobrir:
 
@@ -212,3 +212,19 @@ O bloco `ledger` de `src/routes/Transactions.integration.ts` passou a cobrir:
 O bloco de validação cobre, em `POST` e `PATCH`, sem gravar nem mover a posição: tipo em branco, desconhecido ou ainda não aceito pela API (`DIVIDEND`); decimal em `number`, negativo, com expoente, com zero à esquerda, com ponto sem casas, com espaços, vazio, com 21 dígitos inteiros ou 19 casas, e zero em `quantity` e `unitPrice`; `currency` ausente ou fora de ISO 4217; `executedAt` ausente, sem hora, sem fuso ou em outro formato; `broker` e `notes` acima do limite. Um teste confere que a criação grava cada campo como enviado, com o `executedAt` enviado com fuso devolvido em UTC, e que a edição substitui todos, voltando os opcionais omitidos ao padrão.
 
 **Migração.** Conferida à parte, sobre um banco com as migrations anteriores e dados no formato antigo: nenhuma transação perdida; `amount` e `price` convertidos pela menor representação decimal de cada `double` (`0.1` e `0.2` somam exatamente `0.3`, e `BUY 0.3`, `SELL 0.1`, `SELL 0.2` zeram a posição); `currency` da moeda base de cada carteira e `executedAt = createdAt`; posições reconstruídas em decimal, com custo médio truncado em 18 casas; colunas, nulabilidade e enum como no schema; tabela temporária removida. Aborta sem alterar nada com tipo fora do enum, transação sem carteira, `amount` ou `price` zero, negativo, com mais de 18 casas ou a partir de 10²⁰, razão que vende mais do que detém, `DIVIDEND` no razão e razão que passa por posição fora da coluna, mesmo terminando dentro dela. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
+
+## Reconstrução determinística da posição
+
+`rebuildPosition`, em `src/domain/PositionLedger.ts`, reconstrói a posição a partir do razão sem IO; `TransactionRepository` lê as transações da posição, entrega o razão candidato e grava o resultado. `src/domain/PositionLedger.test.ts` a cobre na faixa unit:
+
+* `BUY` pondera o custo médio com taxas e impostos, e `investedValue` é `quantity × averageCost`;
+* `SELL` mantém o custo médio e o zera quando nada resta;
+* custo médio e `investedValue` truncados em 18 casas;
+* as 24 permutações de um razão de quatro transações reconstroem a mesma posição;
+* transações com o mesmo `executedAt` seguem a ordem de gravação, e a ainda não gravada vem por último;
+* recusados: `SELL` antes da compra que o cobriria, razão com duas moedas, razão que passa por posição fora da coluna e `investedValue` fora da coluna com os demais valores dentro dela;
+* tipo que a reconstrução não implementa lança.
+
+**Ordem de gravação.** `Transaction.sequence` é `BIGINT` único, preenchido pelo banco na inserção e nunca devolvido pela API. `createTransaction` aceita `id` e `createdAt`, o que permite gravar transações no mesmo instante com ids em ordem contrária à de gravação.
+
+**Migração.** Conferida à parte, sobre um banco com as migrations anteriores: numera as transações existentes em ordem `createdAt`, `id`, através das posições; em tabela vazia, a primeira inserção recebe 1; a inserção seguinte continua do maior número; a coluna é `bigint` não nula, com o default da sequência que ela possui, e o índice único recusa número repetido. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
