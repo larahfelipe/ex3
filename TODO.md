@@ -13,19 +13,12 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 
 ## Abertos
 
-### TD-001 — Valores financeiros em ponto flutuante
-
-- **Origem:** TASKs 3.3 e 3.4 · **Tipo:** domínio · **Prioridade:** alta · **Encaminhamento:** TASK 4.5, verificado nas TASKs 4.6–4.8
-- **Contexto:** `amount` e `price` da transação e `quantity`, `averageCost` e `balance` da posição são `Float` (`double precision`). A posição é reconstruída do razão a cada escrita, então o resíduo de arredondamento não se acumula entre escritas, mas cada reconstrução soma, multiplica e divide em ponto flutuante. O `PLAN.md` define os campos da remodelagem, mas não o tipo numérico.
-- **Impacto:** vender a posição inteira pode ser recusado (`0.3 − 0.1 − 0.2` fica abaixo de zero), e quantidade, custo médio e `balance` gravados carregam resíduo (`BUY 0.1` e `BUY 0.2` gravam `0.30000000000000004`). O primeiro caso está reproduzido pelo teste `todo` "sells a fractional position down to exactly zero" de `backend/src/routes/Transactions.integration.ts`, listado em `docs/testing.md`.
-- **Proposta:** `Decimal` com precisão e escala explícitas (`@db.Decimal`) para quantidade, preço unitário, taxas e impostos; aritmética em `Prisma.Decimal`; valores serializados como string na API, para não voltarem a `number` no cliente. Ao concluir, remover a marcação `todo` dos testes correspondentes.
-
 ### TD-002 — Listagem de transações ignora `page` e não segue a ordem das operações
 
 - **Origem:** TASK 3.4 · **Tipo:** API · **Prioridade:** média · **Encaminhamento:** TASK 6.4
 - **Contexto:** `TransactionRepository.getAll` ordena por `id desc` e pagina pelo cursor `id < lastId`, mas o `id` é UUID v4 (`@default(uuid())`), aleatório. `page` é devolvido na resposta sem deslocar a consulta, e `lastId` só passa por `trim`, sem validação de formato. O ramo `limit === 0`, que omite o `take`, é inalcançável hoje porque `PaginationQuerySchema` exige `limit` positivo.
 - **Impacto:** a ordem da listagem não corresponde à ordem das operações, e `page=2` sem `lastId` repete a primeira página. O ramo sem `take` volta a permitir listagem ilimitada (OWASP API4:2023) se o schema for relaxado.
-- **Proposta:** ordenar pela data de execução (`executedAt`, TASK 4.5) com desempate por `id`; adotar um único mecanismo de paginação (cursor opaco validado, ou `page`/`limit` com `skip`); remover o ramo sem `take`.
+- **Proposta:** ordenar na ordem do razão (`executedAt`, `createdAt`, `id`); adotar um único mecanismo de paginação (cursor opaco validado, ou `page`/`limit` com `skip`); remover o ramo sem `take`.
 
 ### TD-004 — Enumeração de e-mails no sign-up (risco aceito)
 
@@ -62,13 +55,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** divergência de formatação em CSS passa despercebida.
 - **Proposta:** formatar o arquivo e incluir `css` no glob do script.
 
-### TD-009 — `amount` e `price` de transação sem limite superior
-
-- **Origem:** TASK 3.4 · **Tipo:** segurança · **Prioridade:** alta · **Encaminhamento:** TASK 4.5
-- **Contexto:** `CreateTransactionSchema` e `UpdateTransactionSchema` exigem só `positive()`. Um `BUY` com `amount` e `price` de `1e200` responde `201`: o produto estoura para `Infinity`, que o Postgres aceita em `double precision` e grava no `balance` do ativo. Reproduzido pelo teste `todo` "rejects an entry whose cost overflows a finite number and records nothing".
-- **Impacto:** a posição do próprio usuário fica corrompida sem erro (`Infinity`, que o JSON devolve como `null`), e escritas seguintes sobre ela podem gravar `NaN` (`Infinity − Infinity`). Não alcança outras carteiras. Não foi corrigido na TASK 3.4 porque o critério da task é reproduzir antes de corrigir, e o limite correto depende da precisão das colunas definida na TASK 4.5; um teto escolhido agora seria substituído na remodelagem.
-- **Proposta:** limites derivados da precisão e escala das colunas `Decimal` (TD-001), validados no schema, e checagem de que a posição resultante cabe na coluna antes de gravar.
-
 ### TD-010 — Catálogo de instrumentos sem cadastro pelo web
 
 - **Origem:** catálogo de instrumentos, `docs/domain-model.md` · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
@@ -93,8 +79,8 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-013 — Web opera só a carteira mais antiga e ignora a moeda base
 
 - **Origem:** várias carteiras por usuário · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
-- **Contexto:** a tela de ativos pede `GET /v1/portfolios` com `page=1&limit=1` e usa essa carteira, a mais antiga, em todas as chamadas; o web não tem seletor nem criação de carteira. Os valores são formatados com a moeda de `useUser` (`web/src/providers/user-provider.tsx`), que começa em BRL e muda pelo seletor da tabela de ativos, sem relação com `Portfolio.baseCurrency` e sem conversão.
-- **Impacto:** carteiras criadas pela API não aparecem no web. Quem escolhe USD ou EUR no sign-up vê os valores rotulados em BRL até trocar o seletor, e trocar o seletor só muda o símbolo exibido.
+- **Contexto:** a tela de ativos pede `GET /v1/portfolios` com `page=1&limit=1` e usa essa carteira, a mais antiga, em todas as chamadas; o web não tem seletor nem criação de carteira. O diálogo de transação envia e rotula o preço na `baseCurrency` da carteira, mas a tabela de ativos formata os valores com a moeda de `useUser` (`web/src/providers/user-provider.tsx`), que começa em BRL e muda pelo seletor da tabela, sem relação com `Portfolio.baseCurrency` e sem conversão.
+- **Impacto:** carteiras criadas pela API não aparecem no web. Quem escolhe USD ou EUR no sign-up registra transações nessa moeda, mas vê os valores da tabela rotulados em BRL até trocar o seletor, e trocar o seletor só muda o símbolo exibido.
 - **Proposta:** seletor e criação de carteira no web, com o rótulo inicial vindo da `baseCurrency` da carteira selecionada. Decidir com o produto se o seletor de moeda continua existindo enquanto não houver conversão cambial.
 
 ### TD-014 — Nome do usuário sem limite de tamanho
@@ -111,14 +97,38 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** mudar o tamanho padrão exige tocar quatro arquivos, e os literais escapam de uma busca pela constante.
 - **Proposta:** uma constante de paginação compartilhada, junto do teto do schema, usada pelos quatro repositórios.
 
-### TD-016 — Ordem do razão entre transações com o mesmo `createdAt`
+### TD-016 — Ordem do razão entre transações com o mesmo `executedAt` e `createdAt`
 
-- **Origem:** posição reconstruída do razão · **Tipo:** domínio · **Prioridade:** média · **Encaminhamento:** TASK 4.5
-- **Contexto:** a posição é reconstruída percorrendo as transações em ordem `createdAt`, depois `id`, porque `executedAt` ainda não existe. `createdAt` tem resolução de milissegundo e `id` é UUID v4, aleatório: duas transações da mesma posição gravadas no mesmo milissegundo ficam na ordem dos ids, não na de gravação. A criação confere o razão com a linha nova no fim, onde o `createdAt` dela normalmente a coloca. `executedAt`, que `docs/domain-model.md` põe antes de `createdAt` na ordem, é informado por quem registra e não desempata transações com o mesmo valor.
-- **Impacto:** exige duas escritas na mesma posição no mesmo milissegundo. Quando acontece, a ordem conferida na criação pode não ser a da reconstrução seguinte: uma edição ou exclusão posterior pode ser recusada por um `SELL` que passou a vir antes da compra que o cobria, e a próxima escrita na posição pode gravar outro custo médio para as mesmas linhas. A migração que criou `positions` usa a mesma ordem. Os testes de ordem de `backend/src/routes/Transactions.integration.ts` gravam por requisições sequenciais e contam com milissegundos distintos.
-- **Proposta:** desempatar por um número de sequência monotônico atribuído pelo banco na gravação, no lugar do `id`, com a migração numerando as linhas existentes na ordem atual; decidir junto com `executedAt` na remodelagem da transação.
+- **Origem:** posição reconstruída do razão · **Tipo:** domínio · **Prioridade:** média · **Encaminhamento:** TASK 4.6
+- **Contexto:** o razão é percorrido em ordem `executedAt`, depois `createdAt`, depois `id`. `executedAt` é informado por quem registra e pode se repetir entre operações; `createdAt` tem resolução de milissegundo e `id` é UUID v4, aleatório. Duas transações da mesma posição com o mesmo `executedAt`, gravadas no mesmo milissegundo, ficam na ordem dos ids, não na de gravação. A criação confere o razão com a linha nova depois das que têm `executedAt` igual ou anterior, onde o `createdAt` dela normalmente a coloca.
+- **Impacto:** exige duas escritas na mesma posição, com o mesmo `executedAt`, no mesmo milissegundo. Quando acontece, a ordem conferida na criação pode não ser a da reconstrução seguinte: uma edição ou exclusão posterior pode ser recusada por um `SELL` que passou a vir antes da compra que o cobria, e a próxima escrita na posição pode gravar outro custo médio para as mesmas linhas. As migrações da posição e da transação percorrem o razão em `createdAt`, `id`. Os testes de ordem de `backend/src/routes/Transactions.integration.ts` gravam por requisições sequenciais e contam com milissegundos distintos.
+- **Proposta:** desempatar por um número de sequência monotônico atribuído pelo banco na gravação, no lugar do `id`, com uma migração que numera as linhas existentes na ordem atual.
+
+### TD-017 — API recusa os tipos de transação além de `BUY` e `SELL`
+
+- **Origem:** remodelagem da transação · **Tipo:** domínio · **Prioridade:** média · **Encaminhamento:** TASK 4.6 para os tipos que movem a posição; TASK 10.1 para `DIVIDEND` e `INTEREST`
+- **Contexto:** o enum `TransactionType` guarda os 11 tipos de `docs/domain-model.md`, mas `TransactionTypeSchema` aceita só `RecordableTransactionTypes` (`BUY` e `SELL`), e `replayLedger` lança para qualquer outro tipo. O efeito de `DEPOSIT`, `WITHDRAWAL` e `ADJUSTMENT` está nas decisões em aberto do modelo de domínio, e `quantity` e `unitPrice` positivos obrigatórios não descrevem todos os tipos (um `SPLIT` tem fator, não preço).
+- **Impacto:** proventos, desdobramentos, bonificações, transferências, aportes e ajustes não são registráveis; enviar um deles responde 400 sem gravar.
+- **Proposta:** implementar em `replayLedger` o efeito de cada tipo definido no modelo de domínio, com a validação de campos própria do tipo e testes, e só então incluí-lo em `RecordableTransactionTypes`; decidir com o produto os tipos em aberto antes de aceitá-los.
+
+### TD-018 — Formulário de transação do web sem taxas, impostos, corretora e notas
+
+- **Origem:** remodelagem da transação · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** TASK 9.3
+- **Contexto:** a API aceita `fees`, `taxes`, `broker` e `notes`, mas `web/src/app/(protected)/assets/_components/add-asset-transaction-dialog.tsx` envia só `type`, `quantity`, `unitPrice`, `executedAt` e a moeda base da carteira como `currency`. O web não edita nem exclui transação e não exibe `executedAt`.
+- **Impacto:** transação criada pelo web grava taxas e impostos zero, e o custo médio omite a corretagem e os impostos que o usuário pagou até a transação ser editada pela API.
+- **Proposta:** incluir os quatro campos no formulário, com os mesmos limites da API, junto com a edição e a exclusão de transação no web.
 
 ## Resolvidos
+
+### TD-001 — Valores financeiros em ponto flutuante
+
+- **Tipo:** domínio · **Prioridade:** alta
+- **Resolução:** quantidade, preço unitário, taxas e impostos da transação e `quantity`, `averageCost` e `balance` da posição são `DECIMAL(38,18)`; a reconstrução usa `Prisma.Decimal`, e a API recebe e devolve esses valores como string decimal. A migração converteu os `double` existentes pela menor representação decimal de cada um. O teste "sells a fractional position down to exactly zero" de `backend/src/routes/Transactions.integration.ts` deixou de ser `todo`. Ver `docs/domain-model.md`, §Valores, moedas e datas.
+
+### TD-009 — `amount` e `price` de transação sem limite superior
+
+- **Tipo:** segurança · **Prioridade:** alta
+- **Resolução:** `decimalSchema` e `positiveDecimalSchema` limitam a entrada ao que `DECIMAL(38,18)` guarda sem arredondar, e a reconstrução recusa com 400 `POSITION_OUT_OF_RANGE`, sem gravar, o razão que passa por posição fora da coluna. O teste `todo` de overflow deu lugar aos testes do teto da coluna em `backend/src/routes/Transactions.integration.ts`.
 
 ### TD-003 — Exclusão de ativo sem teste com o mesmo símbolo em outra carteira
 

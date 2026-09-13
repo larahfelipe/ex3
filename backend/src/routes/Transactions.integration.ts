@@ -1,8 +1,10 @@
+import type { Prisma } from '@prisma/client';
 import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
 
 import {
   AssetMessages,
+  DecimalColumn,
   Errors,
   PortfolioMessages,
   TransactionMessages,
@@ -12,6 +14,8 @@ import { PrismaClient } from '@/infra/database/PrismaClient';
 import { apiRequest, bearer, signIn } from '@/test/ApiClient';
 import {
   FIXTURE_ASSET_SYMBOL,
+  FIXTURE_BASE_CURRENCY,
+  FIXTURE_EXECUTED_AT,
   FIXTURE_PASSWORD,
   FIXTURE_USER_EMAIL,
   createAsset,
@@ -44,7 +48,26 @@ const MISSING_PORTFOLIO_ID = '00000000-0000-4000-8000-000000000000';
 
 const MISSING_ASSET_SYMBOL = 'XRP';
 
-const TRANSACTION_EDIT = { type: TransactionTypes.SELL, amount: 1, price: 1 };
+/** Carried by every entry a test sends, unless the test is about currency or execution time. */
+const ENTRY_CONTEXT = {
+  currency: FIXTURE_BASE_CURRENCY,
+  executedAt: FIXTURE_EXECUTED_AT.toISOString()
+};
+
+const TRANSACTION_EDIT = {
+  ...ENTRY_CONTEXT,
+  type: TransactionTypes.SELL,
+  quantity: '1',
+  unitPrice: '1'
+};
+
+const COLUMN_INTEGER_DIGITS = DecimalColumn.PRECISION - DecimalColumn.SCALE;
+
+/** The largest value a quantity or monetary column holds. */
+const COLUMN_MAX = `${'9'.repeat(COLUMN_INTEGER_DIGITS)}.${'9'.repeat(DecimalColumn.SCALE)}`;
+
+/** The smallest positive value a quantity or monetary column holds. */
+const COLUMN_UNIT = `0.${'0'.repeat(DecimalColumn.SCALE - 1)}1`;
 
 const prismaClient = PrismaClient.getInstance();
 
@@ -77,21 +100,23 @@ describe('transactions', () => {
     return { holder, holderToken, intruder };
   };
 
-  const storedPosition = (assetId: string) =>
-    prismaClient.position.findUniqueOrThrow({
-      where: { id: assetId },
-      select: { quantity: true, averageCost: true, balance: true }
-    });
-
   const heldPosition = ({
     quantity,
     averageCost,
     balance
-  }: Record<'quantity' | 'averageCost' | 'balance', number>) => ({
-    quantity,
-    averageCost,
-    balance
+  }: Record<'quantity' | 'averageCost' | 'balance', Prisma.Decimal>) => ({
+    quantity: quantity.toFixed(),
+    averageCost: averageCost.toFixed(),
+    balance: balance.toFixed()
   });
+
+  const storedPosition = async (assetId: string) =>
+    heldPosition(
+      await prismaClient.position.findUniqueOrThrow({
+        where: { id: assetId },
+        select: { quantity: true, averageCost: true, balance: true }
+      })
+    );
 
   describe('ownership', () => {
     it("answers another user's transaction exactly like one that does not exist", async () => {
@@ -161,7 +186,12 @@ describe('transactions', () => {
 
     it('does not let another user record a transaction on an asset they do not hold', async () => {
       const { holder, intruder } = await seedHolderAndIntruder();
-      const entry = { type: TransactionTypes.BUY, amount: 1, price: 1 };
+      const entry = {
+        ...ENTRY_CONTEXT,
+        type: TransactionTypes.BUY,
+        quantity: '1',
+        unitPrice: '1'
+      };
 
       const foreign = await client
         .post(CREATE_TRANSACTION_ROUTE)
@@ -206,9 +236,9 @@ describe('transactions', () => {
       assert.equal(deleted.body.message, TransactionMessages.DELETED);
       assert.equal(await prismaClient.transaction.count(), 0);
       assert.deepEqual(await storedPosition(holder.asset.id), {
-        quantity: 0,
-        averageCost: 0,
-        balance: 0
+        quantity: '0',
+        averageCost: '0',
+        balance: '0'
       });
     });
 
@@ -261,15 +291,16 @@ describe('transactions', () => {
         portfolioId: intruder.portfolio.id,
         symbol: holder.asset.symbol
       });
-      await createTransaction(intruderAsset, { amount: 1, price: 1 });
+      await createTransaction(intruderAsset, { quantity: '1', unitPrice: '1' });
 
       const recorded = await client
         .post(CREATE_TRANSACTION_ROUTE)
         .set(bearer(intruder.accessToken))
         .send({
+          ...ENTRY_CONTEXT,
           type: TransactionTypes.BUY,
-          amount: 1,
-          price: 1,
+          quantity: '1',
+          unitPrice: '1',
           assetSymbol: holder.asset.symbol,
           portfolioId: intruder.portfolio.id
         });
@@ -293,9 +324,9 @@ describe('transactions', () => {
         heldPosition(holder.asset)
       );
       assert.deepEqual(await storedPosition(intruderAsset.id), {
-        quantity: 2,
-        averageCost: 1,
-        balance: 2
+        quantity: '2',
+        averageCost: '1',
+        balance: '2'
       });
     });
 
@@ -337,13 +368,13 @@ describe('transactions', () => {
       const secondPortfolio = await createPortfolio(holder.user.id);
       const asset = await createAsset({
         portfolioId: secondPortfolio.id,
-        quantity: 2,
-        averageCost: 1,
-        balance: 2
+        quantity: '2',
+        averageCost: '1',
+        balance: '2'
       });
       const transaction = await createTransaction(asset, {
-        amount: 2,
-        price: 1
+        quantity: '2',
+        unitPrice: '1'
       });
 
       const read = await client
@@ -352,7 +383,12 @@ describe('transactions', () => {
       const edited = await client
         .patch(transactionRoute(transaction.id))
         .set(bearer(holderToken))
-        .send({ type: TransactionTypes.BUY, amount: 3, price: 1 });
+        .send({
+          ...ENTRY_CONTEXT,
+          type: TransactionTypes.BUY,
+          quantity: '3',
+          unitPrice: '1'
+        });
       const deleted = await client
         .delete(transactionRoute(transaction.id))
         .set(bearer(holderToken));
@@ -362,9 +398,9 @@ describe('transactions', () => {
       assert.equal(edited.status, 200);
       assert.equal(deleted.status, 200);
       assert.deepEqual(await storedPosition(asset.id), {
-        quantity: 0,
-        averageCost: 0,
-        balance: 0
+        quantity: '0',
+        averageCost: '0',
+        balance: '0'
       });
       assert.deepEqual(
         await storedPosition(holder.asset.id),
@@ -376,13 +412,17 @@ describe('transactions', () => {
   describe('portfolio scope', () => {
     const scopedRequests = {
       'POST transaction': (accessToken: string, portfolioId?: string) =>
-        client.post(CREATE_TRANSACTION_ROUTE).set(bearer(accessToken)).send({
-          type: TransactionTypes.BUY,
-          amount: 1,
-          price: 1,
-          assetSymbol: FIXTURE_ASSET_SYMBOL,
-          portfolioId
-        }),
+        client
+          .post(CREATE_TRANSACTION_ROUTE)
+          .set(bearer(accessToken))
+          .send({
+            ...ENTRY_CONTEXT,
+            type: TransactionTypes.BUY,
+            quantity: '1',
+            unitPrice: '1',
+            assetSymbol: FIXTURE_ASSET_SYMBOL,
+            portfolioId
+          }),
       'GET transactions': (accessToken: string, portfolioId?: string) =>
         client
           .get(transactionsRoute(FIXTURE_ASSET_SYMBOL))
@@ -448,7 +488,12 @@ describe('transactions', () => {
 
     const REPLAY_SYMBOL = 'SOL';
 
-    type LedgerEntry = { type: string; amount: number; price: number };
+    /** A day before and a day after the execution time `ENTRY_CONTEXT` carries. */
+    const EXECUTED_BEFORE_CONTEXT = '2026-01-04T13:00:00.000Z';
+    const EXECUTED_AFTER_CONTEXT = '2026-01-06T13:00:00.000Z';
+
+    type LedgerEntry = Record<'type' | 'quantity' | 'unitPrice', string> &
+      Partial<Record<keyof typeof ENTRY_CONTEXT | 'fees' | 'taxes', string>>;
 
     const recorderOn =
       (
@@ -459,7 +504,12 @@ describe('transactions', () => {
         client
           .post(CREATE_TRANSACTION_ROUTE)
           .set(bearer(accessToken))
-          .send({ ...entry, assetSymbol: symbol, portfolioId });
+          .send({
+            ...ENTRY_CONTEXT,
+            ...entry,
+            assetSymbol: symbol,
+            portfolioId
+          });
 
     /** An owner whose asset starts empty, so every change to the position comes from the API. */
     const openEmptyPosition = async () => {
@@ -488,92 +538,129 @@ describe('transactions', () => {
       return storedPosition(asset.id);
     };
 
-    const storedEntry = (id: string) =>
-      prismaClient.transaction.findUniqueOrThrow({
-        where: { id },
-        select: { type: true, amount: true, price: true }
-      });
+    const storedEntry = async (id: string) => {
+      const { type, quantity, unitPrice } =
+        await prismaClient.transaction.findUniqueOrThrow({
+          where: { id },
+          select: { type: true, quantity: true, unitPrice: true }
+        });
+
+      return {
+        type,
+        quantity: quantity.toFixed(),
+        unitPrice: unitPrice.toFixed()
+      };
+    };
 
     it('adds a BUY to the position and removes a SELL from it', async () => {
       const { asset, record } = await openEmptyPosition();
 
-      const bought = await record({ type: 'BUY', amount: 10, price: 10 });
-      const sold = await record({ type: 'SELL', amount: 4, price: 20 });
+      const bought = await record({
+        type: 'BUY',
+        quantity: '10',
+        unitPrice: '10'
+      });
+      const sold = await record({
+        type: 'SELL',
+        quantity: '4',
+        unitPrice: '20'
+      });
 
       assert.equal(bought.status, 201);
       assert.equal(bought.body.message, TransactionMessages.CREATED);
       assert.equal(sold.status, 201);
       assert.deepEqual(await storedPosition(asset.id), {
-        quantity: 6,
-        averageCost: 10,
-        balance: 20
+        quantity: '6',
+        averageCost: '10',
+        balance: '20'
       });
     });
 
     it('rejects a SELL beyond the position and records nothing', async () => {
       const { asset, record } = await openEmptyPosition();
-      await record({ type: 'BUY', amount: 1, price: 10 });
+      await record({ type: 'BUY', quantity: '1', unitPrice: '10' });
 
-      const res = await record({ type: 'SELL', amount: 2, price: 10 });
+      const res = await record({
+        type: 'SELL',
+        quantity: '2',
+        unitPrice: '10'
+      });
 
       assert.equal(res.status, Errors.BAD_REQUEST.status);
       assert.equal(res.body.message, TransactionMessages.ACC_NEGATIVE_AMOUNT);
       assert.equal(await prismaClient.transaction.count(), 1);
       assert.deepEqual(await storedPosition(asset.id), {
-        quantity: 1,
-        averageCost: 10,
-        balance: 10
+        quantity: '1',
+        averageCost: '10',
+        balance: '10'
       });
     });
 
     it('replaces the impact of an edited transaction instead of adding to it', async () => {
       const { asset, accessToken, record } = await openEmptyPosition();
-      const bought = await record({ type: 'BUY', amount: 10, price: 10 });
-      const edit = { type: 'BUY', amount: 20, price: 15 };
+      const bought = await record({
+        type: 'BUY',
+        quantity: '10',
+        unitPrice: '10'
+      });
+      const edit = { type: 'BUY', quantity: '20', unitPrice: '15' };
 
       const res = await client
         .patch(transactionRoute(bought.body.transaction.id))
         .set(bearer(accessToken))
-        .send(edit);
+        .send({ ...ENTRY_CONTEXT, ...edit });
 
       assert.equal(res.status, 200);
       assert.equal(res.body.message, TransactionMessages.UPDATED);
       assert.deepEqual(await storedEntry(bought.body.transaction.id), edit);
       assert.deepEqual(await storedPosition(asset.id), {
-        quantity: 20,
-        averageCost: 15,
-        balance: 300
+        quantity: '20',
+        averageCost: '15',
+        balance: '300'
       });
     });
 
     it('rejects an edit that would take the position below zero and changes nothing', async () => {
       const { asset, accessToken, record } = await openEmptyPosition();
-      const bought = await record({ type: 'BUY', amount: 10, price: 10 });
-      await record({ type: 'SELL', amount: 5, price: 10 });
+      const bought = await record({
+        type: 'BUY',
+        quantity: '10',
+        unitPrice: '10'
+      });
+      await record({ type: 'SELL', quantity: '5', unitPrice: '10' });
 
       const res = await client
         .patch(transactionRoute(bought.body.transaction.id))
         .set(bearer(accessToken))
-        .send({ type: 'BUY', amount: 1, price: 10 });
+        .send({
+          ...ENTRY_CONTEXT,
+          type: 'BUY',
+          quantity: '1',
+          unitPrice: '10'
+        });
 
       assert.equal(res.status, Errors.BAD_REQUEST.status);
       assert.equal(res.body.message, TransactionMessages.ACC_NEGATIVE_AMOUNT);
       assert.deepEqual(await storedEntry(bought.body.transaction.id), {
         type: 'BUY',
-        amount: 10,
-        price: 10
+        quantity: '10',
+        unitPrice: '10'
       });
       assert.deepEqual(await storedPosition(asset.id), {
-        quantity: 5,
-        averageCost: 10,
-        balance: 50
+        quantity: '5',
+        averageCost: '10',
+        balance: '50'
       });
     });
 
     it('rejects deleting a BUY that a later SELL depends on and changes nothing', async () => {
       const { asset, accessToken, record } = await openEmptyPosition();
-      const bought = await record({ type: 'BUY', amount: 10, price: 10 });
-      await record({ type: 'SELL', amount: 5, price: 10 });
+      const bought = await record({
+        type: 'BUY',
+        quantity: '10',
+        unitPrice: '10'
+      });
+      await record({ type: 'SELL', quantity: '5', unitPrice: '10' });
 
       const res = await client
         .delete(transactionRoute(bought.body.transaction.id))
@@ -583,44 +670,53 @@ describe('transactions', () => {
       assert.equal(res.body.message, TransactionMessages.ACC_NEGATIVE_AMOUNT);
       assert.equal(await prismaClient.transaction.count(), 2);
       assert.deepEqual(await storedPosition(asset.id), {
-        quantity: 5,
-        averageCost: 10,
-        balance: 50
+        quantity: '5',
+        averageCost: '10',
+        balance: '50'
       });
     });
 
     it('rejects an edit that uncovers a later SELL even when the final quantity stays positive, and changes nothing', async () => {
       const { asset, accessToken, record } = await openEmptyPosition();
-      const bought = await record({ type: 'BUY', amount: 10, price: 10 });
-      await record({ type: 'SELL', amount: 8, price: 10 });
-      await record({ type: 'BUY', amount: 10, price: 10 });
+      const bought = await record({
+        type: 'BUY',
+        quantity: '10',
+        unitPrice: '10'
+      });
+      await record({ type: 'SELL', quantity: '8', unitPrice: '10' });
+      await record({ type: 'BUY', quantity: '10', unitPrice: '10' });
 
       const res = await client
         .patch(transactionRoute(bought.body.transaction.id))
         .set(bearer(accessToken))
-        .send({ type: 'BUY', amount: 5, price: 10 });
+        .send({
+          ...ENTRY_CONTEXT,
+          type: 'BUY',
+          quantity: '5',
+          unitPrice: '10'
+        });
 
       assert.equal(res.status, Errors.BAD_REQUEST.status);
       assert.equal(res.body.message, TransactionMessages.ACC_NEGATIVE_AMOUNT);
       assert.deepEqual(await storedEntry(bought.body.transaction.id), {
         type: 'BUY',
-        amount: 10,
-        price: 10
+        quantity: '10',
+        unitPrice: '10'
       });
       assert.deepEqual(await storedPosition(asset.id), {
-        quantity: 12,
-        averageCost: 10,
-        balance: 120
+        quantity: '12',
+        averageCost: '10',
+        balance: '120'
       });
     });
 
     it('lets through only the concurrent SELLs the position covers', async () => {
       const { asset, record } = await openEmptyPosition();
-      await record({ type: 'BUY', amount: 1, price: 10 });
+      await record({ type: 'BUY', quantity: '1', unitPrice: '10' });
 
       const responses = await Promise.all(
         Array.from({ length: CONCURRENT_SELLS }, () =>
-          record({ type: 'SELL', amount: 1, price: 10 })
+          record({ type: 'SELL', quantity: '1', unitPrice: '10' })
         )
       );
       const statuses = responses.map(({ status }) => status).toSorted();
@@ -634,16 +730,20 @@ describe('transactions', () => {
       ]);
       assert.equal(await prismaClient.transaction.count(), 2);
       assert.deepEqual(await storedPosition(asset.id), {
-        quantity: 0,
-        averageCost: 0,
-        balance: 0
+        quantity: '0',
+        averageCost: '0',
+        balance: '0'
       });
     });
 
     it('records a transaction as sent and answers with the stored entry', async () => {
       const { portfolio, asset, accessToken, record } =
         await openEmptyPosition();
-      const entry = { type: TransactionTypes.BUY, amount: 2, price: 5 };
+      const entry = {
+        type: TransactionTypes.BUY,
+        quantity: '2',
+        unitPrice: '5'
+      };
 
       const created = await record(entry);
       const read = await client
@@ -659,26 +759,39 @@ describe('transactions', () => {
 
     it('moves the position across when an edit turns a BUY into a SELL', async () => {
       const { asset, accessToken, record } = await openEmptyPosition();
-      await record({ type: 'BUY', amount: 10, price: 10 });
-      const bought = await record({ type: 'BUY', amount: 5, price: 10 });
+      await record({ type: 'BUY', quantity: '10', unitPrice: '10' });
+      const bought = await record({
+        type: 'BUY',
+        quantity: '5',
+        unitPrice: '10'
+      });
 
       const res = await client
         .patch(transactionRoute(bought.body.transaction.id))
         .set(bearer(accessToken))
-        .send({ type: 'SELL', amount: 5, price: 10 });
+        .send({
+          ...ENTRY_CONTEXT,
+          type: 'SELL',
+          quantity: '5',
+          unitPrice: '10'
+        });
 
       assert.equal(res.status, 200);
       assert.deepEqual(await storedPosition(asset.id), {
-        quantity: 5,
-        averageCost: 10,
-        balance: 50
+        quantity: '5',
+        averageCost: '10',
+        balance: '50'
       });
     });
 
     it('restores the position when a SELL is deleted', async () => {
       const { asset, accessToken, record } = await openEmptyPosition();
-      await record({ type: 'BUY', amount: 10, price: 10 });
-      const sold = await record({ type: 'SELL', amount: 4, price: 20 });
+      await record({ type: 'BUY', quantity: '10', unitPrice: '10' });
+      const sold = await record({
+        type: 'SELL',
+        quantity: '4',
+        unitPrice: '20'
+      });
 
       const res = await client
         .delete(transactionRoute(sold.body.transaction.id))
@@ -686,49 +799,62 @@ describe('transactions', () => {
 
       assert.equal(res.status, 200);
       assert.deepEqual(await storedPosition(asset.id), {
-        quantity: 10,
-        averageCost: 10,
-        balance: 100
+        quantity: '10',
+        averageCost: '10',
+        balance: '100'
       });
     });
 
     it('weights the average cost by each BUY and keeps it through a SELL', async () => {
       const { asset, record } = await openEmptyPosition();
-      await record({ type: 'BUY', amount: 10, price: 10 });
-      await record({ type: 'BUY', amount: 10, price: 20 });
-      await record({ type: 'SELL', amount: 5, price: 30 });
+      await record({ type: 'BUY', quantity: '10', unitPrice: '10' });
+      await record({ type: 'BUY', quantity: '10', unitPrice: '20' });
+      await record({ type: 'SELL', quantity: '5', unitPrice: '30' });
 
       assert.deepEqual(await storedPosition(asset.id), {
-        quantity: 15,
-        averageCost: 15,
-        balance: 150
+        quantity: '15',
+        averageCost: '15',
+        balance: '150'
       });
     });
 
     it('reprices the entries after an edited BUY', async () => {
       const { asset, accessToken, record } = await openEmptyPosition();
-      const bought = await record({ type: 'BUY', amount: 10, price: 10 });
-      await record({ type: 'SELL', amount: 5, price: 10 });
-      await record({ type: 'BUY', amount: 5, price: 20 });
+      const bought = await record({
+        type: 'BUY',
+        quantity: '10',
+        unitPrice: '10'
+      });
+      await record({ type: 'SELL', quantity: '5', unitPrice: '10' });
+      await record({ type: 'BUY', quantity: '5', unitPrice: '20' });
 
       const res = await client
         .patch(transactionRoute(bought.body.transaction.id))
         .set(bearer(accessToken))
-        .send({ type: 'BUY', amount: 10, price: 20 });
+        .send({
+          ...ENTRY_CONTEXT,
+          type: 'BUY',
+          quantity: '10',
+          unitPrice: '20'
+        });
 
       assert.equal(res.status, 200);
       assert.deepEqual(await storedPosition(asset.id), {
-        quantity: 10,
-        averageCost: 20,
-        balance: 250
+        quantity: '10',
+        averageCost: '20',
+        balance: '250'
       });
     });
 
     it('reprices the entries after a deleted SELL', async () => {
       const { asset, accessToken, record } = await openEmptyPosition();
-      await record({ type: 'BUY', amount: 10, price: 10 });
-      const sold = await record({ type: 'SELL', amount: 5, price: 10 });
-      await record({ type: 'BUY', amount: 10, price: 25 });
+      await record({ type: 'BUY', quantity: '10', unitPrice: '10' });
+      const sold = await record({
+        type: 'SELL',
+        quantity: '5',
+        unitPrice: '10'
+      });
+      await record({ type: 'BUY', quantity: '10', unitPrice: '25' });
 
       const res = await client
         .delete(transactionRoute(sold.body.transaction.id))
@@ -736,9 +862,9 @@ describe('transactions', () => {
 
       assert.equal(res.status, 200);
       assert.deepEqual(await storedPosition(asset.id), {
-        quantity: 20,
-        averageCost: 17.5,
-        balance: 350
+        quantity: '20',
+        averageCost: '17.5',
+        balance: '350'
       });
     });
 
@@ -749,50 +875,238 @@ describe('transactions', () => {
       },
       async () => {
         const { asset, record } = await openEmptyPosition();
-        await record({ type: 'BUY', amount: 10, price: 10 });
-        await record({ type: 'SELL', amount: 5, price: 30 });
+        await record({ type: 'BUY', quantity: '10', unitPrice: '10' });
+        await record({ type: 'SELL', quantity: '5', unitPrice: '30' });
 
         assert.deepEqual(await storedPosition(asset.id), {
-          quantity: 5,
-          averageCost: 10,
-          balance: 50
+          quantity: '5',
+          averageCost: '10',
+          balance: '50'
         });
       }
     );
 
-    it(
-      'sells a fractional position down to exactly zero',
-      {
-        todo: '`amount` and `price` are `Float` (FASE 4): 0.3 - 0.1 - 0.2 leaves a residue below zero and the last SELL is rejected'
-      },
-      async () => {
-        const { asset, record } = await openEmptyPosition();
-        await record({ type: 'BUY', amount: 0.3, price: 1 });
-        await record({ type: 'SELL', amount: 0.1, price: 1 });
+    it('sells a fractional position down to exactly zero', async () => {
+      const { asset, record } = await openEmptyPosition();
+      await record({ type: 'BUY', quantity: '0.3', unitPrice: '1' });
+      await record({ type: 'SELL', quantity: '0.1', unitPrice: '1' });
 
-        const res = await record({ type: 'SELL', amount: 0.2, price: 1 });
+      const res = await record({
+        type: 'SELL',
+        quantity: '0.2',
+        unitPrice: '1'
+      });
 
-        assert.equal(res.status, 201);
-        assert.deepEqual(await storedPosition(asset.id), {
-          quantity: 0,
-          averageCost: 0,
-          balance: 0
+      assert.equal(res.status, 201);
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: '0',
+        averageCost: '0',
+        balance: '0'
+      });
+    });
+
+    it('adds fees and taxes to the cost of a BUY and truncates the average cost to the column scale', async () => {
+      const { asset, record } = await openEmptyPosition();
+
+      await record({
+        type: 'BUY',
+        quantity: '3',
+        unitPrice: '1',
+        fees: '0.5',
+        taxes: '0.5'
+      });
+
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: '3',
+        averageCost: '1.333333333333333333',
+        balance: '3'
+      });
+    });
+
+    it('answers small values in plain decimal notation, without an exponent', async () => {
+      const { portfolio, asset, accessToken, record } =
+        await openEmptyPosition();
+
+      const created = await record({
+        type: 'BUY',
+        quantity: '0.00000001',
+        unitPrice: COLUMN_UNIT
+      });
+      const read = await client
+        .get(`/v1/asset/${asset.symbol}`)
+        .query({ portfolioId: portfolio.id })
+        .set(bearer(accessToken));
+      const { quantity, averageCost, balance } = read.body;
+
+      assert.equal(created.status, 201);
+      assert.equal(created.body.transaction.quantity, '0.00000001');
+      assert.equal(created.body.transaction.unitPrice, COLUMN_UNIT);
+      assert.deepEqual(
+        { quantity, averageCost, balance },
+        { quantity: '0.00000001', averageCost: COLUMN_UNIT, balance: '0' }
+      );
+    });
+
+    it('rejects an entry in a currency other than its ledger holds and records nothing', async () => {
+      const { asset, record } = await openEmptyPosition();
+      await record({ type: 'BUY', quantity: '1', unitPrice: '10' });
+
+      const res = await record({
+        type: 'BUY',
+        quantity: '1',
+        unitPrice: '10',
+        currency: 'USD'
+      });
+
+      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.body.message, TransactionMessages.CURRENCY_MISMATCH);
+      assert.equal(await prismaClient.transaction.count(), 1);
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: '1',
+        averageCost: '10',
+        balance: '10'
+      });
+    });
+
+    it('places a backdated entry by its execution time, not its recording time', async () => {
+      const { asset, record } = await openEmptyPosition();
+      await record({ type: 'BUY', quantity: '10', unitPrice: '10' });
+      await record({
+        type: 'SELL',
+        quantity: '10',
+        unitPrice: '10',
+        executedAt: EXECUTED_AFTER_CONTEXT
+      });
+
+      const res = await record({
+        type: 'BUY',
+        quantity: '5',
+        unitPrice: '20',
+        executedAt: EXECUTED_BEFORE_CONTEXT
+      });
+
+      assert.equal(res.status, 201);
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: '5',
+        averageCost: '13.333333333333333333',
+        balance: '100'
+      });
+    });
+
+    it('rejects a SELL executed before the BUY that would cover it and records nothing', async () => {
+      const { asset, record } = await openEmptyPosition();
+      await record({ type: 'BUY', quantity: '1', unitPrice: '10' });
+
+      const res = await record({
+        type: 'SELL',
+        quantity: '1',
+        unitPrice: '10',
+        executedAt: EXECUTED_BEFORE_CONTEXT
+      });
+
+      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.body.message, TransactionMessages.ACC_NEGATIVE_AMOUNT);
+      assert.equal(await prismaClient.transaction.count(), 1);
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: '1',
+        averageCost: '10',
+        balance: '10'
+      });
+    });
+
+    it('rejects an edit that moves a SELL before the BUY that covers it and changes nothing', async () => {
+      const { asset, accessToken, record } = await openEmptyPosition();
+      await record({ type: 'BUY', quantity: '1', unitPrice: '10' });
+      const sold = await record({
+        type: 'SELL',
+        quantity: '1',
+        unitPrice: '10',
+        executedAt: EXECUTED_AFTER_CONTEXT
+      });
+
+      const res = await client
+        .patch(transactionRoute(sold.body.transaction.id))
+        .set(bearer(accessToken))
+        .send({
+          ...ENTRY_CONTEXT,
+          type: 'SELL',
+          quantity: '1',
+          unitPrice: '10',
+          executedAt: EXECUTED_BEFORE_CONTEXT
         });
-      }
-    );
+
+      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.body.message, TransactionMessages.ACC_NEGATIVE_AMOUNT);
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: '0',
+        averageCost: '0',
+        balance: '0'
+      });
+    });
+
+    it('accepts a position at the limit of its columns and rejects an entry that takes it past them', async () => {
+      const { asset, record } = await openEmptyPosition();
+
+      const atLimit = await record({
+        type: 'BUY',
+        quantity: COLUMN_MAX,
+        unitPrice: '1'
+      });
+      const pastLimit = await record({
+        type: 'BUY',
+        quantity: COLUMN_UNIT,
+        unitPrice: '1'
+      });
+
+      assert.equal(atLimit.status, 201);
+      assert.equal(pastLimit.status, Errors.BAD_REQUEST.status);
+      assert.equal(
+        pastLimit.body.message,
+        TransactionMessages.POSITION_OUT_OF_RANGE
+      );
+      assert.equal(await prismaClient.transaction.count(), 1);
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: COLUMN_MAX,
+        averageCost: '1',
+        balance: COLUMN_MAX
+      });
+    });
+
+    it('rejects an entry whose value exceeds the balance column even when quantity and cost fit', async () => {
+      const { asset, record } = await openEmptyPosition();
+
+      const res = await record({
+        type: 'BUY',
+        quantity: '10',
+        unitPrice: COLUMN_MAX
+      });
+
+      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.body.message, TransactionMessages.POSITION_OUT_OF_RANGE);
+      assert.equal(await prismaClient.transaction.count(), 0);
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: '0',
+        averageCost: '0',
+        balance: '0'
+      });
+    });
 
     it('leaves an edited position equal to replaying the edited sequence', async () => {
       const { portfolio, asset, accessToken, record } =
         await openEmptyPosition();
-      const first = await record({ type: 'BUY', amount: 0.1, price: 1 });
-      const second = { type: 'BUY', amount: 0.3, price: 1 };
+      const first = await record({
+        type: 'BUY',
+        quantity: '0.1',
+        unitPrice: '1'
+      });
+      const second = { type: 'BUY', quantity: '0.3', unitPrice: '1' };
       await record(second);
-      const edit = { type: 'BUY', amount: 0.3, price: 1 };
+      const edit = { type: 'BUY', quantity: '0.3', unitPrice: '1' };
 
       const res = await client
         .patch(transactionRoute(first.body.transaction.id))
         .set(bearer(accessToken))
-        .send(edit);
+        .send({ ...ENTRY_CONTEXT, ...edit });
 
       assert.equal(res.status, 200);
       assert.deepEqual(
@@ -804,8 +1118,12 @@ describe('transactions', () => {
     it('leaves a position after a deletion equal to replaying the remaining transactions', async () => {
       const { portfolio, asset, accessToken, record } =
         await openEmptyPosition();
-      const first = await record({ type: 'BUY', amount: 0.1, price: 1 });
-      const remaining = { type: 'BUY', amount: 0.2, price: 1 };
+      const first = await record({
+        type: 'BUY',
+        quantity: '0.1',
+        unitPrice: '1'
+      });
+      const remaining = { type: 'BUY', quantity: '0.2', unitPrice: '1' };
       await record(remaining);
 
       const res = await client
@@ -830,9 +1148,10 @@ describe('transactions', () => {
         .post(CREATE_TRANSACTION_ROUTE)
         .set(bearer(accessToken))
         .send({
+          ...ENTRY_CONTEXT,
           type: ' buy ',
-          amount: 1,
-          price: 1,
+          quantity: '1',
+          unitPrice: '1',
           assetSymbol: asset.symbol,
           portfolioId: portfolio.id
         });
@@ -841,19 +1160,26 @@ describe('transactions', () => {
       assert.equal(res.body.transaction.type, TransactionTypes.BUY);
     });
 
-    it('rejects a blank or unknown transaction type and records nothing', async () => {
+    it('rejects a blank, unknown or not yet recordable transaction type and records nothing', async () => {
       const { portfolio, accessToken } =
         await signInWithPortfolio(FIXTURE_USER_EMAIL);
       const asset = await createAsset({ portfolioId: portfolio.id });
 
-      for (const type of ['', '   ', 'HOLD', 'BUYS']) {
+      for (const type of [
+        '',
+        '   ',
+        'HOLD',
+        'BUYS',
+        TransactionTypes.DIVIDEND
+      ]) {
         const res = await client
           .post(CREATE_TRANSACTION_ROUTE)
           .set(bearer(accessToken))
           .send({
+            ...ENTRY_CONTEXT,
             type,
-            amount: 1,
-            price: 1,
+            quantity: '1',
+            unitPrice: '1',
             assetSymbol: asset.symbol,
             portfolioId: portfolio.id
           });
@@ -884,14 +1210,23 @@ describe('transactions', () => {
         assert.equal(res.status, Errors.BAD_REQUEST.status, method);
     });
 
-    it('rejects a non-positive or non-numeric amount or price and changes nothing', async () => {
-      const { holder, holderToken } = await seedHolderAndIntruder();
-      const valid = { type: TransactionTypes.BUY, amount: 1, price: 1 };
-      const invalidEntries = [0, -1, '1'].flatMap((value) => [
-        { ...valid, amount: value },
-        { ...valid, price: value }
-      ]);
+    /** Mirror `TransactionEntrySchema`. */
+    const BROKER_MAX_LENGTH = 60;
+    const NOTES_MAX_LENGTH = 500;
 
+    /** The instant `ENTRY_CONTEXT` carries, written with a UTC−3 offset. */
+    const EXECUTED_AT_WITH_OFFSET = '2026-01-05T10:00:00-03:00';
+
+    /** A BUY the holder's ledger accepts both as a new transaction and as an edit of the seeded one. */
+    const ACCEPTED_ENTRY = { ...TRANSACTION_EDIT, type: TransactionTypes.BUY };
+
+    const assertEntriesRejected = async (
+      {
+        holder,
+        holderToken
+      }: Awaited<ReturnType<typeof seedHolderAndIntruder>>,
+      invalidEntries: ReadonlyArray<Record<string, unknown>>
+    ) => {
       for (const entry of invalidEntries) {
         const label = JSON.stringify(entry);
         const created = await client
@@ -926,37 +1261,110 @@ describe('transactions', () => {
         await storedPosition(holder.asset.id),
         heldPosition(holder.asset)
       );
+    };
+
+    it('rejects a quantity, unit price, fee or tax that is not a decimal string its column holds, and changes nothing', async () => {
+      const malformed = [
+        1,
+        '-1',
+        '1e3',
+        '01',
+        '1.',
+        ' 1',
+        '',
+        `1${'0'.repeat(COLUMN_INTEGER_DIGITS)}`,
+        `${COLUMN_UNIT}1`
+      ];
+
+      await assertEntriesRejected(await seedHolderAndIntruder(), [
+        ...[...malformed, '0', '0.0'].flatMap((value) => [
+          { ...ACCEPTED_ENTRY, quantity: value },
+          { ...ACCEPTED_ENTRY, unitPrice: value }
+        ]),
+        ...[...malformed, null].flatMap((value) => [
+          { ...ACCEPTED_ENTRY, fees: value },
+          { ...ACCEPTED_ENTRY, taxes: value }
+        ])
+      ]);
     });
 
-    it(
-      'rejects an entry whose cost overflows a finite number and records nothing',
-      {
-        todo: '`amount` and `price` have no upper bound: 1e200 × 1e200 overflows to Infinity in the position balance'
-      },
-      async () => {
-        const { portfolio, accessToken } =
-          await signInWithPortfolio(FIXTURE_USER_EMAIL);
-        const asset = await createAsset({ portfolioId: portfolio.id });
+    it('rejects a missing or malformed currency or execution time, and changes nothing', async () => {
+      await assertEntriesRejected(await seedHolderAndIntruder(), [
+        ...[undefined, '', 'BR', 'REAL', 1].map((currency) => ({
+          ...ACCEPTED_ENTRY,
+          currency
+        })),
+        ...[undefined, '2026-01-05', '2026-01-05T13:00:00', 'yesterday', 0].map(
+          (executedAt) => ({ ...ACCEPTED_ENTRY, executedAt })
+        )
+      ]);
+    });
 
-        const res = await client
-          .post(CREATE_TRANSACTION_ROUTE)
-          .set(bearer(accessToken))
-          .send({
-            type: TransactionTypes.BUY,
-            amount: 1e200,
-            price: 1e200,
-            assetSymbol: asset.symbol,
-            portfolioId: portfolio.id
-          });
+    it('rejects a broker or notes past their maximum length, and changes nothing', async () => {
+      await assertEntriesRejected(await seedHolderAndIntruder(), [
+        { ...ACCEPTED_ENTRY, broker: 'b'.repeat(BROKER_MAX_LENGTH + 1) },
+        { ...ACCEPTED_ENTRY, notes: 'n'.repeat(NOTES_MAX_LENGTH + 1) }
+      ]);
+    });
 
-        assert.equal(res.status, Errors.BAD_REQUEST.status);
-        assert.equal(await prismaClient.transaction.count(), 0);
-        assert.deepEqual(await storedPosition(asset.id), {
-          quantity: 0,
-          averageCost: 0,
-          balance: 0
+    it('records every field of an entry as sent, and an edit replaces all of them', async () => {
+      const { holder, holderToken } = await seedHolderAndIntruder();
+      const detailed = {
+        ...ACCEPTED_ENTRY,
+        fees: '1.5',
+        taxes: '0.25',
+        broker: 'b'.repeat(BROKER_MAX_LENGTH),
+        notes: 'n'.repeat(NOTES_MAX_LENGTH)
+      };
+      const entryOf = ({
+        type,
+        quantity,
+        unitPrice,
+        fees,
+        taxes,
+        currency,
+        executedAt,
+        broker,
+        notes
+      }: Record<string, unknown>) => ({
+        type,
+        quantity,
+        unitPrice,
+        fees,
+        taxes,
+        currency,
+        executedAt,
+        broker,
+        notes
+      });
+
+      const created = await client
+        .post(CREATE_TRANSACTION_ROUTE)
+        .set(bearer(holderToken))
+        .send({
+          ...detailed,
+          executedAt: EXECUTED_AT_WITH_OFFSET,
+          assetSymbol: holder.asset.symbol,
+          portfolioId: holder.portfolio.id
         });
-      }
-    );
+      const edited = await client
+        .patch(transactionRoute(created.body.transaction.id))
+        .set(bearer(holderToken))
+        .send(ACCEPTED_ENTRY);
+      const read = await client
+        .get(transactionRoute(created.body.transaction.id))
+        .set(bearer(holderToken));
+
+      assert.equal(created.status, 201);
+      assert.deepEqual(entryOf(created.body.transaction), detailed);
+      assert.equal(edited.status, 200);
+      assert.deepEqual(entryOf(read.body), {
+        ...ACCEPTED_ENTRY,
+        fees: '0',
+        taxes: '0',
+        broker: null,
+        notes: null
+      });
+    });
   });
 });

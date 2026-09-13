@@ -1,5 +1,7 @@
+import type { DecimalString } from '@/types';
+
 export const formatNumber = (
-  value: number,
+  value: number | DecimalString,
   options?: Intl.NumberFormatOptions
 ) => new Intl.NumberFormat('en-US', options).format(value);
 

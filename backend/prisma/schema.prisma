@@ -73,9 +73,9 @@ model Instrument {
 
 model Position {
   id           String     @id @default(uuid())
-  quantity     Float      @default(0)
-  averageCost  Float      @default(0)
-  balance      Float      @default(0)
+  quantity     Decimal    @default(0) @db.Decimal(38, 18)
+  averageCost  Decimal    @default(0) @db.Decimal(38, 18)
+  balance      Decimal    @default(0) @db.Decimal(38, 18)
   instrument   Instrument @relation(fields: [instrumentId], references: [id])
   instrumentId String
   portfolio    Portfolio  @relation(fields: [portfolioId], references: [id])
@@ -86,16 +86,36 @@ model Position {
   @@map("positions")
 }
 
+enum TransactionType {
+  BUY
+  SELL
+  DIVIDEND
+  INTEREST
+  DEPOSIT
+  WITHDRAWAL
+  SPLIT
+  BONUS
+  TRANSFER_IN
+  TRANSFER_OUT
+  ADJUSTMENT
+}
+
 model Transaction {
-  id           String     @id @default(uuid())
-  type         String
-  amount       Float
-  price        Float
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  portfolio    Portfolio  @relation(fields: [portfolioId], references: [id])
+  id           String          @id @default(uuid())
+  type         TransactionType
+  quantity     Decimal         @db.Decimal(38, 18)
+  unitPrice    Decimal         @db.Decimal(38, 18)
+  fees         Decimal         @default(0) @db.Decimal(38, 18)
+  taxes        Decimal         @default(0) @db.Decimal(38, 18)
+  currency     String
+  executedAt   DateTime
+  broker       String?
+  notes        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  portfolio    Portfolio       @relation(fields: [portfolioId], references: [id])
   portfolioId  String
-  instrument   Instrument @relation(fields: [instrumentId], references: [id])
+  instrument   Instrument      @relation(fields: [instrumentId], references: [id])
   instrumentId String
 
   @@index([portfolioId, instrumentId])

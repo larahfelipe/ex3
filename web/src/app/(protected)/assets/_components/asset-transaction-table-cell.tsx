@@ -8,15 +8,12 @@ import type {
   Transaction
 } from '@/app/api/v1/transactions';
 import { TRANSACTION_TYPES } from '@/common/constants';
-import { formatNumber } from '@/common/utils';
 import { Skeleton, TableCell } from '@/components/ui';
-import { useUser } from '@/hooks/use-user';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
 
 type AssetTransactionTableCell = {
   symbol: string;
   portfolioId: string;
-  itemRef: 'total_qty' | 'avg_price';
 };
 
 const getTotalTransactionsTuple = (transactions: Array<Transaction>) => {
@@ -32,27 +29,10 @@ const getTotalTransactionsTuple = (transactions: Array<Transaction>) => {
   );
 };
 
-const getAssetPriceAverage = (transactions: Array<Transaction>) => {
-  if (!transactions?.length) return 0;
-
-  const total = transactions.reduce(
-    (acc, curr) => ({
-      cost: acc.cost + curr.price * curr.amount,
-      amount: (acc.amount += curr.amount)
-    }),
-    { cost: 0, amount: 0 }
-  );
-
-  return total.cost / total.amount;
-};
-
 export const AssetTransactionTableCell: FC<AssetTransactionTableCell> = ({
   symbol,
-  portfolioId,
-  itemRef
+  portfolioId
 }): JSX.Element => {
-  const { currency } = useUser();
-
   const { data: transactions = [], isLoading } = useQuery<
     AxiosResponse<GetTransactionsResponseData>,
     ApiProxyErrorData,
@@ -74,29 +54,15 @@ export const AssetTransactionTableCell: FC<AssetTransactionTableCell> = ({
       </TableCell>
     );
 
-  switch (itemRef) {
-    case 'total_qty': {
-      const [buyQty, sellQty] = getTotalTransactionsTuple(transactions);
-      return (
-        <TableCell>
-          <div className="flex gap-2">
-            <span className="text-green-600">{buyQty} Buy</span>
+  const [buyQty, sellQty] = getTotalTransactionsTuple(transactions);
 
-            <span className="text-red-600">{sellQty} Sell</span>
-          </div>
-        </TableCell>
-      );
-    }
-    case 'avg_price':
-      return (
-        <TableCell>
-          {formatNumber(getAssetPriceAverage(transactions), {
-            style: 'currency',
-            currency
-          })}
-        </TableCell>
-      );
-    default:
-      return <TableCell>Outside range</TableCell>;
-  }
+  return (
+    <TableCell>
+      <div className="flex gap-2">
+        <span className="text-green-600">{buyQty} Buy</span>
+
+        <span className="text-red-600">{sellQty} Sell</span>
+      </div>
+    </TableCell>
+  );
 };

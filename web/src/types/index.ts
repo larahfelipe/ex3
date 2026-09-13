@@ -10,6 +10,8 @@ export type Children = Readonly<Record<'children', ReactNode>>;
 
 export type Maybe<T> = T | null | undefined;
 
+export type DecimalString = `${number}`;
+
 export type Pagination = Record<
   'page' | 'limit' | 'total' | 'totalPages',
   number

@@ -19,9 +19,12 @@ export const FIXTURE_USER_EMAIL = 'holder@ex3.app';
 export const FIXTURE_ASSET_SYMBOL = 'BTC';
 export const FIXTURE_BASE_CURRENCY = 'BRL';
 
+/** Shared by every fixture transaction, so ledger order among them falls to creation time. */
+export const FIXTURE_EXECUTED_AT = new Date('2026-01-05T13:00:00.000Z');
+
 const FIXTURE_PORTFOLIO_NAME = 'Fixture Portfolio';
-const FIXTURE_TRANSACTION_AMOUNT = 2;
-const FIXTURE_TRANSACTION_PRICE = 50_000;
+const FIXTURE_TRANSACTION_QUANTITY = 2;
+const FIXTURE_TRANSACTION_UNIT_PRICE = 50_000;
 
 const prismaClient = PrismaClient.getInstance();
 const bcrypt = Bcrypt.getInstance(envs.bcryptSalt);
@@ -110,15 +113,22 @@ export const createAsset = async ({
 
 export const createTransaction = async (
   { portfolioId, instrumentId }: Pick<Position, 'portfolioId' | 'instrumentId'>,
-  overrides: Partial<Pick<Transaction, 'type' | 'amount' | 'price'>> = {}
+  overrides: Partial<
+    Pick<
+      Transaction,
+      'type' | 'quantity' | 'unitPrice' | 'currency' | 'executedAt'
+    >
+  > = {}
 ) =>
   prismaClient.transaction.create({
     data: {
       portfolioId,
       instrumentId,
       type: TransactionTypes.BUY,
-      amount: FIXTURE_TRANSACTION_AMOUNT,
-      price: FIXTURE_TRANSACTION_PRICE,
+      quantity: String(FIXTURE_TRANSACTION_QUANTITY),
+      unitPrice: String(FIXTURE_TRANSACTION_UNIT_PRICE),
+      currency: FIXTURE_BASE_CURRENCY,
+      executedAt: FIXTURE_EXECUTED_AT,
       ...overrides
     }
   });
@@ -139,9 +149,11 @@ export const seedPortfolio = async (
 
   const asset = await createAsset({
     portfolioId: portfolio.id,
-    quantity: FIXTURE_TRANSACTION_AMOUNT,
-    averageCost: FIXTURE_TRANSACTION_PRICE,
-    balance: FIXTURE_TRANSACTION_AMOUNT * FIXTURE_TRANSACTION_PRICE,
+    quantity: String(FIXTURE_TRANSACTION_QUANTITY),
+    averageCost: String(FIXTURE_TRANSACTION_UNIT_PRICE),
+    balance: String(
+      FIXTURE_TRANSACTION_QUANTITY * FIXTURE_TRANSACTION_UNIT_PRICE
+    ),
     ...(symbol && { symbol })
   });
 

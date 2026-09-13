@@ -92,7 +92,9 @@ export default function Assets() {
     resolver: zodResolver(AddAssetTransactionSchema),
     defaultValues: {
       type: TRANSACTION_TYPES[0],
-      price: 0
+      quantity: '',
+      unitPrice: '',
+      executedAt: ''
     }
   });
 
@@ -120,10 +122,10 @@ export default function Assets() {
     staleTime: 60_000
   });
 
-  const requirePortfolioId = () => {
+  const requirePortfolio = () => {
     if (!portfolio) throw new Error('Missing portfolio');
 
-    return portfolio.id;
+    return portfolio;
   };
 
   const { data, isLoading, isRefetching, refetch } = useQuery<
@@ -135,7 +137,7 @@ export default function Assets() {
     queryFn: () =>
       api.getInstance().get('/v1/assets', {
         params: {
-          portfolioId: requirePortfolioId(),
+          portfolioId: requirePortfolio().id,
           sort: 'desc',
           page: pagination.page,
           limit: pagination.limit
@@ -154,7 +156,7 @@ export default function Assets() {
     mutationFn: (payload) =>
       api.getInstance().post('/v1/assets/create', {
         ...payload,
-        portfolioId: requirePortfolioId()
+        portfolioId: requirePortfolio().id
       } satisfies CreateAssetRequestPayload),
     onSuccess: async ({ data }) => {
       toast.success(data.message);
@@ -166,13 +168,17 @@ export default function Assets() {
   const { mutateAsync: createAssetTransactionMutation } = useMutation<
     AxiosResponse<CreateTransactionResponseData>,
     ApiProxyErrorData,
-    Omit<CreateTransactionRequestPayload, 'portfolioId'>
+    Omit<CreateTransactionRequestPayload, 'portfolioId' | 'currency'>
   >({
-    mutationFn: (payload) =>
-      api.getInstance().post('/v1/transactions/create', {
+    mutationFn: (payload) => {
+      const { id, baseCurrency } = requirePortfolio();
+
+      return api.getInstance().post('/v1/transactions/create', {
         ...payload,
-        portfolioId: requirePortfolioId()
-      } satisfies CreateTransactionRequestPayload),
+        portfolioId: id,
+        currency: baseCurrency
+      } satisfies CreateTransactionRequestPayload);
+    },
     onSuccess: async ({ data }) => {
       toast.success(data.message);
       if (searchParams.size) replaceUrl(window.location.pathname);
@@ -188,7 +194,7 @@ export default function Assets() {
   >({
     mutationFn: ({ symbol }) =>
       api.getInstance().delete(`/v1/assets/${symbol}`, {
-        params: { portfolioId: requirePortfolioId() }
+        params: { portfolioId: requirePortfolio().id }
       }),
     onSuccess: async ({ data }) => {
       toast.success(data.message);
@@ -275,6 +281,7 @@ export default function Assets() {
         <AddAssetTransactionDialog
           open={opened && dialogAction === ASSET_DIALOG_ACTIONS.AddTransaction}
           data={selectedAsset as Asset}
+          currency={portfolio?.baseCurrency}
           onCancel={handleToggleDialog}
           onConfirm={createAssetTransactionMutation}
         />

@@ -34,7 +34,7 @@ describe('test harness', () => {
     assert.equal(asset.portfolioId, portfolio.id);
     assert.equal(transaction.portfolioId, portfolio.id);
     assert.equal(transaction.instrumentId, asset.instrumentId);
-    assert.equal(asset.quantity, transaction.amount);
+    assert.equal(asset.quantity.toFixed(), transaction.quantity.toFixed());
   });
 
   it('empties every data table on reset', async () => {

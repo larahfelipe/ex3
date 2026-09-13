@@ -3,12 +3,14 @@ import {
   PortfolioMessages,
   TransactionMessages
 } from '@/config';
-import type { Transaction } from '@/domain/models';
-import { BadRequestError, NotFoundError } from '@/errors';
+import type { Transaction, TransactionEntry } from '@/domain/models';
+import { NotFoundError } from '@/errors';
 import type {
   PortfolioRepository,
   TransactionRepository
 } from '@/infra/database';
+
+import { ledgerRefusalError } from './LedgerRefusalError';
 
 export class CreateTransactionService {
   private static INSTANCE: CreateTransactionService;
@@ -37,12 +39,10 @@ export class CreateTransactionService {
   }
 
   async execute({
-    type,
-    price,
-    amount,
     assetSymbol,
     portfolioId,
-    userId
+    userId,
+    ...entry
   }: CreateTransactionService.DTO): Promise<CreateTransactionService.Result> {
     const portfolioExists = await this.portfolioRepository.getById({
       id: portfolioId,
@@ -52,9 +52,7 @@ export class CreateTransactionService {
     if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
     const ledgerWrite = await this.transactionRepository.add({
-      type,
-      amount,
-      price,
+      ...entry,
       assetSymbol,
       portfolioId: portfolioExists.id
     });
@@ -62,8 +60,8 @@ export class CreateTransactionService {
     if (ledgerWrite.outcome === 'not-found')
       throw new NotFoundError(AssetMessages.NOT_FOUND);
 
-    if (ledgerWrite.outcome === 'negative-amount')
-      throw new BadRequestError(TransactionMessages.ACC_NEGATIVE_AMOUNT);
+    if (ledgerWrite.outcome !== 'recorded')
+      throw ledgerRefusalError(ledgerWrite);
 
     return {
       transaction: ledgerWrite.transaction,
@@ -73,10 +71,8 @@ export class CreateTransactionService {
 }
 
 namespace CreateTransactionService {
-  export type DTO = Pick<
-    Transaction,
-    'type' | 'amount' | 'price' | 'portfolioId'
-  > &
+  export type DTO = TransactionEntry &
+    Pick<Transaction, 'portfolioId'> &
     Record<'assetSymbol' | 'userId', string>;
   export type Result = {
     transaction: Transaction;

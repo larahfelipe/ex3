@@ -1,12 +1,18 @@
-import type { Maybe, Pagination, WithId, WithMessage } from '@/types';
+import type {
+  DecimalString,
+  Maybe,
+  Pagination,
+  WithId,
+  WithMessage
+} from '@/types';
 
 export type WithDominance = Record<'dominance', Maybe<string>>;
 
 export type AssetProperties = {
   symbol: string;
-  quantity: number;
-  averageCost: number;
-  balance: number;
+  quantity: DecimalString;
+  averageCost: DecimalString;
+  balance: DecimalString;
   portfolioId: string;
 };
 

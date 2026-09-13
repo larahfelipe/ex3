@@ -1,4 +1,11 @@
-import type { Pagination, WithId, WithMessage, WithTimestamps } from '@/types';
+import type {
+  DecimalString,
+  Maybe,
+  Pagination,
+  WithId,
+  WithMessage,
+  WithTimestamps
+} from '@/types';
 
 import type { Asset } from '../assets';
 
@@ -6,9 +13,16 @@ export type TransactionType = 'BUY' | 'SELL';
 
 export type TransactionProperties = {
   type: TransactionType;
-  amount: number;
-  price: number;
-  assetId: string;
+  quantity: DecimalString;
+  unitPrice: DecimalString;
+  fees: DecimalString;
+  taxes: DecimalString;
+  currency: string;
+  executedAt: string;
+  broker: Maybe<string>;
+  notes: Maybe<string>;
+  portfolioId: string;
+  instrumentId: string;
 };
 
 export interface Transaction
@@ -27,9 +41,9 @@ export type GetTransactionCountResponseData = Record<'buy' | 'sell', number>;
 
 export type CreateTransactionRequestPayload = Pick<
   TransactionProperties,
-  'type' | 'amount' | 'price'
+  'type' | 'currency' | 'executedAt'
 > &
-  Record<'assetSymbol' | 'portfolioId', string>;
+  Record<'quantity' | 'unitPrice' | 'assetSymbol' | 'portfolioId', string>;
 
 export interface CreateTransactionResponseData extends WithMessage {
   transaction: Transaction;
