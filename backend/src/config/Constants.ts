@@ -69,6 +69,10 @@ export const TransactionMessages = {
   NOT_FOUND: 'Transaction not found for this asset',
   ACC_NEGATIVE_AMOUNT:
     'Invalid transaction: resulting amount cannot be negative',
+  CURRENCY_MISMATCH:
+    'Invalid transaction: every transaction of a position must share one currency',
+  POSITION_OUT_OF_RANGE:
+    'Invalid transaction: resulting position exceeds the supported range',
   CREATED: 'Transaction created successfully',
   UPDATED: 'Transaction updated successfully',
   DELETED: 'Transaction deleted successfully'
@@ -86,7 +90,35 @@ export const UserMessages = {
 
 export const TransactionTypes: Record<TransactionType, TransactionType> = {
   BUY: 'BUY',
+  SELL: 'SELL',
+  DIVIDEND: 'DIVIDEND',
+  INTEREST: 'INTEREST',
+  DEPOSIT: 'DEPOSIT',
+  WITHDRAWAL: 'WITHDRAWAL',
+  SPLIT: 'SPLIT',
+  BONUS: 'BONUS',
+  TRANSFER_IN: 'TRANSFER_IN',
+  TRANSFER_OUT: 'TRANSFER_OUT',
+  ADJUSTMENT: 'ADJUSTMENT'
+} as const;
+
+/**
+ * The types whose effect on a position the ledger replay implements. The API
+ * records no other type, because no position could be rebuilt from it.
+ */
+export const RecordableTransactionTypes = {
+  BUY: 'BUY',
   SELL: 'SELL'
+} as const satisfies Partial<Record<TransactionType, TransactionType>>;
+
+/**
+ * Mirrors `@db.Decimal(38, 18)`, the type of every quantity and monetary column
+ * in `schema.prisma`. Input limits and the range a rebuilt position must fit
+ * derive from it.
+ */
+export const DecimalColumn = {
+  PRECISION: 38,
+  SCALE: 18
 } as const;
 
 export const InstrumentTypes: Record<InstrumentType, InstrumentType> = {

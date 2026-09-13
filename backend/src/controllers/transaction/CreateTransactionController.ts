@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 
-import type { TransactionType } from '@/domain/models';
 import type { Controller } from '@/interfaces';
 import type { CreateTransactionService } from '@/services/transaction';
 import { validate } from '@/validation';
@@ -26,17 +25,10 @@ export class CreateTransactionController implements Controller {
   async handle(req: Request, res: Response) {
     const { user, body } = req;
 
-    const { type, price, amount, assetSymbol, portfolioId } = await validate(
-      CreateTransactionSchema,
-      body
-    );
+    const transaction = await validate(CreateTransactionSchema, body);
 
     const result = await this.createTransactionService.execute({
-      price,
-      amount,
-      assetSymbol,
-      portfolioId,
-      type: type as TransactionType,
+      ...transaction,
       userId: user.id
     });
 

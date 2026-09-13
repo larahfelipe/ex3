@@ -1,7 +1,9 @@
 import { TransactionMessages } from '@/config';
 import type { Transaction } from '@/domain/models';
-import { BadRequestError, NotFoundError } from '@/errors';
+import { NotFoundError } from '@/errors';
 import type { TransactionRepository } from '@/infra/database';
+
+import { ledgerRefusalError } from './LedgerRefusalError';
 
 export class DeleteTransactionService {
   private static INSTANCE: DeleteTransactionService;
@@ -29,8 +31,8 @@ export class DeleteTransactionService {
     if (ledgerWrite.outcome === 'not-found')
       throw new NotFoundError(TransactionMessages.NOT_FOUND);
 
-    if (ledgerWrite.outcome === 'negative-amount')
-      throw new BadRequestError(TransactionMessages.ACC_NEGATIVE_AMOUNT);
+    if (ledgerWrite.outcome !== 'recorded')
+      throw ledgerRefusalError(ledgerWrite);
 
     return {
       message: TransactionMessages.DELETED

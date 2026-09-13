@@ -56,7 +56,11 @@ const heldSymbols = (count: number) =>
 const holdAssets = (portfolioId: string, count: number) =>
   Promise.all(
     heldSymbols(count).map((symbol, index) =>
-      createAsset({ portfolioId, symbol, balance: (index + 1) * BALANCE_STEP })
+      createAsset({
+        portfolioId,
+        symbol,
+        balance: String((index + 1) * BALANCE_STEP)
+      })
     )
   );
 
@@ -109,9 +113,9 @@ describe('assets', () => {
       assert.equal(res.status, 201);
       assert.equal(res.body.message, AssetMessages.CREATED);
       assert.equal(res.body.asset.symbol, UNHELD_SYMBOL);
-      assert.equal(res.body.asset.quantity, 0);
-      assert.equal(res.body.asset.averageCost, 0);
-      assert.equal(res.body.asset.balance, 0);
+      assert.equal(res.body.asset.quantity, '0');
+      assert.equal(res.body.asset.averageCost, '0');
+      assert.equal(res.body.asset.balance, '0');
       assert.equal(res.body.asset.portfolioId, portfolio.id);
       assert.equal(res.body.asset.instrumentId, instrument.id);
     });
@@ -230,9 +234,9 @@ describe('assets', () => {
       assert.equal(res.status, 200);
       assert.equal(res.body.id, asset.id);
       assert.equal(res.body.symbol, asset.symbol);
-      assert.equal(res.body.quantity, asset.quantity);
-      assert.equal(res.body.averageCost, asset.averageCost);
-      assert.equal(res.body.balance, asset.balance);
+      assert.equal(res.body.quantity, asset.quantity.toFixed());
+      assert.equal(res.body.averageCost, asset.averageCost.toFixed());
+      assert.equal(res.body.balance, asset.balance.toFixed());
     });
 
     it('answers not found for a symbol the portfolio does not hold', async () => {

@@ -209,7 +209,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
 
             <TableHead>Asset</TableHead>
 
-            <TableHead>Amount</TableHead>
+            <TableHead>Quantity</TableHead>
 
             <TableHead className="flex items-center gap-1.5">
               <span>Balance</span>
@@ -292,22 +292,22 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                 <TableCell>{asset.quantity}</TableCell>
 
                 <TableCell>
-                  {asset.balance.toLocaleString('en-US', {
+                  {formatNumber(asset.balance, {
                     style: 'currency',
                     currency
                   })}
                 </TableCell>
 
-                <AssetTransactionTableCell
-                  itemRef="avg_price"
-                  symbol={asset.symbol}
-                  portfolioId={asset.portfolioId}
-                />
+                <TableCell>
+                  {formatNumber(asset.averageCost, {
+                    style: 'currency',
+                    currency
+                  })}
+                </TableCell>
 
                 <TableCell>{asset?.dominance ?? '-'}</TableCell>
 
                 <AssetTransactionTableCell
-                  itemRef="total_qty"
                   symbol={asset.symbol}
                   portfolioId={asset.portfolioId}
                 />

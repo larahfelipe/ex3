@@ -112,7 +112,7 @@ Os achados da task foram corrigidos, e os testes que os fixavam passaram a prote
 
 **Rename.** O rename liga o ativo ao instrumento do novo símbolo e leva junto as transações da carteira no instrumento antigo, na mesma transação serializável. Símbolo fora do catálogo responde 404. Símbolo que a carteira já tem responde 400 sem mover nada: o índice único `(portfolioId, instrumentId)` recusa a escrita e a transação inteira é desfeita, transações inclusive.
 
-**Precisão.** `amount`, `price` e `balance` são `Float`, então a posição é conferida em ponto flutuante: `BUY 0.3`, `SELL 0.1`, `SELL 0.2` recusa o último por resíduo de arredondamento. A troca por decimal pertence à remodelagem da FASE 4.
+**Precisão.** Com `amount`, `price` e `balance` em `Float`, `BUY 0.3`, `SELL 0.1`, `SELL 0.2` recusava o último por resíduo de arredondamento. As colunas passaram a `DECIMAL(38,18)`, e o teste que reproduzia o defeito passou a proteger a correção. Ver [Transação remodelada](#transação-remodelada).
 
 **Cobertura acrescentada.**
 
@@ -130,21 +130,21 @@ Os achados da task foram corrigidos, e os testes que os fixavam passaram a prote
 * criar transação em ativo de outra carteira responde como ativo inexistente, sem gravar nem mover a posição;
 * a edição que troca `BUY` por `SELL` move a posição nos dois sentidos;
 * a exclusão de um `SELL` devolve à posição o que ele tinha retirado;
-* `amount` ou `price` zero, negativo ou string recebem 400 em `POST` e `PATCH`, sem alterar nada. String numérica não é convertida, porque o schema não faz coerção.
+* `quantity` ou `unitPrice` zero, negativo ou fora do formato de string decimal recebem 400 em `POST` e `PATCH`, sem alterar nada. Número JSON não é convertido, porque o schema não faz coerção.
 
 **Bugs de consistência conhecidos.** Os do baseline já corrigidos continuam fixados pelos testes que protegem a correção: dupla contabilização na edição (#15), checagem de carteira sem `await` na exclusão (#16, primeira parte), escritas não atômicas (#17) e mensagem de criação na edição (#21). Os que dependem da remodelagem da FASE 4 são reproduzidos por testes `todo`, na convenção da TASK 3.3:
 
 | Teste `todo` | Comportamento hoje | Origem |
 | --- | --- | --- |
 | custo das unidades mantidas após `SELL` | `balance` soma o custo da compra e subtrai o valor da venda: `BUY 10 @ 10` e `SELL 5 @ 30` deixam 5 unidades com `balance` −50 | baseline #18, TASK 4.10 |
-| vender posição fracionária até zero | `0.3 − 0.1 − 0.2` fica abaixo de zero em `Float`, e o último `SELL` recebe 400 | TD-001, TASK 4.5 |
-| custo acima do maior número finito | `amount` e `price` não têm limite superior: `1e200 × 1e200` responde 201 e grava `Infinity` no custo médio e no `balance` | TD-009, TASK 4.5 |
 
 Os dois `todo` que comparavam a posição editada e a posição após exclusão ao recálculo da sequência passaram com a posição reconstruída do razão e viraram testes comuns. Ver [Posição reconstruída do razão](#posição-reconstruída-do-razão).
 
+Os de venda fracionária até zero e de custo acima do maior número finito passaram com a transação remodelada: o primeiro virou teste comum, e o segundo deu lugar aos testes do teto de `DECIMAL(38,18)`. Ver [Transação remodelada](#transação-remodelada).
+
 **Recálculo como referência.** Os critérios das TASKs 4.7 e 4.8 comparam a posição com a que a sequência de transações produziria. Os testes gravam essa sequência, pela API, num segundo ativo da mesma carteira e comparam as duas posições, em vez de fixar o valor esperado, e por isso continuaram valendo quando a posição passou a ser reconstruída a partir do razão. As sequências fracionárias foram escolhidas porque divergiam na aritmética incremental de `double` usada antes, o que foi conferido antes de virarem teste.
 
-**Pendências.** O que a task encontrou sem ser necessário para concluí-la está em [`TODO.md`](../TODO.md): TD-001 (tipo numérico), TD-002 (paginação da listagem de transações) e TD-009 (limite superior de `amount` e `price`).
+**Pendências.** O que a task encontrou sem ser necessário para concluí-la está em [`TODO.md`](../TODO.md): TD-002 (paginação da listagem de transações). TD-001 (tipo numérico) e TD-009 (limite superior de `amount` e `price`) foram resolvidos pela [transação remodelada](#transação-remodelada).
 
 ## Catálogo de instrumentos
 
@@ -187,10 +187,28 @@ A unicidade já estava coberta pela suíte de ativos: símbolo que a carteira j�
 * a edição que deixa um `SELL` posterior acima do que a posição detém naquele ponto é recusada sem alterar nada, mesmo quando a quantidade final continuaria positiva;
 * posição que chega a zero volta a custo médio zero.
 
-`balance` mantém o significado anterior, a soma de `±amount × price`, e continua reproduzido pelo `todo` de custo após `SELL`.
+`balance` mantém o significado anterior, a soma de `±quantity × unitPrice`, e continua reproduzido pelo `todo` de custo após `SELL`.
 
-**Recusa sem escrita.** Criação, edição e exclusão conferem em memória o razão candidato, com a linha nova no fim, a editada no lugar da original ou sem a excluída, e só gravam quando ele é aceito, pelo motivo descrito em "Razão e posição na mesma transação".
+**Recusa sem escrita.** Criação, edição e exclusão conferem em memória o razão candidato, com a linha nova no ponto da sua data de execução, a editada reordenada pela data nova ou sem a excluída, e só gravam quando ele é aceito, pelo motivo descrito em "Razão e posição na mesma transação".
 
-**Ordem.** O razão é percorrido em ordem `createdAt`, depois `id`. Os testes gravam por requisições sequenciais; duas transações da mesma posição no mesmo milissegundo seriam ordenadas pelo id, que é aleatório (TD-016).
+**Ordem.** O razão é percorrido em ordem `executedAt`, `createdAt`, `id`. Os testes gravam por requisições sequenciais; duas transações da mesma posição com o mesmo `executedAt` no mesmo milissegundo seriam ordenadas pelo id, que é aleatório (TD-016).
 
 **Migração.** Conferida à parte, sobre um banco com as migrations anteriores e dados no formato antigo: renomeia `assets` para `positions`, com chave primária e índices; reconstrói `quantity`, `averageCost` e `balance` de cada posição a partir das suas transações, substituindo o valor gravado quando diverge e zerando a posição sem transações; transações no mesmo instante seguem a ordem do id; o resultado é igual, bit a bit, à reconstrução em TypeScript, inclusive com valores fracionários; um razão que vende mais do que detém aborta a migração sem alterar nada. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
+
+## Transação remodelada
+
+`Transaction` grava `quantity`, `unitPrice`, `fees`, `taxes`, `currency`, `executedAt`, `broker` e `notes`, e `type` é o enum `TransactionType`. Quantidades e valores de transação e posição são `DECIMAL(38,18)` e trafegam como string decimal. As fixtures gravam strings e compartilham `FIXTURE_EXECUTED_AT`, então a ordem do razão entre elas cai para `createdAt`. Os testes comparam decimais pela string de `toFixed()`, porque o `toJSON` de `Prisma.Decimal` usa expoente em valores pequenos.
+
+O bloco `ledger` de `src/routes/Transactions.integration.ts` passou a cobrir:
+
+* vender posição fracionária até exatamente zero;
+* taxas e impostos no custo da compra, com o custo médio truncado em 18 casas;
+* valores pequenos devolvidos em notação simples, sem expoente;
+* transação em moeda diferente das outras da posição recusada com `CURRENCY_MISMATCH`, sem gravar;
+* `BUY` retroativo entrando no razão pela data de execução e reprecificando a posição;
+* `SELL` executado antes da compra que o cobriria recusado, na criação e na edição que o move para antes dela;
+* posição no teto de `DECIMAL(38,18)` aceita, e a escrita que o passaria, em quantidade ou em `balance`, recusada com `POSITION_OUT_OF_RANGE`.
+
+O bloco de validação cobre, em `POST` e `PATCH`, sem gravar nem mover a posição: tipo em branco, desconhecido ou ainda não aceito pela API (`DIVIDEND`); decimal em `number`, negativo, com expoente, com zero à esquerda, com ponto sem casas, com espaços, vazio, com 21 dígitos inteiros ou 19 casas, e zero em `quantity` e `unitPrice`; `currency` ausente ou fora de ISO 4217; `executedAt` ausente, sem hora, sem fuso ou em outro formato; `broker` e `notes` acima do limite. Um teste confere que a criação grava cada campo como enviado, com o `executedAt` enviado com fuso devolvido em UTC, e que a edição substitui todos, voltando os opcionais omitidos ao padrão.
+
+**Migração.** Conferida à parte, sobre um banco com as migrations anteriores e dados no formato antigo: nenhuma transação perdida; `amount` e `price` convertidos pela menor representação decimal de cada `double` (`0.1` e `0.2` somam exatamente `0.3`, e `BUY 0.3`, `SELL 0.1`, `SELL 0.2` zeram a posição); `currency` da moeda base de cada carteira e `executedAt = createdAt`; posições reconstruídas em decimal, com custo médio truncado em 18 casas; colunas, nulabilidade e enum como no schema; tabela temporária removida. Aborta sem alterar nada com tipo fora do enum, transação sem carteira, `amount` ou `price` zero, negativo, com mais de 18 casas ou a partir de 10²⁰, razão que vende mais do que detém, `DIVIDEND` no razão e razão que passa por posição fora da coluna, mesmo terminando dentro dela. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.

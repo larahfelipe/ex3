@@ -1,65 +1,142 @@
-import type { Prisma, Transaction as TransactionRow } from '@prisma/client';
+import { Prisma, type Transaction as TransactionRow } from '@prisma/client';
 
-import { TransactionTypes } from '@/config';
-import type { Position, Transaction } from '@/domain/models';
+import { DecimalColumn, TransactionTypes } from '@/config/Constants';
+import type { Position, Transaction, TransactionEntry } from '@/domain/models';
 
 import { PrismaClient } from './PrismaClient';
 
-type LedgerEntry = Pick<TransactionRow, 'type' | 'amount' | 'price'>;
-type LedgerScope = Pick<TransactionRow, 'portfolioId' | 'instrumentId'>;
+type LedgerEntry = Pick<Transaction, 'type' | 'currency'> &
+  Record<'quantity' | 'unitPrice' | 'fees' | 'taxes', Prisma.Decimal | string>;
+type LedgerPlacement = Pick<Transaction, 'id' | 'executedAt' | 'createdAt'>;
 type RebuiltPosition = Pick<Position, 'quantity' | 'averageCost' | 'balance'>;
-
-const EMPTY_POSITION: RebuiltPosition = {
-  quantity: 0,
-  averageCost: 0,
-  balance: 0
-};
+type LedgerReplay =
+  | { outcome: 'rebuilt'; position: RebuiltPosition }
+  | TransactionRepository.LedgerRefusal;
 
 /**
- * A BUY weights the average cost by its quantity; a SELL leaves it unchanged,
- * back to zero once nothing is held, and is refused when it exceeds what the
- * ledger holds at that point. `balance` keeps its legacy meaning, the running
- * sum of ±amount × price. The migration that created `positions` repeats these
- * operations in this order, so both produce the same floating-point values.
+ * No operation of a replay rounds at this precision. Every position it passes
+ * through fits the columns, so a product of two column values has at most
+ * 2 × PRECISION significant digits, adding the rest of a BUY's cost carries at
+ * most one more, and the average cost is the integer quotient of that cost,
+ * shifted by the scale, by a quantity of at least one unit of the scale.
  */
-const replayLedger = (ledger: ReadonlyArray<LedgerEntry>) => {
-  let position = EMPTY_POSITION;
+const LEDGER_ARITHMETIC_PRECISION = 2 * DecimalColumn.PRECISION + 1;
 
-  for (const { type, amount, price } of ledger) {
-    const { quantity, averageCost, balance } = position;
+const LedgerDecimal = Prisma.Decimal.clone({
+  precision: LEDGER_ARITHMETIC_PRECISION
+});
 
-    if (type === TransactionTypes.BUY) {
-      position = {
-        quantity: quantity + amount,
-        averageCost:
-          (quantity * averageCost + amount * price) / (quantity + amount),
-        balance: balance + amount * price
-      };
-    } else if (amount > quantity) {
-      return null;
+const ZERO = new LedgerDecimal(0);
+const COLUMN_SCALE_FACTOR = new LedgerDecimal(10).pow(DecimalColumn.SCALE);
+const COLUMN_MAGNITUDE_BOUND = new LedgerDecimal(10).pow(
+  DecimalColumn.PRECISION - DecimalColumn.SCALE
+);
+
+const toTransaction = ({
+  quantity,
+  unitPrice,
+  fees,
+  taxes,
+  ...row
+}: TransactionRow): Transaction => ({
+  ...row,
+  quantity: quantity.toFixed(),
+  unitPrice: unitPrice.toFixed(),
+  fees: fees.toFixed(),
+  taxes: taxes.toFixed()
+});
+
+/**
+ * A ledger holds one currency, since costs in different currencies do not add
+ * up. A BUY adds its quantity and its cost, quantity × unit price plus fees and
+ * taxes, and truncates the new average cost to the column scale; a SELL leaves
+ * the average cost unchanged, back to zero once nothing is held, and is refused
+ * when it exceeds what the ledger holds at that point. `balance` keeps its
+ * legacy meaning, the running sum of ±quantity × unit price, truncated to the
+ * column scale at the end. A ledger passing through a position that does not
+ * fit the columns is refused. The migration that converted the ledger to
+ * decimals repeats these operations, so both reach the same values.
+ */
+const replayLedger = (ledger: ReadonlyArray<LedgerEntry>): LedgerReplay => {
+  if (new Set(ledger.map(({ currency }) => currency)).size > 1)
+    return { outcome: 'currency-mismatch' };
+
+  let quantity = ZERO;
+  let averageCost = ZERO;
+  let balance = ZERO;
+
+  for (const entry of ledger) {
+    const entryQuantity = new LedgerDecimal(entry.quantity);
+    const grossValue = entryQuantity.mul(entry.unitPrice);
+
+    if (entry.type === TransactionTypes.BUY) {
+      const heldQuantity = quantity.add(entryQuantity);
+      const totalCost = quantity
+        .mul(averageCost)
+        .add(grossValue)
+        .add(entry.fees)
+        .add(entry.taxes);
+
+      averageCost = totalCost
+        .mul(COLUMN_SCALE_FACTOR)
+        .divToInt(heldQuantity)
+        .div(COLUMN_SCALE_FACTOR);
+      quantity = heldQuantity;
+      balance = balance.add(grossValue);
+    } else if (entry.type === TransactionTypes.SELL) {
+      if (entryQuantity.gt(quantity)) return { outcome: 'negative-amount' };
+
+      quantity = quantity.sub(entryQuantity);
+      averageCost = quantity.isZero() ? ZERO : averageCost;
+      balance = balance.sub(grossValue);
     } else {
-      const remaining = quantity - amount;
-
-      position = {
-        quantity: remaining,
-        averageCost: remaining > 0 ? averageCost : 0,
-        balance: balance - amount * price
-      };
+      throw new Error(`The ledger replay does not implement ${entry.type}`);
     }
+
+    if (
+      [quantity, averageCost, balance.abs()].some((value) =>
+        value.gte(COLUMN_MAGNITUDE_BOUND)
+      )
+    )
+      return { outcome: 'out-of-range' };
   }
 
-  return position;
+  return {
+    outcome: 'rebuilt',
+    position: {
+      quantity: quantity.toFixed(),
+      averageCost: averageCost.toFixed(),
+      balance: balance
+        .toDecimalPlaces(DecimalColumn.SCALE, LedgerDecimal.ROUND_DOWN)
+        .toFixed()
+    }
+  };
 };
 
 const ledgerOf = (
   transactionClient: Prisma.TransactionClient,
-  { portfolioId, instrumentId }: LedgerScope
+  { portfolioId, instrumentId }: TransactionRepository.AssetScope
 ) =>
   transactionClient.transaction.findMany({
     where: { portfolioId, instrumentId },
-    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    select: { id: true, type: true, amount: true, price: true }
+    orderBy: [{ executedAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+    select: {
+      id: true,
+      type: true,
+      quantity: true,
+      unitPrice: true,
+      fees: true,
+      taxes: true,
+      currency: true,
+      executedAt: true,
+      createdAt: true
+    }
   });
+
+const byLedgerOrder = (a: LedgerPlacement, b: LedgerPlacement) =>
+  a.executedAt.getTime() - b.executedAt.getTime() ||
+  a.createdAt.getTime() - b.createdAt.getTime() ||
+  (a.id < b.id ? -1 : Number(a.id > b.id));
 
 /**
  * Deleting or moving a position takes its transactions along, so a ledger
@@ -68,7 +145,7 @@ const ledgerOf = (
  */
 const storePosition = (
   transactionClient: Prisma.TransactionClient,
-  { portfolioId, instrumentId }: LedgerScope,
+  { portfolioId, instrumentId }: TransactionRepository.AssetScope,
   position: RebuiltPosition
 ) =>
   transactionClient.position.update({
@@ -123,7 +200,7 @@ export class TransactionRepository {
     const totalPages = Math.ceil(total / limitPerPage);
 
     return {
-      docs,
+      docs: docs.map(toTransaction),
       pagination: {
         page,
         total,
@@ -137,17 +214,19 @@ export class TransactionRepository {
   async getById(params: TransactionRepository.GetByIdParams) {
     const { id, userId } = params;
 
-    return this.prismaClient.transaction.findFirst({
+    const transaction = await this.prismaClient.transaction.findFirst({
       where: { id, portfolio: { userId } }
     });
+
+    return transaction && toTransaction(transaction);
   }
 
   /**
    * The position is rebuilt from the ledger as it will stand after the write,
    * and both are written in one serializable transaction, so the ledger a SELL
    * is checked against cannot change before the write commits. A refused write
-   * touches nothing. A new row goes after every row already in the ledger,
-   * which is where its creation time places it.
+   * touches nothing. A new row goes after every row executed at or before its
+   * execution time, which is where its creation time places it.
    */
   async add(
     params: TransactionRepository.AddParams
@@ -163,25 +242,33 @@ export class TransactionRepository {
         if (!position) return { outcome: 'not-found' };
 
         const ledger = await ledgerOf(transactionClient, position);
-        const rebuilt = replayLedger([...ledger, entry]);
+        const insertAt =
+          ledger.findLastIndex(
+            ({ executedAt }) =>
+              executedAt.getTime() <= entry.executedAt.getTime()
+          ) + 1;
+        const replay = replayLedger([
+          ...ledger.slice(0, insertAt),
+          entry,
+          ...ledger.slice(insertAt)
+        ]);
 
-        if (!rebuilt) return { outcome: 'negative-amount' };
+        if (replay.outcome !== 'rebuilt') return replay;
 
         const transaction = await transactionClient.transaction.create({
           data: { ...entry, portfolioId, instrumentId: position.instrumentId }
         });
-        await storePosition(transactionClient, position, rebuilt);
+        await storePosition(transactionClient, position, replay.position);
 
-        // The column is a plain string; the value just stored is the validated type.
         return {
           outcome: 'recorded',
-          transaction: { ...transaction, type: entry.type }
+          transaction: toTransaction(transaction)
         };
       }
     );
   }
 
-  /** Replaces the row in its place in the ledger, under the guarantees of `add`. */
+  /** Replaces the row and moves it to its place in the ledger, under the guarantees of `add`. */
   async update(
     params: TransactionRepository.UpdateParams
   ): Promise<TransactionRepository.LedgerWrite> {
@@ -196,17 +283,19 @@ export class TransactionRepository {
         if (!previous) return { outcome: 'not-found' };
 
         const ledger = await ledgerOf(transactionClient, previous);
-        const rebuilt = replayLedger(
-          ledger.map((row) => (row.id === id ? entry : row))
+        const replay = replayLedger(
+          ledger
+            .map((row) => (row.id === id ? { ...row, ...entry } : row))
+            .toSorted(byLedgerOrder)
         );
 
-        if (!rebuilt) return { outcome: 'negative-amount' };
+        if (replay.outcome !== 'rebuilt') return replay;
 
         await transactionClient.transaction.update({
           where: { id },
           data: entry
         });
-        await storePosition(transactionClient, previous, rebuilt);
+        await storePosition(transactionClient, previous, replay.position);
 
         return { outcome: 'recorded' };
       }
@@ -228,12 +317,12 @@ export class TransactionRepository {
         if (!previous) return { outcome: 'not-found' };
 
         const ledger = await ledgerOf(transactionClient, previous);
-        const rebuilt = replayLedger(ledger.filter((row) => row.id !== id));
+        const replay = replayLedger(ledger.filter((row) => row.id !== id));
 
-        if (!rebuilt) return { outcome: 'negative-amount' };
+        if (replay.outcome !== 'rebuilt') return replay;
 
         await transactionClient.transaction.delete({ where: { id } });
-        await storePosition(transactionClient, previous, rebuilt);
+        await storePosition(transactionClient, previous, replay.position);
 
         return { outcome: 'recorded' };
       }
@@ -243,10 +332,8 @@ export class TransactionRepository {
 
 namespace TransactionRepository {
   export type AssetScope = Pick<Transaction, 'instrumentId' | 'portfolioId'>;
-  export type AddParams = Pick<
-    Transaction,
-    'type' | 'amount' | 'price' | 'portfolioId'
-  > &
+  export type AddParams = TransactionEntry &
+    Pick<Transaction, 'portfolioId'> &
     Record<'assetSymbol', string>;
   export type CountParams = AssetScope &
     Record<'type', keyof typeof TransactionTypes>;
@@ -257,14 +344,13 @@ namespace TransactionRepository {
   };
   export type GetByIdParams = Pick<Transaction, 'id'> &
     Record<'userId', string>;
-  export type UpdateParams = Pick<
-    Transaction,
-    'id' | 'type' | 'amount' | 'price'
-  > &
-    Record<'userId', string>;
+  export type UpdateParams = TransactionEntry & GetByIdParams;
+  export type LedgerRefusal =
+    | { outcome: 'negative-amount' }
+    | { outcome: 'currency-mismatch' }
+    | { outcome: 'out-of-range' };
   /** `not-found` answers a transaction or asset outside the caller's portfolios exactly like a missing one. */
-  export type LedgerRejection =
-    { outcome: 'not-found' } | { outcome: 'negative-amount' };
+  export type LedgerRejection = { outcome: 'not-found' } | LedgerRefusal;
   export type LedgerWrite = { outcome: 'recorded' } | LedgerRejection;
   export type LedgerAddition =
     { outcome: 'recorded'; transaction: Transaction } | LedgerRejection;

@@ -39,6 +39,24 @@ User
 
 **Dados anteriores ao catálogo.** A migração criou um instrumento por símbolo existente, com `name` igual ao símbolo, tipo `OTHER` e os demais campos vazios. Por isso `market` e `currency` são opcionais no banco, embora obrigatórios no cadastro, e cabe a um admin completar esses instrumentos antes de qualquer cálculo que dependa da moeda. Símbolos gravados antes da allowlist (ex.: `BRK.B`) continuam no catálogo e nas carteiras que os tinham, mas não podem ser abertos em outra carteira nem cadastrados de novo. A migração aborta sem alterar nada se existir transação sem o ativo correspondente.
 
+## Transação
+
+Toda transação pertence a uma carteira e referencia um instrumento; a posição que ela move é a de `(portfolioId, instrumentId)`.
+
+| Campo | Regra |
+| --- | --- |
+| `type` | um dos tipos de [Efeito de cada tipo](#efeito-de-cada-tipo) |
+| `quantity`, `unitPrice` | decimais positivos, gravados separados |
+| `fees`, `taxes` | decimais não negativos; zero quando não informados |
+| `currency` | moeda da operação, código ISO 4217 |
+| `executedAt` | quando a operação aconteceu, com fuso; obrigatório e independente de `createdAt` |
+| `broker` | opcional, até 60 caracteres |
+| `notes` | opcional, até 500 caracteres |
+
+**Uma moeda por posição.** A moeda da transação não precisa ser a moeda base da carteira, mas todas as transações de uma posição usam a mesma, porque o custo médio só soma valores na mesma moeda. Transação em outra moeda é recusada sem gravar nada.
+
+**Dados anteriores à transação.** A migração renomeou `amount` e `price` para `quantity` e `unitPrice` e converteu cada `double` pela menor representação decimal que o reproduz, que é o valor que a API devolvia. As linhas existentes receberam `fees` e `taxes` zero, `currency` igual à moeda base da carteira e `executedAt = createdAt`, e as posições foram reconstruídas em aritmética decimal. Ela aborta sem alterar nada se existir transação com tipo fora da lista, sem carteira, ou com `amount` ou `price` não positivo ou que `DECIMAL(38,18)` não guarda sem arredondar; ou se algum razão vende mais do que detém, contém tipo que a reconstrução não implementa ou passa por posição fora de `DECIMAL(38,18)`.
+
 ## Razão e posição
 
 A posição é função das transações da carteira naquele instrumento, e só delas: a mesma sequência de transações produz sempre a mesma `quantity`, o mesmo `averageCost` e o mesmo `investedValue`. Criar, editar ou excluir uma transação reconstrói a posição e grava as duas numa única transação de banco.
@@ -67,7 +85,7 @@ A ordem do razão é `executedAt`, depois `createdAt`, depois `id`.
 | `TRANSFER_OUT` | subtrai | subtrai `quantity × averageCost`, sem lucro realizado |
 | `DEPOSIT`, `WITHDRAWAL`, `ADJUSTMENT` | ver decisões em aberto | ver decisões em aberto |
 
-A API só aceita um tipo depois que o seu efeito estiver definido aqui.
+A API só aceita um tipo depois que o seu efeito estiver definido aqui e implementado na reconstrução da posição. Hoje aceita `BUY` e `SELL`; os demais existem no schema e são recusados com 400.
 
 ## Valuation
 
@@ -84,7 +102,8 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend: o 
 
 ## Valores, moedas e datas
 
-* Quantidades e valores monetários são decimais exatos, nunca ponto flutuante. Precisão e escala são definidas no schema, e os limites de entrada derivam delas.
+* Quantidades e valores monetários são decimais exatos, nunca ponto flutuante: `DECIMAL(38,18)`, até 20 dígitos inteiros e 18 casas, em transação e posição. A API os recebe e devolve como string decimal, e valor que a coluna arredondaria é recusado, não arredondado.
+* O custo médio é truncado em 18 casas a cada `BUY`, e `balance` uma vez, ao fim da reconstrução. Razão que passa por posição fora de `DECIMAL(38,18)` é recusado, mesmo que a posição final caiba.
 * Todo valor monetário tem moeda explícita. `Instrument.currency` é a moeda de cotação, `Transaction.currency` a da operação e `Portfolio.baseCurrency` a de consolidação.
 * Valores em moedas diferentes só se somam por conversão com cotação de câmbio explícita; sem cotação, o total não é calculado.
 * Instantes são gravados em UTC. `executedAt` é quando a operação aconteceu, informado por quem registra; `createdAt` e `updatedAt` são quando o registro foi gravado e alterado.
@@ -110,6 +129,9 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend: o 
 | `amount`, `price` | `quantity`, `unitPrice` |
 | `createdAt` como data da operação | `executedAt`; na migração, as linhas existentes recebem `executedAt = createdAt`, a única data que conhecem |
 | `balance` (`±amount × price` acumulado) | removido; custo é `investedValue` e valor atual é `marketValue` |
+| `amount`, `price` e a posição em `Float` | `DECIMAL(38,18)`, em string decimal na API |
+| `type` texto, `BUY` ou `SELL` | enum `TransactionType`, com os tipos de [Efeito de cada tipo](#efeito-de-cada-tipo) |
+| moeda implícita | `Transaction.currency`; na migração, a moeda base da carteira |
 
 ## Decisões em aberto
 

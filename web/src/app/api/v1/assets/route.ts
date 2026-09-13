@@ -31,7 +31,7 @@ export const GET = async (req: NextRequest) => {
       });
 
     const totalBalance = data.assets.reduce((acc, curr) => {
-      acc += curr.balance;
+      acc += Number(curr.balance);
       return acc;
     }, 0);
 
@@ -42,7 +42,7 @@ export const GET = async (req: NextRequest) => {
       assets: data.assets.map((a) => {
         a.dominance =
           totalBalance > 0
-            ? formatNumber(a.balance / totalBalance, {
+            ? formatNumber(Number(a.balance) / totalBalance, {
                 style: 'percent',
                 maximumFractionDigits: 2
               })

@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 
-import type { TransactionType } from '@/domain/models';
 import type { Controller } from '@/interfaces';
 import type { UpdateTransactionService } from '@/services/transaction';
 import { validate } from '@/validation';
@@ -26,16 +25,13 @@ export class UpdateTransactionController implements Controller {
   async handle(req: Request, res: Response) {
     const { user, body, params } = req;
 
-    const { id, type, price, amount } = await validate(
-      UpdateTransactionSchema,
-      { ...body, id: params.id }
-    );
+    const transaction = await validate(UpdateTransactionSchema, {
+      ...body,
+      id: params.id
+    });
 
     const result = await this.updateTransactionService.execute({
-      id,
-      price,
-      amount,
-      type: type as TransactionType,
+      ...transaction,
       userId: user.id
     });
 

@@ -1,4 +1,4 @@
-import type { ChangeEvent, FC } from 'react';
+import type { FC } from 'react';
 import {
   Controller,
   useFormContext,
@@ -16,7 +16,6 @@ import type {
   TransactionType
 } from '@/app/api/v1/transactions';
 import { CURRENCIES, TRANSACTION_TYPES } from '@/common/constants';
-import { sanitizeInputValue } from '@/common/utils';
 import {
   Button,
   Dialog,
@@ -34,14 +33,14 @@ import {
   SelectValue,
   Separator
 } from '@/components/ui';
-import { useUser } from '@/hooks/use-user';
 
 type AddAssetTransactionDialogProps = {
   open: boolean;
   data: Asset;
+  currency?: string;
   onCancel: VoidFunction;
   onConfirm: (
-    payload: Omit<CreateTransactionRequestPayload, 'portfolioId'>
+    payload: Omit<CreateTransactionRequestPayload, 'portfolioId' | 'currency'>
   ) => Promise<unknown>;
 };
 
@@ -53,15 +52,27 @@ export type AddAssetTransactionSchemaType = z.output<
   typeof AddAssetTransactionSchema
 >;
 
-/**
- * Number inputs hand their value over as a string, so the field accepts both
- * and the schema is what narrows it to a number.
- */
-const positiveNumberField = (message: string) =>
+/** The API stores quantities and prices as DECIMAL(38,18) and rejects what the column would round. */
+const DECIMAL_COLUMN = { PRECISION: 38, SCALE: 18 } as const;
+
+const INTEGER_DIGITS = DECIMAL_COLUMN.PRECISION - DECIMAL_COLUMN.SCALE;
+
+const DECIMAL_PATTERN = new RegExp(
+  `^(0|[1-9]\\d{0,${INTEGER_DIGITS - 1}})(\\.\\d{1,${DECIMAL_COLUMN.SCALE}})?$`
+);
+
+const NONZERO_DIGIT = /[1-9]/;
+
+const positiveDecimalField = (field: string) =>
   z
-    .union([z.string(), z.number()])
-    .transform(Number)
-    .pipe(z.number().positive(message));
+    .string()
+    .trim()
+    .min(1, `${field} is required`)
+    .regex(
+      DECIMAL_PATTERN,
+      `${field} must be a plain decimal with at most ${INTEGER_DIGITS} integer digits and ${DECIMAL_COLUMN.SCALE} decimal places`
+    )
+    .regex(NONZERO_DIGIT, `${field} must be positive`);
 
 export const AddAssetTransactionSchema = z.object({
   type: z
@@ -69,28 +80,26 @@ export const AddAssetTransactionSchema = z.object({
     .refine((value) => TRANSACTION_TYPES.includes(value as TransactionType), {
       message: 'Transaction type must be either `BUY` or `SELL`'
     }),
-  amount: positiveNumberField('Transaction amount must be positive'),
-  price: positiveNumberField('Transaction price must be positive')
+  quantity: positiveDecimalField('Quantity'),
+  unitPrice: positiveDecimalField('Unit price'),
+  executedAt: z
+    .string()
+    .min(1, 'Execution date is required')
+    .transform((value) => new Date(value))
+    .pipe(z.date('Execution date must be a valid date'))
+    .transform((date) => date.toISOString())
 });
-
-const handleChangeFormFieldValue = (
-  fieldName: keyof AddAssetTransactionSchemaType,
-  event: ChangeEvent<HTMLInputElement>
-) => {
-  const { value } = event.target;
-
-  if (fieldName === 'price') return sanitizeInputValue(value, 'number');
-
-  return value;
-};
 
 export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
   open,
   data,
+  currency,
   onCancel,
   onConfirm
 }) => {
-  const { currency } = useUser();
+  const currencySymbol =
+    Object.values(CURRENCIES).find(({ id }) => id === currency)?.symbol ??
+    currency;
 
   const {
     control,
@@ -201,52 +210,59 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="amount">Amount</Label>
+            <Label htmlFor="quantity">Quantity</Label>
 
             <Input
               type="number"
               step="any"
-              id="amount"
-              aria-label="Amount"
-              placeholder="Enter the transaction amount"
+              id="quantity"
+              aria-label="Quantity"
+              placeholder="Enter the transaction quantity"
               min={0}
               disabled={isSubmitting}
-              {...register('amount')}
+              {...register('quantity')}
             />
 
-            {!!errors.amount?.message && (
-              <small className="text-red-500">{errors.amount.message}</small>
+            {!!errors.quantity?.message && (
+              <small className="text-red-500">{errors.quantity.message}</small>
             )}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="price">Price</Label>
+            <Label htmlFor="unitPrice">Unit price</Label>
 
-            <Controller
-              name="price"
-              control={control}
+            <Input
+              type="number"
+              step="any"
+              id="unitPrice"
+              aria-label="Unit price"
+              placeholder="Enter the price per unit"
+              min={0}
               disabled={isSubmitting}
-              render={({ field }) => (
-                <Input
-                  {...field}
-                  id="price"
-                  step="0.01"
-                  aria-label="Price"
-                  disabled={isSubmitting}
-                  leftElement={
-                    <span className="text-sm">
-                      {CURRENCIES[currency].symbol}
-                    </span>
-                  }
-                  onChange={(e) =>
-                    field.onChange(handleChangeFormFieldValue('price', e))
-                  }
-                />
-              )}
+              leftElement={<span className="text-sm">{currencySymbol}</span>}
+              {...register('unitPrice')}
             />
 
-            {!!errors.price?.message && (
-              <small className="text-red-500">{errors.price.message}</small>
+            {!!errors.unitPrice?.message && (
+              <small className="text-red-500">{errors.unitPrice.message}</small>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="executedAt">Executed at</Label>
+
+            <Input
+              type="datetime-local"
+              id="executedAt"
+              aria-label="Executed at"
+              disabled={isSubmitting}
+              {...register('executedAt')}
+            />
+
+            {!!errors.executedAt?.message && (
+              <small className="text-red-500">
+                {errors.executedAt.message}
+              </small>
             )}
           </div>
         </form>

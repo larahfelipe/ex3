@@ -1,3 +1,5 @@
+import type { Position as PositionRow } from '@prisma/client';
+
 import type { SortOrderTypes } from '@/config';
 import type { Position } from '@/domain/models';
 
@@ -7,10 +9,15 @@ const INSTRUMENT_SYMBOL = { instrument: { select: { symbol: true } } } as const;
 
 const toPosition = ({
   instrument,
+  quantity,
+  averageCost,
+  balance,
   ...position
-}: Omit<Position, 'symbol'> &
-  Record<'instrument', Pick<Position, 'symbol'>>) => ({
+}: PositionRow & Record<'instrument', Pick<Position, 'symbol'>>): Position => ({
   ...position,
+  quantity: quantity.toFixed(),
+  averageCost: averageCost.toFixed(),
+  balance: balance.toFixed(),
   symbol: instrument.symbol
 });
 
