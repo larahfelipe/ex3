@@ -16,8 +16,8 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-001 — Valores financeiros em ponto flutuante
 
 - **Origem:** TASKs 3.3 e 3.4 · **Tipo:** domínio · **Prioridade:** alta · **Encaminhamento:** TASK 4.5, verificado nas TASKs 4.6–4.8
-- **Contexto:** `amount`, `price` e `balance` são `Float` (`double precision`), e a posição acumula resíduo de arredondamento a cada escrita. O `PLAN.md` define os campos da remodelagem, mas não o tipo numérico.
-- **Impacto:** vender a posição inteira pode ser recusado (`0.3 − 0.1 − 0.2` fica abaixo de zero), e editar ou excluir deixa a posição diferente de recalculá-la a partir do razão. Os casos estão reproduzidos pelos testes `todo` de `backend/src/routes/Transactions.integration.ts`, listados em `docs/testing.md`.
+- **Contexto:** `amount` e `price` da transação e `quantity`, `averageCost` e `balance` da posição são `Float` (`double precision`). A posição é reconstruída do razão a cada escrita, então o resíduo de arredondamento não se acumula entre escritas, mas cada reconstrução soma, multiplica e divide em ponto flutuante. O `PLAN.md` define os campos da remodelagem, mas não o tipo numérico.
+- **Impacto:** vender a posição inteira pode ser recusado (`0.3 − 0.1 − 0.2` fica abaixo de zero), e quantidade, custo médio e `balance` gravados carregam resíduo (`BUY 0.1` e `BUY 0.2` gravam `0.30000000000000004`). O primeiro caso está reproduzido pelo teste `todo` "sells a fractional position down to exactly zero" de `backend/src/routes/Transactions.integration.ts`, listado em `docs/testing.md`.
 - **Proposta:** `Decimal` com precisão e escala explícitas (`@db.Decimal`) para quantidade, preço unitário, taxas e impostos; aritmética em `Prisma.Decimal`; valores serializados como string na API, para não voltarem a `number` no cliente. Ao concluir, remover a marcação `todo` dos testes correspondentes.
 
 ### TD-002 — Listagem de transações ignora `page` e não segue a ordem das operações
@@ -79,8 +79,8 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-011 — Criação de carteiras sem limite por usuário
 
 - **Origem:** várias carteiras por usuário · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** avulso
-- **Contexto:** `POST /v1/portfolio` exige só autenticação: não há teto de carteiras por usuário nem rate limit na rota. A listagem é paginada com `limit` até 100, então o custo de cada leitura não cresce com o total. A criação de transações tem a mesma ausência de teto, anterior às várias carteiras.
-- **Impacto:** um usuário autenticado cria carteiras sem limite e faz a tabela `portfolios` crescer na vazão que a API aceitar (OWASP API4:2023). O teto é decisão de produto e não foi fixado por conveniência da implementação.
+- **Contexto:** `POST /v1/portfolio` exige só autenticação: não há teto de carteiras por usuário nem rate limit na rota. A listagem é paginada com `limit` até 100, então o custo de cada leitura não cresce com o total. A criação de transações tem a mesma ausência de teto, anterior às várias carteiras, e cada escrita de transação relê e percorre todas as transações da posição.
+- **Impacto:** um usuário autenticado cria carteiras sem limite e faz a tabela `portfolios` crescer na vazão que a API aceitar (OWASP API4:2023). O custo de cada escrita de transação cresce linearmente com o razão da posição, sem alcançar posições de outras carteiras. O teto é decisão de produto e não foi fixado por conveniência da implementação.
 - **Proposta:** definir com o produto o número máximo de carteiras por usuário, recusar a criação acima dele sem gravar e aplicar um rate limit às rotas de escrita.
 
 ### TD-012 — Carteira não pode ser renomeada nem excluída
@@ -110,6 +110,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** o `limit` padrão é o literal `10` em `AssetRepository.getAll` e `TransactionRepository.getAll`, e uma constante `DEFAULT_PAGE_LIMIT` local em `PortfolioRepository` e em `InstrumentRepository`. O teto de 100 fica em `PaginationQuerySchema`.
 - **Impacto:** mudar o tamanho padrão exige tocar quatro arquivos, e os literais escapam de uma busca pela constante.
 - **Proposta:** uma constante de paginação compartilhada, junto do teto do schema, usada pelos quatro repositórios.
+
+### TD-016 — Ordem do razão entre transações com o mesmo `createdAt`
+
+- **Origem:** posição reconstruída do razão · **Tipo:** domínio · **Prioridade:** média · **Encaminhamento:** TASK 4.5
+- **Contexto:** a posição é reconstruída percorrendo as transações em ordem `createdAt`, depois `id`, porque `executedAt` ainda não existe. `createdAt` tem resolução de milissegundo e `id` é UUID v4, aleatório: duas transações da mesma posição gravadas no mesmo milissegundo ficam na ordem dos ids, não na de gravação. A criação confere o razão com a linha nova no fim, onde o `createdAt` dela normalmente a coloca. `executedAt`, que `docs/domain-model.md` põe antes de `createdAt` na ordem, é informado por quem registra e não desempata transações com o mesmo valor.
+- **Impacto:** exige duas escritas na mesma posição no mesmo milissegundo. Quando acontece, a ordem conferida na criação pode não ser a da reconstrução seguinte: uma edição ou exclusão posterior pode ser recusada por um `SELL` que passou a vir antes da compra que o cobria, e a próxima escrita na posição pode gravar outro custo médio para as mesmas linhas. A migração que criou `positions` usa a mesma ordem. Os testes de ordem de `backend/src/routes/Transactions.integration.ts` gravam por requisições sequenciais e contam com milissegundos distintos.
+- **Proposta:** desempatar por um número de sequência monotônico atribuído pelo banco na gravação, no lugar do `id`, com a migração numerando as linhas existentes na ordem atual; decidir junto com `executedAt` na remodelagem da transação.
 
 ## Resolvidos
 

@@ -257,7 +257,7 @@ describe('instruments', () => {
         .send({ password: FIXTURE_PASSWORD });
 
       assert.equal(res.status, 200);
-      assert.equal(await prismaClient.asset.count(), 0);
+      assert.equal(await prismaClient.position.count(), 0);
       assert.deepEqual(
         await prismaClient.instrument.findMany({ select: { id: true } }),
         [{ id: holder.asset.instrumentId }]

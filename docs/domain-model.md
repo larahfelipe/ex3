@@ -35,7 +35,7 @@ User
 
 **Quem escreve.** Só admin cadastra e corrige instrumentos; os demais usuários escolhem do catálogo, e a escrita deles recebe 403. Qualquer usuário autenticado lista o catálogo. Abrir ou renomear um ativo para símbolo fora do catálogo responde 404 até um admin cadastrá-lo.
 
-**Posição por instrumento.** Uma carteira tem no máximo um ativo por instrumento, e várias carteiras podem ter o mesmo. Transações referenciam a carteira e o instrumento.
+**Posição por instrumento.** Uma carteira tem no máximo uma posição por instrumento, e várias carteiras podem ter posição no mesmo instrumento. Transações referenciam a carteira e o instrumento.
 
 **Dados anteriores ao catálogo.** A migração criou um instrumento por símbolo existente, com `name` igual ao símbolo, tipo `OTHER` e os demais campos vazios. Por isso `market` e `currency` são opcionais no banco, embora obrigatórios no cadastro, e cabe a um admin completar esses instrumentos antes de qualquer cálculo que dependa da moeda. Símbolos gravados antes da allowlist (ex.: `BRK.B`) continuam no catálogo e nas carteiras que os tinham, mas não podem ser abertos em outra carteira nem cadastrados de novo. A migração aborta sem alterar nada se existir transação sem o ativo correspondente.
 
@@ -44,6 +44,8 @@ User
 A posição é função das transações da carteira naquele instrumento, e só delas: a mesma sequência de transações produz sempre a mesma `quantity`, o mesmo `averageCost` e o mesmo `investedValue`. Criar, editar ou excluir uma transação reconstrói a posição e grava as duas numa única transação de banco.
 
 A ordem do razão é `executedAt`, depois `createdAt`, depois `id`.
+
+**Dados anteriores à posição.** A migração que renomeou `assets` para `positions` reconstruiu `quantity`, `averageCost` e `balance` de cada posição a partir das suas transações, na ordem `createdAt`, `id`, e substituiu o valor gravado quando divergia. Ela aborta sem alterar nada se o razão de alguma posição vende mais do que detém.
 
 ### Custo
 

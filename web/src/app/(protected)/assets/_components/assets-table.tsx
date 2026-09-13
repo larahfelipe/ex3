@@ -289,7 +289,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                   <span className="font-semibold">{asset.symbol}</span>
                 </TableCell>
 
-                <TableCell>{asset.amount}</TableCell>
+                <TableCell>{asset.quantity}</TableCell>
 
                 <TableCell>
                   {asset.balance.toLocaleString('en-US', {

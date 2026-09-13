@@ -1,14 +1,15 @@
 import type { SortOrderTypes } from '@/config';
-import type { Asset } from '@/domain/models';
+import type { Position } from '@/domain/models';
 
 import { PrismaClient } from './PrismaClient';
 
 const INSTRUMENT_SYMBOL = { instrument: { select: { symbol: true } } } as const;
 
-const toAsset = ({
+const toPosition = ({
   instrument,
   ...position
-}: Omit<Asset, 'symbol'> & Record<'instrument', Pick<Asset, 'symbol'>>) => ({
+}: Omit<Position, 'symbol'> &
+  Record<'instrument', Pick<Position, 'symbol'>>) => ({
   ...position,
   symbol: instrument.symbol
 });
@@ -34,8 +35,8 @@ export class AssetRepository {
     const limitPerPage = limit || limit === 0 ? limit : 10;
 
     const [total, docs] = await Promise.all([
-      this.prismaClient.asset.count({ where: { portfolioId } }),
-      this.prismaClient.asset.findMany({
+      this.prismaClient.position.count({ where: { portfolioId } }),
+      this.prismaClient.position.findMany({
         ...(sort && { orderBy: { balance: sort } }),
         ...(limit !== 0 && { take: limitPerPage }),
         where: { portfolioId },
@@ -47,7 +48,7 @@ export class AssetRepository {
     const totalPages = Math.ceil(total / limitPerPage);
 
     return {
-      docs: docs.map(toAsset),
+      docs: docs.map(toPosition),
       pagination: {
         page,
         total,
@@ -58,23 +59,23 @@ export class AssetRepository {
   }
 
   async getById(id: string) {
-    const asset = await this.prismaClient.asset.findUnique({
+    const position = await this.prismaClient.position.findUnique({
       where: { id },
       include: INSTRUMENT_SYMBOL
     });
 
-    return asset && toAsset(asset);
+    return position && toPosition(position);
   }
 
   async getBySymbol(params: AssetRepository.GetParams) {
     const { symbol, portfolioId } = params;
 
-    const asset = await this.prismaClient.asset.findFirst({
+    const position = await this.prismaClient.position.findFirst({
       where: { portfolioId, instrument: { symbol } },
       include: INSTRUMENT_SYMBOL
     });
 
-    return asset && toAsset(asset);
+    return position && toPosition(position);
   }
 
   /**
@@ -84,12 +85,12 @@ export class AssetRepository {
    */
   async add(params: AssetRepository.AddParams) {
     try {
-      const asset = await this.prismaClient.asset.create({
+      const position = await this.prismaClient.position.create({
         data: params,
         include: INSTRUMENT_SYMBOL
       });
 
-      return toAsset(asset);
+      return toPosition(position);
     } catch (error) {
       if (PrismaClient.isUniqueConstraintViolation(error)) return null;
 
@@ -98,7 +99,7 @@ export class AssetRepository {
   }
 
   /**
-   * The asset and its transactions move to the new instrument in one
+   * The position and its transactions move to the new instrument in one
    * serializable transaction, so none is left behind on the old one. Resolves
    * to false, moving nothing, when the portfolio already holds the new one.
    */
@@ -114,7 +115,7 @@ export class AssetRepository {
           where: heldPosition,
           data: movedPosition
         });
-        await transactionClient.asset.updateMany({
+        await transactionClient.position.updateMany({
           where: heldPosition,
           data: movedPosition
         });
@@ -129,9 +130,9 @@ export class AssetRepository {
   }
 
   /**
-   * The asset and its transactions go in one serializable transaction, so a
+   * The position and its transactions go in one serializable transaction, so a
    * transaction recorded concurrently cannot survive as an orphan that a later
-   * asset of the same instrument would inherit.
+   * position in the same instrument would inherit.
    */
   async delete(params: AssetRepository.DeleteParams) {
     const { instrumentId, portfolioId } = params;
@@ -141,7 +142,7 @@ export class AssetRepository {
         where: { instrumentId, portfolioId }
       });
 
-      return transactionClient.asset.deleteMany({
+      return transactionClient.position.deleteMany({
         where: { instrumentId, portfolioId }
       });
     });
@@ -149,14 +150,14 @@ export class AssetRepository {
 }
 
 namespace AssetRepository {
-  export type GetParams = Pick<Asset, 'symbol' | 'portfolioId'>;
-  export type GetAllParams = Pick<Asset, 'portfolioId'> & {
+  export type GetParams = Pick<Position, 'symbol' | 'portfolioId'>;
+  export type GetAllParams = Pick<Position, 'portfolioId'> & {
     page?: number;
     limit?: number;
     sort?: (typeof SortOrderTypes)[keyof typeof SortOrderTypes];
   };
-  export type AddParams = Pick<Asset, 'instrumentId' | 'portfolioId'>;
-  export type UpdateParams = Pick<Asset, 'portfolioId'> &
+  export type AddParams = Pick<Position, 'instrumentId' | 'portfolioId'>;
+  export type UpdateParams = Pick<Position, 'portfolioId'> &
     Record<'oldInstrumentId' | 'newInstrumentId', string>;
-  export type DeleteParams = Pick<Asset, 'instrumentId' | 'portfolioId'>;
+  export type DeleteParams = Pick<Position, 'instrumentId' | 'portfolioId'>;
 }

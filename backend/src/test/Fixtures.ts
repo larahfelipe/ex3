@@ -1,8 +1,8 @@
 import { InstrumentTypes, TransactionTypes, envs } from '@/config';
 import type {
-  Asset,
   Instrument,
   Portfolio,
+  Position,
   Transaction,
   User
 } from '@/domain/models';
@@ -87,9 +87,11 @@ export const createAsset = async ({
   portfolioId,
   symbol = FIXTURE_ASSET_SYMBOL,
   ...position
-}: Pick<Asset, 'portfolioId'> &
-  Partial<Pick<Asset, 'symbol' | 'amount' | 'balance'>>) => {
-  const { instrument, ...asset } = await prismaClient.asset.create({
+}: Pick<Position, 'portfolioId'> &
+  Partial<
+    Pick<Position, 'symbol' | 'quantity' | 'averageCost' | 'balance'>
+  >) => {
+  const { instrument, ...stored } = await prismaClient.position.create({
     data: {
       ...position,
       portfolio: { connect: { id: portfolioId } },
@@ -103,11 +105,11 @@ export const createAsset = async ({
     include: { instrument: true }
   });
 
-  return { ...asset, symbol: instrument.symbol };
+  return { ...stored, symbol: instrument.symbol };
 };
 
 export const createTransaction = async (
-  { portfolioId, instrumentId }: Pick<Asset, 'portfolioId' | 'instrumentId'>,
+  { portfolioId, instrumentId }: Pick<Position, 'portfolioId' | 'instrumentId'>,
   overrides: Partial<Pick<Transaction, 'type' | 'amount' | 'price'>> = {}
 ) =>
   prismaClient.transaction.create({
@@ -123,9 +125,9 @@ export const createTransaction = async (
 
 /**
  * Smallest coherent graph the API can operate on: a user with a portfolio
- * holding one asset with one transaction. The asset position is stated
- * explicitly instead of derived from its transactions, so a fixture does not
- * depend on how the API derives it.
+ * holding one asset with one transaction. The position is stated explicitly
+ * instead of derived from its transactions, so a fixture does not depend on
+ * how the API derives it.
  */
 export const seedPortfolio = async (
   overrides: { email?: string; symbol?: string } = {}
@@ -137,7 +139,8 @@ export const seedPortfolio = async (
 
   const asset = await createAsset({
     portfolioId: portfolio.id,
-    amount: FIXTURE_TRANSACTION_AMOUNT,
+    quantity: FIXTURE_TRANSACTION_AMOUNT,
+    averageCost: FIXTURE_TRANSACTION_PRICE,
     balance: FIXTURE_TRANSACTION_AMOUNT * FIXTURE_TRANSACTION_PRICE,
     ...(symbol && { symbol })
   });

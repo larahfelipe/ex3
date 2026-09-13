@@ -37,5 +37,5 @@ export class GetPortfolioService {
 
 namespace GetPortfolioService {
   export type DTO = Record<'userId' | 'portfolioId', string>;
-  export type Result = Omit<Portfolio, 'assets'>;
+  export type Result = Omit<Portfolio, 'positions'>;
 }

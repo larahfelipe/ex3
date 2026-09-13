@@ -109,7 +109,8 @@ describe('assets', () => {
       assert.equal(res.status, 201);
       assert.equal(res.body.message, AssetMessages.CREATED);
       assert.equal(res.body.asset.symbol, UNHELD_SYMBOL);
-      assert.equal(res.body.asset.amount, 0);
+      assert.equal(res.body.asset.quantity, 0);
+      assert.equal(res.body.asset.averageCost, 0);
       assert.equal(res.body.asset.balance, 0);
       assert.equal(res.body.asset.portfolioId, portfolio.id);
       assert.equal(res.body.asset.instrumentId, instrument.id);
@@ -140,7 +141,7 @@ describe('assets', () => {
         assert.equal(res.status, Errors.BAD_REQUEST.status, symbol);
       }
 
-      assert.equal(await prismaClient.asset.count(), 0);
+      assert.equal(await prismaClient.position.count(), 0);
     });
 
     it('rejects a symbol the portfolio already holds, regardless of case', async () => {
@@ -170,7 +171,7 @@ describe('assets', () => {
         });
 
       assert.equal(res.status, Errors.BAD_REQUEST.status);
-      assert.equal(await prismaClient.asset.count(), 0);
+      assert.equal(await prismaClient.position.count(), 0);
     });
 
     it('rejects a symbol with characters other than letters and digits', async () => {
@@ -185,7 +186,7 @@ describe('assets', () => {
         assert.equal(res.status, Errors.BAD_REQUEST.status, symbol);
       }
 
-      assert.equal(await prismaClient.asset.count(), 0);
+      assert.equal(await prismaClient.position.count(), 0);
     });
 
     it('lets two portfolios hold the one instrument of a symbol', async () => {
@@ -213,7 +214,7 @@ describe('assets', () => {
 
       assert.equal(res.status, Errors.NOT_FOUND.status);
       assert.equal(res.body.message, InstrumentMessages.NOT_FOUND);
-      assert.equal(await prismaClient.asset.count(), 0);
+      assert.equal(await prismaClient.position.count(), 0);
     });
   });
 
@@ -229,7 +230,8 @@ describe('assets', () => {
       assert.equal(res.status, 200);
       assert.equal(res.body.id, asset.id);
       assert.equal(res.body.symbol, asset.symbol);
-      assert.equal(res.body.amount, asset.amount);
+      assert.equal(res.body.quantity, asset.quantity);
+      assert.equal(res.body.averageCost, asset.averageCost);
       assert.equal(res.body.balance, asset.balance);
     });
 
@@ -538,7 +540,7 @@ describe('assets', () => {
         .send({ newSymbol: to, portfolioId: portfolio.id });
 
     const storedSymbolOf = async (id: string) => {
-      const { instrument } = await prismaClient.asset.findUniqueOrThrow({
+      const { instrument } = await prismaClient.position.findUniqueOrThrow({
         where: { id },
         select: { instrument: { select: { symbol: true } } }
       });
@@ -681,7 +683,7 @@ describe('assets', () => {
       assert.equal(res.body.message, AssetMessages.DELETED);
 
       const [remaining, transactions] = await Promise.all([
-        prismaClient.asset.findMany({
+        prismaClient.position.findMany({
           where: { portfolioId: portfolio.id },
           select: { id: true }
         }),
@@ -711,7 +713,7 @@ describe('assets', () => {
 
       assert.equal(res.status, 200);
       assert.deepEqual(
-        await prismaClient.asset.findMany({ select: { id: true } }),
+        await prismaClient.position.findMany({ select: { id: true } }),
         [{ id: holder.asset.id }]
       );
       assert.deepEqual(await prismaClient.transaction.findMany(), [
@@ -749,7 +751,7 @@ describe('assets', () => {
       assert.deepEqual(foreign.body, missing.body);
 
       const [assets, transactions] = await Promise.all([
-        prismaClient.asset.count({ where: { id: asset.id } }),
+        prismaClient.position.count({ where: { id: asset.id } }),
         prismaClient.transaction.count({
           where: { instrumentId: asset.instrumentId }
         })
@@ -793,8 +795,14 @@ describe('assets', () => {
     };
 
     const storedAssets = () =>
-      prismaClient.asset.findMany({
-        select: { id: true, instrumentId: true, amount: true, balance: true }
+      prismaClient.position.findMany({
+        select: {
+          id: true,
+          instrumentId: true,
+          quantity: true,
+          averageCost: true,
+          balance: true
+        }
       });
 
     it("answers another user's portfolio exactly like one that does not exist and changes nothing", async () => {
@@ -815,10 +823,10 @@ describe('assets', () => {
         assert.deepEqual(foreign.body, missing.body, request);
       }
 
-      const { id, instrumentId, amount, balance } = holder.asset;
+      const { id, instrumentId, quantity, averageCost, balance } = holder.asset;
 
       assert.deepEqual(await storedAssets(), [
-        { id, instrumentId, amount, balance }
+        { id, instrumentId, quantity, averageCost, balance }
       ]);
       assert.deepEqual(await prismaClient.transaction.findMany(), [
         holder.transaction
@@ -841,10 +849,10 @@ describe('assets', () => {
         }
       }
 
-      const { id, instrumentId, amount, balance } = asset;
+      const { id, instrumentId, quantity, averageCost, balance } = asset;
 
       assert.deepEqual(await storedAssets(), [
-        { id, instrumentId, amount, balance }
+        { id, instrumentId, quantity, averageCost, balance }
       ]);
       assert.equal(await prismaClient.transaction.count(), 1);
     });
@@ -880,7 +888,7 @@ describe('assets', () => {
 
       assert.equal(deleted.status, 200);
       assert.deepEqual(
-        await prismaClient.asset.findMany({ select: { id: true } }),
+        await prismaClient.position.findMany({ select: { id: true } }),
         [{ id: asset.id }]
       );
       assert.equal(await prismaClient.transaction.count(), 1);

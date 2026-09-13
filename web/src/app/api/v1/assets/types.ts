@@ -4,7 +4,8 @@ export type WithDominance = Record<'dominance', Maybe<string>>;
 
 export type AssetProperties = {
   symbol: string;
-  amount: number;
+  quantity: number;
+  averageCost: number;
   balance: number;
   portfolioId: string;
 };

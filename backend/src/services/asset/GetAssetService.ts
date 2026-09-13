@@ -1,5 +1,5 @@
 import { AssetMessages, PortfolioMessages } from '@/config';
-import type { Asset } from '@/domain/models';
+import type { Position } from '@/domain/models';
 import { NotFoundError } from '@/errors';
 import type { AssetRepository, PortfolioRepository } from '@/infra/database';
 
@@ -53,7 +53,7 @@ export class GetAssetService {
 }
 
 namespace GetAssetService {
-  export type DTO = Pick<Asset, 'symbol' | 'portfolioId'> &
+  export type DTO = Pick<Position, 'symbol' | 'portfolioId'> &
     Record<'userId', string>;
-  export type Result = Asset;
+  export type Result = Position;
 }

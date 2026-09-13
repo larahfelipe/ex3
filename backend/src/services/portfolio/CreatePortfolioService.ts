@@ -40,7 +40,7 @@ export class CreatePortfolioService {
 namespace CreatePortfolioService {
   export type DTO = Pick<Portfolio, 'userId' | 'name' | 'baseCurrency'>;
   export type Result = {
-    portfolio: Omit<Portfolio, 'assets'>;
+    portfolio: Omit<Portfolio, 'positions'>;
     message: string;
   };
 }

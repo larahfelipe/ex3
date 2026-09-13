@@ -34,7 +34,7 @@ describe('test harness', () => {
     assert.equal(asset.portfolioId, portfolio.id);
     assert.equal(transaction.portfolioId, portfolio.id);
     assert.equal(transaction.instrumentId, asset.instrumentId);
-    assert.equal(asset.amount, transaction.amount);
+    assert.equal(asset.quantity, transaction.amount);
   });
 
   it('empties every data table on reset', async () => {
@@ -46,7 +46,7 @@ describe('test harness', () => {
       prismaClient.user.count(),
       prismaClient.portfolio.count(),
       prismaClient.instrument.count(),
-      prismaClient.asset.count(),
+      prismaClient.position.count(),
       prismaClient.transaction.count()
     ]);
 
