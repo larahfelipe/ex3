@@ -7,7 +7,7 @@ import api, { ApiProxyError, type ApiProxyErrorData } from '@/lib/axios';
 
 import type {
   GetAssetResponseData,
-  GetAssetWithTotalBalanceResponseData
+  GetAssetWithTotalInvestedValueResponseData
 } from './types';
 
 export const GET = async (req: NextRequest) => {
@@ -30,19 +30,19 @@ export const GET = async (req: NextRequest) => {
         params: req.nextUrl.searchParams
       });
 
-    const totalBalance = data.assets.reduce((acc, curr) => {
-      acc += Number(curr.balance);
+    const totalInvestedValue = data.assets.reduce((acc, curr) => {
+      acc += Number(curr.investedValue);
       return acc;
     }, 0);
 
-    const res: GetAssetWithTotalBalanceResponseData = {
-      totalBalance,
+    const res: GetAssetWithTotalInvestedValueResponseData = {
+      totalInvestedValue,
       sort: data.sort,
       pagination: data.pagination,
       assets: data.assets.map((a) => {
         a.dominance =
-          totalBalance > 0
-            ? formatNumber(Number(a.balance) / totalBalance, {
+          totalInvestedValue > 0
+            ? formatNumber(Number(a.investedValue) / totalInvestedValue, {
                 style: 'percent',
                 maximumFractionDigits: 2
               })
@@ -51,7 +51,7 @@ export const GET = async (req: NextRequest) => {
       })
     };
 
-    return NextResponse.json<GetAssetWithTotalBalanceResponseData>(res, {
+    return NextResponse.json<GetAssetWithTotalInvestedValueResponseData>(res, {
       status,
       statusText
     });

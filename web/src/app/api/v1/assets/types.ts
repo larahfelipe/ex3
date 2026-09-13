@@ -12,7 +12,7 @@ export type AssetProperties = {
   symbol: string;
   quantity: DecimalString;
   averageCost: DecimalString;
-  balance: DecimalString;
+  investedValue: DecimalString;
   portfolioId: string;
 };
 
@@ -33,8 +33,8 @@ export type GetAssetResponseData = {
   };
 };
 
-export type GetAssetWithTotalBalanceResponseData = GetAssetResponseData &
-  Record<'totalBalance', number>;
+export type GetAssetWithTotalInvestedValueResponseData = GetAssetResponseData &
+  Record<'totalInvestedValue', number>;
 
 export type CreateAssetRequestPayload = Pick<
   AssetProperties,

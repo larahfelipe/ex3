@@ -92,7 +92,7 @@ export const createAsset = async ({
   ...position
 }: Pick<Position, 'portfolioId'> &
   Partial<
-    Pick<Position, 'symbol' | 'quantity' | 'averageCost' | 'balance'>
+    Pick<Position, 'symbol' | 'quantity' | 'averageCost' | 'investedValue'>
   >) => {
   const { instrument, ...stored } = await prismaClient.position.create({
     data: {
@@ -157,7 +157,7 @@ export const seedPortfolio = async (
     portfolioId: portfolio.id,
     quantity: String(FIXTURE_TRANSACTION_QUANTITY),
     averageCost: String(FIXTURE_TRANSACTION_UNIT_PRICE),
-    balance: String(
+    investedValue: String(
       FIXTURE_TRANSACTION_QUANTITY * FIXTURE_TRANSACTION_UNIT_PRICE
     ),
     ...(symbol && { symbol })

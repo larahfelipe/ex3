@@ -104,18 +104,18 @@ describe('transactions', () => {
   const heldPosition = ({
     quantity,
     averageCost,
-    balance
-  }: Record<'quantity' | 'averageCost' | 'balance', Prisma.Decimal>) => ({
+    investedValue
+  }: Record<'quantity' | 'averageCost' | 'investedValue', Prisma.Decimal>) => ({
     quantity: quantity.toFixed(),
     averageCost: averageCost.toFixed(),
-    balance: balance.toFixed()
+    investedValue: investedValue.toFixed()
   });
 
   const storedPosition = async (assetId: string) =>
     heldPosition(
       await prismaClient.position.findUniqueOrThrow({
         where: { id: assetId },
-        select: { quantity: true, averageCost: true, balance: true }
+        select: { quantity: true, averageCost: true, investedValue: true }
       })
     );
 
@@ -239,7 +239,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(holder.asset.id), {
         quantity: '0',
         averageCost: '0',
-        balance: '0'
+        investedValue: '0'
       });
     });
 
@@ -327,7 +327,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(intruderAsset.id), {
         quantity: '2',
         averageCost: '1',
-        balance: '2'
+        investedValue: '2'
       });
     });
 
@@ -371,7 +371,7 @@ describe('transactions', () => {
         portfolioId: secondPortfolio.id,
         quantity: '2',
         averageCost: '1',
-        balance: '2'
+        investedValue: '2'
       });
       const transaction = await createTransaction(asset, {
         quantity: '2',
@@ -401,7 +401,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '0',
         averageCost: '0',
-        balance: '0'
+        investedValue: '0'
       });
       assert.deepEqual(
         await storedPosition(holder.asset.id),
@@ -484,7 +484,7 @@ describe('transactions', () => {
   });
 
   describe('ledger', () => {
-    /** Below the API rate limit; enough to pass a balance check together. */
+    /** Below the API rate limit; enough to pass a holdings check together. */
     const CONCURRENT_SELLS = 3;
 
     const REPLAY_SYMBOL = 'SOL';
@@ -576,7 +576,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '6',
         averageCost: '10',
-        balance: '20'
+        investedValue: '60'
       });
     });
 
@@ -596,7 +596,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '1',
         averageCost: '10',
-        balance: '10'
+        investedValue: '10'
       });
     });
 
@@ -620,7 +620,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '20',
         averageCost: '15',
-        balance: '300'
+        investedValue: '300'
       });
     });
 
@@ -653,7 +653,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '5',
         averageCost: '10',
-        balance: '50'
+        investedValue: '50'
       });
     });
 
@@ -676,7 +676,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '5',
         averageCost: '10',
-        balance: '50'
+        investedValue: '50'
       });
     });
 
@@ -710,7 +710,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '12',
         averageCost: '10',
-        balance: '120'
+        investedValue: '120'
       });
     });
 
@@ -736,7 +736,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '0',
         averageCost: '0',
-        balance: '0'
+        investedValue: '0'
       });
     });
 
@@ -784,7 +784,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '5',
         averageCost: '10',
-        balance: '50'
+        investedValue: '50'
       });
     });
 
@@ -805,7 +805,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '10',
         averageCost: '10',
-        balance: '100'
+        investedValue: '100'
       });
     });
 
@@ -818,7 +818,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '15',
         averageCost: '15',
-        balance: '150'
+        investedValue: '225'
       });
     });
 
@@ -846,7 +846,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '10',
         averageCost: '20',
-        balance: '250'
+        investedValue: '200'
       });
     });
 
@@ -868,27 +868,21 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '20',
         averageCost: '17.5',
-        balance: '350'
+        investedValue: '350'
       });
     });
 
-    it(
-      'keeps the cost of the units still held after a SELL',
-      {
-        todo: '`Asset.balance` adds purchase cost and subtracts sale proceeds (baseline #18, TASK 4.10): selling above cost leaves a held position with a negative balance'
-      },
-      async () => {
-        const { asset, record } = await openEmptyPosition();
-        await record({ type: 'BUY', quantity: '10', unitPrice: '10' });
-        await record({ type: 'SELL', quantity: '5', unitPrice: '30' });
+    it('keeps the cost of the units still held after a SELL above it', async () => {
+      const { asset, record } = await openEmptyPosition();
+      await record({ type: 'BUY', quantity: '10', unitPrice: '10' });
+      await record({ type: 'SELL', quantity: '5', unitPrice: '30' });
 
-        assert.deepEqual(await storedPosition(asset.id), {
-          quantity: '5',
-          averageCost: '10',
-          balance: '50'
-        });
-      }
-    );
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: '5',
+        averageCost: '10',
+        investedValue: '50'
+      });
+    });
 
     it('sells a fractional position down to exactly zero', async () => {
       const { asset, record } = await openEmptyPosition();
@@ -905,7 +899,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '0',
         averageCost: '0',
-        balance: '0'
+        investedValue: '0'
       });
     });
 
@@ -923,7 +917,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '3',
         averageCost: '1.333333333333333333',
-        balance: '3'
+        investedValue: '3.999999999999999999'
       });
     });
 
@@ -940,14 +934,14 @@ describe('transactions', () => {
         .get(`/v1/asset/${asset.symbol}`)
         .query({ portfolioId: portfolio.id })
         .set(bearer(accessToken));
-      const { quantity, averageCost, balance } = read.body;
+      const { quantity, averageCost, investedValue } = read.body;
 
       assert.equal(created.status, 201);
       assert.equal(created.body.transaction.quantity, '0.00000001');
       assert.equal(created.body.transaction.unitPrice, COLUMN_UNIT);
       assert.deepEqual(
-        { quantity, averageCost, balance },
-        { quantity: '0.00000001', averageCost: COLUMN_UNIT, balance: '0' }
+        { quantity, averageCost, investedValue },
+        { quantity: '0.00000001', averageCost: COLUMN_UNIT, investedValue: '0' }
       );
     });
 
@@ -968,7 +962,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '1',
         averageCost: '10',
-        balance: '10'
+        investedValue: '10'
       });
     });
 
@@ -993,7 +987,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '5',
         averageCost: '13.333333333333333333',
-        balance: '100'
+        investedValue: '66.666666666666666665'
       });
     });
 
@@ -1023,7 +1017,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '2',
         averageCost: '20',
-        balance: '40'
+        investedValue: '40'
       });
     });
 
@@ -1044,7 +1038,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '1',
         averageCost: '10',
-        balance: '10'
+        investedValue: '10'
       });
     });
 
@@ -1074,7 +1068,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '0',
         averageCost: '0',
-        balance: '0'
+        investedValue: '0'
       });
     });
 
@@ -1102,11 +1096,11 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: COLUMN_MAX,
         averageCost: '1',
-        balance: COLUMN_MAX
+        investedValue: COLUMN_MAX
       });
     });
 
-    it('rejects an entry whose value exceeds the balance column even when quantity and cost fit', async () => {
+    it('rejects an entry whose invested value exceeds the column even when quantity and cost fit', async () => {
       const { asset, record } = await openEmptyPosition();
 
       const res = await record({
@@ -1121,7 +1115,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '0',
         averageCost: '0',
-        balance: '0'
+        investedValue: '0'
       });
     });
 
@@ -1218,7 +1212,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '10',
         averageCost: '10',
-        balance: '100'
+        investedValue: '100'
       });
     });
 
@@ -1244,7 +1238,7 @@ describe('transactions', () => {
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '10',
         averageCost: '10',
-        balance: '100'
+        investedValue: '100'
       });
     });
   });

@@ -52,11 +52,11 @@ const ledgerOf = (
 const storePosition = (
   transactionClient: Prisma.TransactionClient,
   { portfolioId, instrumentId }: TransactionRepository.AssetScope,
-  { quantity, averageCost, balance }: RebuiltPosition
+  { quantity, averageCost, investedValue }: RebuiltPosition
 ) =>
   transactionClient.position.update({
     where: { portfolioId_instrumentId: { portfolioId, instrumentId } },
-    data: { quantity, averageCost, balance }
+    data: { quantity, averageCost, investedValue }
   });
 
 /**

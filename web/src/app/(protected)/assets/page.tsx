@@ -16,7 +16,7 @@ import type {
   CreateAssetResponseData,
   DeleteAssetRequestPayload,
   DeleteAssetResponseData,
-  GetAssetWithTotalBalanceResponseData
+  GetAssetWithTotalInvestedValueResponseData
 } from '@/app/api/v1/assets';
 import type {
   GetPortfoliosRequestParams,
@@ -129,9 +129,9 @@ export default function Assets() {
   };
 
   const { data, isLoading, isRefetching, refetch } = useQuery<
-    AxiosResponse<GetAssetWithTotalBalanceResponseData>,
+    AxiosResponse<GetAssetWithTotalInvestedValueResponseData>,
     ApiProxyErrorData,
-    GetAssetWithTotalBalanceResponseData
+    GetAssetWithTotalInvestedValueResponseData
   >({
     queryKey: ['assets', portfolio?.id, pagination],
     queryFn: () =>
