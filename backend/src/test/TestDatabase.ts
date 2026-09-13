@@ -1,3 +1,6 @@
+import type { Prisma } from '@prisma/client';
+import type { TestContext } from 'node:test';
+
 import { PrismaClient } from '@/infra/database/PrismaClient';
 
 /**
@@ -54,3 +57,49 @@ export const assertDatabaseReachable = async () => {
 };
 
 export const disconnectDatabase = () => prismaClient.$disconnect();
+
+/**
+ * Until the test ends, `model.action` rejects inside `runSerializable` after the
+ * steps before it have written, so whatever a failed request leaves behind is
+ * what the transaction did not undo. Every other query runs as usual. The
+ * prototype is mocked because the client instance is a proxy on which
+ * `mock.method` does not find the method.
+ */
+export const injectWriteFailure = <
+  Model extends Uncapitalize<Prisma.ModelName>
+>(
+  t: TestContext,
+  model: Model,
+  action: Extract<keyof Prisma.TransactionClient[Model], string>
+) => {
+  const failure = new Error(`injected failure on ${model}.${action}`);
+  const runSerializable = prismaClient.runSerializable.bind(prismaClient);
+
+  const failingAtAction = (transactionClient: Prisma.TransactionClient) =>
+    new Proxy(transactionClient, {
+      get: (client, property) =>
+        property === model
+          ? new Proxy(client[model], {
+              get: (delegate, name) =>
+                name === action
+                  ? () => Promise.reject(failure)
+                  : Reflect.get(delegate, name)
+            })
+          : Reflect.get(client, property)
+    });
+
+  t.mock.method(
+    PrismaClient.prototype,
+    'runSerializable',
+    (
+      operation: (
+        transactionClient: Prisma.TransactionClient
+      ) => Promise<unknown>
+    ) =>
+      runSerializable((transactionClient) =>
+        operation(failingAtAction(transactionClient))
+      )
+  );
+
+  return failure;
+};

@@ -16,6 +16,7 @@ import {
   seedPortfolio
 } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
+import { injectWriteFailure } from '@/test/TestDatabase';
 
 const SIGN_UP_ROUTE = '/v1/user/create';
 const SIGN_IN_ROUTE = '/v1/user';
@@ -627,6 +628,24 @@ describe('authentication', () => {
 
       assert.equal(res.status, Errors.BAD_REQUEST.status);
       assert.equal(res.body.message, UserMessages.INVALID_PASSWORD);
+      assert.deepEqual(await storedRowCounts(), [1, 1, 1, 1]);
+    });
+
+    it('keeps the account and everything it holds when removing the user fails', async (t) => {
+      const { user } = await seedPortfolio();
+      const accessToken = await signIn({
+        email: user.email,
+        password: FIXTURE_PASSWORD
+      });
+      injectWriteFailure(t, 'user', 'deleteMany');
+      t.mock.method(console, 'error', () => undefined);
+
+      const res = await client
+        .delete(ACCOUNT_ROUTE)
+        .set(bearer(accessToken))
+        .send({ password: FIXTURE_PASSWORD });
+
+      assert.equal(res.status, Errors.INTERNAL_SERVER_ERROR.status);
       assert.deepEqual(await storedRowCounts(), [1, 1, 1, 1]);
     });
   });

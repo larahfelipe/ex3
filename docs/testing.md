@@ -67,11 +67,11 @@ Os rate limiters guardam contadores em memória de processo, que sobrevivem a um
 
 ## Mocks
 
-Não há utilitário próprio: `node:test` já traz `mock.method`, que substitui um método e restaura em `mock.restoreAll()`. Os singletons da aplicação são compartilhados dentro do processo de um arquivo de teste, e o runner dá um processo por arquivo — é isso que torna a substituição direta segura. `AuthMiddleware.test.ts` é o exemplo da convenção.
+Não há utilitário próprio: `node:test` já traz `mock.method`, que substitui um método e restaura em `mock.restoreAll()`. Os singletons da aplicação são compartilhados dentro do processo de um arquivo de teste, e o runner dá um processo por arquivo — é isso que torna a substituição direta segura. `AuthMiddleware.test.ts` é o exemplo da convenção. A exceção é o `PrismaClient`: a instância é um proxy cujo descritor de `runSerializable` não traz o método, e `mock.method` sobre ela falha; `injectWriteFailure` substitui o método em `PrismaClient.prototype` (ver [Atomicidade das operações financeiras](#atomicidade-das-operações-financeiras)).
 
 ## Harness
 
-`src/test/Harness.integration.ts` testa a própria infraestrutura: que as migrations criaram o schema, que as fixtures produzem um grafo coerente, que o reset zera todas as tabelas, que o cliente HTTP autentica e alcança rota protegida, e que o reset de rate limit acerta a chave real. É o teste que quebra primeiro quando o ambiente está errado, em vez de deixar as TASKS 3.2–3.4 falharem por motivo não relacionado.
+`src/test/Harness.integration.ts` testa a própria infraestrutura: que as migrations criaram o schema, que as fixtures produzem um grafo coerente, que o reset zera todas as tabelas, que o cliente HTTP autentica e alcança rota protegida, que o reset de rate limit acerta a chave real, e que a falha injetada atinge só a escrita escolhida e desfaz as anteriores. É o teste que quebra primeiro quando o ambiente está errado, em vez de deixar as TASKS 3.2–3.4 falharem por motivo não relacionado.
 
 ## Regressão do fluxo de assets — TASK 3.3
 
@@ -235,3 +235,18 @@ O bloco de validação cobre, em `POST` e `PATCH`, sem gravar nem mover a posiç
 
 * "leaves a position after a deletion equal to replaying the remaining transactions" exclui um `BUY` do meio de um razão com taxas, impostos e um `SELL` e um `BUY` posteriores, e compara a posição com a obtida gravando só as transações restantes numa posição vazia. Nesse razão, retirar o impacto da linha excluída por delta daria outro custo médio.
 * "rolls back the deletion when writing the position fails, keeping the transaction" remove a posição direto no banco, para que a gravação dela falhe depois de a linha ser excluída, e confirma a resposta 500 com a transação ainda gravada.
+
+## Atomicidade das operações financeiras
+
+Criar, editar e excluir transação, renomear ativo, excluir ativo e excluir conta escrevem em mais de uma tabela dentro de uma única `runSerializable` (ver "Razão e posição na mesma transação"). Para cada uma, um teste faz a última escrita falhar, depois das anteriores, e confirma a resposta 500 genérica com o estado anterior intacto:
+
+* criação de transação: a gravação da posição falha depois da inserção; o razão mantém só as transações anteriores e a posição não muda;
+* edição de transação: a gravação da posição falha depois da alteração; a transação continua como gravada e a posição não muda;
+* exclusão de transação: o teste de [Exclusão de transação](#exclusão-de-transação);
+* rename de ativo: o teste do índice único, descrito em "Rename";
+* exclusão de ativo: a remoção da posição falha depois da remoção das transações; posição e transações continuam gravadas;
+* exclusão de conta: a remoção do usuário falha depois da remoção de transações, posições e carteiras; as quatro tabelas mantêm as linhas da conta.
+
+A última escrita é a que tem mais escritas anteriores a desfazer; uma falha em etapa anterior interrompe a operação antes das seguintes.
+
+**Falha injetada.** Criação, edição, exclusão de ativo e exclusão de conta não têm falha natural na última escrita. `injectWriteFailure(t, model, action)`, em `src/test/TestDatabase.ts`, faz `model.action` rejeitar dentro da transação real de `runSerializable` até o fim do teste, e as demais consultas seguem normalmente, então o que o teste observa é o rollback do Postgres. A falha não é prevista: sai pelo error handler como 500 e é registrada, e o teste silencia `console.error`. O teste do harness confere que só a escrita escolhida falha e que a anterior é desfeita, para que um helper que falhasse antes da primeira escrita não deixasse os testes de rollback passarem sem desfazer nada.
