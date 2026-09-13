@@ -1,38 +1,79 @@
 import type { Prisma, Transaction as TransactionRow } from '@prisma/client';
 
 import { TransactionTypes } from '@/config';
-import type { Transaction } from '@/domain/models';
+import type { Position, Transaction } from '@/domain/models';
 
 import { PrismaClient } from './PrismaClient';
 
-/**
- * What a transaction contributes to its asset's position: a BUY adds its
- * quantity and cost, a SELL takes them away.
- */
-const positionImpactOf = ({
-  type,
-  amount,
-  price
-}: Pick<TransactionRow, 'type' | 'amount' | 'price'>) => {
-  const direction = type === TransactionTypes.BUY ? 1 : -1;
+type LedgerEntry = Pick<TransactionRow, 'type' | 'amount' | 'price'>;
+type LedgerScope = Pick<TransactionRow, 'portfolioId' | 'instrumentId'>;
+type RebuiltPosition = Pick<Position, 'quantity' | 'averageCost' | 'balance'>;
 
-  return { amount: direction * amount, balance: direction * amount * price };
+const EMPTY_POSITION: RebuiltPosition = {
+  quantity: 0,
+  averageCost: 0,
+  balance: 0
 };
 
 /**
- * Deleting or moving an asset takes its transactions along in the same database
- * transaction, so a stored transaction without the asset it moves is a broken
- * invariant, surfaced instead of answered as a missing row.
+ * A BUY weights the average cost by its quantity; a SELL leaves it unchanged,
+ * back to zero once nothing is held, and is refused when it exceeds what the
+ * ledger holds at that point. `balance` keeps its legacy meaning, the running
+ * sum of ±amount × price. The migration that created `positions` repeats these
+ * operations in this order, so both produce the same floating-point values.
  */
-const assetMovedBy = (
+const replayLedger = (ledger: ReadonlyArray<LedgerEntry>) => {
+  let position = EMPTY_POSITION;
+
+  for (const { type, amount, price } of ledger) {
+    const { quantity, averageCost, balance } = position;
+
+    if (type === TransactionTypes.BUY) {
+      position = {
+        quantity: quantity + amount,
+        averageCost:
+          (quantity * averageCost + amount * price) / (quantity + amount),
+        balance: balance + amount * price
+      };
+    } else if (amount > quantity) {
+      return null;
+    } else {
+      const remaining = quantity - amount;
+
+      position = {
+        quantity: remaining,
+        averageCost: remaining > 0 ? averageCost : 0,
+        balance: balance - amount * price
+      };
+    }
+  }
+
+  return position;
+};
+
+const ledgerOf = (
   transactionClient: Prisma.TransactionClient,
-  {
-    portfolioId,
-    instrumentId
-  }: Pick<TransactionRow, 'portfolioId' | 'instrumentId'>
+  { portfolioId, instrumentId }: LedgerScope
 ) =>
-  transactionClient.asset.findUniqueOrThrow({
-    where: { portfolioId_instrumentId: { portfolioId, instrumentId } }
+  transactionClient.transaction.findMany({
+    where: { portfolioId, instrumentId },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    select: { id: true, type: true, amount: true, price: true }
+  });
+
+/**
+ * Deleting or moving a position takes its transactions along, so a ledger
+ * without its position is a broken invariant, surfaced by the update instead of
+ * answered as a missing row.
+ */
+const storePosition = (
+  transactionClient: Prisma.TransactionClient,
+  { portfolioId, instrumentId }: LedgerScope,
+  position: RebuiltPosition
+) =>
+  transactionClient.position.update({
+    where: { portfolioId_instrumentId: { portfolioId, instrumentId } },
+    data: position
   });
 
 /**
@@ -102,9 +143,11 @@ export class TransactionRepository {
   }
 
   /**
-   * The ledger row and the position it moves are written in one serializable
-   * transaction, so the position a SELL is checked against cannot change before
-   * the write commits. Nothing is written when the position would go negative.
+   * The position is rebuilt from the ledger as it will stand after the write,
+   * and both are written in one serializable transaction, so the ledger a SELL
+   * is checked against cannot change before the write commits. A refused write
+   * touches nothing. A new row goes after every row already in the ledger,
+   * which is where its creation time places it.
    */
   async add(
     params: TransactionRepository.AddParams
@@ -113,27 +156,21 @@ export class TransactionRepository {
 
     return this.prismaClient.runSerializable<TransactionRepository.LedgerAddition>(
       async (transactionClient) => {
-        const asset = await transactionClient.asset.findFirst({
+        const position = await transactionClient.position.findFirst({
           where: { portfolioId, instrument: { symbol: assetSymbol } }
         });
 
-        if (!asset) return { outcome: 'not-found' };
+        if (!position) return { outcome: 'not-found' };
 
-        const applied = positionImpactOf(entry);
-        const position = {
-          amount: asset.amount + applied.amount,
-          balance: asset.balance + applied.balance
-        };
+        const ledger = await ledgerOf(transactionClient, position);
+        const rebuilt = replayLedger([...ledger, entry]);
 
-        if (position.amount < 0) return { outcome: 'negative-amount' };
+        if (!rebuilt) return { outcome: 'negative-amount' };
 
         const transaction = await transactionClient.transaction.create({
-          data: { ...entry, portfolioId, instrumentId: asset.instrumentId }
+          data: { ...entry, portfolioId, instrumentId: position.instrumentId }
         });
-        await transactionClient.asset.update({
-          where: { id: asset.id },
-          data: position
-        });
+        await storePosition(transactionClient, position, rebuilt);
 
         // The column is a plain string; the value just stored is the validated type.
         return {
@@ -144,7 +181,7 @@ export class TransactionRepository {
     );
   }
 
-  /** Removes the stored impact before applying the new one, under the guarantees of `add`. */
+  /** Replaces the row in its place in the ledger, under the guarantees of `add`. */
   async update(
     params: TransactionRepository.UpdateParams
   ): Promise<TransactionRepository.LedgerWrite> {
@@ -158,31 +195,25 @@ export class TransactionRepository {
 
         if (!previous) return { outcome: 'not-found' };
 
-        const asset = await assetMovedBy(transactionClient, previous);
-        const undone = positionImpactOf(previous);
-        const applied = positionImpactOf(entry);
-        const position = {
-          amount: asset.amount - undone.amount + applied.amount,
-          balance: asset.balance - undone.balance + applied.balance
-        };
+        const ledger = await ledgerOf(transactionClient, previous);
+        const rebuilt = replayLedger(
+          ledger.map((row) => (row.id === id ? entry : row))
+        );
 
-        if (position.amount < 0) return { outcome: 'negative-amount' };
+        if (!rebuilt) return { outcome: 'negative-amount' };
 
         await transactionClient.transaction.update({
           where: { id },
           data: entry
         });
-        await transactionClient.asset.update({
-          where: { id: asset.id },
-          data: position
-        });
+        await storePosition(transactionClient, previous, rebuilt);
 
         return { outcome: 'recorded' };
       }
     );
   }
 
-  /** Removes the stored impact along with the row, under the guarantees of `add`. */
+  /** Removes the row from the ledger, under the guarantees of `add`. */
   async delete(
     params: TransactionRepository.GetByIdParams
   ): Promise<TransactionRepository.LedgerWrite> {
@@ -196,20 +227,13 @@ export class TransactionRepository {
 
         if (!previous) return { outcome: 'not-found' };
 
-        const asset = await assetMovedBy(transactionClient, previous);
-        const undone = positionImpactOf(previous);
-        const position = {
-          amount: asset.amount - undone.amount,
-          balance: asset.balance - undone.balance
-        };
+        const ledger = await ledgerOf(transactionClient, previous);
+        const rebuilt = replayLedger(ledger.filter((row) => row.id !== id));
 
-        if (position.amount < 0) return { outcome: 'negative-amount' };
+        if (!rebuilt) return { outcome: 'negative-amount' };
 
         await transactionClient.transaction.delete({ where: { id } });
-        await transactionClient.asset.update({
-          where: { id: asset.id },
-          data: position
-        });
+        await storePosition(transactionClient, previous, rebuilt);
 
         return { outcome: 'recorded' };
       }

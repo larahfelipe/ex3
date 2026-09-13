@@ -577,7 +577,7 @@ describe('authentication', () => {
       Promise.all([
         prismaClient.user.count(),
         prismaClient.portfolio.count(),
-        prismaClient.asset.count(),
+        prismaClient.position.count(),
         prismaClient.transaction.count()
       ]);
 

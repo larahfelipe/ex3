@@ -1,5 +1,5 @@
 import { PortfolioMessages, type SortOrderTypes } from '@/config';
-import type { Asset } from '@/domain/models';
+import type { Position } from '@/domain/models';
 import { NotFoundError } from '@/errors';
 import type { AssetRepository, PortfolioRepository } from '@/infra/database';
 
@@ -53,7 +53,7 @@ export class GetAllAssetsService {
     return {
       ...(sort && { sort: { field: 'balance', order: sort } }),
       pagination,
-      assets: assets as Array<Asset>
+      assets: assets as Array<Position>
     };
   }
 }
@@ -67,7 +67,7 @@ namespace GetAllAssetsService {
     sort?: (typeof SortOrderTypes)[keyof typeof SortOrderTypes];
   };
   export type Result = {
-    assets: Array<Asset>;
+    assets: Array<Position>;
     pagination: Record<'page' | 'limit' | 'total' | 'totalPages', number>;
     sort?: Record<'field' | 'order', string>;
   };

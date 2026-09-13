@@ -108,7 +108,7 @@ Os achados da task foram corrigidos, e os testes que os fixavam passaram a prote
 
 **Escopo por carteira.** A transação grava `portfolioId` e `instrumentId`, e toda consulta do razão filtra pela carteira do chamador. Com o catálogo de instrumentos, duas carteiras podem ter o mesmo instrumento, e o teste de exclusão de ativo com o mesmo instrumento em outra carteira confirma que as transações dela ficam intactas.
 
-**Razão e posição na mesma transação.** Criar, editar e excluir uma transação lê a posição do ativo, calcula a posição resultante e grava a linha do razão e a posição em uma única transação `SERIALIZABLE` (`PrismaClient.runSerializable`). A posição é conferida sobre a leitura feita dentro da transação; se uma escrita concorrente a invalidar, o Postgres aborta um dos lados (`P2034`), que é reexecutado do início, até 3 tentativas. Um terceiro conflito seguido propaga como 500. O Prisma não expõe `SELECT ... FOR UPDATE` fora de SQL cru, e a transação serializável dá a mesma garantia pela API tipada. Exclusão de ativo e de conta usam o mesmo mecanismo, para não deixar transação órfã.
+**Razão e posição na mesma transação.** Criar, editar e excluir uma transação lê as transações da posição, reconstrói a posição sobre o razão como ele fica depois da escrita e grava a linha do razão e a posição em uma única transação `SERIALIZABLE` (`PrismaClient.runSerializable`). O razão é conferido sobre a leitura feita dentro da transação; se uma escrita concorrente a invalidar, o Postgres aborta um dos lados (`P2034`), que é reexecutado do início, até 3 tentativas. Um terceiro conflito seguido propaga como 500. A tentativa recusada não grava nada, nem para desfazer em seguida: a escrita entraria na detecção de conflitos serializáveis, e `SELL`s concorrentes recusados esgotariam as tentativas uns dos outros. O Prisma não expõe `SELECT ... FOR UPDATE` fora de SQL cru, e a transação serializável dá a mesma garantia pela API tipada. Exclusão de ativo e de conta usam o mesmo mecanismo, para não deixar transação órfã.
 
 **Rename.** O rename liga o ativo ao instrumento do novo símbolo e leva junto as transações da carteira no instrumento antigo, na mesma transação serializável. Símbolo fora do catálogo responde 404. Símbolo que a carteira já tem responde 400 sem mover nada: o índice único `(portfolioId, instrumentId)` recusa a escrita e a transação inteira é desfeita, transações inclusive.
 
@@ -138,11 +138,11 @@ Os achados da task foram corrigidos, e os testes que os fixavam passaram a prote
 | --- | --- | --- |
 | custo das unidades mantidas após `SELL` | `balance` soma o custo da compra e subtrai o valor da venda: `BUY 10 @ 10` e `SELL 5 @ 30` deixam 5 unidades com `balance` −50 | baseline #18, TASK 4.10 |
 | vender posição fracionária até zero | `0.3 − 0.1 − 0.2` fica abaixo de zero em `Float`, e o último `SELL` recebe 400 | TD-001, TASK 4.5 |
-| posição editada igual à sequência editada recalculada | a edição move a posição por incremento em ponto flutuante: `0.1 + 0.3` editado para `0.3 + 0.3` grava `0.6000000000000001` | TD-001, TASKs 4.6 e 4.7 |
-| posição após exclusão igual às transações restantes recalculadas | a exclusão subtrai o impacto em ponto flutuante: `0.1 + 0.2` sem o `0.1` grava `0.20000000000000004` | baseline #16, TD-001, TASKs 4.6 e 4.8 |
-| custo acima do maior número finito | `amount` e `price` não têm limite superior: `1e200 × 1e200` responde 201 e grava `Infinity` no `balance` | TD-009, TASK 4.5 |
+| custo acima do maior número finito | `amount` e `price` não têm limite superior: `1e200 × 1e200` responde 201 e grava `Infinity` no custo médio e no `balance` | TD-009, TASK 4.5 |
 
-**Recálculo como referência.** Os critérios das TASKs 4.7 e 4.8 comparam a posição com a que a sequência de transações produziria. Os testes gravam essa sequência, pela API, num segundo ativo da mesma carteira e comparam as duas posições, em vez de fixar o valor esperado. Assim, o teste continua valendo quando a posição passar a ser reconstruída a partir do razão (TASK 4.6). As sequências fracionárias foram escolhidas porque divergem na aritmética de `double` usada hoje, o que foi conferido antes de virarem teste.
+Os dois `todo` que comparavam a posição editada e a posição após exclusão ao recálculo da sequência passaram com a posição reconstruída do razão e viraram testes comuns. Ver [Posição reconstruída do razão](#posição-reconstruída-do-razão).
+
+**Recálculo como referência.** Os critérios das TASKs 4.7 e 4.8 comparam a posição com a que a sequência de transações produziria. Os testes gravam essa sequência, pela API, num segundo ativo da mesma carteira e comparam as duas posições, em vez de fixar o valor esperado, e por isso continuaram valendo quando a posição passou a ser reconstruída a partir do razão. As sequências fracionárias foram escolhidas porque divergiam na aritmética incremental de `double` usada antes, o que foi conferido antes de virarem teste.
 
 **Pendências.** O que a task encontrou sem ser necessário para concluí-la está em [`TODO.md`](../TODO.md): TD-001 (tipo numérico), TD-002 (paginação da listagem de transações) e TD-009 (limite superior de `amount` e `price`).
 
@@ -175,3 +175,22 @@ As suítes de ativos e de transações ganharam um bloco `portfolio scope`: cart
 **Ordem.** Os testes de listagem gravam as carteiras fora da ordem de criação, com `createdAt` separados por um dia, para que a ordem afirmada venha do `ORDER BY` e não da ordem de inserção.
 
 **Migração.** Como a do catálogo, a migração dos dados existentes foi conferida à parte, sobre um banco com as migrations anteriores e dados no formato antigo: a carteira existente vira `Main`, em BRL, com `createdAt` e `updatedAt` iguais à data de cadastro do usuário; carteira sem usuário aborta a migração antes de qualquer alteração; o índice único de `userId` vira índice simples, e uma segunda carteira do mesmo usuário é aceita. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
+
+## Posição reconstruída do razão
+
+`Position` (tabela `positions`) guarda `quantity`, `averageCost` e `balance`, e cada carteira tem no máximo uma posição por instrumento. As rotas e o `AssetRepository` ainda falam em ativo, e as respostas de ativo trazem os três campos no lugar de `amount`. As afirmações de posição em `src/routes/Transactions.integration.ts` e `src/routes/Assets.integration.ts` conferem os três.
+
+A unicidade já estava coberta pela suíte de ativos: símbolo que a carteira já tem, em qualquer caixa, responde 400, e duas carteiras, do mesmo usuário ou não, têm posições separadas no mesmo instrumento. O bloco `ledger` de `src/routes/Transactions.integration.ts` passou a cobrir a reconstrução:
+
+* `BUY` pondera o custo médio pela quantidade e `SELL` o mantém: `BUY 10 @ 10`, `BUY 10 @ 20` e `SELL 5 @ 30` deixam 15 unidades a 15;
+* editar um `BUY` reprecifica as linhas seguintes, e excluir um `SELL` também;
+* a edição que deixa um `SELL` posterior acima do que a posição detém naquele ponto é recusada sem alterar nada, mesmo quando a quantidade final continuaria positiva;
+* posição que chega a zero volta a custo médio zero.
+
+`balance` mantém o significado anterior, a soma de `±amount × price`, e continua reproduzido pelo `todo` de custo após `SELL`.
+
+**Recusa sem escrita.** Criação, edição e exclusão conferem em memória o razão candidato, com a linha nova no fim, a editada no lugar da original ou sem a excluída, e só gravam quando ele é aceito, pelo motivo descrito em "Razão e posição na mesma transação".
+
+**Ordem.** O razão é percorrido em ordem `createdAt`, depois `id`. Os testes gravam por requisições sequenciais; duas transações da mesma posição no mesmo milissegundo seriam ordenadas pelo id, que é aleatório (TD-016).
+
+**Migração.** Conferida à parte, sobre um banco com as migrations anteriores e dados no formato antigo: renomeia `assets` para `positions`, com chave primária e índices; reconstrói `quantity`, `averageCost` e `balance` de cada posição a partir das suas transações, substituindo o valor gravado quando diverge e zerando a posição sem transações; transações no mesmo instante seguem a ordem do id; o resultado é igual, bit a bit, à reconstrução em TypeScript, inclusive com valores fracionários; um razão que vende mais do que detém aborta a migração sem alterar nada. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.

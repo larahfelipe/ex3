@@ -36,7 +36,7 @@ namespace GetAllPortfoliosService {
     limit?: number;
   };
   export type Result = {
-    portfolios: Array<Omit<Portfolio, 'assets'>>;
+    portfolios: Array<Omit<Portfolio, 'positions'>>;
     pagination: Record<'page' | 'limit' | 'total' | 'totalPages', number>;
   };
 }

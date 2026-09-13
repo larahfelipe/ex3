@@ -1,9 +1,10 @@
 import type { Instrument } from './Instrument';
 
-export type Asset = {
+export type Position = {
   id: string;
   symbol: Instrument['symbol'];
-  amount: number;
+  quantity: number;
+  averageCost: number;
   balance: number;
   portfolioId: string;
   instrumentId: string;
