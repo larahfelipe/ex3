@@ -11,13 +11,13 @@ const toPosition = ({
   instrument,
   quantity,
   averageCost,
-  balance,
+  investedValue,
   ...position
 }: PositionRow & Record<'instrument', Pick<Position, 'symbol'>>): Position => ({
   ...position,
   quantity: quantity.toFixed(),
   averageCost: averageCost.toFixed(),
-  balance: balance.toFixed(),
+  investedValue: investedValue.toFixed(),
   symbol: instrument.symbol
 });
 
@@ -44,7 +44,7 @@ export class AssetRepository {
     const [total, docs] = await Promise.all([
       this.prismaClient.position.count({ where: { portfolioId } }),
       this.prismaClient.position.findMany({
-        ...(sort && { orderBy: { balance: sort } }),
+        ...(sort && { orderBy: { investedValue: sort } }),
         ...(limit !== 0 && { take: limitPerPage }),
         where: { portfolioId },
         include: INSTRUMENT_SYMBOL,

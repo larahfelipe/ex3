@@ -42,10 +42,10 @@ const UNHELD_SYMBOL = 'ETH';
 const LEGACY_SYMBOL = 'BRK.B';
 
 /**
- * Distinct balances give `sort` a total order, so paged results are
+ * Distinct invested values give `sort` a total order, so paged results are
  * deterministic; without `sort` the API applies no ordering at all.
  */
-const BALANCE_STEP = 100;
+const INVESTED_VALUE_STEP = 100;
 
 const prismaClient = PrismaClient.getInstance();
 
@@ -60,7 +60,7 @@ const holdAssets = (portfolioId: string, count: number) =>
       createAsset({
         portfolioId,
         symbol,
-        balance: String((index + 1) * BALANCE_STEP)
+        investedValue: String((index + 1) * INVESTED_VALUE_STEP)
       })
     )
   );
@@ -116,7 +116,7 @@ describe('assets', () => {
       assert.equal(res.body.asset.symbol, UNHELD_SYMBOL);
       assert.equal(res.body.asset.quantity, '0');
       assert.equal(res.body.asset.averageCost, '0');
-      assert.equal(res.body.asset.balance, '0');
+      assert.equal(res.body.asset.investedValue, '0');
       assert.equal(res.body.asset.portfolioId, portfolio.id);
       assert.equal(res.body.asset.instrumentId, instrument.id);
     });
@@ -237,7 +237,7 @@ describe('assets', () => {
       assert.equal(res.body.symbol, asset.symbol);
       assert.equal(res.body.quantity, asset.quantity.toFixed());
       assert.equal(res.body.averageCost, asset.averageCost.toFixed());
-      assert.equal(res.body.balance, asset.balance.toFixed());
+      assert.equal(res.body.investedValue, asset.investedValue.toFixed());
     });
 
     it('answers not found for a symbol the portfolio does not hold', async () => {
@@ -460,7 +460,7 @@ describe('assets', () => {
   });
 
   describe('sort', () => {
-    it('orders by balance in either direction, case-insensitively', async () => {
+    it('orders by invested value in either direction, case-insensitively', async () => {
       const heldCount = 3;
       const { portfolio, accessToken } = await signInWithPortfolio();
       await holdAssets(portfolio.id, heldCount);
@@ -478,13 +478,16 @@ describe('assets', () => {
         symbolsOf(ascending.body.assets),
         heldSymbols(heldCount)
       );
-      assert.deepEqual(ascending.body.sort, { field: 'balance', order: 'asc' });
+      assert.deepEqual(ascending.body.sort, {
+        field: 'investedValue',
+        order: 'asc'
+      });
       assert.deepEqual(
         symbolsOf(descending.body.assets),
         heldSymbols(heldCount).reverse()
       );
       assert.deepEqual(descending.body.sort, {
-        field: 'balance',
+        field: 'investedValue',
         order: 'desc'
       });
     });
@@ -827,7 +830,7 @@ describe('assets', () => {
           instrumentId: true,
           quantity: true,
           averageCost: true,
-          balance: true
+          investedValue: true
         }
       });
 
@@ -849,10 +852,11 @@ describe('assets', () => {
         assert.deepEqual(foreign.body, missing.body, request);
       }
 
-      const { id, instrumentId, quantity, averageCost, balance } = holder.asset;
+      const { id, instrumentId, quantity, averageCost, investedValue } =
+        holder.asset;
 
       assert.deepEqual(await storedAssets(), [
-        { id, instrumentId, quantity, averageCost, balance }
+        { id, instrumentId, quantity, averageCost, investedValue }
       ]);
       assert.deepEqual(await prismaClient.transaction.findMany(), [
         holder.transaction
@@ -875,10 +879,10 @@ describe('assets', () => {
         }
       }
 
-      const { id, instrumentId, quantity, averageCost, balance } = asset;
+      const { id, instrumentId, quantity, averageCost, investedValue } = asset;
 
       assert.deepEqual(await storedAssets(), [
-        { id, instrumentId, quantity, averageCost, balance }
+        { id, instrumentId, quantity, averageCost, investedValue }
       ]);
       assert.equal(await prismaClient.transaction.count(), 1);
     });

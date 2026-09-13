@@ -132,11 +132,9 @@ Os achados da task foram corrigidos, e os testes que os fixavam passaram a prote
 * a exclusão de um `SELL` devolve à posição o que ele tinha retirado;
 * `quantity` ou `unitPrice` zero, negativo ou fora do formato de string decimal recebem 400 em `POST` e `PATCH`, sem alterar nada. Número JSON não é convertido, porque o schema não faz coerção.
 
-**Bugs de consistência conhecidos.** Os do baseline já corrigidos continuam fixados pelos testes que protegem a correção: dupla contabilização na edição (#15), checagem de carteira sem `await` na exclusão (#16, primeira parte), escritas não atômicas (#17) e mensagem de criação na edição (#21). Os que dependem da remodelagem da FASE 4 são reproduzidos por testes `todo`, na convenção da TASK 3.3:
+**Bugs de consistência conhecidos.** Os do baseline já corrigidos continuam fixados pelos testes que protegem a correção: dupla contabilização na edição (#15), checagem de carteira sem `await` na exclusão (#16, primeira parte), escritas não atômicas (#17) e mensagem de criação na edição (#21). Os que dependiam da remodelagem da FASE 4 foram reproduzidos por testes `todo`, na convenção da TASK 3.3, e nenhum continua `todo`.
 
-| Teste `todo` | Comportamento hoje | Origem |
-| --- | --- | --- |
-| custo das unidades mantidas após `SELL` | `balance` soma o custo da compra e subtrai o valor da venda: `BUY 10 @ 10` e `SELL 5 @ 30` deixam 5 unidades com `balance` −50 | baseline #18, TASK 4.10 |
+O de custo das unidades mantidas após `SELL` (baseline #18) passou quando `balance`, que somava o custo da compra e subtraía o valor da venda, deu lugar a `investedValue`, e virou teste comum: `BUY 10 @ 10` e `SELL 5 @ 30` deixam 5 unidades com `investedValue` 50, onde `balance` ficava em −50. Ver [Posição reconstruída do razão](#posição-reconstruída-do-razão).
 
 Os dois `todo` que comparavam a posição editada e a posição após exclusão ao recálculo da sequência passaram com a posição reconstruída do razão e viraram testes comuns. Ver [Posição reconstruída do razão](#posição-reconstruída-do-razão).
 
@@ -178,7 +176,7 @@ As suítes de ativos e de transações ganharam um bloco `portfolio scope`: cart
 
 ## Posição reconstruída do razão
 
-`Position` (tabela `positions`) guarda `quantity`, `averageCost` e `balance`, e cada carteira tem no máximo uma posição por instrumento. As rotas e o `AssetRepository` ainda falam em ativo, e as respostas de ativo trazem os três campos no lugar de `amount`. As afirmações de posição em `src/routes/Transactions.integration.ts` e `src/routes/Assets.integration.ts` conferem os três.
+`Position` (tabela `positions`) guarda `quantity`, `averageCost` e `investedValue`, e cada carteira tem no máximo uma posição por instrumento. As rotas e o `AssetRepository` ainda falam em ativo, e as respostas de ativo trazem os três campos no lugar de `amount`. As afirmações de posição em `src/routes/Transactions.integration.ts` e `src/routes/Assets.integration.ts` conferem os três.
 
 A unicidade já estava coberta pela suíte de ativos: símbolo que a carteira já tem, em qualquer caixa, responde 400, e duas carteiras, do mesmo usuário ou não, têm posições separadas no mesmo instrumento. O bloco `ledger` de `src/routes/Transactions.integration.ts` passou a cobrir a reconstrução:
 
@@ -187,13 +185,15 @@ A unicidade já estava coberta pela suíte de ativos: símbolo que a carteira j�
 * a edição que deixa um `SELL` posterior acima do que a posição detém naquele ponto é recusada sem alterar nada, mesmo quando a quantidade final continuaria positiva;
 * posição que chega a zero volta a custo médio zero.
 
-`balance` mantém o significado anterior, a soma de `±quantity × unitPrice`, e continua reproduzido pelo `todo` de custo após `SELL`.
+`investedValue` é o custo das unidades detidas, `quantity × averageCost`, e o valor recebido na venda não entra nele: `BUY 10 @ 10` e `SELL 5 @ 30` deixam `investedValue` 50. `GET /v1/assets` com `sort` ordena por ele, e o teste de ordenação de `src/routes/Assets.integration.ts` grava posições com `investedValue` distintos e confere `sort.field` igual a `investedValue`.
 
 **Recusa sem escrita.** Criação, edição e exclusão conferem em memória o razão candidato, com a linha nova no ponto da sua data de execução, a editada reordenada pela data nova ou sem a excluída, e só gravam quando ele é aceito, pelo motivo descrito em "Razão e posição na mesma transação".
 
 **Ordem.** O razão é percorrido em ordem `executedAt`, depois ordem de gravação. O teste "replays entries executed and created at the same instant in recording order, not id order" grava, com o mesmo `executedAt` e `createdAt`, um `BUY` com o id que ordena por último e depois um `SELL` com o que ordena primeiro, e confirma que a escrita seguinte na posição é aceita e reconstrói a posição nessa ordem.
 
 **Migração.** Conferida à parte, sobre um banco com as migrations anteriores e dados no formato antigo: renomeia `assets` para `positions`, com chave primária e índices; reconstrói `quantity`, `averageCost` e `balance` de cada posição a partir das suas transações, substituindo o valor gravado quando diverge e zerando a posição sem transações; transações no mesmo instante seguem a ordem do id; o resultado é igual, bit a bit, à reconstrução em TypeScript, inclusive com valores fracionários; um razão que vende mais do que detém aborta a migração sem alterar nada. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
+
+**Migração do custo.** Conferida à parte, sobre um banco com as migrations anteriores e posições gravadas: renomeia `balance` para `investedValue`, com tipo, nulabilidade e padrão do schema; grava `quantity × averageCost` truncado em 18 casas, inclusive em posição com `balance` negativo após venda acima do custo, com custo médio fracionário e no teto da coluna; e aborta sem alterar nada quando algum produto não cabe em `DECIMAL(38,18)`. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
 
 ## Transação remodelada
 
@@ -207,7 +207,7 @@ O bloco `ledger` de `src/routes/Transactions.integration.ts` passou a cobrir:
 * transação em moeda diferente das outras da posição recusada com `CURRENCY_MISMATCH`, sem gravar;
 * `BUY` retroativo entrando no razão pela data de execução e reprecificando a posição;
 * `SELL` executado antes da compra que o cobriria recusado, na criação e na edição que o move para antes dela;
-* posição no teto de `DECIMAL(38,18)` aceita, e a escrita que o passaria, em quantidade ou em `balance`, recusada com `POSITION_OUT_OF_RANGE`.
+* posição no teto de `DECIMAL(38,18)` aceita, e a escrita que o passaria, em quantidade ou em `investedValue`, recusada com `POSITION_OUT_OF_RANGE`.
 
 O bloco de validação cobre, em `POST` e `PATCH`, sem gravar nem mover a posição: tipo em branco, desconhecido ou ainda não aceito pela API (`DIVIDEND`); decimal em `number`, negativo, com expoente, com zero à esquerda, com ponto sem casas, com espaços, vazio, com 21 dígitos inteiros ou 19 casas, e zero em `quantity` e `unitPrice`; `currency` ausente ou fora de ISO 4217; `executedAt` ausente, sem hora, sem fuso ou em outro formato; `broker` e `notes` acima do limite. Um teste confere que a criação grava cada campo como enviado, com o `executedAt` enviado com fuso devolvido em UTC, e que a edição substitui todos, voltando os opcionais omitidos ao padrão.
 

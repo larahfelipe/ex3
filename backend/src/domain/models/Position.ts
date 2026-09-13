@@ -6,7 +6,7 @@ export type Position = {
   symbol: Instrument['symbol'];
   quantity: string;
   averageCost: string;
-  balance: string;
+  investedValue: string;
   portfolioId: string;
   instrumentId: string;
 };

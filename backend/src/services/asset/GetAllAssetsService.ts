@@ -51,7 +51,7 @@ export class GetAllAssetsService {
     });
 
     return {
-      ...(sort && { sort: { field: 'balance', order: sort } }),
+      ...(sort && { sort: { field: 'investedValue', order: sort } }),
       pagination,
       assets: assets as Array<Position>
     };

@@ -51,8 +51,7 @@ describe('rebuildPosition', () => {
       position: {
         quantity: '20',
         averageCost: '15.1',
-        investedValue: '302',
-        balance: '300'
+        investedValue: '302'
       }
     });
   });
@@ -82,8 +81,7 @@ describe('rebuildPosition', () => {
       position: {
         quantity: '6',
         averageCost: '10',
-        investedValue: '60',
-        balance: '40'
+        investedValue: '60'
       }
     });
     assert.deepEqual(rebuildPosition([bought, partlySold, soldOut]), {
@@ -91,8 +89,7 @@ describe('rebuildPosition', () => {
       position: {
         quantity: '0',
         averageCost: '0',
-        investedValue: '0',
-        balance: '10'
+        investedValue: '0'
       }
     });
   });
@@ -107,8 +104,7 @@ describe('rebuildPosition', () => {
       position: {
         quantity: '3',
         averageCost: '1.333333333333333333',
-        investedValue: '3.999999999999999999',
-        balance: '3'
+        investedValue: '3.999999999999999999'
       }
     });
   });

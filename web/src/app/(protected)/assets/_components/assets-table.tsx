@@ -15,7 +15,7 @@ import { RefreshCw } from 'lucide-react';
 
 import {
   type Asset,
-  type GetAssetWithTotalBalanceResponseData
+  type GetAssetWithTotalInvestedValueResponseData
 } from '@/app/api/v1/assets';
 import { CURRENCIES } from '@/common/constants';
 import { formatNumber } from '@/common/utils';
@@ -68,7 +68,7 @@ export type DispatchType =
 type AssetTableData = {
   pagination: TPagination;
   selectedAsset: Maybe<Asset>;
-  result: Maybe<GetAssetWithTotalBalanceResponseData>;
+  result: Maybe<GetAssetWithTotalInvestedValueResponseData>;
 };
 
 type AssetsTableProps = {
@@ -212,7 +212,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
             <TableHead>Quantity</TableHead>
 
             <TableHead className="flex items-center gap-1.5">
-              <span>Balance</span>
+              <span>Invested</span>
 
               {/* <div className="flex flex-col relative cursor-pointer">
                 <ChevronUp
@@ -292,7 +292,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                 <TableCell>{asset.quantity}</TableCell>
 
                 <TableCell>
-                  {formatNumber(asset.balance, {
+                  {formatNumber(asset.investedValue, {
                     style: 'currency',
                     currency
                   })}
@@ -394,7 +394,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                       </Select>
 
                       <span className="font-semibold">
-                        {formatNumber(data?.result?.totalBalance ?? 0, {
+                        {formatNumber(data?.result?.totalInvestedValue ?? 0, {
                           minimumFractionDigits: 2
                         })}
                       </span>

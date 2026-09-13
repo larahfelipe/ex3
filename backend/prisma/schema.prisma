@@ -72,14 +72,14 @@ model Instrument {
 }
 
 model Position {
-  id           String     @id @default(uuid())
-  quantity     Decimal    @default(0) @db.Decimal(38, 18)
-  averageCost  Decimal    @default(0) @db.Decimal(38, 18)
-  balance      Decimal    @default(0) @db.Decimal(38, 18)
-  instrument   Instrument @relation(fields: [instrumentId], references: [id])
-  instrumentId String
-  portfolio    Portfolio  @relation(fields: [portfolioId], references: [id])
-  portfolioId  String
+  id            String     @id @default(uuid())
+  quantity      Decimal    @default(0) @db.Decimal(38, 18)
+  averageCost   Decimal    @default(0) @db.Decimal(38, 18)
+  investedValue Decimal    @default(0) @db.Decimal(38, 18)
+  instrument    Instrument @relation(fields: [instrumentId], references: [id])
+  instrumentId  String
+  portfolio     Portfolio  @relation(fields: [portfolioId], references: [id])
+  portfolioId   String
 
   @@unique([portfolioId, instrumentId])
   @@index([instrumentId])

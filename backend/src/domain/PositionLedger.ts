@@ -13,9 +13,8 @@ export type LedgerEntry = Pick<
 
 export type RebuiltPosition = Pick<
   Position,
-  'quantity' | 'averageCost' | 'balance'
-> &
-  Record<'investedValue', string>;
+  'quantity' | 'averageCost' | 'investedValue'
+>;
 
 export type LedgerRefusal =
   | { outcome: 'negative-amount' }
@@ -54,7 +53,7 @@ const byLedgerOrder = (a: LedgerEntry, b: LedgerEntry) =>
   byRecordingOrder(a.sequence, b.sequence);
 
 const exceedsColumn = (value: Prisma.Decimal) =>
-  value.abs().gte(COLUMN_MAGNITUDE_BOUND);
+  value.gte(COLUMN_MAGNITUDE_BOUND);
 
 const truncateToColumnScale = (value: Prisma.Decimal) =>
   value.toDecimalPlaces(DecimalColumn.SCALE, LedgerDecimal.ROUND_DOWN);
@@ -68,10 +67,8 @@ const truncateToColumnScale = (value: Prisma.Decimal) =>
  * taxes, and truncates the new average cost to the column scale; a SELL leaves
  * the average cost unchanged, back to zero once nothing is held, and is refused
  * when it exceeds what the ledger holds at that point. `investedValue` is
- * quantity × average cost and `balance` keeps its legacy meaning, the running
- * sum of ±quantity × unit price; both are truncated to the column scale at the
- * end. A ledger passing through a position that does not fit the columns is
- * refused.
+ * quantity × average cost, truncated to the column scale at the end. A ledger
+ * passing through a position that does not fit the columns is refused.
  */
 export const rebuildPosition = (
   ledger: ReadonlyArray<LedgerEntry>
@@ -81,17 +78,15 @@ export const rebuildPosition = (
 
   let quantity = ZERO;
   let averageCost = ZERO;
-  let balance = ZERO;
 
   for (const entry of ledger.toSorted(byLedgerOrder)) {
     const entryQuantity = new LedgerDecimal(entry.quantity);
-    const grossValue = entryQuantity.mul(entry.unitPrice);
 
     if (entry.type === TransactionTypes.BUY) {
       const heldQuantity = quantity.add(entryQuantity);
       const totalCost = quantity
         .mul(averageCost)
-        .add(grossValue)
+        .add(entryQuantity.mul(entry.unitPrice))
         .add(entry.fees)
         .add(entry.taxes);
 
@@ -100,22 +95,16 @@ export const rebuildPosition = (
         .divToInt(heldQuantity)
         .div(COLUMN_SCALE_FACTOR);
       quantity = heldQuantity;
-      balance = balance.add(grossValue);
     } else if (entry.type === TransactionTypes.SELL) {
       if (entryQuantity.gt(quantity)) return { outcome: 'negative-amount' };
 
       quantity = quantity.sub(entryQuantity);
       averageCost = quantity.isZero() ? ZERO : averageCost;
-      balance = balance.sub(grossValue);
     } else {
       throw new Error(`The ledger replay does not implement ${entry.type}`);
     }
 
-    if (
-      [quantity, averageCost, balance, quantity.mul(averageCost)].some(
-        exceedsColumn
-      )
-    )
+    if ([quantity, averageCost, quantity.mul(averageCost)].some(exceedsColumn))
       return { outcome: 'out-of-range' };
   }
 
@@ -124,8 +113,7 @@ export const rebuildPosition = (
     position: {
       quantity: quantity.toFixed(),
       averageCost: averageCost.toFixed(),
-      investedValue: truncateToColumnScale(quantity.mul(averageCost)).toFixed(),
-      balance: truncateToColumnScale(balance).toFixed()
+      investedValue: truncateToColumnScale(quantity.mul(averageCost)).toFixed()
     }
   };
 };
