@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
 
+import { InstrumentTypes } from '@/config';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 
 import {
@@ -10,9 +11,13 @@ import {
   signIn,
   trackedRateLimitKeys
 } from './ApiClient';
-import { FIXTURE_PASSWORD, seedPortfolio } from './Fixtures';
+import {
+  FIXTURE_ASSET_SYMBOL,
+  FIXTURE_PASSWORD,
+  seedPortfolio
+} from './Fixtures';
 import { registerIntegrationHooks } from './IntegrationHooks';
-import { resetDatabase } from './TestDatabase';
+import { injectWriteFailure, resetDatabase } from './TestDatabase';
 
 const ASSETS_ROUTE = '/v1/assets';
 
@@ -92,5 +97,26 @@ describe('test harness', () => {
     resetRateLimits();
 
     assert.deepEqual(await trackedRateLimitKeys(), []);
+  });
+
+  it('fails only the injected write of a serializable transaction and undoes the writes before it', async (t) => {
+    const failure = injectWriteFailure(t, 'instrument', 'update');
+
+    const attempt = prismaClient.runSerializable(async (transactionClient) => {
+      const { id } = await transactionClient.instrument.create({
+        data: {
+          symbol: FIXTURE_ASSET_SYMBOL,
+          name: FIXTURE_ASSET_SYMBOL,
+          type: InstrumentTypes.OTHER
+        }
+      });
+
+      assert.equal(await transactionClient.instrument.count(), 1);
+
+      await transactionClient.instrument.update({ where: { id }, data: {} });
+    });
+
+    await assert.rejects(attempt, failure);
+    assert.equal(await prismaClient.instrument.count(), 0);
   });
 });

@@ -20,6 +20,7 @@ import {
   seedPortfolio
 } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
+import { injectWriteFailure } from '@/test/TestDatabase';
 
 const ASSETS_ROUTE = '/v1/assets';
 const CREATE_ASSET_ROUTE = '/v1/asset';
@@ -763,6 +764,27 @@ describe('assets', () => {
 
       assert.equal(assets, 1);
       assert.equal(transactions, 1);
+    });
+
+    it('keeps the asset and its transactions when removing the position fails', async (t) => {
+      const { portfolio, asset, transaction, accessToken } =
+        await signInSeeded();
+      injectWriteFailure(t, 'position', 'deleteMany');
+      t.mock.method(console, 'error', () => undefined);
+
+      const res = await client
+        .delete(assetRoute(asset.symbol))
+        .query({ portfolioId: portfolio.id })
+        .set(bearer(accessToken));
+
+      assert.equal(res.status, Errors.INTERNAL_SERVER_ERROR.status);
+      assert.equal(
+        await prismaClient.position.count({ where: { id: asset.id } }),
+        1
+      );
+      assert.deepEqual(await prismaClient.transaction.findMany(), [
+        transaction
+      ]);
     });
   });
 

@@ -25,6 +25,7 @@ import {
   seedPortfolio
 } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
+import { injectWriteFailure } from '@/test/TestDatabase';
 
 const CREATE_TRANSACTION_ROUTE = '/v1/transaction';
 
@@ -1202,6 +1203,49 @@ describe('transactions', () => {
 
       assert.equal(res.status, Errors.INTERNAL_SERVER_ERROR.status);
       assert.deepEqual(await storedEntry(recorded.body.transaction.id), bought);
+    });
+
+    it('rolls back a new transaction when writing the position fails, keeping the position', async (t) => {
+      const { asset, record } = await openEmptyPosition();
+      await record({ type: 'BUY', quantity: '10', unitPrice: '10' });
+      injectWriteFailure(t, 'position', 'update');
+      t.mock.method(console, 'error', () => undefined);
+
+      const res = await record({ type: 'BUY', quantity: '5', unitPrice: '40' });
+
+      assert.equal(res.status, Errors.INTERNAL_SERVER_ERROR.status);
+      assert.equal(await prismaClient.transaction.count(), 1);
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: '10',
+        averageCost: '10',
+        balance: '100'
+      });
+    });
+
+    it('rolls back an edit when writing the position fails, keeping the transaction and the position', async (t) => {
+      const { asset, accessToken, record } = await openEmptyPosition();
+      const bought = { type: 'BUY', quantity: '10', unitPrice: '10' };
+      const recorded = await record(bought);
+      injectWriteFailure(t, 'position', 'update');
+      t.mock.method(console, 'error', () => undefined);
+
+      const res = await client
+        .patch(transactionRoute(recorded.body.transaction.id))
+        .set(bearer(accessToken))
+        .send({
+          ...ENTRY_CONTEXT,
+          type: 'BUY',
+          quantity: '5',
+          unitPrice: '40'
+        });
+
+      assert.equal(res.status, Errors.INTERNAL_SERVER_ERROR.status);
+      assert.deepEqual(await storedEntry(recorded.body.transaction.id), bought);
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: '10',
+        averageCost: '10',
+        balance: '100'
+      });
     });
   });
 
