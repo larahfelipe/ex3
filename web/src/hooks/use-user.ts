@@ -16,6 +16,7 @@ import type {
 import type { GetCurrentUserResponseData } from '@/app/api/v1/user';
 import { APP_ROUTES } from '@/common/constants';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
+import { queryKeys } from '@/lib/react-query';
 
 export const useCurrentUser = () =>
   useQuery<
@@ -23,7 +24,7 @@ export const useCurrentUser = () =>
     ApiProxyErrorData,
     GetCurrentUserResponseData['user']
   >({
-    queryKey: ['user'],
+    queryKey: queryKeys.currentUser(),
     queryFn: () => api.getInstance().get('/v1/user'),
     select: ({ data }) => data.user
   });

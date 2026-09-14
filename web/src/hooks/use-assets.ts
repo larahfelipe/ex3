@@ -1,10 +1,4 @@
-import {
-  skipToken,
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type UseQueryResult
-} from '@tanstack/react-query';
+import { skipToken, useMutation, useQuery } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import { toast } from 'sonner';
 
@@ -21,16 +15,12 @@ import type {
 } from '@/app/api/v1/assets';
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
+import { queryKeys } from '@/lib/react-query';
 import type { Maybe } from '@/types';
 
-import { requirePortfolio } from './use-portfolio';
+import { requirePortfolio, useRefreshPortfolio } from './use-portfolio';
 
 const ASSETS_STALE_TIME_MS = 60_000;
-
-type AssetsListing = Pick<
-  UseQueryResult<GetAssetWithTotalInvestedValueResponseData, ApiProxyErrorData>,
-  'data' | 'dataUpdatedAt'
->;
 
 const toValuationsBySymbol = ({
   data
@@ -48,7 +38,7 @@ export const useAssets = (
     ApiProxyErrorData,
     GetAssetWithTotalInvestedValueResponseData
   >({
-    queryKey: ['assets', portfolio?.id, requestedPage],
+    queryKey: queryKeys.assets(portfolio?.id, requestedPage),
     queryFn: portfolio
       ? () =>
           api.getInstance().get('/v1/assets', {
@@ -66,7 +56,7 @@ export const useAssets = (
 
 export const useAssetValuations = (
   portfolio: Maybe<Portfolio>,
-  { data: listing, dataUpdatedAt }: AssetsListing
+  listing: Maybe<GetAssetWithTotalInvestedValueResponseData>
 ) => {
   const listedSymbols = listing?.assets.map(({ symbol }) => symbol) ?? [];
 
@@ -75,7 +65,7 @@ export const useAssetValuations = (
     ApiProxyErrorData,
     ReadonlyMap<string, AssetValuation>
   >({
-    queryKey: ['asset-valuations', portfolio?.id, listedSymbols, dataUpdatedAt],
+    queryKey: queryKeys.assetValuations(portfolio?.id, listedSymbols),
     queryFn:
       portfolio && listedSymbols.length > 0
         ? () =>
@@ -92,7 +82,7 @@ export const useAssetValuations = (
 };
 
 export const useCreateAsset = (portfolio: Maybe<Portfolio>) => {
-  const queryClient = useQueryClient();
+  const refreshPortfolio = useRefreshPortfolio(portfolio);
 
   return useMutation<
     AxiosResponse<CreateAssetResponseData>,
@@ -106,16 +96,14 @@ export const useCreateAsset = (portfolio: Maybe<Portfolio>) => {
       } satisfies CreateAssetRequestPayload),
     onSuccess: async ({ data }) => {
       toast.success(data.message);
-      await queryClient.invalidateQueries({
-        queryKey: ['assets', portfolio?.id]
-      });
+      await refreshPortfolio();
     },
     onError: (e) => toast.error(e.message)
   });
 };
 
 export const useDeleteAsset = (portfolio: Maybe<Portfolio>) => {
-  const queryClient = useQueryClient();
+  const refreshPortfolio = useRefreshPortfolio(portfolio);
 
   return useMutation<
     AxiosResponse<DeleteAssetResponseData>,
@@ -128,9 +116,7 @@ export const useDeleteAsset = (portfolio: Maybe<Portfolio>) => {
       }),
     onSuccess: async ({ data }) => {
       toast.success(data.message);
-      await queryClient.invalidateQueries({
-        queryKey: ['assets', portfolio?.id]
-      });
+      await refreshPortfolio();
     },
     onError: (e) => toast.error(e.message)
   });

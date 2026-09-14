@@ -1,9 +1,4 @@
-import {
-  skipToken,
-  useMutation,
-  useQuery,
-  useQueryClient
-} from '@tanstack/react-query';
+import { skipToken, useMutation, useQuery } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import { toast } from 'sonner';
 
@@ -18,9 +13,10 @@ import type {
   TransactionFilters
 } from '@/app/api/v1/transactions';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
+import { queryKeys } from '@/lib/react-query';
 import type { Maybe } from '@/types';
 
-import { requirePortfolio } from './use-portfolio';
+import { requirePortfolio, useRefreshPortfolio } from './use-portfolio';
 
 const TRANSACTION_COUNT_STALE_TIME_MS = 30_000;
 
@@ -33,7 +29,7 @@ export const useTransactions = (
     ApiProxyErrorData,
     GetTransactionsResponseData
   >({
-    queryKey: ['transactions', portfolio?.id, filters],
+    queryKey: queryKeys.transactions(portfolio?.id, filters),
     queryFn: portfolio
       ? () =>
           api.getInstance().get('/v1/transactions', {
@@ -55,7 +51,7 @@ export const useTransactionCount = ({
     ApiProxyErrorData,
     GetTransactionCountResponseData
   >({
-    queryKey: ['transactions', 'count', portfolioId, symbol],
+    queryKey: queryKeys.transactionCount(portfolioId, symbol),
     queryFn: () =>
       api
         .getInstance()
@@ -67,7 +63,7 @@ export const useTransactionCount = ({
   });
 
 export const useCreateTransaction = (portfolio: Maybe<Portfolio>) => {
-  const queryClient = useQueryClient();
+  const refreshPortfolio = useRefreshPortfolio(portfolio);
 
   return useMutation<
     AxiosResponse<CreateTransactionResponseData>,
@@ -85,9 +81,7 @@ export const useCreateTransaction = (portfolio: Maybe<Portfolio>) => {
     },
     onSuccess: async ({ data }) => {
       toast.success(data.message);
-      await queryClient.invalidateQueries({
-        queryKey: ['assets', portfolio?.id]
-      });
+      await refreshPortfolio();
     },
     onError: (e) => toast.error(e.message)
   });

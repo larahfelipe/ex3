@@ -1,4 +1,6 @@
-import { skipToken, useQuery } from '@tanstack/react-query';
+import { useCallback } from 'react';
+
+import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 
 import type {
@@ -14,6 +16,7 @@ import type {
   Portfolio
 } from '@/app/api/v1/portfolios';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
+import { queryKeys } from '@/lib/react-query';
 import type { Maybe, PageParams } from '@/types';
 
 const PORTFOLIOS_STALE_TIME_MS = 60_000;
@@ -30,13 +33,26 @@ export const requirePortfolio = (portfolio: Maybe<Portfolio>): Portfolio => {
   return portfolio;
 };
 
+export const useRefreshPortfolio = (portfolio: Maybe<Portfolio>) => {
+  const queryClient = useQueryClient();
+  const portfolioId = portfolio?.id;
+
+  return useCallback(
+    () =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.portfolio(portfolioId)
+      }),
+    [queryClient, portfolioId]
+  );
+};
+
 export const usePrimaryPortfolio = () =>
   useQuery<
     AxiosResponse<GetPortfoliosResponseData>,
     ApiProxyErrorData,
     Maybe<Portfolio>
   >({
-    queryKey: ['portfolios', PRIMARY_PORTFOLIO_PAGE],
+    queryKey: queryKeys.portfolios(PRIMARY_PORTFOLIO_PAGE),
     queryFn: () =>
       api
         .getInstance()
@@ -51,7 +67,7 @@ export const usePortfolioOverview = (portfolio: Maybe<Portfolio>) =>
     ApiProxyErrorData,
     GetPortfolioOverviewResponseData
   >({
-    queryKey: ['portfolio-overview', portfolio?.id],
+    queryKey: queryKeys.portfolioOverview(portfolio?.id),
     queryFn: portfolio
       ? () =>
           api.getInstance().get('/v1/portfolio/overview', {
@@ -70,7 +86,7 @@ export const usePositions = (
     ApiProxyErrorData,
     GetPortfolioPositionsResponseData
   >({
-    queryKey: ['portfolio-positions', portfolio?.id, requestedPage],
+    queryKey: queryKeys.positions(portfolio?.id, requestedPage),
     queryFn: portfolio
       ? () =>
           api.getInstance().get('/v1/portfolio/positions', {
@@ -89,7 +105,7 @@ export const useAllocation = (portfolio: Maybe<Portfolio>) =>
     ApiProxyErrorData,
     GetPortfolioAllocationResponseData
   >({
-    queryKey: ['portfolio-allocation', portfolio?.id],
+    queryKey: queryKeys.allocation(portfolio?.id),
     queryFn: portfolio
       ? () =>
           api.getInstance().get('/v1/portfolio/allocation', {
