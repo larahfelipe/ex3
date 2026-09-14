@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { before, describe, it } from 'node:test';
+import { before, describe, it, type TestContext } from 'node:test';
 
 import {
   AssetMessages,
@@ -7,8 +7,14 @@ import {
   InstrumentMessages,
   PortfolioMessages
 } from '@/config';
+import type { Instrument, Position } from '@/domain/models';
 import { PrismaClient } from '@/infra/database/PrismaClient';
+import { YahooFinanceProvider } from '@/infra/market-data';
 import { apiRequest, bearer, signIn } from '@/test/ApiClient';
+import {
+  FAKE_MARKET_DATA_SOURCE,
+  FakeMarketDataProvider
+} from '@/test/FakeMarketDataProvider';
 import {
   FIXTURE_ASSET_SYMBOL,
   FIXTURE_PASSWORD,
@@ -24,6 +30,7 @@ import { injectWriteFailure } from '@/test/TestDatabase';
 
 const ASSETS_ROUTE = '/v1/assets';
 const CREATE_ASSET_ROUTE = '/v1/asset';
+const ASSET_VALUATIONS_ROUTE = '/v1/assets/valuations';
 
 const assetRoute = (symbol: string) => `/v1/asset/${symbol}`;
 
@@ -579,14 +586,14 @@ describe('assets', () => {
 
       const res = await renameAsset(caller, asset.symbol, RENAMED_SYMBOL);
       const listed = await client
-        .get(`/v1/transactions/${RENAMED_SYMBOL}`)
-        .query({ portfolioId: portfolio.id })
+        .get('/v1/transactions')
+        .query({ portfolioId: portfolio.id, symbol: RENAMED_SYMBOL })
         .set(bearer(accessToken));
 
       assert.equal(res.status, 200);
       assert.equal(listed.status, 200);
       assert.deepEqual(
-        listed.body.transactions.map(({ id }: { id: string }) => id),
+        listed.body.items.map(({ id }: { id: string }) => id),
         [transaction.id]
       );
       assert.equal(
@@ -791,6 +798,252 @@ describe('assets', () => {
     });
   });
 
+  describe('valuations', () => {
+    const OBSERVED_AT = new Date('2026-09-11T19:55:00.000Z');
+
+    type HeldAsset = Pick<Instrument, 'symbol' | 'market' | 'currency'> & {
+      position?: Pick<Position, 'quantity' | 'averageCost' | 'investedValue'> &
+        Record<'ledgerCurrency', string>;
+    };
+
+    const holdAsset = async (
+      portfolioId: string,
+      { position, ...instrument }: HeldAsset
+    ) => {
+      await createInstrument(instrument);
+
+      if (!position)
+        return createAsset({ portfolioId, symbol: instrument.symbol });
+
+      const { ledgerCurrency, ...stated } = position;
+      const asset = await createAsset({
+        portfolioId,
+        symbol: instrument.symbol,
+        ...stated
+      });
+      await createTransaction(asset, {
+        quantity: stated.quantity,
+        unitPrice: stated.averageCost,
+        currency: ledgerCurrency
+      });
+
+      return asset;
+    };
+
+    const observedPrice = (price: string, currency: string) => ({
+      price,
+      currency,
+      timestamp: OBSERVED_AT
+    });
+
+    const quoted = (price: string, currency: string) => ({
+      ...observedPrice(price, currency),
+      timestamp: OBSERVED_AT.toISOString(),
+      source: FAKE_MARKET_DATA_SOURCE
+    });
+
+    const quoteFrom = (
+      t: TestContext,
+      provider: Pick<YahooFinanceProvider, 'getQuotes'>
+    ) =>
+      t.mock.method(
+        YahooFinanceProvider.getInstance(),
+        'getQuotes',
+        (instruments: Parameters<YahooFinanceProvider['getQuotes']>[0]) =>
+          provider.getQuotes(instruments)
+      );
+
+    const requestValuations = (
+      accessToken: string,
+      portfolioId: string,
+      symbols?: string
+    ) =>
+      client
+        .get(ASSET_VALUATIONS_ROUTE)
+        .query({ portfolioId, symbols })
+        .set(bearer(accessToken));
+
+    const bySymbol = <Item extends { symbol: string }>(
+      items: ReadonlyArray<Item>
+    ) => items.toSorted((a, b) => a.symbol.localeCompare(b.symbol));
+
+    it('values each held asset at its quote, with a profit only against a cost in the quote currency', async (t) => {
+      const { portfolio, accessToken } = await signInWithPortfolio();
+      await holdAsset(portfolio.id, {
+        symbol: 'AAPL',
+        market: 'NASDAQ',
+        currency: 'USD',
+        position: {
+          quantity: '2',
+          averageCost: '200',
+          investedValue: '400',
+          ledgerCurrency: 'USD'
+        }
+      });
+      await holdAsset(portfolio.id, {
+        symbol: 'BTC',
+        market: 'CRYPTO',
+        currency: 'USD',
+        position: {
+          quantity: '0.5',
+          averageCost: '300000',
+          investedValue: '150000',
+          ledgerCurrency: 'BRL'
+        }
+      });
+      await holdAsset(portfolio.id, {
+        symbol: 'PETR4',
+        market: 'B3',
+        currency: 'BRL'
+      });
+      await createInstrument({
+        symbol: UNHELD_SYMBOL,
+        market: 'CRYPTO',
+        currency: 'USD'
+      });
+      const getQuotes = quoteFrom(
+        t,
+        new FakeMarketDataProvider({
+          AAPL: [observedPrice('229.5', 'USD')],
+          BTC: [observedPrice('64000.12', 'USD')],
+          PETR4: [observedPrice('47.11', 'BRL')],
+          [UNHELD_SYMBOL]: [observedPrice('3000', 'USD')]
+        })
+      );
+
+      const res = await requestValuations(
+        accessToken,
+        portfolio.id,
+        `aapl,BTC,PETR4,btc,${UNHELD_SYMBOL}`
+      );
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(bySymbol(res.body.valuations), [
+        {
+          symbol: 'AAPL',
+          outcome: 'valued',
+          quote: quoted('229.5', 'USD'),
+          marketValue: '459',
+          profitLoss: '59',
+          profitLossPercent: '0.1475'
+        },
+        {
+          symbol: 'BTC',
+          outcome: 'valued',
+          quote: quoted('64000.12', 'USD'),
+          marketValue: '32000.06'
+        },
+        {
+          symbol: 'PETR4',
+          outcome: 'valued',
+          quote: quoted('47.11', 'BRL'),
+          marketValue: '0'
+        }
+      ]);
+      assert.equal(getQuotes.mock.callCount(), 1);
+      assert.deepEqual(
+        bySymbol(getQuotes.mock.calls[0].arguments[0]).map(
+          ({ symbol, market, currency }) => ({ symbol, market, currency })
+        ),
+        [
+          { symbol: 'AAPL', market: 'NASDAQ', currency: 'USD' },
+          { symbol: 'BTC', market: 'CRYPTO', currency: 'USD' },
+          { symbol: 'PETR4', market: 'B3', currency: 'BRL' }
+        ]
+      );
+    });
+
+    it('answers an asset the provider has no quote for as not found', async (t) => {
+      const { portfolio, accessToken } = await signInWithPortfolio();
+      await holdAsset(portfolio.id, {
+        symbol: 'KO',
+        market: 'NYSE',
+        currency: 'USD'
+      });
+      quoteFrom(t, new FakeMarketDataProvider({}));
+
+      const res = await requestValuations(accessToken, portfolio.id, 'KO');
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, {
+        valuations: [{ symbol: 'KO', outcome: 'not-found' }]
+      });
+    });
+
+    it('answers every asset as unavailable while the provider is', async (t) => {
+      const { portfolio, accessToken } = await signInWithPortfolio();
+      await holdAsset(portfolio.id, {
+        symbol: 'KO',
+        market: 'NYSE',
+        currency: 'USD'
+      });
+      quoteFrom(
+        t,
+        new FakeMarketDataProvider(
+          { KO: [observedPrice('70.12', 'USD')] },
+          { isAvailable: false }
+        )
+      );
+
+      const res = await requestValuations(accessToken, portfolio.id, 'KO');
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, {
+        valuations: [{ symbol: 'KO', outcome: 'unavailable' }]
+      });
+    });
+
+    it('answers every asset as unavailable without a provider key, sending no request', async (t) => {
+      const { portfolio, accessToken } = await signInWithPortfolio();
+      await holdAsset(portfolio.id, {
+        symbol: 'KO',
+        market: 'NYSE',
+        currency: 'USD'
+      });
+      quoteFrom(t, new YahooFinanceProvider({ apiKey: undefined }));
+      const sentRequests = t.mock.method(globalThis, 'fetch', () =>
+        Promise.reject(new TypeError('Tests send no request to a provider'))
+      );
+
+      const res = await requestValuations(accessToken, portfolio.id, 'KO');
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, {
+        valuations: [{ symbol: 'KO', outcome: 'unavailable' }]
+      });
+      assert.equal(sentRequests.mock.callCount(), 0);
+    });
+
+    it('values as many symbols as the largest page holds', async () => {
+      const { portfolio, accessToken } = await signInWithPortfolio();
+
+      const res = await requestValuations(
+        accessToken,
+        portfolio.id,
+        heldSymbols(MAX_PAGE_LIMIT).join(',')
+      );
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, { valuations: [] });
+    });
+
+    it('rejects a missing, empty, malformed or oversized list of symbols', async () => {
+      const { portfolio, accessToken } = await signInWithPortfolio();
+
+      for (const symbols of [
+        undefined,
+        '',
+        'KO,,AAPL',
+        'A'.repeat(SYMBOL_MAX_LENGTH + 1),
+        heldSymbols(MAX_PAGE_LIMIT + 1).join(',')
+      ]) {
+        const res = await requestValuations(accessToken, portfolio.id, symbols);
+
+        assert.equal(res.status, Errors.BAD_REQUEST.status, String(symbols));
+      }
+    });
+  });
+
   describe('portfolio scope', () => {
     /** Well-formed, and naming no portfolio: the baseline a foreign portfolio id must be indistinguishable from. */
     const MISSING_PORTFOLIO_ID = '00000000-0000-4000-8000-000000000000';
@@ -810,6 +1063,11 @@ describe('assets', () => {
         client
           .get(assetRoute(FIXTURE_ASSET_SYMBOL))
           .query({ portfolioId })
+          .set(bearer(accessToken)),
+      'GET asset valuations': (accessToken: string, portfolioId?: string) =>
+        client
+          .get(ASSET_VALUATIONS_ROUTE)
+          .query({ portfolioId, symbols: FIXTURE_ASSET_SYMBOL })
           .set(bearer(accessToken)),
       'PATCH asset': (accessToken: string, portfolioId?: string) =>
         client

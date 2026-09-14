@@ -12,10 +12,13 @@ import { toast } from 'sonner';
 
 import type {
   Asset,
+  AssetValuation,
   CreateAssetRequestPayload,
   CreateAssetResponseData,
   DeleteAssetRequestPayload,
   DeleteAssetResponseData,
+  GetAssetValuationsRequestParams,
+  GetAssetValuationsResponseData,
   GetAssetWithTotalInvestedValueResponseData
 } from '@/app/api/v1/assets';
 import type {
@@ -63,6 +66,13 @@ const PRIMARY_PORTFOLIO_PAGE: GetPortfoliosRequestParams = {
   page: 1,
   limit: 1
 };
+
+const toValuationsBySymbol = ({
+  data
+}: AxiosResponse<GetAssetValuationsResponseData>): ReadonlyMap<
+  string,
+  AssetValuation
+> => new Map(data.valuations.map((valuation) => [valuation.symbol, valuation]));
 
 export default function Assets() {
   const [dialogAction, setDialogAction] = useState('' as AssetDialogActions);
@@ -128,7 +138,7 @@ export default function Assets() {
     return portfolio;
   };
 
-  const { data, isLoading, isRefetching, refetch } = useQuery<
+  const { data, dataUpdatedAt, isLoading, isRefetching, refetch } = useQuery<
     AxiosResponse<GetAssetWithTotalInvestedValueResponseData>,
     ApiProxyErrorData,
     GetAssetWithTotalInvestedValueResponseData
@@ -145,6 +155,26 @@ export default function Assets() {
       }),
     select: ({ data }) => data,
     enabled: !!portfolio,
+    staleTime: 60_000
+  });
+
+  const listedSymbols = data?.assets.map(({ symbol }) => symbol) ?? [];
+
+  const { data: valuations, isLoading: isLoadingValuations } = useQuery<
+    AxiosResponse<GetAssetValuationsResponseData>,
+    ApiProxyErrorData,
+    ReadonlyMap<string, AssetValuation>
+  >({
+    queryKey: ['asset-valuations', portfolio?.id, listedSymbols, dataUpdatedAt],
+    queryFn: () =>
+      api.getInstance().get('/v1/assets/valuations', {
+        params: {
+          portfolioId: requirePortfolio().id,
+          symbols: listedSymbols.join(',')
+        } satisfies GetAssetValuationsRequestParams
+      }),
+    select: toValuationsBySymbol,
+    enabled: !!portfolio && listedSymbols.length > 0,
     staleTime: 60_000
   });
 
@@ -296,8 +326,9 @@ export default function Assets() {
 
       <Card className="h-fit mt-8 px-5 py-8 mx-3 shadow-none sm:mx-4 sm:pt-6 sm:pb-2">
         <AssetsTable
-          data={{ pagination, selectedAsset, result: data }}
+          data={{ pagination, selectedAsset, result: data, valuations }}
           loading={isLoadingPortfolio || isLoading || isRefetching}
+          loadingValuations={isLoadingValuations}
           onDispatch={handleDispatch}
         />
       </Card>

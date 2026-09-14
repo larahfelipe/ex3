@@ -12,8 +12,9 @@ export const authRateLimitMiddleware = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: {
-    name: Errors.TOO_MANY_REQUESTS.name,
-    message: Errors.TOO_MANY_REQUESTS.message
+    code: Errors.TOO_MANY_REQUESTS.code,
+    message: Errors.TOO_MANY_REQUESTS.message,
+    details: []
   }
 });
 
@@ -23,7 +24,8 @@ export const apiRateLimitMiddleware = rateLimit({
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: {
-    name: Errors.TOO_MANY_REQUESTS.name,
-    message: Errors.TOO_MANY_REQUESTS.message
+    code: Errors.TOO_MANY_REQUESTS.code,
+    message: Errors.TOO_MANY_REQUESTS.message,
+    details: []
   }
 });

@@ -1,7 +1,6 @@
 import type {
   DecimalString,
   Maybe,
-  Pagination,
   WithId,
   WithMessage,
   WithTimestamps
@@ -29,11 +28,6 @@ export interface Transaction
   extends WithId, WithTimestamps, TransactionProperties {}
 
 export type GetTransactionRequestPayload = Pick<Asset, 'symbol'>;
-
-export type GetTransactionsResponseData = {
-  transactions: Array<Transaction>;
-  pagination: Pagination;
-};
 
 export type GetTransactionCountRequestPayload = Pick<Asset, 'symbol'>;
 

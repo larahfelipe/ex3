@@ -3,11 +3,7 @@ import type { FC, JSX } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { type AxiosResponse } from 'axios';
 
-import type {
-  GetTransactionsResponseData,
-  Transaction
-} from '@/app/api/v1/transactions';
-import { TRANSACTION_TYPES } from '@/common/constants';
+import type { GetTransactionCountResponseData } from '@/app/api/v1/transactions';
 import { Skeleton, TableCell } from '@/components/ui';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
 
@@ -16,34 +12,23 @@ type AssetTransactionTableCell = {
   portfolioId: string;
 };
 
-const getTotalTransactionsTuple = (transactions: Array<Transaction>) => {
-  const initialValue: [number, number] = [0, 0];
-  if (!transactions?.length) return initialValue;
-
-  return transactions.reduce<[number, number]>(
-    (acc, curr) =>
-      curr.type === TRANSACTION_TYPES[0]
-        ? [++acc[0], acc[1]]
-        : [acc[0], ++acc[1]],
-    initialValue
-  );
-};
+const NO_TRANSACTIONS: GetTransactionCountResponseData = { buy: 0, sell: 0 };
 
 export const AssetTransactionTableCell: FC<AssetTransactionTableCell> = ({
   symbol,
   portfolioId
 }): JSX.Element => {
-  const { data: transactions = [], isLoading } = useQuery<
-    AxiosResponse<GetTransactionsResponseData>,
+  const { data: { buy, sell } = NO_TRANSACTIONS, isLoading } = useQuery<
+    AxiosResponse<GetTransactionCountResponseData>,
     ApiProxyErrorData,
-    Array<Transaction>
+    GetTransactionCountResponseData
   >({
-    queryKey: ['transactions', portfolioId, symbol],
+    queryKey: ['transactions', 'count', portfolioId, symbol],
     queryFn: () =>
-      api.getInstance().get(`/v1/transactions/${symbol}`, {
+      api.getInstance().get(`/v1/transactions/${symbol}/count`, {
         params: { portfolioId }
       }),
-    select: ({ data }) => data.transactions,
+    select: ({ data }) => data,
     staleTime: 30_000
   });
 
@@ -54,14 +39,12 @@ export const AssetTransactionTableCell: FC<AssetTransactionTableCell> = ({
       </TableCell>
     );
 
-  const [buyQty, sellQty] = getTotalTransactionsTuple(transactions);
-
   return (
     <TableCell>
       <div className="flex gap-2">
-        <span className="text-green-600">{buyQty} Buy</span>
+        <span className="text-green-600">{buy} Buy</span>
 
-        <span className="text-red-600">{sellQty} Sell</span>
+        <span className="text-red-600">{sell} Sell</span>
       </div>
     </TableCell>
   );

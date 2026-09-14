@@ -99,7 +99,8 @@ const EnvsSchema = z
         `Must have at least ${JWT_SECRET_MIN_LENGTH} characters`
       ),
     JWT_EXPIRATION: tokenLifetimeSeconds.prefault(DEFAULT_JWT_EXPIRATION),
-    CORS_ALLOWED_ORIGINS: originList.optional()
+    CORS_ALLOWED_ORIGINS: originList.optional(),
+    YAHOO_FINANCE_API_KEY: z.string().optional()
   })
   .superRefine((envs, ctx) => {
     if (envs.NODE_ENV === 'production' && !envs.CORS_ALLOWED_ORIGINS?.length)
@@ -118,7 +119,9 @@ const EnvsSchema = z
     bcryptSalt: envs.BCRYPT_SALT,
     jwtSecret: envs.JWT_SECRET,
     jwtExpirationSeconds: envs.JWT_EXPIRATION,
-    corsAllowedOrigins: envs.CORS_ALLOWED_ORIGINS ?? []
+    corsAllowedOrigins: envs.CORS_ALLOWED_ORIGINS ?? [],
+    yahooFinanceApiKey:
+      envs.YAHOO_FINANCE_API_KEY === '' ? undefined : envs.YAHOO_FINANCE_API_KEY
   }));
 
 export type Envs = z.infer<typeof EnvsSchema>;

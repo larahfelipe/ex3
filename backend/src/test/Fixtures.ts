@@ -122,6 +122,7 @@ export const createTransaction = async (
       | 'unitPrice'
       | 'currency'
       | 'executedAt'
+      | 'broker'
       | 'createdAt'
     >
   > = {}

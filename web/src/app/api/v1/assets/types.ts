@@ -36,6 +36,36 @@ export type GetAssetResponseData = {
 export type GetAssetWithTotalInvestedValueResponseData = GetAssetResponseData &
   Record<'totalInvestedValue', number>;
 
+export type Quote = {
+  price: DecimalString;
+  currency: string;
+  timestamp: string;
+  source: string;
+  previousClose?: DecimalString;
+};
+
+export type AssetValuation = Pick<AssetProperties, 'symbol'> &
+  (
+    | {
+        outcome: 'valued';
+        quote: Quote;
+        marketValue: DecimalString;
+        profitLoss?: DecimalString;
+        profitLossPercent?: DecimalString;
+      }
+    | { outcome: 'not-found' | 'unavailable' }
+  );
+
+export type GetAssetValuationsRequestParams = Pick<
+  AssetProperties,
+  'portfolioId'
+> &
+  Record<'symbols', string>;
+
+export type GetAssetValuationsResponseData = {
+  valuations: Array<AssetValuation>;
+};
+
 export type CreateAssetRequestPayload = Pick<
   AssetProperties,
   'symbol' | 'portfolioId'

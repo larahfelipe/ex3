@@ -1,7 +1,9 @@
 import type { Position as PositionRow } from '@prisma/client';
 
 import type { SortOrderTypes } from '@/config';
+import type { PricedInstrument } from '@/domain/MarketDataProvider';
 import type { Position } from '@/domain/models';
+import type { ListedPosition } from '@/domain/PortfolioValuation';
 
 import { PrismaClient } from './PrismaClient';
 
@@ -86,6 +88,61 @@ export class AssetRepository {
   }
 
   /**
+   * The positions of the portfolio in symbol order, only those in the symbols
+   * when given, with what their quotes are looked up by. Every transaction of a
+   * position shares one currency, so the first one found is the currency of its
+   * ledger, null without transactions.
+   */
+  async getPricedPositions(
+    params: AssetRepository.GetPricedPositionsParams
+  ): Promise<Array<AssetRepository.PricedPosition>> {
+    const { portfolioId, symbols } = params;
+
+    const inSymbols = {
+      portfolioId,
+      ...(symbols && { instrument: { symbol: { in: symbols } } })
+    };
+
+    const [positions, ledgerCurrencies] = await Promise.all([
+      this.prismaClient.position.findMany({
+        where: inSymbols,
+        orderBy: { instrument: { symbol: 'asc' } },
+        select: {
+          instrumentId: true,
+          quantity: true,
+          averageCost: true,
+          investedValue: true,
+          instrument: {
+            select: { symbol: true, name: true, market: true, currency: true }
+          }
+        }
+      }),
+      this.prismaClient.transaction.findMany({
+        where: inSymbols,
+        distinct: ['instrumentId'],
+        select: { instrumentId: true, currency: true }
+      })
+    ]);
+
+    const currencyByInstrument = new Map(
+      ledgerCurrencies.map(({ instrumentId, currency }) => [
+        instrumentId,
+        currency
+      ])
+    );
+
+    return positions.map(
+      ({ instrumentId, quantity, averageCost, investedValue, instrument }) => ({
+        ...instrument,
+        quantity: quantity.toFixed(),
+        averageCost: averageCost.toFixed(),
+        investedValue: investedValue.toFixed(),
+        ledgerCurrency: currencyByInstrument.get(instrumentId) ?? null
+      })
+    );
+  }
+
+  /**
    * The unique index on portfolio and instrument is the only authority on
    * whether the portfolio already holds the instrument, so of concurrent
    * additions exactly one succeeds and the others resolve to null.
@@ -163,6 +220,10 @@ namespace AssetRepository {
     limit?: number;
     sort?: (typeof SortOrderTypes)[keyof typeof SortOrderTypes];
   };
+  export type GetPricedPositionsParams = Pick<Position, 'portfolioId'> & {
+    symbols?: Array<Position['symbol']>;
+  };
+  export type PricedPosition = PricedInstrument & ListedPosition;
   export type AddParams = Pick<Position, 'instrumentId' | 'portfolioId'>;
   export type UpdateParams = Pick<Position, 'portfolioId'> &
     Record<'oldInstrumentId' | 'newInstrumentId', string>;

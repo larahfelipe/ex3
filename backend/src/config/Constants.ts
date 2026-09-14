@@ -2,32 +2,37 @@ import type { InstrumentType, TransactionType } from '@/domain/models';
 
 export const Errors = {
   BAD_REQUEST: {
-    name: 'BadRequestError',
+    code: 'BAD_REQUEST',
     status: 400,
     message: 'Invalid or corrupted request'
   },
   FORBIDDEN: {
-    name: 'ForbiddenError',
+    code: 'FORBIDDEN',
     status: 403,
     message: 'Resource access denied'
   },
   NOT_FOUND: {
-    name: 'NotFoundError',
+    code: 'NOT_FOUND',
     status: 404,
     message: 'Resource not found'
   },
   UNAUTHORIZED: {
-    name: 'UnauthorizedError',
+    code: 'UNAUTHORIZED',
     status: 401,
     message: 'Authentication required'
   },
+  PAYLOAD_TOO_LARGE: {
+    code: 'PAYLOAD_TOO_LARGE',
+    status: 413,
+    message: 'Request payload exceeds the maximum allowed size'
+  },
   TOO_MANY_REQUESTS: {
-    name: 'TooManyRequestsError',
+    code: 'TOO_MANY_REQUESTS',
     status: 429,
     message: 'Too many requests, please try again later'
   },
   INTERNAL_SERVER_ERROR: {
-    name: 'InternalServerError',
+    code: 'INTERNAL_SERVER_ERROR',
     status: 500,
     message: 'An unexpected error occurred'
   }
@@ -132,6 +137,19 @@ export const InstrumentTypes: Record<InstrumentType, InstrumentType> = {
   CASH: 'CASH',
   OTHER: 'OTHER'
 } as const;
+
+/**
+ * The markets an instrument can be registered in: the ones the quote provider
+ * knows how to price, so every instrument registered from now on has a quote.
+ */
+export const Markets = {
+  B3: 'B3',
+  NYSE: 'NYSE',
+  NASDAQ: 'NASDAQ',
+  CRYPTO: 'CRYPTO'
+} as const;
+
+export type Market = (typeof Markets)[keyof typeof Markets];
 
 export const SortOrderTypes = {
   ASCENDENT: 'asc',

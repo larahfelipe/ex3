@@ -13,13 +13,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 
 ## Abertos
 
-### TD-002 — Listagem de transações ignora `page` e não segue a ordem das operações
-
-- **Origem:** TASK 3.4 · **Tipo:** API · **Prioridade:** média · **Encaminhamento:** TASK 6.4
-- **Contexto:** `TransactionRepository.getAll` ordena por `id desc` e pagina pelo cursor `id < lastId`, mas o `id` é UUID v4 (`@default(uuid())`), aleatório. `page` é devolvido na resposta sem deslocar a consulta, e `lastId` só passa por `trim`, sem validação de formato. O ramo `limit === 0`, que omite o `take`, é inalcançável hoje porque `PaginationQuerySchema` exige `limit` positivo.
-- **Impacto:** a ordem da listagem não corresponde à ordem das operações, e `page=2` sem `lastId` repete a primeira página. O ramo sem `take` volta a permitir listagem ilimitada (OWASP API4:2023) se o schema for relaxado.
-- **Proposta:** ordenar na ordem do razão (`executedAt`, depois `sequence`); adotar um único mecanismo de paginação (cursor opaco validado, ou `page`/`limit` com `skip`); remover o ramo sem `take`.
-
 ### TD-004 — Enumeração de e-mails no sign-up (risco aceito)
 
 - **Origem:** revisão de segurança posterior à TASK 3.3 · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** TASK 20.4
@@ -79,7 +72,7 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-013 — Web opera só a carteira mais antiga e ignora a moeda base
 
 - **Origem:** várias carteiras por usuário · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
-- **Contexto:** a tela de ativos pede `GET /v1/portfolios` com `page=1&limit=1` e usa essa carteira, a mais antiga, em todas as chamadas; o web não tem seletor nem criação de carteira. O diálogo de transação envia e rotula o preço na `baseCurrency` da carteira, mas a tabela de ativos formata os valores com a moeda de `useUser` (`web/src/providers/user-provider.tsx`), que começa em BRL e muda pelo seletor da tabela, sem relação com `Portfolio.baseCurrency` e sem conversão.
+- **Contexto:** a tela de ativos pede `GET /v1/portfolios` com `page=1&limit=1` e usa essa carteira, a mais antiga, em todas as chamadas; o web não tem seletor nem criação de carteira. O diálogo de transação envia e rotula o preço na `baseCurrency` da carteira, mas a tabela de ativos formata os valores com a moeda de `useUser` (`web/src/providers/user-provider.tsx`), que começa em BRL e muda pelo seletor da tabela, sem relação com `Portfolio.baseCurrency` e sem conversão. Só as colunas de preço, valor de mercado e lucro usam a moeda da cotação.
 - **Impacto:** carteiras criadas pela API não aparecem no web. Quem escolhe USD ou EUR no sign-up registra transações nessa moeda, mas vê os valores da tabela rotulados em BRL até trocar o seletor, e trocar o seletor só muda o símbolo exibido.
 - **Proposta:** seletor e criação de carteira no web, com o rótulo inicial vindo da `baseCurrency` da carteira selecionada. Decidir com o produto se o seletor de moeda continua existindo enquanto não houver conversão cambial.
 
@@ -93,9 +86,9 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-015 — Tamanho de página padrão repetido em cada repositório
 
 - **Origem:** várias carteiras por usuário · **Tipo:** qualidade · **Prioridade:** baixa · **Encaminhamento:** avulso
-- **Contexto:** o `limit` padrão é o literal `10` em `AssetRepository.getAll` e `TransactionRepository.getAll`, e uma constante `DEFAULT_PAGE_LIMIT` local em `PortfolioRepository` e em `InstrumentRepository`. O teto de 100 fica em `PaginationQuerySchema`.
-- **Impacto:** mudar o tamanho padrão exige tocar quatro arquivos, e os literais escapam de uma busca pela constante.
-- **Proposta:** uma constante de paginação compartilhada, junto do teto do schema, usada pelos quatro repositórios.
+- **Contexto:** o `limit` padrão das listagens anteriores ao padrão de resposta (TD-021) é o literal `10` em `AssetRepository.getAll` e uma constante `DEFAULT_PAGE_LIMIT` local em `PortfolioRepository` e em `InstrumentRepository`. O teto de 100 e o `pageSize` padrão das listagens no padrão ficam em `PaginationQuerySchema`.
+- **Impacto:** mudar o tamanho padrão exige tocar quatro arquivos, e o literal escapa de uma busca pela constante.
+- **Proposta:** usar o padrão do schema nos três repositórios, junto com a migração de cada listagem em TD-021.
 
 ### TD-017 — API recusa os tipos de transação além de `BUY` e `SELL`
 
@@ -111,7 +104,38 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** transação criada pelo web grava taxas e impostos zero, e o custo médio omite a corretagem e os impostos que o usuário pagou até a transação ser editada pela API.
 - **Proposta:** incluir os quatro campos no formulário, com os mesmos limites da API, junto com a edição e a exclusão de transação no web.
 
+### TD-020 — Consumo da cota do provedor de cotação não medido
+
+- **Origem:** integração com a YH Finance API · **Tipo:** integração · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** a cota e o preço dos planos da YH Finance API não foram confirmados. O lote de 10 símbolos, o cache de 60 segundos, o timeout de 5 segundos e a pausa de 30 segundos depois de falha são assumidos, não medidos (`backend/src/infra/market-data/YahooFinanceProvider.ts`). Cache e pausa ficam na memória de cada processo, como o rate limit de TD-006. A visão geral da carteira consome a mesma cota com um par de câmbio por moeda estrangeira das posições, e a lista de posições cota, a cada página pedida, todas as posições com unidades, porque a alocação depende do total.
+- **Impacto:** acima da cota, o provedor recusa as requisições e as cotações passam à última recebida ou a `unavailable` até a cota renovar. Com mais de uma instância do backend, cada uma consulta o provedor por conta própria e multiplica o consumo.
+- **Proposta:** confirmar nos termos do plano contratado a cota, o limite por minuto e o máximo de símbolos por requisição; medir as requisições por carregamento da tela de ativos e ajustar as constantes; cache compartilhado quando houver mais de uma instância.
+
+### TD-021 — Listagens anteriores ao padrão de resposta
+
+- **Origem:** TASK 6.1 · **Tipo:** API · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** `GET /v1/assets`, `GET /v1/portfolios` e `GET /v1/instruments` recebem `limit` e respondem a lista sob o nome da entidade, com `pagination: { page, limit, total, totalPages }`, fora do padrão de listagem paginada de `docs/api-inventory.md` (Padrão de resposta). O web consome as duas primeiras.
+- **Impacto:** o cliente trata dois formatos de paginação, e trocar uma listagem antiga para o padrão quebra a tela que a consome.
+- **Proposta:** migrar cada listagem ao padrão junto com a tela que a consome, ou removê-la quando a tela passar ao endpoint que a substitui; tratar TD-015 na mesma mudança.
+
+### TD-022 — Indicadores da carteira sem variação cambial
+
+- **Origem:** TASK 6.2 · **Tipo:** domínio · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** `GET /v1/portfolio/overview` e `GET /v1/portfolio/positions` convertem preço, valor de mercado, custo e fechamento anterior pela taxa de câmbio mais recente (`backend/src/domain/PortfolioValuation.ts`). A transação não guarda a taxa da data da operação, e o fechamento anterior do par de câmbio não é usado.
+- **Impacto:** com posições em moeda diferente da base, `profitLoss`, da carteira e de cada posição, não inclui o ganho ou a perda cambial desde a compra, e `dayChange` não inclui a variação do câmbio no dia; o `totalValue` de ontem somado ao `dayChange` não reproduz o de hoje quando o câmbio mudou.
+- **Proposta:** decidir com o produto se os indicadores refletem o câmbio; se sim, gravar a taxa na transação ou obtê-la do histórico de preços, e usar o fechamento anterior do par na variação do dia.
+
 ## Resolvidos
+
+### TD-002 — Listagem de transações ignora `page` e não segue a ordem das operações
+
+- **Tipo:** API · **Prioridade:** média
+- **Resolução:** `GET /v1/transactions` substitui `GET /v1/transactions/:assetSymbol` no padrão de listagem paginada: `page` e `pageSize` deslocam a consulta com `skip` e `take`, sempre limitados, e a ordem é a inversa do razão, `executedAt` e depois `sequence`, do mais recente ao mais antigo. `lastId` e o ramo sem `take` saíram com a listagem antiga. A coluna de transações da tela de ativos, único consumidor, passou a usar `GET /v1/transactions/:assetSymbol/count`, que conta todas as transações do ativo, e não só as da primeira página. Ver `docs/api-inventory.md`, §Superado desde o snapshot, e `docs/testing.md`, §Listagem de transações.
+
+### TD-019 — Nenhum provedor de cotação real
+
+- **Tipo:** produto · **Prioridade:** média
+- **Resolução:** `YahooFinanceProvider`, em `backend/src/infra/market-data/YahooFinanceProvider.ts`, implementa `MarketDataProvider` sobre a YH Finance API, escolhida com o produto para B3, NYSE, NASDAQ e cripto, com histórico intradiário e diário. A chave fica em `YAHOO_FINANCE_API_KEY`, só no backend. O código do provedor é derivado de `market`, que o catálogo passou a restringir a esses mercados, e a resposta é validada antes de chegar ao domínio. `GET /v1/assets/valuations` expõe valor de mercado e lucro por ativo, e a tela de ativos os exibe. Ver `docs/domain-model.md`, §Fonte de cotação, e `docs/testing.md`, §Adaptador Yahoo Finance.
 
 ### TD-016 — Ordem do razão entre transações com o mesmo `executedAt` e `createdAt`
 

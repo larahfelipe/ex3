@@ -4,17 +4,10 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { APP_STORAGE_KEYS } from '@/common/constants';
 import api, { ApiProxyError, type ApiProxyErrorData } from '@/lib/axios';
 
-import { type GetTransactionsResponseData } from '../types';
+import type { GetAssetValuationsResponseData } from '../types';
 
 export const GET = async (req: NextRequest) => {
   try {
-    const assetSymbol = req.nextUrl.pathname.split('/').at(-1);
-    if (!assetSymbol)
-      throw new ApiProxyError('Missing asset symbol', {
-        status: 400,
-        statusText: 'Bad Request'
-      });
-
     const authToken = (await cookies()).get(APP_STORAGE_KEYS.Token);
     if (!authToken?.value)
       throw new ApiProxyError('Missing access token', {
@@ -28,12 +21,12 @@ export const GET = async (req: NextRequest) => {
 
     const { data, status, statusText } = await api
       .getInstance()
-      .get<GetTransactionsResponseData>(`/v1/transactions/${assetSymbol}`, {
+      .get<GetAssetValuationsResponseData>('/v1/assets/valuations', {
         headers,
         params: req.nextUrl.searchParams
       });
 
-    return NextResponse.json<GetTransactionsResponseData>(data, {
+    return NextResponse.json<GetAssetValuationsResponseData>(data, {
       status,
       statusText
     });

@@ -11,6 +11,11 @@ const bootstrap = async () => {
     process.exit(1);
   }
 
+  if (envs.yahooFinanceApiKey === undefined)
+    console.warn(
+      '\nYAHOO_FINANCE_API_KEY is not set: every quote is reported as unavailable'
+    );
+
   app.listen(envs.port, () =>
     console.log(`\nServer running on port ${envs.port}`)
   );

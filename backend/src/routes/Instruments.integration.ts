@@ -122,7 +122,8 @@ describe('instruments', () => {
         { ...PETR4, country: 'BRA' },
         { ...PETR4, name: ' ' },
         { ...PETR4, name: 'N'.repeat(NAME_MAX_LENGTH + 1) },
-        { ...PETR4, market: undefined }
+        { ...PETR4, market: undefined },
+        { ...PETR4, market: 'LSE' }
       ];
 
       for (const instrument of invalidInstruments) {

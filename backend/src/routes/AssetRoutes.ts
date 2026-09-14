@@ -5,6 +5,7 @@ import {
   deleteAssetControllerHandler,
   getAllAssetsControllerHandler,
   getAssetControllerHandler,
+  getAssetValuationsControllerHandler,
   updateAssetControllerHandler
 } from '@/controllers/asset';
 import { authMiddleware } from '@/middleware';
@@ -21,6 +22,12 @@ assetRouter.get(
   '/v1/assets',
   authMiddleware,
   getAllAssetsControllerHandler as Application
+);
+
+assetRouter.get(
+  '/v1/assets/valuations',
+  authMiddleware,
+  getAssetValuationsControllerHandler as Application
 );
 
 assetRouter.post(
