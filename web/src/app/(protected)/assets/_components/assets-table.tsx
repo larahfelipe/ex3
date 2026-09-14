@@ -15,6 +15,7 @@ import { RefreshCw } from 'lucide-react';
 
 import {
   type Asset,
+  type AssetValuation,
   type GetAssetWithTotalInvestedValueResponseData
 } from '@/app/api/v1/assets';
 import { CURRENCIES } from '@/common/constants';
@@ -53,6 +54,7 @@ import type { Maybe, Pagination as TPagination } from '@/types';
 
 import { LimitPerPageOptions, PaginationInitialState } from '../page';
 import { AssetTransactionTableCell } from './asset-transaction-table-cell';
+import { AssetValuationTableCells } from './asset-valuation-table-cells';
 
 export type DispatchType =
   | 'createAsset'
@@ -69,10 +71,12 @@ type AssetTableData = {
   pagination: TPagination;
   selectedAsset: Maybe<Asset>;
   result: Maybe<GetAssetWithTotalInvestedValueResponseData>;
+  valuations: Maybe<ReadonlyMap<string, AssetValuation>>;
 };
 
 type AssetsTableProps = {
   loading?: boolean;
+  loadingValuations?: boolean;
   caption?: string;
   data: AssetTableData;
   onDispatch: (type: DispatchType, payload?: unknown) => void;
@@ -80,6 +84,7 @@ type AssetsTableProps = {
 
 export const AssetsTable: FC<AssetsTableProps> = ({
   loading,
+  loadingValuations,
   caption,
   data,
   onDispatch
@@ -237,6 +242,12 @@ export const AssetsTable: FC<AssetsTableProps> = ({
 
             <TableHead>Avg Price</TableHead>
 
+            <TableHead>Price</TableHead>
+
+            <TableHead>Market Value</TableHead>
+
+            <TableHead>P/L</TableHead>
+
             <TableHead>Dominance</TableHead>
 
             <TableHead>Transaction Orders</TableHead>
@@ -251,7 +262,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
               length: data?.pagination.limit ?? PaginationInitialState.limit
             }).map((_, i) => (
               <TableRow key={i}>
-                <TableCell colSpan={8} align="center" className="p-3">
+                <TableCell colSpan={11} align="center" className="p-3">
                   <Skeleton className="w-full h-7" />
                 </TableCell>
               </TableRow>
@@ -260,7 +271,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
           {!loading && !assets.length && (
             <TableRow>
               <TableCell
-                colSpan={8}
+                colSpan={11}
                 align="center"
                 className="p-4 text-gray-400"
               >
@@ -304,6 +315,11 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                     currency
                   })}
                 </TableCell>
+
+                <AssetValuationTableCells
+                  loading={loadingValuations}
+                  valuation={data.valuations?.get(asset.symbol)}
+                />
 
                 <TableCell>{asset?.dominance ?? '-'}</TableCell>
 
@@ -366,7 +382,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
         {!loading && !!assets.length && (
           <TableFooter className="bg-transparent">
             <TableRow className="hover:bg-transparent">
-              <TableCell className="px-3 py-1" colSpan={8}>
+              <TableCell className="px-3 py-1" colSpan={11}>
                 <div className="flex">
                   <section className="w-1/2 flex justify-between">
                     <div className="w-fit flex items-center gap-1.5">

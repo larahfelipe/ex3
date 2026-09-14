@@ -75,7 +75,8 @@ describe('HTTP hardening', () => {
         .send(oversizedBody);
 
       assert.equal(res.status, 413);
-      assert.equal(res.body.name, 'PayloadTooLargeError');
+      assert.equal(res.status, Errors.PAYLOAD_TOO_LARGE.status);
+      assert.equal(res.body.code, Errors.PAYLOAD_TOO_LARGE.code);
     });
 
     it('rejects malformed JSON as a bad request', async () => {
@@ -85,7 +86,7 @@ describe('HTTP hardening', () => {
         .send('{"email":');
 
       assert.equal(res.status, Errors.BAD_REQUEST.status);
-      assert.equal(res.body.name, Errors.BAD_REQUEST.name);
+      assert.equal(res.body.code, Errors.BAD_REQUEST.code);
     });
 
     it('keeps the documented limit below the oversized fixture', () => {
@@ -99,8 +100,22 @@ describe('HTTP hardening', () => {
 
       assert.equal(res.status, Errors.NOT_FOUND.status);
       assert.deepEqual(res.body, {
-        name: Errors.NOT_FOUND.name,
-        message: Errors.NOT_FOUND.message
+        code: Errors.NOT_FOUND.code,
+        message: Errors.NOT_FOUND.message,
+        details: []
+      });
+    });
+
+    it('describes each rejected field of an invalid payload', async () => {
+      const res = await request(app)
+        .post('/v1/user')
+        .send({ email: 'not-an-email', password: 'wrong-password' });
+
+      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.deepEqual(res.body, {
+        code: Errors.BAD_REQUEST.code,
+        message: 'Email must be a valid email',
+        details: [{ path: 'email', message: 'Email must be a valid email' }]
       });
     });
 
@@ -117,8 +132,9 @@ describe('HTTP hardening', () => {
 
       assert.equal(res.status, Errors.INTERNAL_SERVER_ERROR.status);
       assert.deepEqual(res.body, {
-        name: Errors.INTERNAL_SERVER_ERROR.name,
-        message: Errors.INTERNAL_SERVER_ERROR.message
+        code: Errors.INTERNAL_SERVER_ERROR.code,
+        message: Errors.INTERNAL_SERVER_ERROR.message,
+        details: []
       });
       assert.deepEqual(
         logged.mock.calls.map(({ arguments: logArguments }) => logArguments),
@@ -132,7 +148,10 @@ describe('HTTP hardening', () => {
         .set('Content-Type', 'application/json')
         .send('{"email":');
 
-      assert.deepEqual(Object.keys(res.body).sort(), ['message', 'name']);
+      assert.deepEqual(
+        Object.keys(res.body).sort((a, b) => a.localeCompare(b)),
+        ['code', 'details', 'message']
+      );
       assert.ok(!JSON.stringify(res.body).includes('at '));
     });
   });
@@ -152,7 +171,11 @@ describe('HTTP hardening', () => {
       const throttled = responses.at(-1);
 
       assert.equal(throttled?.status, Errors.TOO_MANY_REQUESTS.status);
-      assert.equal(throttled?.body.name, Errors.TOO_MANY_REQUESTS.name);
+      assert.deepEqual(throttled?.body, {
+        code: Errors.TOO_MANY_REQUESTS.code,
+        message: Errors.TOO_MANY_REQUESTS.message,
+        details: []
+      });
     });
 
     it('budgets authentication more tightly than the rest of the API', () => {

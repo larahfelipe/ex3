@@ -164,5 +164,21 @@ describe('parseEnvs', () => {
     });
 
     assert.equal(envs.isProduction, true);
+    assert.equal(envs.yahooFinanceApiKey, undefined);
+  });
+
+  it('leaves the market data key unset when it is blank', () => {
+    const envs = parseEnvs({ ...validEnvs, YAHOO_FINANCE_API_KEY: '' });
+
+    assert.equal(envs.yahooFinanceApiKey, undefined);
+  });
+
+  it('reads the market data key when it is set', () => {
+    const envs = parseEnvs({
+      ...validEnvs,
+      YAHOO_FINANCE_API_KEY: 'yahoo-finance-api-key'
+    });
+
+    assert.equal(envs.yahooFinanceApiKey, 'yahoo-finance-api-key');
   });
 });

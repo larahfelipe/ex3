@@ -26,12 +26,12 @@ import {
 } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
 import { injectWriteFailure } from '@/test/TestDatabase';
+import { MAX_PAGE_LIMIT } from '@/validation/schema';
 
 const CREATE_TRANSACTION_ROUTE = '/v1/transaction';
+const TRANSACTIONS_ROUTE = '/v1/transactions';
 
 const transactionRoute = (id: string) => `/v1/transaction/${id}`;
-const transactionsRoute = (assetSymbol: string) =>
-  `/v1/transactions/${assetSymbol}`;
 const transactionsCountRoute = (assetSymbol: string) =>
   `/v1/transactions/${assetSymbol}/count`;
 
@@ -271,19 +271,21 @@ describe('transactions', () => {
 
     it("does not list or count the transactions of another user's asset", async () => {
       const { holder, intruder } = await seedHolderAndIntruder();
+      const intruderScope = { portfolioId: intruder.portfolio.id };
 
-      for (const route of [
-        transactionsRoute(holder.asset.symbol),
-        transactionsCountRoute(holder.asset.symbol)
-      ]) {
-        const res = await client
-          .get(route)
-          .query({ portfolioId: intruder.portfolio.id })
-          .set(bearer(intruder.accessToken));
+      const listed = await client
+        .get(TRANSACTIONS_ROUTE)
+        .query({ ...intruderScope, symbol: holder.asset.symbol })
+        .set(bearer(intruder.accessToken));
+      const counted = await client
+        .get(transactionsCountRoute(holder.asset.symbol))
+        .query(intruderScope)
+        .set(bearer(intruder.accessToken));
 
-        assert.equal(res.status, Errors.NOT_FOUND.status, route);
-        assert.equal(res.body.message, AssetMessages.NOT_FOUND, route);
-      }
+      assert.equal(listed.status, 200);
+      assert.deepEqual(listed.body.items, []);
+      assert.equal(counted.status, Errors.NOT_FOUND.status);
+      assert.equal(counted.body.message, AssetMessages.NOT_FOUND);
     });
 
     it('keeps apart the ledgers of two portfolios holding the same instrument', async () => {
@@ -306,7 +308,7 @@ describe('transactions', () => {
           portfolioId: intruder.portfolio.id
         });
       const holderListed = await client
-        .get(transactionsRoute(holder.asset.symbol))
+        .get(TRANSACTIONS_ROUTE)
         .query({ portfolioId: holder.portfolio.id })
         .set(bearer(holderToken));
       const intruderCounted = await client
@@ -316,7 +318,7 @@ describe('transactions', () => {
 
       assert.equal(recorded.status, 201);
       assert.deepEqual(
-        holderListed.body.transactions.map(({ id }: { id: string }) => id),
+        holderListed.body.items.map(({ id }: { id: string }) => id),
         [holder.transaction.id]
       );
       assert.deepEqual(intruderCounted.body, { buy: 2, sell: 0 });
@@ -346,8 +348,8 @@ describe('transactions', () => {
 
       for (const symbol of symbols) {
         const listed = await client
-          .get(transactionsRoute(symbol))
-          .query({ portfolioId: portfolio.id })
+          .get(TRANSACTIONS_ROUTE)
+          .query({ portfolioId: portfolio.id, symbol })
           .set(bearer(accessToken));
         const counted = await client
           .get(transactionsCountRoute(symbol))
@@ -359,7 +361,7 @@ describe('transactions', () => {
           200,
           `${symbol}: ${JSON.stringify(listed.body)}`
         );
-        assert.equal(listed.body.transactions.length, 1, symbol);
+        assert.equal(listed.body.items.length, 1, symbol);
         assert.deepEqual(counted.body, { buy: 1, sell: 0 }, symbol);
       }
     });
@@ -410,6 +412,204 @@ describe('transactions', () => {
     });
   });
 
+  describe('listing', () => {
+    const EARLIER_EXECUTED_AT = '2026-01-04T13:00:00.000Z';
+    const LATER_EXECUTED_AT = '2026-01-06T13:00:00.000Z';
+
+    /** `LATER_EXECUTED_AT` written at another offset. */
+    const LATER_EXECUTED_AT_WITH_OFFSET = '2026-01-06T10:00:00-03:00';
+
+    const BETWEEN_EXECUTIONS = '2026-01-05T00:00:00.000Z';
+    const LISTED_BROKER = 'XP Investimentos';
+    const OTHER_BROKER = 'Rico';
+    const OTHER_SYMBOL = 'ETH';
+    const UNHELD_SYMBOL = 'SOL';
+    const PAGE_SIZE = 2;
+
+    /** Mirrors the default page size in `PageQuerySchema`. */
+    const DEFAULT_PAGE_SIZE = 10;
+
+    /** The largest page the schema accepts, far past any stored transaction. */
+    const FARTHEST_PAGE = Number.MAX_SAFE_INTEGER;
+
+    type StoredTransaction = Awaited<ReturnType<typeof createTransaction>>;
+
+    const listedItem = (
+      {
+        sequence,
+        quantity,
+        unitPrice,
+        fees,
+        taxes,
+        executedAt,
+        createdAt,
+        updatedAt,
+        ...row
+      }: StoredTransaction,
+      symbol: string
+    ) => ({
+      ...row,
+      quantity: quantity.toFixed(),
+      unitPrice: unitPrice.toFixed(),
+      fees: fees.toFixed(),
+      taxes: taxes.toFixed(),
+      executedAt: executedAt.toISOString(),
+      createdAt: createdAt.toISOString(),
+      updatedAt: updatedAt.toISOString(),
+      symbol
+    });
+
+    const idsOf = (transactions: Array<Pick<StoredTransaction, 'id'>>) =>
+      transactions.map(({ id }) => id);
+
+    /**
+     * Two transactions share the latest execution time, so recording order
+     * decides between them, and another portfolio of the same user holds one more.
+     */
+    const seedLedger = async () => {
+      const { portfolio, accessToken } =
+        await signInWithPortfolio(FIXTURE_USER_EMAIL);
+      const otherPortfolio = await createPortfolio(portfolio.userId);
+      const btc = await createAsset({ portfolioId: portfolio.id });
+      const eth = await createAsset({
+        portfolioId: portfolio.id,
+        symbol: OTHER_SYMBOL
+      });
+      await createTransaction(
+        await createAsset({ portfolioId: otherPortfolio.id })
+      );
+
+      const earliest = await createTransaction(btc, {
+        executedAt: new Date(EARLIER_EXECUTED_AT),
+        broker: LISTED_BROKER
+      });
+      const recordedFirst = await createTransaction(eth, {
+        executedAt: new Date(LATER_EXECUTED_AT),
+        broker: OTHER_BROKER
+      });
+      const recordedLast = await createTransaction(btc, {
+        type: TransactionTypes.SELL,
+        quantity: '1',
+        executedAt: new Date(LATER_EXECUTED_AT)
+      });
+
+      const list = (query: Record<string, string | number> = {}) =>
+        client
+          .get(TRANSACTIONS_ROUTE)
+          .query({ portfolioId: portfolio.id, ...query })
+          .set(bearer(accessToken));
+
+      return { earliest, recordedFirst, recordedLast, list };
+    };
+
+    it('lists the transactions of the portfolio newest first, recording order breaking ties, with the symbol of each', async () => {
+      const { earliest, recordedFirst, recordedLast, list } =
+        await seedLedger();
+
+      const res = await list();
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, {
+        items: [
+          listedItem(recordedLast, FIXTURE_ASSET_SYMBOL),
+          listedItem(recordedFirst, OTHER_SYMBOL),
+          listedItem(earliest, FIXTURE_ASSET_SYMBOL)
+        ],
+        page: 1,
+        pageSize: DEFAULT_PAGE_SIZE,
+        total: 3,
+        totalPages: 1
+      });
+    });
+
+    it('narrows the listing by symbol and type in any case, by broker as recorded and by inclusive execution time bounds', async () => {
+      const { earliest, recordedFirst, recordedLast, list } =
+        await seedLedger();
+
+      const filters: Array<[Record<string, string>, Array<StoredTransaction>]> =
+        [
+          [
+            { symbol: FIXTURE_ASSET_SYMBOL.toLowerCase() },
+            [recordedLast, earliest]
+          ],
+          [{ type: TransactionTypes.SELL.toLowerCase() }, [recordedLast]],
+          [{ broker: ` ${LISTED_BROKER} ` }, [earliest]],
+          [{ broker: LISTED_BROKER.toUpperCase() }, []],
+          [{ broker: '%' }, []],
+          [{ broker: LISTED_BROKER.replace(' ', '_') }, []],
+          [{ dateFrom: LATER_EXECUTED_AT }, [recordedLast, recordedFirst]],
+          [
+            { dateFrom: LATER_EXECUTED_AT_WITH_OFFSET },
+            [recordedLast, recordedFirst]
+          ],
+          [{ dateTo: EARLIER_EXECUTED_AT }, [earliest]],
+          [
+            { symbol: FIXTURE_ASSET_SYMBOL, dateFrom: BETWEEN_EXECUTIONS },
+            [recordedLast]
+          ],
+          [{ dateFrom: LATER_EXECUTED_AT, dateTo: EARLIER_EXECUTED_AT }, []],
+          [{ symbol: UNHELD_SYMBOL }, []]
+        ];
+
+      for (const [query, expected] of filters) {
+        const res = await list(query);
+        const filter = JSON.stringify(query);
+
+        assert.equal(res.status, 200, filter);
+        assert.deepEqual(
+          res.body.items.map(({ id }: { id: string }) => id),
+          idsOf(expected),
+          filter
+        );
+        assert.equal(res.body.total, expected.length, filter);
+      }
+    });
+
+    it('pages the listing without repeating or skipping a transaction, and answers a page past the last with no items', async () => {
+      const { earliest, recordedFirst, recordedLast, list } =
+        await seedLedger();
+
+      const pages = await Promise.all(
+        [1, 2, 3, FARTHEST_PAGE].map((page) =>
+          list({ page, pageSize: PAGE_SIZE })
+        )
+      );
+
+      assert.deepEqual(
+        pages.map(({ body }) => body.items.map(({ id }: { id: string }) => id)),
+        [idsOf([recordedLast, recordedFirst]), idsOf([earliest]), [], []]
+      );
+      for (const { status, body } of pages) {
+        assert.equal(status, 200);
+        assert.equal(body.total, 3);
+        assert.equal(body.totalPages, 2);
+      }
+    });
+
+    it('rejects a malformed filter or page', async () => {
+      const { list } = await seedLedger();
+      const malformedQueries: Array<Record<string, string | number>> = [
+        { type: 'DIVIDEND' },
+        { symbol: ' ' },
+        { broker: ' ' },
+        { dateFrom: '2026-01-05' },
+        { dateTo: '2026-01-05T13:00:00' },
+        { page: 0 },
+        { pageSize: MAX_PAGE_LIMIT + 1 }
+      ];
+
+      for (const query of malformedQueries) {
+        const res = await list(query);
+
+        assert.equal(
+          res.status,
+          Errors.BAD_REQUEST.status,
+          JSON.stringify(query)
+        );
+      }
+    });
+  });
+
   describe('portfolio scope', () => {
     const scopedRequests = {
       'POST transaction': (accessToken: string, portfolioId?: string) =>
@@ -426,7 +626,7 @@ describe('transactions', () => {
           }),
       'GET transactions': (accessToken: string, portfolioId?: string) =>
         client
-          .get(transactionsRoute(FIXTURE_ASSET_SYMBOL))
+          .get(TRANSACTIONS_ROUTE)
           .query({ portfolioId })
           .set(bearer(accessToken)),
       'GET transactions count': (accessToken: string, portfolioId?: string) =>

@@ -150,7 +150,7 @@ Os de venda fracionária até zero e de custo acima do maior número finito pass
 
 * admin cadastra instrumento, com símbolo, tipo, mercado, moeda e país normalizados para caixa alta;
 * o mesmo símbolo, em qualquer caixa, não gera um segundo instrumento: 400 `Instrument already exists in catalog`;
-* símbolo fora da allowlist, tipo fora da lista, moeda que não é ISO 4217, país que não tem duas letras, nome em branco ou acima do limite e mercado ausente recebem 400 sem gravar;
+* símbolo fora da allowlist, tipo fora da lista, moeda que não é ISO 4217, país que não tem duas letras, nome em branco ou acima do limite e mercado ausente ou fora da tabela recebem 400 sem gravar;
 * admin completa os atributos de um instrumento, e o símbolo enviado no corpo é ignorado; corpo sem atributos recebe 400, e símbolo fora do catálogo, 404;
 * usuário que não é admin recebe 403 ao cadastrar ou editar, sem alterar o catálogo;
 * qualquer usuário autenticado lista o catálogo, paginado e ordenado por símbolo;
@@ -250,3 +250,57 @@ Criar, editar e excluir transação, renomear ativo, excluir ativo e excluir con
 A última escrita é a que tem mais escritas anteriores a desfazer; uma falha em etapa anterior interrompe a operação antes das seguintes.
 
 **Falha injetada.** Criação, edição, exclusão de ativo e exclusão de conta não têm falha natural na última escrita. `injectWriteFailure(t, model, action)`, em `src/test/TestDatabase.ts`, faz `model.action` rejeitar dentro da transação real de `runSerializable` até o fim do teste, e as demais consultas seguem normalmente, então o que o teste observa é o rollback do Postgres. A falha não é prevista: sai pelo error handler como 500 e é registrada, e o teste silencia `console.error`. O teste do harness confere que só a escrita escolhida falha e que a anterior é desfeita, para que um helper que falhasse antes da primeira escrita não deixasse os testes de rollback passarem sem desfazer nada.
+
+## Provedor de cotação falso
+
+Nenhum teste chama provedor de cotação real. `src/test/FakeMarketDataProvider.ts` implementa `MarketDataProvider` sobre os preços que recebe no construtor, por símbolo, e devolve cada um com `source` `fake`; com `isAvailable: false`, toda consulta responde `unavailable`. Cada teste cria o seu e o entrega ao código que recebe um `MarketDataProvider`, sem estado mutável compartilhado. O construtor exige ao menos um preço por símbolo, então símbolo sem preço é o que está fora do mapa e responde `not-found`. Taxa de câmbio é semeada sob os códigos do par, como `USDBRL` para um dólar em reais, e o fechamento anterior vai no próprio preço, em `previousClose`.
+
+O falso ignora mercado, moeda e intervalo: traduzir o instrumento e respeitar o alcance de cada intervalo cabe ao adaptador real.
+
+`src/test/FakeMarketDataProvider.test.ts` confere na faixa unit o contrato em que os testes se apoiam: cotação mais recente em qualquer ordem de carga, histórico em ordem crescente, início do intervalo incluído e fim excluído, intervalo vazio, símbolo sem preço, taxa de câmbio pelo par e indisponibilidade. `tsconfig.build.json` exclui `src/test`, então o falso não entra no build.
+
+## Adaptador Yahoo Finance
+
+`src/infra/market-data/YahooFinanceProvider.test.ts` roda na faixa unit, sem rede: o construtor recebe `fetchResponse` e `now`, e cada teste cria o seu provedor, com respostas e relógio próprios. Cobre:
+
+* tradução por mercado (`PETR4.SA`, `AAPL`, `KO`, `BTC-USD`) numa única requisição, com a chave só no header `x-api-key`, nunca na URL, redirect recusado e timeout;
+* instrumento de mercado fora da tabela, sem mercado ou moeda, ou com símbolo fora de letras e dígitos responde `not-found` sem requisição;
+* símbolo ausente da resposta responde `not-found` e fica em cache;
+* cache por `QUOTE_TIME_TO_LIVE_MS` e nova requisição quando expira; consulta simultânea de um símbolo aproveita a requisição em curso; lotes de no máximo `QUOTE_BATCH_SIZE` símbolos;
+* sem chave, toda cotação responde `unavailable` sem requisição;
+* status de erro, timeout e falha de rede respondem `unavailable`, abrem a pausa de `FAILURE_COOLDOWN_MS` e não registram a chave; durante a falha, a última cotação recebida é devolvida com o `timestamp` em que foi observada;
+* resposta fora do formato e cotação inválida (moeda em unidade menor, como `BRp`, preço negativo ou fora de `DECIMAL(38,18)`, horário ausente) respondem `unavailable`, sem afetar as válidas do mesmo lote;
+* fechamento anterior arredondado como o preço, e descartado quando inválido sem recusar a cotação;
+* câmbio: par `USDBRL=X` no cache das cotações, código inválido ou igual à base como `not-found` sem requisição, taxa cotada em moeda diferente da base como `unavailable` e pausa compartilhada com a falha de cotação;
+* histórico: `period1`, `period2` e `interval` da requisição, fechamentos nulos descartados, intervalo semiaberto em ordem crescente, `range-not-served` sem requisição para início além do alcance do intervalo, intervalo vazio, 404 como `not-found` e série com tamanhos divergentes como `unavailable`.
+
+O teste espelha no topo as constantes do adaptador de que depende.
+
+## Valuation
+
+`src/domain/PositionValuation.test.ts`, na faixa unit, cobre `valuePosition`: valor de mercado com lucro e percentual; truncamento em direção a zero no produto e no quociente; valores nos limites de `DECIMAL(38,18)` sem perda de dígitos; `profitLoss` ausente com razão noutra moeda ou sem transações; percentual ausente sem valor investido; `not-found` e `unavailable` repassados.
+
+O bloco `valuations` de `src/routes/Assets.integration.ts` cobre `GET /v1/assets/valuations`. Os testes trocam `getQuotes` do singleton `YahooFinanceProvider` com `t.mock.method`, delegando a um `FakeMarketDataProvider`, e confirmam:
+
+* valuation de cada ativo detido, com o símbolo sem diferenciar caixa e repetido uma vez só, sem os símbolos que a carteira não detém, e mercado e moeda do catálogo entregues ao provedor;
+* `not-found` e `unavailable` por ativo, com resposta 200;
+* sem chave de provedor, com o `getQuotes` de um adaptador criado sem chave no lugar do singleton, `unavailable` sem nenhuma chamada a `fetch`;
+* até 100 símbolos, e 400 para lista ausente, vazia, com símbolo vazio ou longo demais, ou acima de 100.
+
+O bloco `portfolio scope` inclui o endpoint.
+
+`src/domain/PortfolioValuation.test.ts`, na faixa unit, cobre `summarizePortfolio`: soma na moeda base com resultado e variação do dia; conversão pela taxa da moeda da cotação e da moeda das transações; truncamento em direção a zero nos totais e percentuais, inclusive na variação negativa; totais nos limites de `DECIMAL(38,18)` sem perda de dígitos; indicadores ausentes sem cotação, sem taxa, sem moeda do custo ou sem fechamento anterior; posição sem unidades ignorada; carteira vazia com totais zero. Cobre também `valuePositionsInBaseCurrency`: cada posição na moeda base com a sua alocação; alocação sobre a carteira inteira quando só parte dela é listada; truncamento de preço, valor e fração; posição nos limites de `DECIMAL(38,18)` sem perda de dígitos; campos ausentes sem cotação ou sem taxa; custo sem moeda; posição sem unidades com valor e alocação zero; carteira de valor zero na escala sem alocação. E `foreignCurrenciesOf`, com cada moeda diferente da base uma vez.
+
+O bloco `overview` de `src/routes/Portfolios.integration.ts` cobre `GET /v1/portfolio/overview`, trocando `getQuotes` e `getExchangeRates` do singleton por um `FakeMarketDataProvider`: indicadores da carteira pedida, sem as posições de outra carteira do mesmo usuário nem a posição sem unidades, com câmbio pedido só para a moeda estrangeira; indicadores que dependem de cotação fora do corpo com o provedor indisponível; carteira vazia na sua moeda base; carteira de outro usuário igual à inexistente; `portfolioId` ausente ou malformado com 400.
+
+O bloco `positions` do mesmo arquivo cobre `GET /v1/portfolio/positions` com a mesma troca: posições da carteira pedida em ordem de `symbol` e na moeda base, com a posição sem unidades e sem as de outra carteira do mesmo usuário, e câmbio pedido só para a moeda estrangeira; última página e página além dela com os mesmos totais, cotando fora da página só as posições com unidades; itens sem os campos que dependem de cotação com o provedor indisponível; carteira vazia como página vazia no maior `pageSize`; carteira de outro usuário igual à inexistente; `portfolioId`, `page` ou `pageSize` ausente, malformado ou fora dos limites com 400.
+
+`node --env-file` não sobrescreve variável já exportada no shell, então nenhum teste depende de `.env.test` omitir `YAHOO_FINANCE_API_KEY`: nenhuma rota chega ao `getQuotes` ou ao `getExchangeRates` do singleton com instrumento ou moeda cotável sem que o teste os troque.
+
+## Corpo de erro
+
+`src/config/App.integration.ts` fixa o corpo `{ code, message, details }` ([Padrão de resposta](api-inventory.md#padrão-de-resposta)) na rota inexistente (404), no payload acima do limite (413), no JSON malformado (400), no rate limit (429) e na falha não prevista (500), com `details` vazio. Um payload que o schema recusa responde 400 com um `{ path, message }` por campo recusado em `details`.
+
+## Listagem de transações
+
+O bloco `listing` de `src/routes/Transactions.integration.ts` cobre `GET /v1/transactions`: transações da carteira pedida do mais recente ao mais antigo, com a ordem de gravação desempatando o mesmo `executedAt`, cada item com os campos da transação e o `symbol` do instrumento, sem as de outra carteira do mesmo usuário; filtros por `symbol` e `type` em qualquer caixa, por `broker` igual ao valor gravado, com outra caixa, `%` e `_` sem correspondência, e por `dateFrom` e `dateTo` inclusivos e em qualquer fuso, combinados, invertidos e sem correspondência; páginas sem repetir nem pular transação, e página além da última, até a maior que o schema aceita, com `items` vazio e os mesmos totais; filtro ou página malformados com 400. O bloco `portfolio scope` inclui o endpoint, e os testes que listavam por símbolo, nas suítes de transações e de ativos, passaram a filtrar por `symbol`.

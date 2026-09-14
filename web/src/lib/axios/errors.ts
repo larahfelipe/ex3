@@ -1,8 +1,9 @@
 import { AxiosError } from 'axios';
 
 export type ApiServerErrorData = {
-  name: string;
+  code: string;
   message: string;
+  details: Array<{ path: string; message: string }>;
 };
 
 export type WithStatusHeader = {

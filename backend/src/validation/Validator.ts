@@ -14,6 +14,12 @@ export const validate = async <T>(
     const { issues } = e as ZodError;
     const parsedMessages = issues.map((issue) => issue.message).join(', ');
 
-    throw new BadRequestError(parsedMessages);
+    throw new BadRequestError(
+      parsedMessages,
+      issues.map(({ path, message }) => ({
+        path: path.map(String).join('.'),
+        message
+      }))
+    );
   }
 };

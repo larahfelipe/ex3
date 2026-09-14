@@ -1,12 +1,17 @@
 import type { Prisma, Transaction as TransactionRow } from '@prisma/client';
 
 import type { TransactionTypes } from '@/config/Constants';
-import type { Transaction, TransactionEntry } from '@/domain/models';
+import type {
+  Instrument,
+  Transaction,
+  TransactionEntry
+} from '@/domain/models';
 import {
   type LedgerRefusal,
   type RebuiltPosition,
   rebuildPosition
 } from '@/domain/PositionLedger';
+import type { Page } from '@/interfaces';
 
 import { PrismaClient } from './PrismaClient';
 
@@ -59,6 +64,16 @@ const storePosition = (
     data: { quantity, averageCost, investedValue }
   });
 
+export type TransactionListQuery = Pick<Transaction, 'portfolioId'> &
+  Partial<
+    Pick<Transaction, 'type'> &
+      Record<'symbol' | 'broker', string> &
+      Record<'dateFrom' | 'dateTo', Date>
+  > &
+  Record<'page' | 'pageSize', number>;
+
+export type ListedTransaction = Transaction & Pick<Instrument, 'symbol'>;
+
 /**
  * Lookups by asset are filtered by a portfolio the caller already proved to own,
  * and lookups by transaction id by the owner of the transaction's portfolio, so
@@ -88,32 +103,47 @@ export class TransactionRepository {
     });
   }
 
-  async getAll(params: TransactionRepository.GetAllParams) {
-    const { instrumentId, portfolioId, limit, lastId, page = 1 } = params;
+  /** Newest first, the reverse of ledger order, with inclusive execution time bounds. */
+  async getAll(params: TransactionListQuery): Promise<Page<ListedTransaction>> {
+    const {
+      portfolioId,
+      symbol,
+      type,
+      broker,
+      dateFrom,
+      dateTo,
+      page,
+      pageSize
+    } = params;
 
-    const limitPerPage = limit || limit === 0 ? limit : 10;
-    const ownedByAsset = { instrumentId, portfolioId };
+    const where: Prisma.TransactionWhereInput = {
+      portfolioId,
+      type,
+      instrument: symbol === undefined ? undefined : { symbol },
+      broker,
+      executedAt: { gte: dateFrom, lte: dateTo }
+    };
 
-    const [total, docs] = await Promise.all([
-      this.prismaClient.transaction.count({ where: ownedByAsset }),
+    const [total, rows] = await Promise.all([
+      this.prismaClient.transaction.count({ where }),
       this.prismaClient.transaction.findMany({
-        ...(limit !== 0 && { take: limitPerPage }),
-        where: { ...ownedByAsset, ...(lastId && { id: { lt: lastId } }) },
-        orderBy: { id: 'desc' }
+        where,
+        include: { instrument: { select: { symbol: true } } },
+        orderBy: [{ executedAt: 'desc' }, { sequence: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize
       })
     ]);
 
-    const totalPages = Math.ceil(total / limitPerPage);
-
     return {
-      docs: docs.map(toTransaction),
-      pagination: {
-        page,
-        total,
-        limit: limitPerPage,
-        totalPages: totalPages !== Infinity ? totalPages : 1,
-        lastId: docs.length > 0 ? docs[docs.length - 1].id : null
-      }
+      items: rows.map(({ instrument, ...row }) => ({
+        ...toTransaction(row),
+        symbol: instrument.symbol
+      })),
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize)
     };
   }
 
@@ -233,11 +263,6 @@ namespace TransactionRepository {
     Record<'assetSymbol', string>;
   export type CountParams = AssetScope &
     Record<'type', keyof typeof TransactionTypes>;
-  export type GetAllParams = AssetScope & {
-    lastId?: string;
-    page?: number;
-    limit?: number;
-  };
   export type GetByIdParams = Pick<Transaction, 'id'> &
     Record<'userId', string>;
   export type UpdateParams = TransactionEntry & GetByIdParams;

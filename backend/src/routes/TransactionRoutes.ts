@@ -19,7 +19,7 @@ transactionRouter.get(
 );
 
 transactionRouter.get(
-  '/v1/transactions/:assetSymbol',
+  '/v1/transactions',
   authMiddleware,
   getAllTransactionsControllerHandler as Application
 );

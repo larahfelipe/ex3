@@ -28,7 +28,7 @@ User
 | `symbol` | identidade, única no catálogo e nunca alterada; símbolo novo aceita só letras e dígitos, até 6 caracteres |
 | `name` | até 120 caracteres |
 | `type` | `STOCK`, `ETF`, `FUND`, `REIT`, `CRYPTO`, `BOND`, `TREASURY`, `CASH` ou `OTHER` |
-| `market` | mercado de negociação, até 20 caracteres |
+| `market` | mercado de negociação: `B3`, `NYSE`, `NASDAQ` ou `CRYPTO`, os que o provedor de cotação precifica |
 | `currency` | moeda de cotação, código ISO 4217 |
 | `sector` | opcional, até 60 caracteres |
 | `country` | opcional, código de duas letras |
@@ -89,23 +89,104 @@ A API só aceita um tipo depois que o seu efeito estiver definido aqui e impleme
 
 ## Valuation
 
-Valuation não é entidade. É o resultado calculado de uma posição contra uma cotação, num instante:
+Valuation não é entidade. É o resultado calculado de uma posição contra a cotação mais recente do instrumento, num instante:
 
 | Resultado | Definição |
 | --- | --- |
-| `marketPrice` | preço da `MarketQuote` mais recente do instrumento |
-| `marketValue` | `quantity × marketPrice` |
-| `profitLoss` | `marketValue − investedValue` |
-| `profitLossPercent` | `profitLoss ÷ investedValue`; ausente quando `investedValue` é zero |
+| `quote` | a cotação do provedor: `price`, `currency`, `timestamp` e `source` |
+| `marketValue` | `quantity × price`, na moeda da cotação |
+| `profitLoss` | `marketValue − investedValue`; ausente quando a moeda das transações da posição não é a da cotação, ou a posição não tem transações |
+| `profitLossPercent` | `profitLoss ÷ investedValue`, em fração (`0.25` é 25%); ausente com `profitLoss` ausente ou `investedValue` zero |
 
-Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend: o frontend exibe, não calcula.
+* `marketValue` e `profitLossPercent` são truncados em direção a zero em 18 casas, e `profitLoss` é a diferença exata.
+* `investedValue` está na moeda das transações da posição e `marketValue` na da cotação; em moedas diferentes, compará-los exigiria câmbio (ver [Valores, moedas e datas](#valores-moedas-e-datas)).
+* Instrumento sem cotação e provedor indisponível chegam como `not-found` e `unavailable` no ativo, não como erro da requisição.
+
+Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em `backend/src/domain/PositionValuation.ts`: o frontend exibe, não calcula. `GET /v1/assets/valuations` avalia os ativos pedidos de uma carteira, e a tela de ativos o consulta depois da listagem, sem bloqueá-la enquanto o provedor responde.
+
+### Visão geral da carteira
+
+`GET /v1/portfolio/overview` consolida as posições de uma carteira na `baseCurrency` dela, em `backend/src/domain/PortfolioValuation.ts`:
+
+| Indicador | Cálculo |
+| --- | --- |
+| `totalValue` | soma de `quantity × price × taxa` da moeda da cotação |
+| `investedValue` | soma de `investedValue × taxa` da moeda das transações |
+| `profitLoss` | `totalValue − investedValue` |
+| `profitLossPercent` | `profitLoss ÷ investedValue`, como fração |
+| `dayChange` | `totalValue` menos o valor no fechamento anterior, a soma de `quantity × previousClose × taxa` |
+| `dayChangePercent` | `dayChange ÷` valor no fechamento anterior, como fração |
+
+* A taxa é a cotação de câmbio mais recente da moeda para a base, e 1 na própria base. Todos os indicadores usam a mesma taxa, então nem o resultado nem a variação do dia refletem o movimento do câmbio (TD-022).
+* Um indicador só é devolvido quando todas as posições com unidades têm o que ele usa: cotação, taxa da moeda e, na variação do dia, `previousClose`. Faltando algo, ele e os que dependem dele ficam fora da resposta, sem erro; custo diferente de zero sem moeda conhecida deixa `investedValue` de fora.
+* Posição sem unidades não entra na soma nem na consulta ao provedor.
+* Percentual de base zero fica de fora. Totais e percentuais são truncados em direção a zero em 18 casas, e as diferenças são exatas.
+* Carteira sem posições responde os totais `0`, sem percentuais.
+
+### Posições da carteira
+
+`GET /v1/portfolio/positions` lista as posições de uma carteira em ordem de `symbol`, em páginas, com os valores na `baseCurrency` dela, também em `backend/src/domain/PortfolioValuation.ts`:
+
+| Campo | Cálculo |
+| --- | --- |
+| `averageCost` | `averageCost × taxa` da moeda das transações |
+| `marketPrice` | `price × taxa` da moeda da cotação |
+| `marketValue` | `quantity × price × taxa` da moeda da cotação |
+| `allocation` | `marketValue ÷ totalValue` da visão geral, como fração |
+| `profitLoss` | `marketValue − investedValue × taxa` da moeda das transações |
+| `profitLossPercent` | `profitLoss ÷` o `investedValue` convertido, como fração |
+
+* A taxa é a da visão geral, então nenhum campo reflete o movimento do câmbio (TD-022). Valor zero não precisa de taxa.
+* Campo cujo insumo falta fica fora do item, sem erro: sem cotação ou sem taxa da moeda da cotação saem `marketPrice`, `marketValue`, `allocation` e o resultado; sem moeda conhecida ou sem taxa da moeda das transações saem `averageCost` e o resultado.
+* `allocation` só sai quando o `totalValue` da visão geral existe e não é zero, então uma posição com unidades sem cotação tira a alocação de todos os itens.
+* Posição sem unidades é listada, com `marketValue` e `allocation` zero, e só é cotada quando está na página pedida. As posições com unidades são cotadas em toda página, porque a alocação depende do total.
+* A ordem por `symbol` não depende de cotação, então a mudança de preço não move posição entre páginas.
+* Valores e frações são truncados em direção a zero em 18 casas, e o resultado é a diferença exata.
+
+## Fonte de cotação
+
+O domínio obtém preços por `MarketDataProvider`, em `backend/src/domain/MarketDataProvider.ts`, sem depender do SDK ou da API de nenhum provedor. As implementações ficam em `backend/src/infra/market-data`, e trocá-las não altera o domínio.
+
+| Operação | Resultado |
+| --- | --- |
+| `getQuotes(instruments)` | o preço mais recente de cada instrumento, uma entrada por símbolo pedido |
+| `getExchangeRates(currencies, baseCurrency)` | o preço de uma unidade de cada moeda em `baseCurrency`, uma entrada por moeda pedida; moeda sem par com a base, inclusive a própria base, é `not-found` |
+| `getHistoricalPrices(instrument, range, interval)` | o fechamento de cada `interval` (`5m`, `15m`, `30m`, `1h` ou `1d`) de `range.from`, inclusive, a `range.to`, exclusive, em ordem crescente de `timestamp`; `range-not-served` quando o provedor não guarda preços tão antigos nesse intervalo |
+
+* Cada preço traz `price` em string decimal, `currency` explícita, `timestamp` como instante UTC e `source`, o provedor que o observou. A cotação traz também `previousClose`, o fechamento anterior, quando o provedor o tem.
+* O instrumento chega com `symbol`, `market` e `currency` do catálogo; traduzi-los para o código do provedor cabe à implementação, e instrumento que ela não traduz é `not-found`.
+* A resposta do provedor é entrada externa, e a implementação a valida antes de devolvê-la.
+* Instrumento sem preço no provedor (`not-found`) e provedor que não responde (`unavailable`) são resultados, não exceções.
+* Quem chama o provedor é o backend: a CSP do web bloqueia chamada do navegador a outro domínio, e a credencial do provedor não sai do servidor.
+
+### Yahoo Finance
+
+`YahooFinanceProvider` consulta a YH Finance API (`https://yfapi.net`) com a chave de `YAHOO_FINANCE_API_KEY` só no header `x-api-key`, e recusa redirect, para que a chave não siga a outro destino. A variável é opcional: sem ela, o backend sobe, avisa no log e toda cotação responde `unavailable`, sem requisição.
+
+| `market` | Código no provedor |
+| --- | --- |
+| `B3` | `{symbol}.SA` |
+| `NYSE`, `NASDAQ` | `{symbol}` |
+| `CRYPTO` | `{symbol}-{currency}` |
+
+* Instrumento sem `market` ou `currency`, ou com símbolo fora de letras e dígitos, é `not-found` sem requisição, como os migrados antes do catálogo até serem completados.
+* Cotação com moeda que não é código ISO 4217 exato, preço não positivo ou fora de `DECIMAL(38,18)`, ou sem horário não é aceita: o símbolo responde a última cotação recebida ou `unavailable`, sem afetar os demais da mesma requisição. Yahoo cota algumas listagens em unidade menor, como `GBp`, um centésimo de `GBP`.
+* O preço é arredondado nas casas de `priceHint`, informado pelo provedor, o que descarta o ruído do ponto flutuante da resposta.
+* Intervalos abaixo de uma hora alcançam os últimos 60 dias, `1h` os últimos 730, e `1d` não tem limite.
+* Câmbio é o par `{currency}{baseCurrency}=X`, como `USDBRL=X`, com o mesmo cache, lote e pausa das cotações. Código fora de três letras maiúsculas, ou igual à moeda base, é `not-found` sem requisição, e taxa cotada em moeda diferente da base é `unavailable`.
+* `previousClose` vem de `regularMarketPreviousClose`, arredondado como o preço; valor inválido é descartado sem recusar a cotação.
+* Cotações ficam em cache na memória do processo por 60 segundos, inclusive `not-found`. Um símbolo já em consulta aproveita a requisição em curso, e os demais vão em lotes de 10 por requisição.
+* Cada requisição expira em 5 segundos. Status de erro, timeout, falha de rede ou resposta fora do formato suspendem as chamadas ao provedor por 30 segundos; na falha e durante a pausa, cada símbolo responde a última cotação recebida, com o `timestamp` em que foi observada, ou `unavailable` sem cotação anterior. O histórico não usa o cache.
+* Cotação não é gravada: `MarketQuote` ainda não tem tabela.
+
+Os valores de timeout, cache, pausa e lote são assumidos, não medidos, e a cota e o preço dos planos do provedor não foram verificados (TD-020).
 
 ## Valores, moedas e datas
 
 * Quantidades e valores monetários são decimais exatos, nunca ponto flutuante: `DECIMAL(38,18)`, até 20 dígitos inteiros e 18 casas, em transação e posição. A API os recebe e devolve como string decimal, e valor que a coluna arredondaria é recusado, não arredondado.
 * O custo médio é truncado em 18 casas a cada `BUY`, e `investedValue` uma vez, ao fim da reconstrução. Razão que passa por posição fora de `DECIMAL(38,18)`, `investedValue` incluído, é recusado, mesmo que a posição final caiba.
 * Todo valor monetário tem moeda explícita. `Instrument.currency` é a moeda de cotação, `Transaction.currency` a da operação e `Portfolio.baseCurrency` a de consolidação.
-* Valores em moedas diferentes só se somam por conversão com cotação de câmbio explícita; sem cotação, o total não é calculado.
+* Valores em moedas diferentes só se somam por conversão com cotação de câmbio explícita; sem cotação, o total não é calculado. A cotação de câmbio vem do provedor de cotação, pela taxa mais recente (ver [Visão geral da carteira](#visão-geral-da-carteira)).
 * Instantes são gravados em UTC. `executedAt` é quando a operação aconteceu, informado por quem registra; `createdAt` e `updatedAt` são quando o registro foi gravado e alterado.
 
 ## Termos
@@ -137,4 +218,3 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend: o 
 
 * **Caixa.** Se compra e venda movimentam um saldo em dinheiro da carteira, o que torna `DEPOSIT` e `WITHDRAWAL` pré-requisito de uma compra, ou se aportes e retiradas são só registro de fluxo.
 * **`ADJUSTMENT`.** O que pode ser ajustado e com qual efeito sobre quantidade e custo.
-* **Câmbio.** De onde vêm as cotações usadas para consolidar moedas diferentes.

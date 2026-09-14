@@ -12,6 +12,19 @@ import { TransactionTypeSchema } from './TransactionTypeSchema';
 const BROKER_MAX_LENGTH = 60;
 const NOTES_MAX_LENGTH = 500;
 
+export const TransactionBrokerSchema = boundedTextSchema(
+  'Transaction broker',
+  BROKER_MAX_LENGTH
+);
+
+export const ExecutionTimeSchema = z.iso
+  .datetime({
+    offset: true,
+    error:
+      'Transaction execution time must be an ISO 8601 date-time with a time zone'
+  })
+  .transform((value) => new Date(value));
+
 export const TransactionEntrySchema = z.object({
   type: TransactionTypeSchema,
   quantity: positiveDecimalSchema('Transaction quantity'),
@@ -19,16 +32,8 @@ export const TransactionEntrySchema = z.object({
   fees: decimalSchema('Transaction fees').default('0'),
   taxes: decimalSchema('Transaction taxes').default('0'),
   currency: currencyCodeSchema('Transaction currency'),
-  executedAt: z.iso
-    .datetime({
-      offset: true,
-      error:
-        'Transaction execution time must be an ISO 8601 date-time with a time zone'
-    })
-    .transform((value) => new Date(value)),
-  broker: boundedTextSchema('Transaction broker', BROKER_MAX_LENGTH)
-    .nullable()
-    .default(null),
+  executedAt: ExecutionTimeSchema,
+  broker: TransactionBrokerSchema.nullable().default(null),
   notes: boundedTextSchema('Transaction notes', NOTES_MAX_LENGTH)
     .nullable()
     .default(null)

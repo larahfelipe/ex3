@@ -63,12 +63,10 @@ export const getAllTransactionsControllerHandler = (
 ) => {
   const transactionRepository = TransactionRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
-  const assetRepository = AssetRepository.getInstance();
 
   const getAllTransactionsService = GetAllTransactionsService.getInstance(
     transactionRepository,
-    portfolioRepository,
-    assetRepository
+    portfolioRepository
   );
 
   const getAllTransactionsController = GetAllTransactionsController.getInstance(
