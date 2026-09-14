@@ -1,7 +1,7 @@
 /* eslint-disable react/jsx-newline */
 import type { FC } from 'react';
 
-import type { Asset, DeleteAssetRequestPayload } from '@/app/api/v1/assets';
+import type { DeleteAssetRequestPayload } from '@/app/api/v1/assets';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,36 +12,38 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from '@/components/ui';
+import type { Maybe } from '@/types';
 
 type DeleteAssetDialogProps = {
   open: boolean;
-  data: Asset;
+  symbol: Maybe<string>;
   onCancel: VoidFunction;
   onConfirm: (payload: DeleteAssetRequestPayload) => Promise<unknown>;
 };
 
 export const DeleteAssetDialog: FC<DeleteAssetDialogProps> = ({
   open,
-  data,
+  symbol,
   onCancel,
   onConfirm
 }) => {
   const handleCancel = () => onCancel();
 
-  const handleConfirm = async () => await onConfirm({ symbol: data.symbol });
+  const handleConfirm = async () => {
+    if (symbol) await onConfirm({ symbol });
+  };
 
   return (
     <AlertDialog open={open} onOpenChange={handleCancel}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            Are you sure you want to delete {data?.symbol ?? 'Unknown'}?
+            Are you sure you want to delete {symbol ?? 'Unknown'}?
           </AlertDialogTitle>
 
           <AlertDialogDescription>
             This action cannot be undone. This will permanently delete the{' '}
-            {data?.symbol ?? 'Unknown'} and its transactions from your
-            portfolio.
+            {symbol ?? 'Unknown'} and its transactions from your portfolio.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -49,6 +51,7 @@ export const DeleteAssetDialog: FC<DeleteAssetDialogProps> = ({
           <AlertDialogCancel onClick={handleCancel}>Cancel</AlertDialogCancel>
 
           <AlertDialogAction
+            disabled={!symbol}
             onClick={handleConfirm}
             className="bg-red-500 hover:bg-red-600"
           >

@@ -10,6 +10,7 @@ import { Loader2 } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 
 import { APP_ROUTES, raleway } from '@/common/constants';
+import { useCurrentUser } from '@/hooks/use-current-user';
 import { useUser } from '@/hooks/use-user';
 
 import {
@@ -47,7 +48,8 @@ export const Sidebar: FC = () => {
     sections[0].path
   );
 
-  const { user, signOutMutationFn } = useUser();
+  const { signOutMutationFn } = useUser();
+  const { data: user, isPending: isUserPending } = useCurrentUser();
 
   const { push } = useRouter();
 
@@ -125,7 +127,7 @@ export const Sidebar: FC = () => {
 
       <menu className="flex gap-2 absolute max-sm:right-1 sm:w-[95%] sm:flex-col sm:items-center sm:bottom-3">
         <SidebarBtn
-          text={user?.name}
+          text={isUserPending ? undefined : (user?.name ?? sections[1].name)}
           path={sections[1].path}
           onClick={() => changeActiveSectionPath(sections[1].path)}
           left={<LuUser size={18} />}

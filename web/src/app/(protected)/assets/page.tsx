@@ -11,7 +11,6 @@ import type { AxiosResponse } from 'axios';
 import { toast } from 'sonner';
 
 import type {
-  Asset,
   AssetValuation,
   CreateAssetRequestPayload,
   CreateAssetResponseData,
@@ -54,12 +53,14 @@ import { DeleteAssetDialog } from './_components/delete-asset-dialog';
 type AssetDialogActions =
   (typeof ASSET_DIALOG_ACTIONS)[keyof typeof ASSET_DIALOG_ACTIONS];
 
+export type PageRequest = Pick<TPagination, 'page' | 'limit'>;
+
 export const LimitPerPageOptions = ['5', '10', '25', '50'];
 
-export const PaginationInitialState = {
+export const PaginationInitialState: PageRequest = {
   page: 1,
   limit: +LimitPerPageOptions[0]
-} as TPagination;
+};
 
 /** Portfolios are listed in creation order, so this page holds the one the account was created with. */
 const PRIMARY_PORTFOLIO_PAGE: GetPortfoliosRequestParams = {
@@ -76,8 +77,8 @@ const toValuationsBySymbol = ({
 
 export default function Assets() {
   const [dialogAction, setDialogAction] = useState('' as AssetDialogActions);
-  const [selectedAsset, setSelectedAsset] = useState<Maybe<Asset>>(null);
-  const [pagination, setPagination] = useState<TPagination>(
+  const [selectedSymbol, setSelectedSymbol] = useState<Maybe<string>>(null);
+  const [requestedPage, setRequestedPage] = useState<PageRequest>(
     PaginationInitialState
   );
 
@@ -143,14 +144,14 @@ export default function Assets() {
     ApiProxyErrorData,
     GetAssetWithTotalInvestedValueResponseData
   >({
-    queryKey: ['assets', portfolio?.id, pagination],
+    queryKey: ['assets', portfolio?.id, requestedPage],
     queryFn: () =>
       api.getInstance().get('/v1/assets', {
         params: {
           portfolioId: requirePortfolio().id,
           sort: 'desc',
-          page: pagination.page,
-          limit: pagination.limit
+          page: requestedPage.page,
+          limit: requestedPage.limit
         }
       }),
     select: ({ data }) => data,
@@ -252,20 +253,28 @@ export default function Assets() {
           //   setSelectedAsset(payload as Asset);
           //   break;
           case 'deleteAsset':
-            if (!payload) throw new Error('Missing asset data');
-            setSelectedAsset(payload as Asset);
+            if (typeof payload !== 'string')
+              throw new Error('Missing asset symbol');
+            setSelectedSymbol(payload);
             handleToggleDialog(ASSET_DIALOG_ACTIONS.Delete);
             break;
           case 'setSelectedAsset':
-            setSelectedAsset(payload as Asset);
+            setSelectedSymbol(typeof payload === 'string' ? payload : null);
             break;
           case 'setPage':
             if (!payload) throw new Error('Missing page number');
-            setPagination((state) => ({ ...state, page: payload as number }));
+            setRequestedPage((state) => ({
+              ...state,
+              page: payload as number
+            }));
             break;
           case 'setLimit':
-            if (!payload) throw new Error('Missing limit param');
-            setPagination((state) => ({ ...state, limit: payload as number }));
+            if (typeof payload !== 'number')
+              throw new Error('Missing limit param');
+            setRequestedPage({
+              page: PaginationInitialState.page,
+              limit: payload
+            });
             break;
           // TODO:
           // case 'setSortOrder':
@@ -290,8 +299,7 @@ export default function Assets() {
     if (!maybeDialogAction) return;
 
     const maybeAssetSymbol = searchParams.get('symbol');
-    if (maybeAssetSymbol)
-      setSelectedAsset({ symbol: maybeAssetSymbol.toUpperCase() } as Asset);
+    if (maybeAssetSymbol) setSelectedSymbol(maybeAssetSymbol.toUpperCase());
 
     if (!opened) handleToggleDialog(maybeDialogAction);
   }, [searchParams, opened, handleToggleDialog]);
@@ -301,7 +309,6 @@ export default function Assets() {
       <FormProvider {...addAssetFormMethods}>
         <AddAssetDialog
           open={opened && dialogAction === ASSET_DIALOG_ACTIONS.Add}
-          data={selectedAsset as Asset}
           onCancel={handleToggleDialog}
           onConfirm={createAssetMutation}
         />
@@ -310,7 +317,7 @@ export default function Assets() {
       <FormProvider {...addAssetTransactionFormMethods}>
         <AddAssetTransactionDialog
           open={opened && dialogAction === ASSET_DIALOG_ACTIONS.AddTransaction}
-          data={selectedAsset as Asset}
+          symbol={selectedSymbol}
           currency={portfolio?.baseCurrency}
           onCancel={handleToggleDialog}
           onConfirm={createAssetTransactionMutation}
@@ -319,14 +326,20 @@ export default function Assets() {
 
       <DeleteAssetDialog
         open={opened && dialogAction === ASSET_DIALOG_ACTIONS.Delete}
-        data={selectedAsset as Asset}
+        symbol={selectedSymbol}
         onCancel={handleToggleDialog}
         onConfirm={deleteAssetMutation}
       />
 
       <Card className="h-fit mt-8 px-5 py-8 mx-3 shadow-none sm:mx-4 sm:pt-6 sm:pb-2">
         <AssetsTable
-          data={{ pagination, selectedAsset, result: data, valuations }}
+          data={{
+            requestedPage,
+            selectedSymbol,
+            baseCurrency: portfolio?.baseCurrency,
+            result: data,
+            valuations
+          }}
           loading={isLoadingPortfolio || isLoading || isRefetching}
           loadingValuations={isLoadingValuations}
           onDispatch={handleDispatch}

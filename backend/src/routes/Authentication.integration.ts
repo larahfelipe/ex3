@@ -63,6 +63,7 @@ type HttpMethod = 'get' | 'post' | 'patch' | 'delete';
 
 const PROTECTED_ROUTES: ReadonlyArray<readonly [HttpMethod, string]> = [
   ['get', USERS_ROUTE],
+  ['get', ACCOUNT_ROUTE],
   ['patch', ACCOUNT_ROUTE],
   ['delete', ACCOUNT_ROUTE],
   ['post', SIGN_OUT_ROUTE],
@@ -650,6 +651,33 @@ describe('authentication', () => {
 
       assert.equal(res.status, Errors.INTERNAL_SERVER_ERROR.status);
       assert.deepEqual(await storedRowCounts(), [1, 1, 1, 1]);
+    });
+  });
+
+  describe('profile', () => {
+    it("returns the caller's profile without credential columns", async () => {
+      const { user } = await seedPortfolio();
+      await createUser({ email: 'other@ex3.app' });
+      const accessToken = await signIn({
+        email: user.email,
+        password: FIXTURE_PASSWORD
+      });
+      const stored = await prismaClient.user.findUniqueOrThrow({
+        where: { id: user.id }
+      });
+
+      const res = await client.get(ACCOUNT_ROUTE).set(bearer(accessToken));
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, {
+        user: {
+          id: stored.id,
+          name: stored.name,
+          email: stored.email,
+          createdAt: stored.createdAt.toISOString(),
+          updatedAt: stored.updatedAt.toISOString()
+        }
+      });
     });
   });
 

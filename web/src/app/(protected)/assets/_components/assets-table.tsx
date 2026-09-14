@@ -14,11 +14,9 @@ import { SelectValue } from '@radix-ui/react-select';
 import { RefreshCw } from 'lucide-react';
 
 import {
-  type Asset,
   type AssetValuation,
   type GetAssetWithTotalInvestedValueResponseData
 } from '@/app/api/v1/assets';
-import { CURRENCIES } from '@/common/constants';
 import { formatNumber } from '@/common/utils';
 import {
   Button,
@@ -49,10 +47,9 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui';
-import { useUser } from '@/hooks/use-user';
-import type { Maybe, Pagination as TPagination } from '@/types';
+import type { Maybe } from '@/types';
 
-import { LimitPerPageOptions, PaginationInitialState } from '../page';
+import { LimitPerPageOptions, type PageRequest } from '../page';
 import { AssetTransactionTableCell } from './asset-transaction-table-cell';
 import { AssetValuationTableCells } from './asset-valuation-table-cells';
 
@@ -68,8 +65,9 @@ export type DispatchType =
   | 'setPage';
 
 type AssetTableData = {
-  pagination: TPagination;
-  selectedAsset: Maybe<Asset>;
+  requestedPage: PageRequest;
+  selectedSymbol: Maybe<string>;
+  baseCurrency: Maybe<string>;
   result: Maybe<GetAssetWithTotalInvestedValueResponseData>;
   valuations: Maybe<ReadonlyMap<string, AssetValuation>>;
 };
@@ -92,13 +90,21 @@ export const AssetsTable: FC<AssetsTableProps> = ({
   const [isAssetSelectionActive, setIsAssetSelectionActive] = useState(false);
   const [searchedAssetSymbol, setSearchedAssetSymbol] = useState('');
 
-  const { currency, changeCurrency } = useUser();
+  const pagination = data.result?.pagination;
 
   const assets = searchedAssetSymbol.length
-    ? (data?.result?.assets || []).filter(({ symbol }) =>
+    ? (data.result?.assets || []).filter(({ symbol }) =>
         symbol.toUpperCase().includes(searchedAssetSymbol.toUpperCase())
       )
-    : data?.result?.assets || [];
+    : data.result?.assets || [];
+
+  const formatAmount = (amount: Parameters<typeof formatNumber>[0]) =>
+    formatNumber(
+      amount,
+      data.baseCurrency
+        ? { style: 'currency', currency: data.baseCurrency }
+        : { minimumFractionDigits: 2 }
+    );
 
   const handleChangeSearchedAssetSymbol = (
     e: ChangeEvent<HTMLInputElement>
@@ -107,12 +113,9 @@ export const AssetsTable: FC<AssetsTableProps> = ({
     setSearchedAssetSymbol(value);
   };
 
-  const handleChangeCurrency = (v: string) =>
-    changeCurrency(v as keyof typeof CURRENCIES);
-
   const handleChangeActiveAssetSelection = () => {
     setIsAssetSelectionActive((prev) => !prev);
-    if (data.selectedAsset) onDispatch('setSelectedAsset', null);
+    if (data.selectedSymbol) onDispatch('setSelectedAsset', null);
   };
 
   return (
@@ -196,7 +199,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
             <Button
               aria-label="Confirm"
               className="h-8"
-              disabled={!data.selectedAsset}
+              disabled={!data.selectedSymbol}
               onClick={() => onDispatch('createAssetTransaction')}
             >
               Confirm
@@ -258,9 +261,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
 
         <TableBody>
           {loading &&
-            Array.from({
-              length: data?.pagination.limit ?? PaginationInitialState.limit
-            }).map((_, i) => (
+            Array.from({ length: data.requestedPage.limit }).map((_, i) => (
               <TableRow key={i}>
                 <TableCell colSpan={11} align="center" className="p-3">
                   <Skeleton className="w-full h-7" />
@@ -288,9 +289,12 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                 {isAssetSelectionActive && (
                   <TableCell>
                     <Checkbox
-                      checked={asset.symbol === data.selectedAsset?.symbol}
+                      checked={asset.symbol === data.selectedSymbol}
                       onCheckedChange={(checked) =>
-                        onDispatch('setSelectedAsset', checked ? asset : null)
+                        onDispatch(
+                          'setSelectedAsset',
+                          checked ? asset.symbol : null
+                        )
                       }
                     />
                   </TableCell>
@@ -302,19 +306,9 @@ export const AssetsTable: FC<AssetsTableProps> = ({
 
                 <TableCell>{asset.quantity}</TableCell>
 
-                <TableCell>
-                  {formatNumber(asset.investedValue, {
-                    style: 'currency',
-                    currency
-                  })}
-                </TableCell>
+                <TableCell>{formatAmount(asset.investedValue)}</TableCell>
 
-                <TableCell>
-                  {formatNumber(asset.averageCost, {
-                    style: 'currency',
-                    currency
-                  })}
-                </TableCell>
+                <TableCell>{formatAmount(asset.averageCost)}</TableCell>
 
                 <AssetValuationTableCells
                   loading={loadingValuations}
@@ -362,7 +356,9 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                           aria-label="Delete"
                           className="space-x-2"
                           disabled={isAssetSelectionActive}
-                          onClick={() => onDispatch('deleteAsset', asset)}
+                          onClick={() =>
+                            onDispatch('deleteAsset', asset.symbol)
+                          }
                         >
                           <IoTrashBinOutline
                             size={16}
@@ -388,42 +384,17 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                     <div className="w-fit flex items-center gap-1.5">
                       <span>Total</span>
 
-                      <Select
-                        disabled={loading}
-                        defaultValue={currency}
-                        onValueChange={handleChangeCurrency}
-                      >
-                        <SelectTrigger
-                          aria-label="Currency"
-                          className="w-fit h-7 bg-zinc-900 sm:min-w-fit"
-                        >
-                          <SelectValue placeholder="Select currency" />
-                        </SelectTrigger>
-
-                        <SelectContent>
-                          {Object.values(CURRENCIES).map(({ id, symbol }) => (
-                            <SelectItem key={id} value={id}>
-                              {symbol}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
                       <span className="font-semibold">
-                        {formatNumber(data?.result?.totalInvestedValue ?? 0, {
-                          minimumFractionDigits: 2
-                        })}
+                        {formatAmount(data.result?.totalInvestedValue ?? 0)}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
                       <Select
                         disabled={loading}
-                        defaultValue={String(
-                          data?.pagination.limit ?? PaginationInitialState.limit
-                        )}
+                        value={String(data.requestedPage.limit)}
                         onValueChange={(value: string) =>
-                          onDispatch('setLimit', value)
+                          onDispatch('setLimit', Number(value))
                         }
                       >
                         <SelectTrigger
@@ -446,7 +417,7 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                     </div>
                   </section>
 
-                  {!searchedAssetSymbol.length && data?.pagination && (
+                  {!searchedAssetSymbol.length && pagination && (
                     <section className="w-1/2">
                       <Pagination className="justify-end">
                         <PaginationContent className="hover:cursor-pointer *:text-gray-200">
@@ -454,26 +425,23 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                             variant="link"
                             className="p-0"
                             aria-label="Previous"
-                            disabled={data.pagination.page === 1}
+                            disabled={pagination.page === 1}
                           >
                             <PaginationItem>
                               <PaginationPrevious
                                 onClick={() =>
-                                  onDispatch(
-                                    'setPage',
-                                    data.pagination.page - 1
-                                  )
+                                  onDispatch('setPage', pagination.page - 1)
                                 }
                               />
                             </PaginationItem>
                           </Button>
                           {Array.from({
-                            length: data.pagination.totalPages
+                            length: pagination.totalPages
                           }).map((_, i) => (
                             <PaginationItem key={i}>
                               <PaginationLink
                                 aria-label={`Page ${i + 1}`}
-                                isActive={data.pagination.page === i + 1}
+                                isActive={pagination.page === i + 1}
                                 onClick={() => onDispatch('setPage', i + 1)}
                               >
                                 {i + 1}
@@ -484,18 +452,12 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                             variant="link"
                             className="p-0"
                             aria-label="Next"
-                            disabled={
-                              data.pagination.page ===
-                              data.result?.pagination.totalPages
-                            }
+                            disabled={pagination.page === pagination.totalPages}
                           >
                             <PaginationItem>
                               <PaginationNext
                                 onClick={() =>
-                                  onDispatch(
-                                    'setPage',
-                                    data.pagination.page + 1
-                                  )
+                                  onDispatch('setPage', pagination.page + 1)
                                 }
                               />
                             </PaginationItem>

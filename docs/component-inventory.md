@@ -36,7 +36,7 @@ shadcn/ui sobre Radix, com `cn()` (`clsx` + `tailwind-merge`) e `class-variance-
 
 | Componente | Linhas | Avaliação |
 | --- | --- | --- |
-| `assets-table.tsx` | 497 | **Reescrever** na TASK 9.1. Acumula tabela, busca, ordenação, paginação, seletor de moeda, seleção de linha e menu de ações em um arquivo. Busca é client-side sobre a página corrente, inconsistente com a paginação server-side |
+| `assets-table.tsx` | 497 | **Reescrever** na TASK 9.1. Acumula tabela, busca, ordenação, paginação, seleção de linha e menu de ações em um arquivo. Busca é client-side sobre a página corrente, inconsistente com a paginação server-side |
 | `asset-transaction-table-cell.tsx` | 97 | **Remover.** Origem do N+1 (TASK 7.4) e contém regra financeira — calcula preço médio no componente visual (viola a diretriz 4) |
 | `add-asset-dialog.tsx` | 193 | **Reaproveitar parcialmente.** O schema Zod e o padrão `FormProvider` migram para o Transaction Manager (TASK 9.3) |
 | `add-asset-transaction-dialog.tsx` | 261 | **Reaproveitar parcialmente**, mesma razão |
@@ -65,11 +65,12 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 | Item | Avaliação |
 | --- | --- |
 | `providers/app-provider.tsx` | **Preservar** — QueryClient, tema, toaster, progress bar, error boundary |
-| `providers/user-provider.tsx` (166 l.) | **Refatorar.** Mistura sessão, mutations de auth e preferência de moeda; mantém `isLoading`/`user` em `useState` em vez de derivar do React Query |
+| `providers/user-provider.tsx` | **Preservar.** Expõe só as mutations de sign-in, sign-up e sign-out, que descartam o cache de queries da sessão anterior |
 | `hooks/use-user.ts` | **Preservar** |
+| `hooks/use-current-user.ts` | **Preservar.** Perfil do chamador por `GET /api/v1/user`, no React Query |
 | `hooks/use-disclosure.ts` | **Preservar** — bom primitive de UI state |
 
-**Duplicação de estado servidor↔UI:** `assets/page.tsx` mantém `pagination` em `useState` e a repassa como parâmetro de query; a resposta traz a paginação canônica, que é ignorada. Alvo da TASK 7.1.
+**Fronteira servidor↔UI:** dado de servidor — carteira, ativos, cotações, contagem de transações e perfil — vem só do React Query. `useState` guarda estado de interface: diálogo aberto, busca, modo de seleção, símbolo selecionado e a página e o limite pedidos. A tabela exibe a paginação canônica da resposta e formata os valores na `baseCurrency` da carteira.
 
 ## Utilities
 
@@ -93,7 +94,7 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 ## Componentes excessivamente específicos
 
 * `asset-transaction-table-cell.tsx` — uma célula de tabela que busca dados e faz contas.
-* `assets-table.tsx` — acoplado a `LimitPerPageOptions`/`PaginationInitialState` importados de `../page`, dependência circular de fato entre página e componente.
+* `assets-table.tsx` — acoplado a `LimitPerPageOptions` e ao tipo `PageRequest` importados de `../page`, dependência circular de fato entre página e componente.
 
 ## Candidatos a virar primitive
 
@@ -109,7 +110,7 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 
 **Preservar sem alteração relevante:** todos os primitives de `components/ui`, camada axios, providers de app, `use-disclosure`, padrão de formulários, padrão de tipos por rota.
 
-**Refatorar:** `sidebar`, `user-provider`, defaults do React Query, `common/utils`.
+**Refatorar:** `sidebar`, defaults do React Query, `common/utils`.
 
 **Reescrever:** `assets-table`, `assets/page`, e remover `asset-transaction-table-cell`.
 

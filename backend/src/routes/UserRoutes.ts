@@ -4,6 +4,7 @@ import {
   createUserControllerHandler,
   deleteUserControllerHandler,
   getAllUsersControllerHandler,
+  getCurrentUserControllerHandler,
   getUserControllerHandler,
   signOutUserControllerHandler,
   updateUserControllerHandler
@@ -16,6 +17,12 @@ userRouter.post(
   '/v1/user',
   authRateLimitMiddleware,
   getUserControllerHandler as Application
+);
+
+userRouter.get(
+  '/v1/user',
+  authMiddleware,
+  getCurrentUserControllerHandler as Application
 );
 
 userRouter.get(
