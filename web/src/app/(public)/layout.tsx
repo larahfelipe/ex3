@@ -4,23 +4,11 @@
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { Loader2 } from 'lucide-react';
-
-import { useUser } from '@/hooks/use-user';
 import type { Children } from '@/types';
 
 import pkg from '../../../package.json';
 
 export default function Layout({ children }: Children) {
-  const { isLoading } = useUser();
-
-  if (isLoading)
-    return (
-      <main className="h-screen flex">
-        <Loader2 className="m-auto size-6 animate-spin" />
-      </main>
-    );
-
   return (
     <main className="h-screen bg-black lg:grid lg:grid-cols-2">
       <aside className="h-full min-h-168 flex flex-col justify-center align-center relative space-y-8">

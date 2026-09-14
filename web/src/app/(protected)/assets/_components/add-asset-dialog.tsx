@@ -15,7 +15,7 @@ import { LuArrowDownUp } from 'react-icons/lu';
 import { Loader2, Plus } from 'lucide-react';
 import { z } from 'zod';
 
-import type { Asset, CreateAssetRequestPayload } from '@/app/api/v1/assets';
+import type { CreateAssetRequestPayload } from '@/app/api/v1/assets';
 import { ASSET_DIALOG_ACTIONS } from '@/common/constants';
 import { replaceUrl, sanitizeInputValue } from '@/common/utils';
 import {
@@ -32,7 +32,6 @@ import {
 
 type AddAssetDialogProps = {
   open: boolean;
-  data: Asset;
   onCancel: VoidFunction;
   onConfirm: (
     payload: Omit<CreateAssetRequestPayload, 'portfolioId'>

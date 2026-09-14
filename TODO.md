@@ -69,19 +69,19 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** carteira criada por engano, com nome errado ou na moeda errada fica na conta, e a criação sem limite (TD-011) agrava o acúmulo.
 - **Proposta:** edição de `name` e exclusão que remove ativos e transações da carteira numa transação serializável, como a exclusão de ativo. Decidir com o produto se `baseCurrency` pode mudar depois que a carteira tem transações e se a última carteira do usuário pode ser excluída.
 
-### TD-013 — Web opera só a carteira mais antiga e ignora a moeda base
+### TD-013 — Web opera só a carteira mais antiga
 
 - **Origem:** várias carteiras por usuário · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
-- **Contexto:** a tela de ativos pede `GET /v1/portfolios` com `page=1&limit=1` e usa essa carteira, a mais antiga, em todas as chamadas; o web não tem seletor nem criação de carteira. O diálogo de transação envia e rotula o preço na `baseCurrency` da carteira, mas a tabela de ativos formata os valores com a moeda de `useUser` (`web/src/providers/user-provider.tsx`), que começa em BRL e muda pelo seletor da tabela, sem relação com `Portfolio.baseCurrency` e sem conversão. Só as colunas de preço, valor de mercado e lucro usam a moeda da cotação.
-- **Impacto:** carteiras criadas pela API não aparecem no web. Quem escolhe USD ou EUR no sign-up registra transações nessa moeda, mas vê os valores da tabela rotulados em BRL até trocar o seletor, e trocar o seletor só muda o símbolo exibido.
-- **Proposta:** seletor e criação de carteira no web, com o rótulo inicial vindo da `baseCurrency` da carteira selecionada. Decidir com o produto se o seletor de moeda continua existindo enquanto não houver conversão cambial.
+- **Contexto:** a tela de ativos pede `GET /v1/portfolios` com `page=1&limit=1` e usa essa carteira, a mais antiga, em todas as chamadas; o web não tem seletor nem criação de carteira. O diálogo de transação e a tabela de ativos usam a `baseCurrency` dessa carteira, e só as colunas de preço, valor de mercado e lucro usam a moeda da cotação.
+- **Impacto:** carteiras criadas pela API não aparecem no web, e quem tem mais de uma não registra nem consulta transações das demais pela interface.
+- **Proposta:** seletor e criação de carteira no web, com a tela de ativos e o diálogo de transação escopados pela carteira selecionada e rotulados na `baseCurrency` dela.
 
 ### TD-014 — Nome do usuário sem limite de tamanho
 
 - **Origem:** revisão de segurança do sign-up com moeda base · **Tipo:** segurança · **Prioridade:** baixa · **Encaminhamento:** avulso
 - **Contexto:** `name` é `z.string().optional()` em `CreateUserSchema` e `UpdateUserSchema`, sem `trim` nem máximo; o único teto é o limite do corpo JSON (`RequestLimits.JSON_BODY_SIZE`, 100 kB). O nome da carteira já usa `boundedTextSchema`.
-- **Impacto:** cada conta grava um nome de até cerca de 100 kB, devolvido nas respostas que trazem o usuário, inclusive a listagem de admin (OWASP API4:2023). Nome só de espaços é aceito.
-- **Proposta:** `boundedTextSchema` com máximo nomeado e documentado nos dois schemas, mantendo o campo opcional.
+- **Impacto:** cada conta grava um nome de até cerca de 100 kB, devolvido nas respostas que trazem o usuário, inclusive a listagem de admin (OWASP API4:2023). Nome só de espaços é aceito. Conta criada pela API sem nome recebe `name` `null`, que `SignInResponseData` no web declara como `string`, e o toast de sign-in mostra `Logged in as null`; o perfil de `GET /api/v1/user` já trata o `null`.
+- **Proposta:** `boundedTextSchema` com máximo nomeado e documentado nos dois schemas. Decidir com o produto se o nome passa a ser obrigatório; enquanto for opcional, tipar `name` como `string | null` em `SignInResponseData`.
 
 ### TD-015 — Tamanho de página padrão repetido em cada repositório
 

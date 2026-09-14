@@ -10,7 +10,6 @@ import { LuArrowDownUp } from 'react-icons/lu';
 import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
-import type { Asset } from '@/app/api/v1/assets';
 import type {
   CreateTransactionRequestPayload,
   TransactionType
@@ -33,10 +32,11 @@ import {
   SelectValue,
   Separator
 } from '@/components/ui';
+import type { Maybe } from '@/types';
 
 type AddAssetTransactionDialogProps = {
   open: boolean;
-  data: Asset;
+  symbol: Maybe<string>;
   currency?: string;
   onCancel: VoidFunction;
   onConfirm: (
@@ -92,7 +92,7 @@ export const AddAssetTransactionSchema = z.object({
 
 export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
   open,
-  data,
+  symbol,
   currency,
   onCancel,
   onConfirm
@@ -121,10 +121,12 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
   const handleConfirm: SubmitHandler<AddAssetTransactionSchemaType> = async (
     payload
   ) => {
+    if (!symbol) return;
+
     await onConfirm({
       ...payload,
       type: payload.type as TransactionType,
-      assetSymbol: data.symbol
+      assetSymbol: symbol
     });
     reset();
   };
@@ -140,7 +142,7 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
           </DialogTitle>
 
           <DialogDescription>
-            Create a new {data?.symbol ?? 'Unknown'} transaction
+            Create a new {symbol ?? 'Unknown'} transaction
           </DialogDescription>
         </DialogHeader>
 
@@ -156,7 +158,7 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
               disabled
               id="symbol"
               aria-label="Asset symbol"
-              defaultValue={data?.symbol}
+              defaultValue={symbol ?? undefined}
             />
           </div>
 
@@ -281,7 +283,7 @@ export const AddAssetTransactionDialog: FC<AddAssetTransactionDialogProps> = ({
             type="submit"
             form="add-asset-transaction-form"
             aria-label="Confirm"
-            disabled={isSubmitting || !isValid}
+            disabled={isSubmitting || !isValid || !symbol}
           >
             {isSubmitting ? (
               <Loader2 className="size-4 animate-spin" />

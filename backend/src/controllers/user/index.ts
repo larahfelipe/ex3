@@ -7,6 +7,7 @@ import {
   CreateUserService,
   DeleteUserService,
   GetAllUsersService,
+  GetCurrentUserService,
   GetUserService,
   SignOutUserService,
   UpdateUserService
@@ -15,6 +16,7 @@ import {
 import { CreateUserController } from './CreateUserController';
 import { DeleteUserController } from './DeleteUserController';
 import { GetAllUsersController } from './GetAllUsersController';
+import { GetCurrentUserController } from './GetCurrentUserController';
 import { GetUserController } from './GetUserController';
 import { SignOutUserController } from './SignOutUserController';
 import { UpdateUserController } from './UpdateUserController';
@@ -55,6 +57,22 @@ export const getAllUsersControllerHandler = (req: Request, res: Response) => {
     GetAllUsersController.getInstance(getAllUsersService);
 
   return getAllUsersController.handle(req, res);
+};
+
+export const getCurrentUserControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const userRepository = UserRepository.getInstance();
+
+  const getCurrentUserService =
+    GetCurrentUserService.getInstance(userRepository);
+
+  const getCurrentUserController = GetCurrentUserController.getInstance(
+    getCurrentUserService
+  );
+
+  return getCurrentUserController.handle(req, res);
 };
 
 export const getUserControllerHandler = (req: Request, res: Response) => {

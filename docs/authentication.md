@@ -34,7 +34,7 @@ A condição 6 é o ponto de revogação. Sign-in, sign-out e troca de senha inc
 | **Troca de senha** | `PATCH /v1/user` só aceita `newPassword` acompanhada da `oldPassword` correta. A nova senha e o incremento da versão vão no mesmo `UPDATE`, o que revoga a sessão atual; o cliente reautentica com a nova senha | `validation/schema/user/UpdateUserSchema.ts`, `infra/database/UserRepository.ts` |
 | **Exclusão de conta** | `DELETE /v1/user` exige a senha atual e remove usuário, todas as suas carteiras, ativos e transações em uma única transação serializável, dependentes primeiro: nem falha nem escrita concorrente deixa dado sem dono, e o token da conta deixa de autenticar pela condição 5. Antes, conta com ativos respondia 500 | `infra/database/UserRepository.ts` |
 | **Throttling** | Sign-in e sign-up usam o limite de autenticação (10 requisições por IP a cada 15 min). `PATCH` e `DELETE /v1/user` também, porque verificam a senha: uma sessão roubada não pode virar oráculo de adivinhação de senha | `routes/UserRoutes.ts` |
-| **Exposição de dados** | `password` e `sessionVersion` nunca saem em respostas: o repositório os omite na própria consulta (`omit` do Prisma), inclusive em `GET /v1/users`, restrito a admin | `infra/database/UserRepository.ts` |
+| **Exposição de dados** | `password` e `sessionVersion` nunca saem em respostas: o repositório os omite na própria consulta (`omit` do Prisma), inclusive em `GET /v1/users`, restrito a admin. `GET /v1/user` devolve só o perfil do próprio chamador e omite também `isAdmin`; conta que deixou de existir responde `401` | `infra/database/UserRepository.ts`, `services/user/GetCurrentUserService.ts` |
 
 ## Política de senha
 
@@ -61,6 +61,8 @@ Complementarmente, o cookie de sessão recebe `expires` derivado do `exp` do pr�
 
 No cliente, o interceptor do axios (`web/src/lib/axios/axios.ts`) trata 401 como sessão expirada: chama `/v1/sign-out`, que revoga a sessão e apaga o cookie, e redireciona para o sign-in. As exceções são `/v1/sign-in` e `/v1/sign-up`, onde o 401 significa credencial recusada e precisa chegar ao formulário, e o próprio `/v1/sign-out`, para que encerrar a sessão não recorra. 401s concorrentes compartilham um único sign-out: a sessão é encerrada uma vez, com um só aviso e um só redirecionamento.
 
+O perfil exibido vem de `GET /api/v1/user`; o `localStorage` não guarda dados do usuário. Sign-in, sign-up e sign-out descartam o cache do React Query, para que dados de uma conta não apareçam para a seguinte na mesma aba.
+
 **Content-Security-Policy.** O cookie `httpOnly` não é legível por script, mas um script injetado ainda faria chamadas autenticadas pela origem do web. O proxy emite a CSP de cada página com um nonce novo por resposta: só roda script que o Next.js marcou com esse nonce ou que um script marcado carregou (`'strict-dynamic'`), e o browser só busca recursos na própria origem. Por isso toda rota renderiza por requisição (`await connection()` no layout raiz), já que página pré-renderizada no build não teria nonce. `'unsafe-eval'` só existe em desenvolvimento. A CSP estática anterior, em `next.config.js`, liberava `'unsafe-inline'` e `'unsafe-eval'` em `script-src`, o que a anulava contra XSS; saiu junto com o `X-XSS-Protection`, obsoleto.
 
 ## Cobertura de testes
@@ -83,6 +85,7 @@ Ponta a ponta, contra banco e pela API HTTP, em `backend/src/routes/Authenticati
 * **sign-out.**
 * **exclusão de conta:** remove a conta com todas as carteiras, ativos e transações, sem tocar em outra conta, e encerra a sessão; senha errada não remove nada;
 * **troca de senha:** revoga a sessão, exige a senha atual, aplica a política e é limitada pelo throttling de autenticação;
+* **perfil:** o chamador recebe o próprio perfil, e não o de outra conta, sem colunas de credencial nem `isAdmin`;
 * **listagem de usuários:** admin recebe a lista sem colunas de credencial; não admin recebe 403;
 * **rotas protegidas:** rejeição anônima em todas.
 

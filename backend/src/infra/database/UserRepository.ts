@@ -48,6 +48,13 @@ export class UserRepository {
     });
   }
 
+  async getProfile(id: string) {
+    return this.prismaClient.user.findUnique({
+      where: { id },
+      omit: PROFILE_OMITTED_COLUMNS
+    });
+  }
+
   /**
    * User and first portfolio are one nested write, which Prisma runs in a
    * single transaction: a failure leaves neither behind. The unique index on

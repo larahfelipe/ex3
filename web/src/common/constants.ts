@@ -20,7 +20,6 @@ export const COOKIE_OPTIONS: Partial<ResponseCookie> = {
 };
 
 export const APP_STORAGE_KEYS = {
-  User: 'ex3:user',
   Token: 'ex3:token'
 };
 

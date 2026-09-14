@@ -9,14 +9,13 @@ import {
   CardHeader,
   CardTitle,
   Input,
-  Label
+  Label,
+  Skeleton
 } from '@/components/ui';
-import { useUser } from '@/hooks/use-user';
+import { useCurrentUser } from '@/hooks/use-current-user';
 
 export default function Account() {
-  const { user } = useUser();
-
-  if (!user) return null;
+  const { data: user, isLoading, isError, refetch } = useCurrentUser();
 
   return (
     <div className="space-y-8 my-2 sm:mx-4">
@@ -27,28 +26,54 @@ export default function Account() {
           <CardDescription>Your account details</CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-5">
-          <section className="space-y-1.5">
-            <Label htmlFor="name">Name</Label>
+        <CardContent className="space-y-5" aria-busy={isLoading}>
+          {isError ? (
+            <section role="alert" className="flex flex-col items-start gap-3">
+              <p className="text-sm text-red-500">
+                Your account details could not be loaded
+              </p>
 
-            <Input
-              disabled
-              id="name"
-              value={user.name}
-              className="bg-zinc-900"
-            />
-          </section>
+              <Button
+                variant="secondary"
+                className="h-9 max-sm:w-full"
+                onClick={() => refetch()}
+              >
+                Try again
+              </Button>
+            </section>
+          ) : (
+            <>
+              <section className="space-y-1.5">
+                <Label htmlFor="name">Name</Label>
 
-          <section className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+                {user ? (
+                  <Input
+                    disabled
+                    id="name"
+                    value={user.name ?? ''}
+                    className="bg-zinc-900"
+                  />
+                ) : (
+                  <Skeleton className="h-9 w-full" />
+                )}
+              </section>
 
-            <Input
-              disabled
-              id="email"
-              value={user.email}
-              className="bg-zinc-900"
-            />
-          </section>
+              <section className="space-y-1.5">
+                <Label htmlFor="email">Email</Label>
+
+                {user ? (
+                  <Input
+                    disabled
+                    id="email"
+                    value={user.email}
+                    className="bg-zinc-900"
+                  />
+                ) : (
+                  <Skeleton className="h-9 w-full" />
+                )}
+              </section>
+            </>
+          )}
         </CardContent>
 
         <CardFooter className="flex justify-end">
