@@ -125,6 +125,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** com posições em moeda diferente da base, `profitLoss`, da carteira e de cada posição, não inclui o ganho ou a perda cambial desde a compra, e `dayChange` não inclui a variação do câmbio no dia; o `totalValue` de ontem somado ao `dayChange` não reproduz o de hoje quando o câmbio mudou.
 - **Proposta:** decidir com o produto se os indicadores refletem o câmbio; se sim, gravar a taxa na transação ou obtê-la do histórico de preços, e usar o fechamento anterior do par na variação do dia.
 
+### TD-023 — `QueryClient` do web compartilhado entre requisições no servidor
+
+- **Origem:** TASK 7.3 · **Tipo:** segurança · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** `web/src/lib/react-query.ts` cria o `QueryClient` no escopo do módulo, e o `AppProvider`, componente cliente, também renderiza no servidor. Os hooks de domínio usam só `useQuery` e `useMutation`, que não buscam na renderização do servidor, e o isolamento entre usuários depende de o cache do navegador ser descartado no sign-in, no sign-up, no sign-out e no recarregamento após 401, porque as query keys não levam o usuário.
+- **Impacto:** nenhum hoje. Se uma tela passar a buscar no servidor (`prefetchQuery`, `useSuspenseQuery` ou hidratação), o mesmo cache atende requisições de usuários diferentes, e dado de um usuário pode ser servido a outro.
+- **Proposta:** criar um `QueryClient` por requisição no servidor e um único no navegador, como a documentação do TanStack Query orienta para o App Router, antes de a primeira busca no servidor entrar.
+
 ## Resolvidos
 
 ### TD-002 — Listagem de transações ignora `page` e não segue a ordem das operações

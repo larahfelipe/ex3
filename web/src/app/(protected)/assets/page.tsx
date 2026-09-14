@@ -18,7 +18,10 @@ import {
   useDeleteAsset
 } from '@/hooks/use-assets';
 import { useDisclosure } from '@/hooks/use-disclosure';
-import { usePrimaryPortfolio } from '@/hooks/use-portfolio';
+import {
+  usePrimaryPortfolio,
+  useRefreshPortfolio
+} from '@/hooks/use-portfolio';
 import { useCreateTransaction } from '@/hooks/use-transactions';
 import type { Maybe, Pagination as TPagination } from '@/types';
 
@@ -95,13 +98,12 @@ export default function Assets() {
   const { data: portfolio, isLoading: isLoadingPortfolio } =
     usePrimaryPortfolio();
 
-  const { data, dataUpdatedAt, isLoading, isRefetching, refetch } = useAssets(
-    portfolio,
-    requestedPage
-  );
+  const refreshPortfolio = useRefreshPortfolio(portfolio);
+
+  const { data, isLoading, isRefetching } = useAssets(portfolio, requestedPage);
 
   const { data: valuations, isLoading: isLoadingValuations } =
-    useAssetValuations(portfolio, { data, dataUpdatedAt });
+    useAssetValuations(portfolio, data);
 
   const { mutateAsync: createAssetMutation } = useCreateAsset(portfolio);
 
@@ -115,7 +117,7 @@ export default function Assets() {
       try {
         switch (type) {
           case 'refetchAssets':
-            await refetch();
+            await refreshPortfolio();
             break;
           case 'createAsset':
             handleToggleDialog(ASSET_DIALOG_ACTIONS.Add);
@@ -165,7 +167,7 @@ export default function Assets() {
         toast.error(message);
       }
     },
-    [refetch, handleToggleDialog]
+    [refreshPortfolio, handleToggleDialog]
   );
 
   useEffect(() => {
