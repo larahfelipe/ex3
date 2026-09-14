@@ -12,7 +12,7 @@ import {
   Label,
   Skeleton
 } from '@/components/ui';
-import { useCurrentUser } from '@/hooks/use-current-user';
+import { useCurrentUser } from '@/hooks/use-user';
 
 export default function Account() {
   const { data: user, isLoading, isError, refetch } = useCurrentUser();

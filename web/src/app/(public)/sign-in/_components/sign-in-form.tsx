@@ -8,7 +8,7 @@ import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
 import { Button, Input, Label } from '@/components/ui';
-import { useUser } from '@/hooks/use-user';
+import { useSignIn } from '@/hooks/use-user';
 
 type SignInFormValues = z.infer<typeof signInSchema>;
 
@@ -18,7 +18,7 @@ const signInSchema = z.object({
 });
 
 export const SignInForm: FC = () => {
-  const { signInMutationFn } = useUser();
+  const { mutateAsync: signInMutationFn } = useSignIn();
 
   const {
     register,

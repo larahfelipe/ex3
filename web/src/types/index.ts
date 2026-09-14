@@ -17,6 +17,14 @@ export type Pagination = Record<
   number
 >;
 
+export type PageParams = Partial<Record<'page' | 'pageSize', number>>;
+
+export type Page<Item> = Record<
+  'page' | 'pageSize' | 'total' | 'totalPages',
+  number
+> &
+  Record<'items', Array<Item>>;
+
 type SizeType = 'px' | 'rem' | 'em' | '%';
 
 export type Size = `${number}${SizeType}`;

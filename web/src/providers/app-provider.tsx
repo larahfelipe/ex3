@@ -21,7 +21,6 @@ import { Toaster } from 'sonner';
 
 import { Button } from '@/components/ui';
 import { queryClient } from '@/lib/react-query';
-import { UserProvider } from '@/providers/user-provider';
 import type { Children } from '@/types';
 
 type FallbackContentProps = {
@@ -105,9 +104,7 @@ export const AppProvider: FC<Children> = ({ children }) => (
           onReset={reset}
           fallbackRender={(props) => <FallbackContent {...props} />}
         >
-          <Suspense fallback={<FallbackContent />}>
-            <UserProvider>{children}</UserProvider>
-          </Suspense>
+          <Suspense fallback={<FallbackContent />}>{children}</Suspense>
         </ErrorBoundary>
       )}
     </QueryErrorResetBoundary>

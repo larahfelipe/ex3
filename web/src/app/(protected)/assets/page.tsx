@@ -6,34 +6,20 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import type { AxiosResponse } from 'axios';
 import { toast } from 'sonner';
 
-import type {
-  AssetValuation,
-  CreateAssetRequestPayload,
-  CreateAssetResponseData,
-  DeleteAssetRequestPayload,
-  DeleteAssetResponseData,
-  GetAssetValuationsRequestParams,
-  GetAssetValuationsResponseData,
-  GetAssetWithTotalInvestedValueResponseData
-} from '@/app/api/v1/assets';
-import type {
-  GetPortfoliosRequestParams,
-  GetPortfoliosResponseData,
-  Portfolio
-} from '@/app/api/v1/portfolios';
-import type {
-  CreateTransactionRequestPayload,
-  CreateTransactionResponseData
-} from '@/app/api/v1/transactions';
 import { ASSET_DIALOG_ACTIONS, TRANSACTION_TYPES } from '@/common/constants';
 import { replaceUrl } from '@/common/utils';
 import { Card } from '@/components/ui';
+import {
+  useAssets,
+  useAssetValuations,
+  useCreateAsset,
+  useDeleteAsset
+} from '@/hooks/use-assets';
 import { useDisclosure } from '@/hooks/use-disclosure';
-import api, { type ApiProxyErrorData } from '@/lib/axios';
+import { usePrimaryPortfolio } from '@/hooks/use-portfolio';
+import { useCreateTransaction } from '@/hooks/use-transactions';
 import type { Maybe, Pagination as TPagination } from '@/types';
 
 import {
@@ -61,19 +47,6 @@ export const PaginationInitialState: PageRequest = {
   page: 1,
   limit: +LimitPerPageOptions[0]
 };
-
-/** Portfolios are listed in creation order, so this page holds the one the account was created with. */
-const PRIMARY_PORTFOLIO_PAGE: GetPortfoliosRequestParams = {
-  page: 1,
-  limit: 1
-};
-
-const toValuationsBySymbol = ({
-  data
-}: AxiosResponse<GetAssetValuationsResponseData>): ReadonlyMap<
-  string,
-  AssetValuation
-> => new Map(data.valuations.map((valuation) => [valuation.symbol, valuation]));
 
 export default function Assets() {
   const [dialogAction, setDialogAction] = useState('' as AssetDialogActions);
@@ -119,120 +92,23 @@ export default function Assets() {
     [dialogAction, opened, toggle]
   );
 
-  const { data: portfolio, isLoading: isLoadingPortfolio } = useQuery<
-    AxiosResponse<GetPortfoliosResponseData>,
-    ApiProxyErrorData,
-    Maybe<Portfolio>
-  >({
-    queryKey: ['portfolios', PRIMARY_PORTFOLIO_PAGE],
-    queryFn: () =>
-      api
-        .getInstance()
-        .get('/v1/portfolios', { params: PRIMARY_PORTFOLIO_PAGE }),
-    select: ({ data }) => data.portfolios.at(0),
-    staleTime: 60_000
-  });
+  const { data: portfolio, isLoading: isLoadingPortfolio } =
+    usePrimaryPortfolio();
 
-  const requirePortfolio = () => {
-    if (!portfolio) throw new Error('Missing portfolio');
+  const { data, dataUpdatedAt, isLoading, isRefetching, refetch } = useAssets(
+    portfolio,
+    requestedPage
+  );
 
-    return portfolio;
-  };
+  const { data: valuations, isLoading: isLoadingValuations } =
+    useAssetValuations(portfolio, { data, dataUpdatedAt });
 
-  const { data, dataUpdatedAt, isLoading, isRefetching, refetch } = useQuery<
-    AxiosResponse<GetAssetWithTotalInvestedValueResponseData>,
-    ApiProxyErrorData,
-    GetAssetWithTotalInvestedValueResponseData
-  >({
-    queryKey: ['assets', portfolio?.id, requestedPage],
-    queryFn: () =>
-      api.getInstance().get('/v1/assets', {
-        params: {
-          portfolioId: requirePortfolio().id,
-          sort: 'desc',
-          page: requestedPage.page,
-          limit: requestedPage.limit
-        }
-      }),
-    select: ({ data }) => data,
-    enabled: !!portfolio,
-    staleTime: 60_000
-  });
+  const { mutateAsync: createAssetMutation } = useCreateAsset(portfolio);
 
-  const listedSymbols = data?.assets.map(({ symbol }) => symbol) ?? [];
+  const { mutateAsync: createAssetTransactionMutation } =
+    useCreateTransaction(portfolio);
 
-  const { data: valuations, isLoading: isLoadingValuations } = useQuery<
-    AxiosResponse<GetAssetValuationsResponseData>,
-    ApiProxyErrorData,
-    ReadonlyMap<string, AssetValuation>
-  >({
-    queryKey: ['asset-valuations', portfolio?.id, listedSymbols, dataUpdatedAt],
-    queryFn: () =>
-      api.getInstance().get('/v1/assets/valuations', {
-        params: {
-          portfolioId: requirePortfolio().id,
-          symbols: listedSymbols.join(',')
-        } satisfies GetAssetValuationsRequestParams
-      }),
-    select: toValuationsBySymbol,
-    enabled: !!portfolio && listedSymbols.length > 0,
-    staleTime: 60_000
-  });
-
-  const { mutateAsync: createAssetMutation } = useMutation<
-    AxiosResponse<CreateAssetResponseData>,
-    ApiProxyErrorData,
-    Omit<CreateAssetRequestPayload, 'portfolioId'>
-  >({
-    mutationFn: (payload) =>
-      api.getInstance().post('/v1/assets/create', {
-        ...payload,
-        portfolioId: requirePortfolio().id
-      } satisfies CreateAssetRequestPayload),
-    onSuccess: async ({ data }) => {
-      toast.success(data.message);
-      await refetch();
-    },
-    onError: (e) => toast.error(e.message)
-  });
-
-  const { mutateAsync: createAssetTransactionMutation } = useMutation<
-    AxiosResponse<CreateTransactionResponseData>,
-    ApiProxyErrorData,
-    Omit<CreateTransactionRequestPayload, 'portfolioId' | 'currency'>
-  >({
-    mutationFn: (payload) => {
-      const { id, baseCurrency } = requirePortfolio();
-
-      return api.getInstance().post('/v1/transactions/create', {
-        ...payload,
-        portfolioId: id,
-        currency: baseCurrency
-      } satisfies CreateTransactionRequestPayload);
-    },
-    onSuccess: async ({ data }) => {
-      toast.success(data.message);
-      if (searchParams.size) replaceUrl(window.location.pathname);
-      await refetch();
-    },
-    onError: (e) => toast.error(e.message)
-  });
-
-  const { mutateAsync: deleteAssetMutation } = useMutation<
-    AxiosResponse<DeleteAssetResponseData>,
-    ApiProxyErrorData,
-    DeleteAssetRequestPayload
-  >({
-    mutationFn: ({ symbol }) =>
-      api.getInstance().delete(`/v1/assets/${symbol}`, {
-        params: { portfolioId: requirePortfolio().id }
-      }),
-    onSuccess: async ({ data }) => {
-      toast.success(data.message);
-      await refetch();
-    },
-    onError: (e) => toast.error(e.message)
-  });
+  const { mutateAsync: deleteAssetMutation } = useDeleteAsset(portfolio);
 
   const handleDispatch = useCallback(
     async (type: DispatchType, payload?: unknown) => {
@@ -320,7 +196,13 @@ export default function Assets() {
           symbol={selectedSymbol}
           currency={portfolio?.baseCurrency}
           onCancel={handleToggleDialog}
-          onConfirm={createAssetTransactionMutation}
+          onConfirm={(payload) =>
+            createAssetTransactionMutation(payload, {
+              onSuccess: () => {
+                if (searchParams.size) replaceUrl(window.location.pathname);
+              }
+            })
+          }
         />
       </FormProvider>
 
