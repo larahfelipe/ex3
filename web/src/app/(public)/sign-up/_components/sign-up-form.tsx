@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui';
-import { useUser } from '@/hooks/use-user';
+import { useSignUp } from '@/hooks/use-user';
 
 type SignUpFormValues = z.infer<typeof signUpSchema>;
 
@@ -62,7 +62,7 @@ const signUpSchema = z
   });
 
 export const SignUpForm: FC = () => {
-  const { signUpMutationFn } = useUser();
+  const { mutateAsync: signUpMutationFn } = useSignUp();
 
   const {
     control,

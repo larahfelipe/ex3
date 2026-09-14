@@ -1,11 +1,8 @@
 import type { FC, JSX } from 'react';
 
-import { useQuery } from '@tanstack/react-query';
-import { type AxiosResponse } from 'axios';
-
 import type { GetTransactionCountResponseData } from '@/app/api/v1/transactions';
 import { Skeleton, TableCell } from '@/components/ui';
-import api, { type ApiProxyErrorData } from '@/lib/axios';
+import { useTransactionCount } from '@/hooks/use-transactions';
 
 type AssetTransactionTableCell = {
   symbol: string;
@@ -18,19 +15,8 @@ export const AssetTransactionTableCell: FC<AssetTransactionTableCell> = ({
   symbol,
   portfolioId
 }): JSX.Element => {
-  const { data: { buy, sell } = NO_TRANSACTIONS, isLoading } = useQuery<
-    AxiosResponse<GetTransactionCountResponseData>,
-    ApiProxyErrorData,
-    GetTransactionCountResponseData
-  >({
-    queryKey: ['transactions', 'count', portfolioId, symbol],
-    queryFn: () =>
-      api.getInstance().get(`/v1/transactions/${symbol}/count`, {
-        params: { portfolioId }
-      }),
-    select: ({ data }) => data,
-    staleTime: 30_000
-  });
+  const { data: { buy, sell } = NO_TRANSACTIONS, isLoading } =
+    useTransactionCount({ symbol, portfolioId });
 
   if (isLoading)
     return (

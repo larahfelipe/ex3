@@ -10,8 +10,7 @@ import { Loader2 } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 
 import { APP_ROUTES, raleway } from '@/common/constants';
-import { useCurrentUser } from '@/hooks/use-current-user';
-import { useUser } from '@/hooks/use-user';
+import { useCurrentUser, useSignOut } from '@/hooks/use-user';
 
 import {
   Button,
@@ -48,7 +47,7 @@ export const Sidebar: FC = () => {
     sections[0].path
   );
 
-  const { signOutMutationFn } = useUser();
+  const { mutate: signOut } = useSignOut();
   const { data: user, isPending: isUserPending } = useCurrentUser();
 
   const { push } = useRouter();
@@ -58,7 +57,7 @@ export const Sidebar: FC = () => {
     push(path);
   };
 
-  const handleSignOut = () => signOutMutationFn();
+  const handleSignOut = () => signOut();
 
   const SidebarBtn = ({
     onClick,

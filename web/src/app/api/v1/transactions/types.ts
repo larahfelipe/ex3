@@ -1,12 +1,15 @@
 import type {
   DecimalString,
   Maybe,
+  Page,
+  PageParams,
   WithId,
   WithMessage,
   WithTimestamps
 } from '@/types';
 
 import type { Asset } from '../assets';
+import type { PortfolioScopeParams } from '../portfolio';
 
 export type TransactionType = 'BUY' | 'SELL';
 
@@ -26,6 +29,19 @@ export type TransactionProperties = {
 
 export interface Transaction
   extends WithId, WithTimestamps, TransactionProperties {}
+
+export type ListedTransaction = Transaction & Pick<Asset, 'symbol'>;
+
+export type TransactionFilters = PageParams &
+  Partial<
+    Pick<TransactionProperties, 'type'> &
+      Record<'symbol' | 'broker' | 'dateFrom' | 'dateTo', string>
+  >;
+
+export type GetTransactionsRequestParams = PortfolioScopeParams &
+  TransactionFilters;
+
+export type GetTransactionsResponseData = Page<ListedTransaction>;
 
 export type GetTransactionRequestPayload = Pick<Asset, 'symbol'>;
 

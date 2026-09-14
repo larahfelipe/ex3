@@ -58,16 +58,14 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 | `lib/react-query.ts` | **Preservar**, revisar defaults (`retry: 2` em mutations é agressivo para operações financeiras) |
 | `app/api/v1/*/types.ts` | **Preservar o padrão** de tipos co-localizados por rota |
 
-**Problema estrutural:** não existe camada de hooks de domínio. Cada componente monta a própria `useQuery` com URL literal e query key ad-hoc (`['assets', page, limit]`, `['transactions', symbol]`). É exatamente a lacuna das TASKS 7.2 e 7.3.
+**Hooks de domínio:** componente não conhece URL, Axios nem query key. `hooks/use-portfolio.ts` (carteira principal, visão geral, posições e alocação), `hooks/use-assets.ts` (ativos, cotações, criação e remoção), `hooks/use-transactions.ts` (listagem, contagem e criação) e `hooks/use-user.ts` (perfil, sign-in, sign-up e sign-out) montam a query ou a mutation sobre os proxies de `app/api/v1`. Hook escopado por carteira recebe a carteira e não dispara a requisição sem ela (`skipToken`); mutation sem carteira falha com toast. A query key ainda é literal em cada hook, sem padrão comum nem escopo de usuário, e as mutations de ativo e de transação invalidam só a listagem de ativos da carteira.
 
 ## State
 
 | Item | Avaliação |
 | --- | --- |
 | `providers/app-provider.tsx` | **Preservar** — QueryClient, tema, toaster, progress bar, error boundary |
-| `providers/user-provider.tsx` | **Preservar.** Expõe só as mutations de sign-in, sign-up e sign-out, que descartam o cache de queries da sessão anterior |
-| `hooks/use-user.ts` | **Preservar** |
-| `hooks/use-current-user.ts` | **Preservar.** Perfil do chamador por `GET /api/v1/user`, no React Query |
+| `hooks/use-user.ts` | **Preservar.** Perfil do chamador por `GET /api/v1/user` e mutations de sign-in, sign-up e sign-out, que descartam o cache de queries da sessão anterior |
 | `hooks/use-disclosure.ts` | **Preservar** — bom primitive de UI state |
 
 **Fronteira servidor↔UI:** dado de servidor — carteira, ativos, cotações, contagem de transações e perfil — vem só do React Query. `useState` guarda estado de interface: diálogo aberto, busca, modo de seleção, símbolo selecionado e a página e o limite pedidos. A tabela exibe a paginação canônica da resposta e formata os valores na `baseCurrency` da carteira.
@@ -114,4 +112,4 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 
 **Reescrever:** `assets-table`, `assets/page`, e remover `asset-transaction-table-cell`.
 
-**Criar:** hooks de domínio, primitives financeiras, componentes de estado de dados, navegação mobile, camada de gráficos.
+**Criar:** primitives financeiras, componentes de estado de dados, navegação mobile, camada de gráficos.
