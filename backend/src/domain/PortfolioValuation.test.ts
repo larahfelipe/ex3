@@ -3,6 +3,8 @@ import { describe, it } from 'node:test';
 
 import type { QuoteLookup } from './MarketDataProvider';
 import {
+  type AllocatedPosition,
+  allocatePortfolio,
   foreignCurrenciesOf,
   type ListedPosition,
   type PortfolioHoldings,
@@ -501,6 +503,336 @@ describe('foreignCurrenciesOf', () => {
         BASE_CURRENCY
       ),
       ['USD', 'EUR']
+    );
+  });
+});
+
+type Catalog = Pick<AllocatedPosition, 'type' | 'sector' | 'currency'>;
+
+const allocated = (
+  symbol: string,
+  quantity: string,
+  catalog: Catalog
+): AllocatedPosition => ({
+  ...listed(holding(symbol, quantity, '0'), '0'),
+  ...catalog
+});
+
+const allocate = (
+  positions: AllocatedPosition[],
+  quotes: Record<string, QuoteLookup>,
+  exchangeRates: Record<string, QuoteLookup> = {}
+) =>
+  allocatePortfolio({
+    baseCurrency: BASE_CURRENCY,
+    positions,
+    quotes: new Map(Object.entries(quotes)),
+    exchangeRates: new Map(Object.entries(exchangeRates))
+  });
+
+const PETR4_CATALOG: Catalog = {
+  type: 'STOCK',
+  sector: 'Energy',
+  currency: 'BRL'
+};
+
+describe('allocatePortfolio', () => {
+  it('breaks the positions with units down by asset, type, sector and currency, in the base currency', () => {
+    assert.deepEqual(
+      allocate(
+        [
+          allocated('AAPL', '2', {
+            type: 'STOCK',
+            sector: 'Technology',
+            currency: 'USD'
+          }),
+          allocated('BTC', '0.004', {
+            type: 'CRYPTO',
+            sector: null,
+            currency: 'USD'
+          }),
+          allocated('OIBR3', '0', {
+            type: 'STOCK',
+            sector: 'Telecom',
+            currency: 'BRL'
+          }),
+          allocated('PETR4', '100', PETR4_CATALOG)
+        ],
+        {
+          AAPL: quoted('100', 'USD'),
+          BTC: quoted('50000', 'USD'),
+          OIBR3: quoted('1.5', 'BRL'),
+          PETR4: quoted('30', 'BRL')
+        },
+        { USD: USD_RATE }
+      ),
+      {
+        baseCurrency: BASE_CURRENCY,
+        totalValue: '5000',
+        byAsset: [
+          {
+            symbol: 'AAPL',
+            name: 'Name of AAPL',
+            marketValue: '1000',
+            allocation: '0.2'
+          },
+          {
+            symbol: 'BTC',
+            name: 'Name of BTC',
+            marketValue: '1000',
+            allocation: '0.2'
+          },
+          {
+            symbol: 'PETR4',
+            name: 'Name of PETR4',
+            marketValue: '3000',
+            allocation: '0.6'
+          }
+        ],
+        byType: [
+          { type: 'CRYPTO', marketValue: '1000', allocation: '0.2' },
+          { type: 'STOCK', marketValue: '4000', allocation: '0.8' }
+        ],
+        bySector: [
+          { sector: 'Energy', marketValue: '3000', allocation: '0.6' },
+          { sector: 'Technology', marketValue: '1000', allocation: '0.2' },
+          { sector: null, marketValue: '1000', allocation: '0.2' }
+        ],
+        byCurrency: [
+          { currency: 'BRL', marketValue: '3000', allocation: '0.6' },
+          { currency: 'USD', marketValue: '2000', allocation: '0.4' }
+        ]
+      }
+    );
+  });
+
+  it('adds up in every breakdown the truncated values and shares of the positions, short of the whole by less than one unit of the column scale each', () => {
+    const consumerStockInUsd: Catalog = {
+      type: 'STOCK',
+      sector: 'Consumer',
+      currency: 'USD'
+    };
+    const allocation = allocate(
+      [
+        allocated('KO', '1', consumerStockInUsd),
+        allocated('PEP', '1', consumerStockInUsd),
+        allocated('PETR4', '1', PETR4_CATALOG),
+        allocated('XPML11', '1', {
+          type: 'REIT',
+          sector: null,
+          currency: 'BRL'
+        })
+      ],
+      {
+        KO: quoted('1.000000000000000001', 'USD'),
+        PEP: quoted('1.000000000000000001', 'USD'),
+        PETR4: quoted('1', 'BRL'),
+        XPML11: quoted('1', 'BRL')
+      },
+      { USD: quoted('1.5', 'BRL') }
+    );
+
+    assert.deepEqual(allocation, {
+      baseCurrency: BASE_CURRENCY,
+      totalValue: '5.000000000000000003',
+      byAsset: [
+        {
+          symbol: 'KO',
+          name: 'Name of KO',
+          marketValue: '1.500000000000000001',
+          allocation: '0.3'
+        },
+        {
+          symbol: 'PEP',
+          name: 'Name of PEP',
+          marketValue: '1.500000000000000001',
+          allocation: '0.3'
+        },
+        {
+          symbol: 'PETR4',
+          name: 'Name of PETR4',
+          marketValue: '1',
+          allocation: '0.199999999999999999'
+        },
+        {
+          symbol: 'XPML11',
+          name: 'Name of XPML11',
+          marketValue: '1',
+          allocation: '0.199999999999999999'
+        }
+      ],
+      byType: [
+        { type: 'REIT', marketValue: '1', allocation: '0.199999999999999999' },
+        {
+          type: 'STOCK',
+          marketValue: '4.000000000000000002',
+          allocation: '0.799999999999999999'
+        }
+      ],
+      bySector: [
+        {
+          sector: 'Consumer',
+          marketValue: '3.000000000000000002',
+          allocation: '0.6'
+        },
+        {
+          sector: 'Energy',
+          marketValue: '1',
+          allocation: '0.199999999999999999'
+        },
+        { sector: null, marketValue: '1', allocation: '0.199999999999999999' }
+      ],
+      byCurrency: [
+        {
+          currency: 'BRL',
+          marketValue: '2',
+          allocation: '0.399999999999999998'
+        },
+        {
+          currency: 'USD',
+          marketValue: '3.000000000000000002',
+          allocation: '0.6'
+        }
+      ]
+    });
+
+    const unit = 10n ** BigInt(COLUMN_SCALE);
+    const whole = toScaled(allocation.totalValue!);
+    const positionCount = BigInt(allocation.byAsset.length);
+    const breakdowns: ReadonlyArray<
+      ReadonlyArray<Partial<Record<'marketValue' | 'allocation', string>>>
+    > = [
+      allocation.byAsset,
+      allocation.byType,
+      allocation.bySector,
+      allocation.byCurrency
+    ];
+
+    for (const breakdown of breakdowns) {
+      const value = breakdown.reduce(
+        (sum, { marketValue }) => sum + toScaled(marketValue!),
+        0n
+      );
+      const share = breakdown.reduce(
+        (sum, { allocation: part }) => sum + toScaled(part!),
+        0n
+      );
+
+      assert.ok(value <= whole && whole - value < positionCount);
+      assert.ok(
+        share <= unit && (unit - share) * whole < positionCount * (whole + unit)
+      );
+    }
+  });
+
+  it('counts a position in the currency of its quote, or of the catalog without one', () => {
+    const { byCurrency } = allocate(
+      [
+        allocated('BABA', '2', {
+          type: 'STOCK',
+          sector: 'Consumer',
+          currency: 'HKD'
+        }),
+        allocated('NESN', '1', {
+          type: 'STOCK',
+          sector: 'Consumer',
+          currency: 'CHF'
+        }),
+        allocated('PETR4', '100', PETR4_CATALOG)
+      ],
+      {
+        BABA: quoted('100', 'USD'),
+        NESN: { outcome: 'unavailable' },
+        PETR4: quoted('40', 'BRL')
+      },
+      { USD: USD_RATE }
+    );
+
+    assert.deepEqual(byCurrency, [
+      { currency: 'BRL', marketValue: '4000' },
+      { currency: 'CHF' },
+      { currency: 'USD', marketValue: '1000' }
+    ]);
+  });
+
+  it('leaves out the total, every share and the value of each group with a position the provider did not quote or convert', () => {
+    assert.deepEqual(
+      allocate(
+        [
+          allocated('PETR4', '100', PETR4_CATALOG),
+          allocated('VALE3', '10', {
+            type: 'STOCK',
+            sector: 'Materials',
+            currency: 'BRL'
+          }),
+          allocated('VOW3', '10', {
+            type: 'STOCK',
+            sector: 'Industrials',
+            currency: 'EUR'
+          })
+        ],
+        {
+          PETR4: quoted('40', 'BRL'),
+          VALE3: { outcome: 'unavailable' },
+          VOW3: quoted('95', 'EUR')
+        },
+        { EUR: { outcome: 'not-found' } }
+      ),
+      {
+        baseCurrency: BASE_CURRENCY,
+        byAsset: [
+          { symbol: 'PETR4', name: 'Name of PETR4', marketValue: '4000' },
+          { symbol: 'VALE3', name: 'Name of VALE3' },
+          { symbol: 'VOW3', name: 'Name of VOW3' }
+        ],
+        byType: [{ type: 'STOCK' }],
+        bySector: [
+          { sector: 'Energy', marketValue: '4000' },
+          { sector: 'Industrials' },
+          { sector: 'Materials' }
+        ],
+        byCurrency: [{ currency: 'BRL' }, { currency: 'EUR' }]
+      }
+    );
+  });
+
+  it('describes a portfolio without positions with units as worth zero, with nothing to break down', () => {
+    assert.deepEqual(
+      allocate(
+        [allocated('OIBR3', '0', { ...PETR4_CATALOG, sector: 'Telecom' })],
+        {}
+      ),
+      {
+        baseCurrency: BASE_CURRENCY,
+        totalValue: '0',
+        byAsset: [],
+        byType: [],
+        bySector: [],
+        byCurrency: []
+      }
+    );
+  });
+
+  it('gives no share in a portfolio worth zero at the column scale', () => {
+    assert.deepEqual(
+      allocate(
+        [
+          allocated('DUST', '0.000000000000000001', {
+            type: 'CRYPTO',
+            sector: null,
+            currency: 'BRL'
+          })
+        ],
+        { DUST: quoted('0.000000000000000001', 'BRL') }
+      ),
+      {
+        baseCurrency: BASE_CURRENCY,
+        totalValue: '0',
+        byAsset: [{ symbol: 'DUST', name: 'Name of DUST', marketValue: '0' }],
+        byType: [{ type: 'CRYPTO', marketValue: '0' }],
+        bySector: [{ sector: null, marketValue: '0' }],
+        byCurrency: [{ currency: 'BRL', marketValue: '0' }]
+      }
     );
   });
 });

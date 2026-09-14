@@ -5,6 +5,7 @@ import { YahooFinanceProvider } from '@/infra/market-data';
 import {
   CreatePortfolioService,
   GetAllPortfoliosService,
+  GetPortfolioAllocationService,
   GetPortfolioOverviewService,
   GetPortfolioPositionsService,
   GetPortfolioService
@@ -12,6 +13,7 @@ import {
 
 import { CreatePortfolioController } from './CreatePortfolioController';
 import { GetAllPortfoliosController } from './GetAllPortfoliosController';
+import { GetPortfolioAllocationController } from './GetPortfolioAllocationController';
 import { GetPortfolioController } from './GetPortfolioController';
 import { GetPortfolioOverviewController } from './GetPortfolioOverviewController';
 import { GetPortfolioPositionsController } from './GetPortfolioPositionsController';
@@ -58,6 +60,27 @@ export const getPortfolioControllerHandler = (req: Request, res: Response) => {
     GetPortfolioController.getInstance(getPortfolioService);
 
   return getPortfolioController.handle(req, res);
+};
+
+export const getPortfolioAllocationControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const assetRepository = AssetRepository.getInstance();
+  const portfolioRepository = PortfolioRepository.getInstance();
+  const marketDataProvider = YahooFinanceProvider.getInstance();
+
+  const getPortfolioAllocationService =
+    GetPortfolioAllocationService.getInstance(
+      assetRepository,
+      portfolioRepository,
+      marketDataProvider
+    );
+
+  const getPortfolioAllocationController =
+    GetPortfolioAllocationController.getInstance(getPortfolioAllocationService);
+
+  return getPortfolioAllocationController.handle(req, res);
 };
 
 export const getPortfolioOverviewControllerHandler = (
