@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { before, describe, it, type TestContext } from 'node:test';
 
-import { Errors, PortfolioMessages } from '@/config';
+import { Errors, InstrumentTypes, PortfolioMessages } from '@/config';
 import type { Instrument, Position } from '@/domain/models';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 import { YahooFinanceProvider } from '@/infra/market-data';
@@ -18,6 +18,7 @@ import {
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
 
 const PORTFOLIO_ROUTE = '/v1/portfolio';
+const PORTFOLIO_ALLOCATION_ROUTE = '/v1/portfolio/allocation';
 const PORTFOLIO_OVERVIEW_ROUTE = '/v1/portfolio/overview';
 const PORTFOLIO_POSITIONS_ROUTE = '/v1/portfolio/positions';
 const PORTFOLIOS_ROUTE = '/v1/portfolios';
@@ -273,7 +274,7 @@ describe('portfolios', () => {
   const holdPosition = async (
     portfolioId: string,
     instrument: Pick<Instrument, 'symbol' | 'market' | 'currency'> &
-      Partial<Pick<Instrument, 'name'>>,
+      Partial<Pick<Instrument, 'name' | 'type' | 'sector'>>,
     {
       ledgerCurrency,
       ...stated
@@ -717,6 +718,218 @@ describe('portfolios', () => {
           Errors.BAD_REQUEST.status,
           JSON.stringify(query)
         );
+      }
+    });
+  });
+
+  describe('allocation', () => {
+    const ENERGY_PETR4 = {
+      ...PETR4,
+      name: 'Petrobras',
+      type: InstrumentTypes.STOCK,
+      sector: 'Energy'
+    };
+
+    const requestAllocation = (accessToken: string, portfolioId?: string) =>
+      client
+        .get(PORTFOLIO_ALLOCATION_ROUTE)
+        .query({ portfolioId })
+        .set(bearer(accessToken));
+
+    it('breaks the positions of the portfolio with units down by asset, type, sector and currency, in its base currency', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      const otherPortfolio = await createPortfolio(user.id, { name: 'Other' });
+      await holdPosition(portfolio.id, ENERGY_PETR4, PETR4_POSITION);
+      await holdPosition(
+        portfolio.id,
+        {
+          symbol: 'AAPL',
+          name: 'Apple',
+          type: InstrumentTypes.STOCK,
+          sector: 'Technology',
+          market: 'NASDAQ',
+          currency: 'USD'
+        },
+        {
+          quantity: '2',
+          averageCost: '400',
+          investedValue: '800',
+          ledgerCurrency: 'USD'
+        }
+      );
+      await holdPosition(
+        portfolio.id,
+        {
+          symbol: 'XPML11',
+          name: 'XP Malls',
+          type: InstrumentTypes.REIT,
+          market: 'B3',
+          currency: 'BRL'
+        },
+        {
+          quantity: '10',
+          averageCost: '90',
+          investedValue: '900',
+          ledgerCurrency: 'BRL'
+        }
+      );
+      await holdPosition(
+        otherPortfolio.id,
+        {
+          symbol: 'VALE3',
+          type: InstrumentTypes.STOCK,
+          sector: 'Materials',
+          market: 'B3',
+          currency: 'BRL'
+        },
+        {
+          quantity: '10',
+          averageCost: '60',
+          investedValue: '600',
+          ledgerCurrency: 'BRL'
+        }
+      );
+      await createInstrument({
+        symbol: 'OIBR3',
+        type: InstrumentTypes.STOCK,
+        sector: 'Telecom',
+        market: 'B3',
+        currency: 'BRL'
+      });
+      await createAsset({
+        portfolioId: portfolio.id,
+        symbol: 'OIBR3',
+        quantity: '0',
+        averageCost: '0',
+        investedValue: '0'
+      });
+      const { getQuotes, getExchangeRates } = quoteFrom(
+        t,
+        new FakeMarketDataProvider({
+          PETR4: [{ price: '50', currency: 'BRL', timestamp: OBSERVED_AT }],
+          AAPL: [{ price: '400', currency: 'USD', timestamp: OBSERVED_AT }],
+          XPML11: [{ price: '100', currency: 'BRL', timestamp: OBSERVED_AT }],
+          VALE3: [{ price: '60', currency: 'BRL', timestamp: OBSERVED_AT }],
+          OIBR3: [{ price: '1.5', currency: 'BRL', timestamp: OBSERVED_AT }],
+          USDBRL: [{ price: '5', currency: 'BRL', timestamp: OBSERVED_AT }]
+        })
+      );
+
+      const res = await requestAllocation(accessToken, portfolio.id);
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, {
+        baseCurrency: 'BRL',
+        totalValue: '10000',
+        byAsset: [
+          {
+            symbol: 'AAPL',
+            name: 'Apple',
+            marketValue: '4000',
+            allocation: '0.4'
+          },
+          {
+            symbol: 'PETR4',
+            name: 'Petrobras',
+            marketValue: '5000',
+            allocation: '0.5'
+          },
+          {
+            symbol: 'XPML11',
+            name: 'XP Malls',
+            marketValue: '1000',
+            allocation: '0.1'
+          }
+        ],
+        byType: [
+          { type: 'REIT', marketValue: '1000', allocation: '0.1' },
+          { type: 'STOCK', marketValue: '9000', allocation: '0.9' }
+        ],
+        bySector: [
+          { sector: 'Energy', marketValue: '5000', allocation: '0.5' },
+          { sector: 'Technology', marketValue: '4000', allocation: '0.4' },
+          { sector: null, marketValue: '1000', allocation: '0.1' }
+        ],
+        byCurrency: [
+          { currency: 'BRL', marketValue: '6000', allocation: '0.6' },
+          { currency: 'USD', marketValue: '4000', allocation: '0.4' }
+        ]
+      });
+      assert.deepEqual(
+        getQuotes.mock.calls.map(({ arguments: [instruments] }) =>
+          instruments
+            .map(({ symbol }) => symbol)
+            .toSorted((a, b) => a.localeCompare(b))
+        ),
+        [['AAPL', 'PETR4', 'XPML11']]
+      );
+      assert.deepEqual(
+        getExchangeRates.mock.calls.map(({ arguments: args }) => args),
+        [[['USD'], 'BRL']]
+      );
+    });
+
+    it('breaks the portfolio down without the values and shares that need a quote the provider could not give', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await holdPosition(portfolio.id, ENERGY_PETR4, PETR4_POSITION);
+      quoteFrom(t, new FakeMarketDataProvider({}, { isAvailable: false }));
+
+      const res = await requestAllocation(accessToken, portfolio.id);
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, {
+        baseCurrency: 'BRL',
+        byAsset: [{ symbol: 'PETR4', name: 'Petrobras' }],
+        byType: [{ type: 'STOCK' }],
+        bySector: [{ sector: 'Energy' }],
+        byCurrency: [{ currency: 'BRL' }]
+      });
+    });
+
+    it('describes a portfolio without positions in its base currency, worth zero with nothing to break down', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id, { baseCurrency: 'EUR' });
+      quoteFrom(t, new FakeMarketDataProvider({}));
+
+      const res = await requestAllocation(accessToken, portfolio.id);
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, {
+        baseCurrency: 'EUR',
+        totalValue: '0',
+        byAsset: [],
+        byType: [],
+        bySector: [],
+        byCurrency: []
+      });
+    });
+
+    it("answers another user's portfolio exactly like one that does not exist", async () => {
+      const holder = await createUser();
+      const foreignPortfolio = await createPortfolio(holder.id);
+      await holdPosition(foreignPortfolio.id, ENERGY_PETR4, PETR4_POSITION);
+      const { accessToken } = await signInUser(OTHER_USER_EMAIL);
+
+      const foreign = await requestAllocation(accessToken, foreignPortfolio.id);
+      const missing = await requestAllocation(
+        accessToken,
+        MISSING_PORTFOLIO_ID
+      );
+
+      assert.equal(foreign.status, Errors.NOT_FOUND.status);
+      assert.equal(foreign.body.message, PortfolioMessages.NOT_FOUND);
+      assert.deepEqual(foreign.body, missing.body);
+    });
+
+    it('rejects a missing or malformed portfolio id', async () => {
+      const { accessToken } = await signInUser();
+
+      for (const portfolioId of [undefined, 'not-a-uuid']) {
+        const res = await requestAllocation(accessToken, portfolioId);
+
+        assert.equal(res.status, Errors.BAD_REQUEST.status, `${portfolioId}`);
       }
     });
   });

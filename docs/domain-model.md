@@ -143,6 +143,23 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em
 * A ordem por `symbol` não depende de cotação, então a mudança de preço não move posição entre páginas.
 * Valores e frações são truncados em direção a zero em 18 casas, e o resultado é a diferença exata.
 
+### Alocação da carteira
+
+`GET /v1/portfolio/allocation` distribui o valor de uma carteira, na `baseCurrency` dela, por ativo, tipo, setor e moeda, também em `backend/src/domain/PortfolioValuation.ts`:
+
+| Distribuição | Chave de cada grupo |
+| --- | --- |
+| `byAsset` | `symbol` e `name` do instrumento, em ordem de `symbol` |
+| `byType` | `Instrument.type` |
+| `bySector` | `Instrument.sector`, `null` sem setor |
+| `byCurrency` | a moeda da cotação, ou `Instrument.currency` sem cotação |
+
+* Cada grupo traz `marketValue` e `allocation`, a soma exata dos valores que as suas posições têm em [Posições da carteira](#posições-da-carteira), e `totalValue` é o da visão geral. A diferença de truncamento não é redistribuída entre os grupos.
+* Só entram posições com unidades. Grupo com posição sem `marketValue` ou sem `allocation` fica sem o campo, sem erro; sem `totalValue`, ou com ele zero, nenhum grupo tem `allocation`.
+* Cada posição é truncada antes da soma, então toda distribuição soma os mesmos valores, abaixo do total por menos de uma unidade da escala por posição: com n posições, `0 ≤ totalValue − Σ marketValue < n × 10⁻¹⁸` e `0 ≤ 1 − Σ allocation < n × 10⁻¹⁸ × (1 + 1 ÷ totalValue)`.
+* Os grupos seguem a ordem das chaves por unidade de código, com `null` por último. A distribuição não é paginada.
+* Carteira sem posições com unidades responde `totalValue` `0` e distribuições vazias.
+
 ## Fonte de cotação
 
 O domínio obtém preços por `MarketDataProvider`, em `backend/src/domain/MarketDataProvider.ts`, sem depender do SDK ou da API de nenhum provedor. As implementações ficam em `backend/src/infra/market-data`, e trocá-las não altera o domínio.

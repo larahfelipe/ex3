@@ -67,6 +67,7 @@ const PROTECTED_ROUTES: ReadonlyArray<readonly [HttpMethod, string]> = [
   ['delete', ACCOUNT_ROUTE],
   ['post', SIGN_OUT_ROUTE],
   ['get', '/v1/portfolio'],
+  ['get', '/v1/portfolio/allocation'],
   ['get', '/v1/portfolio/overview'],
   ['get', '/v1/portfolio/positions'],
   ['get', '/v1/portfolios'],

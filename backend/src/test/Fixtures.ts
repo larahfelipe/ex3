@@ -70,7 +70,10 @@ export const createPortfolio = async (
 
 export const createInstrument = async (
   overrides: Partial<
-    Pick<Instrument, 'symbol' | 'name' | 'type' | 'market' | 'currency'>
+    Pick<
+      Instrument,
+      'symbol' | 'name' | 'type' | 'market' | 'currency' | 'sector'
+    >
   > = {}
 ) =>
   prismaClient.instrument.create({

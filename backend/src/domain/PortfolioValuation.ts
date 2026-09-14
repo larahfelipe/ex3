@@ -42,6 +42,20 @@ export type PortfolioPosition = Pick<
   profitLossPercent?: string;
 };
 
+export type AllocatedPosition = ListedPosition &
+  Pick<Instrument, 'type' | 'sector' | 'currency'>;
+
+type AllocationShare = Pick<PortfolioPosition, 'marketValue' | 'allocation'>;
+
+export type PortfolioAllocation = {
+  baseCurrency: Portfolio['baseCurrency'];
+  totalValue?: string;
+  byAsset: Array<Pick<Instrument, 'symbol' | 'name'> & AllocationShare>;
+  byType: Array<Pick<Instrument, 'type'> & AllocationShare>;
+  bySector: Array<Pick<Instrument, 'sector'> & AllocationShare>;
+  byCurrency: Array<Pick<Instrument, 'currency'> & AllocationShare>;
+};
+
 export const holdsUnits = ({ quantity }: Pick<HeldPosition, 'quantity'>) =>
   !new ValuationDecimal(quantity).isZero();
 
@@ -231,4 +245,97 @@ export const valuePositionsInBaseCurrency = (
       };
     }
   );
+};
+
+const shareOf = (
+  positions: ReadonlyArray<AllocationShare>
+): AllocationShare => {
+  const marketValue = sumAtColumnScale(
+    positions.map(({ marketValue: value }) =>
+      value === undefined ? null : new ValuationDecimal(value)
+    )
+  );
+  const allocation = sumAtColumnScale(
+    positions.map(({ allocation: share }) =>
+      share === undefined ? null : new ValuationDecimal(share)
+    )
+  );
+
+  return {
+    ...(marketValue && { marketValue: marketValue.toFixed() }),
+    ...(allocation && { allocation: allocation.toFixed() })
+  };
+};
+
+const compareGroupKeys = (a: string | null, b: string | null) => {
+  if (a === b) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+
+  return a < b ? -1 : 1;
+};
+
+/**
+ * Only positions with units are allocated. A group adds up exactly the
+ * `marketValue` and `allocation` its positions have in
+ * `valuePositionsInBaseCurrency`, and leaves either out when one of them lacks
+ * it, so every breakdown adds up to the same amounts: for n positions, short of
+ * `totalValue` by less than n × 10⁻¹⁸ and of 1 by less than
+ * n × 10⁻¹⁸ × (1 + 1 ÷ totalValue). A position counts in the currency of its
+ * quote, or of the catalog without one. Groups follow the order of their keys,
+ * a null key last.
+ */
+export const allocatePortfolio = (
+  holdings: Omit<PortfolioHoldings, 'positions'> &
+    Record<'positions', ReadonlyArray<AllocatedPosition>>
+): PortfolioAllocation => {
+  const { baseCurrency, positions, quotes } = holdings;
+  const heldPositions = positions.filter(holdsUnits);
+  const { totalValue } = summarizePortfolio(holdings);
+  const valuedPositions = valuePositionsInBaseCurrency(holdings, heldPositions);
+
+  const allocatedPositions = heldPositions.map(
+    ({ symbol, type, sector, currency }, index) => {
+      const lookup = quotes.get(symbol);
+
+      return {
+        type,
+        sector,
+        currency:
+          lookup?.outcome === 'quoted' ? lookup.quote.currency : currency,
+        share: valuedPositions[index]
+      };
+    }
+  );
+
+  const allocateBy = <Key extends string | null>(
+    keyOf: (position: (typeof allocatedPositions)[number]) => Key
+  ) =>
+    [...Map.groupBy(allocatedPositions, keyOf)]
+      .toSorted(([a], [b]) => compareGroupKeys(a, b))
+      .map(
+        ([key, members]) =>
+          [key, shareOf(members.map(({ share }) => share))] as const
+      );
+
+  return {
+    baseCurrency,
+    ...(totalValue !== undefined && { totalValue }),
+    byAsset: valuedPositions.map(({ symbol, name, ...share }) => ({
+      symbol,
+      name,
+      ...shareOf([share])
+    })),
+    byType: allocateBy(({ type }) => type).map(([type, share]) => ({
+      type,
+      ...share
+    })),
+    bySector: allocateBy(({ sector }) => sector).map(([sector, share]) => ({
+      sector,
+      ...share
+    })),
+    byCurrency: allocateBy(({ currency }) => currency).map(
+      ([currency, share]) => ({ currency, ...share })
+    )
+  };
 };
