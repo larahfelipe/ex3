@@ -28,7 +28,8 @@ export type PortfolioOverview = WithBaseCurrency &
       | 'dayChangePercent',
       DecimalString
     >
-  >;
+  > &
+  Partial<Record<'quotedAt', string>>;
 
 export type PortfolioPosition = WithBaseCurrency &
   Record<'symbol' | 'name', string> &
