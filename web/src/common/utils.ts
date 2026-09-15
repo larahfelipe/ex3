@@ -2,6 +2,13 @@ import type { DecimalString } from '@/types';
 
 const PERCENT_FRACTION_DIGITS = 2;
 
+const QUOTE_TIME_FORMAT = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+});
+
 export const formatNumber = (
   value: number | DecimalString,
   options?: Intl.NumberFormatOptions
@@ -48,6 +55,9 @@ export const signedValueTone = (value: DecimalString) => {
 
   return value.startsWith('-') ? 'text-red-600' : 'text-green-600';
 };
+
+export const formatQuoteTime = (timestamp: string) =>
+  QUOTE_TIME_FORMAT.format(new Date(timestamp));
 
 export const replaceUrl = (href: string) =>
   window.history.pushState({}, '', href);

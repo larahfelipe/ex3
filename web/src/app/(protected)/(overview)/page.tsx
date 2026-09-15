@@ -5,7 +5,7 @@ import { usePrimaryPortfolio } from '@/hooks/use-portfolio';
 
 import { AllocationSummary } from './_components/allocation-summary';
 import { LoadErrorAlert } from './_components/overview-section';
-import { PortfolioSummary } from './_components/portfolio-summary';
+import { PortfolioValueCard } from './_components/portfolio-value-card';
 import { PositionsSummary } from './_components/positions-summary';
 import { RecentTransactions } from './_components/recent-transactions';
 
@@ -53,7 +53,7 @@ export default function Overview() {
 
       {portfolio && (
         <>
-          <PortfolioSummary portfolio={portfolio} />
+          <PortfolioValueCard portfolio={portfolio} />
 
           <div className="grid gap-6 xl:grid-cols-3">
             <AllocationSummary portfolio={portfolio} />

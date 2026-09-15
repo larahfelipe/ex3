@@ -116,12 +116,14 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em
 | `profitLossPercent` | `profitLoss ÷ investedValue`, como fração |
 | `dayChange` | `totalValue` menos o valor no fechamento anterior, a soma de `quantity × previousClose × taxa` |
 | `dayChangePercent` | `dayChange ÷` valor no fechamento anterior, como fração |
+| `quotedAt` | o instante mais antigo entre as cotações das posições com unidades e as taxas das moedas dessas cotações |
 
 * A taxa é a cotação de câmbio mais recente da moeda para a base, e 1 na própria base. Todos os indicadores usam a mesma taxa, então nem o resultado nem a variação do dia refletem o movimento do câmbio (TD-022).
 * Um indicador só é devolvido quando todas as posições com unidades têm o que ele usa: cotação, taxa da moeda e, na variação do dia, `previousClose`. Faltando algo, ele e os que dependem dele ficam fora da resposta, sem erro; custo diferente de zero sem moeda conhecida deixa `investedValue` de fora.
 * Posição sem unidades não entra na soma nem na consulta ao provedor.
 * Percentual de base zero fica de fora. Totais e percentuais são truncados em direção a zero em 18 casas, e as diferenças são exatas.
 * Carteira sem posições responde os totais `0`, sem percentuais.
+* `quotedAt` acompanha `totalValue`: fica fora quando ele fica e quando a carteira não tem posição com unidades. A taxa usada só pelo custo, na moeda das transações, não entra. Cotação que o provedor repete depois de uma falha (ver Yahoo Finance) mantém o instante em que foi observada, então `quotedAt` pode ser anterior à consulta sem que a resposta indique a falha.
 
 ### Posições da carteira
 

@@ -14,6 +14,8 @@ import {
 
 const BASE_CURRENCY = 'BRL';
 const OBSERVED_AT = new Date('2026-09-11T19:55:00.000Z');
+const EARLIER = new Date('2026-09-11T19:50:00.000Z');
+const EARLIEST = new Date('2026-09-11T19:45:00.000Z');
 
 /** Mirror `DecimalColumn`. */
 const COLUMN_SCALE = 18;
@@ -31,13 +33,14 @@ const holding = (
 const quoted = (
   price: string,
   currency: string,
-  previousClose?: string
+  previousClose?: string,
+  timestamp = OBSERVED_AT
 ): QuoteLookup => ({
   outcome: 'quoted',
   quote: {
     price,
     currency,
-    timestamp: OBSERVED_AT,
+    timestamp,
     source: 'test',
     ...(previousClose !== undefined && { previousClose })
   }
@@ -79,7 +82,8 @@ const PETR4_OVERVIEW = {
   profitLoss: '711',
   profitLossPercent: '0.17775',
   dayChange: '711',
-  dayChangePercent: '0.17775'
+  dayChangePercent: '0.17775',
+  quotedAt: OBSERVED_AT
 };
 
 describe('summarizePortfolio', () => {
@@ -96,8 +100,32 @@ describe('summarizePortfolio', () => {
         profitLoss: '311',
         profitLossPercent: '0.0622',
         dayChange: '311',
-        dayChangePercent: '0.0622'
+        dayChangePercent: '0.0622',
+        quotedAt: OBSERVED_AT
       }
+    );
+  });
+
+  it('dates the totals by the oldest quote, or exchange rate of a quote, the total value used', () => {
+    const positions = [PETR4, holding('AAPL', '2', '400', 'EUR')];
+    const ledgerRate = quoted('6', 'BRL', undefined, EARLIEST);
+    const AAPL_QUOTE = quoted('229.5', 'USD', '225');
+
+    assert.deepEqual(
+      summarize(
+        positions,
+        { PETR4: quoted('47.11', 'BRL', '40', EARLIER), AAPL: AAPL_QUOTE },
+        { USD: quoted('5', 'BRL'), EUR: ledgerRate }
+      ).quotedAt,
+      EARLIER
+    );
+    assert.deepEqual(
+      summarize(
+        positions,
+        { PETR4: PETR4_QUOTE, AAPL: AAPL_QUOTE },
+        { USD: quoted('5', 'BRL', undefined, EARLIER), EUR: ledgerRate }
+      ).quotedAt,
+      EARLIER
     );
   });
 
@@ -121,7 +149,8 @@ describe('summarizePortfolio', () => {
         profitLoss: '2295',
         profitLossPercent: '0.01434375',
         dayChange: '6045',
-        dayChangePercent: '0.038688'
+        dayChangePercent: '0.038688',
+        quotedAt: OBSERVED_AT
       }
     );
   });
@@ -142,7 +171,8 @@ describe('summarizePortfolio', () => {
         profitLoss: '0.750000000000000002',
         profitLossPercent: '0.500000000000000001',
         dayChange: '-0.000000000000000002',
-        dayChangePercent: '0'
+        dayChangePercent: '0',
+        quotedAt: OBSERVED_AT
       }
     );
   });
@@ -171,7 +201,8 @@ describe('summarizePortfolio', () => {
         totalValue: fromScaled(totalValue),
         investedValue: fromScaled(investedValue),
         profitLoss: fromScaled(profitLoss),
-        profitLossPercent: fromScaled((profitLoss * unit) / investedValue)
+        profitLossPercent: fromScaled((profitLoss * unit) / investedValue),
+        quotedAt: OBSERVED_AT
       }
     );
   });
@@ -207,7 +238,8 @@ describe('summarizePortfolio', () => {
         baseCurrency: BASE_CURRENCY,
         totalValue: '4711',
         dayChange: '711',
-        dayChangePercent: '0.17775'
+        dayChangePercent: '0.17775',
+        quotedAt: OBSERVED_AT
       }
     );
   });
@@ -223,7 +255,8 @@ describe('summarizePortfolio', () => {
         totalValue: '5311',
         investedValue: '5000',
         profitLoss: '311',
-        profitLossPercent: '0.0622'
+        profitLossPercent: '0.0622',
+        quotedAt: OBSERVED_AT
       }
     );
   });

@@ -262,6 +262,7 @@ describe('portfolios', () => {
   });
 
   const OBSERVED_AT = new Date('2026-09-11T19:55:00.000Z');
+  const EARLIER = new Date('2026-09-11T19:50:00.000Z');
 
   const PETR4 = { symbol: 'PETR4', market: 'B3', currency: 'BRL' };
   const PETR4_POSITION = {
@@ -377,7 +378,7 @@ describe('portfolios', () => {
             }
           ],
           VALE3: [{ price: '60', currency: 'BRL', timestamp: OBSERVED_AT }],
-          USDBRL: [{ price: '5', currency: 'BRL', timestamp: OBSERVED_AT }]
+          USDBRL: [{ price: '5', currency: 'BRL', timestamp: EARLIER }]
         })
       );
 
@@ -391,7 +392,8 @@ describe('portfolios', () => {
         profitLoss: '-994',
         profitLossPercent: '-0.12425',
         dayChange: '756',
-        dayChangePercent: '0.12096'
+        dayChangePercent: '0.12096',
+        quotedAt: EARLIER.toISOString()
       });
       assert.deepEqual(
         getQuotes.mock.calls.map(({ arguments: [instruments] }) =>

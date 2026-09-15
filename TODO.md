@@ -132,6 +132,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** nenhum hoje. Se uma tela passar a buscar no servidor (`prefetchQuery`, `useSuspenseQuery` ou hidratação), o mesmo cache atende requisições de usuários diferentes, e dado de um usuário pode ser servido a outro.
 - **Proposta:** criar um `QueryClient` por requisição no servidor e um único no navegador, como a documentação do TanStack Query orienta para o App Router, antes de a primeira busca no servidor entrar.
 
+### TD-024 — Seções da Overview sem sinal de dado desatualizado
+
+- **Origem:** TASK 8.2 · **Tipo:** UX · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** o `PortfolioValueCard` avisa quando a nova busca falha e o valor exibido é o do cache (`isRefetchError`). `OverviewSection` mantém o dado em cache nesse caso também para alocação, posições e transações recentes, mas essas seções não sinalizam (`web/src/app/(protected)/(overview)/_components/overview-section.tsx`).
+- **Impacto:** depois de uma atualização que falha, ao voltar à Overview ou após registrar uma transação, o card aparece desatualizado e as demais seções mostram os valores anteriores como atuais.
+- **Proposta:** levar o aviso de desatualizado, com a semântica do card, para `OverviewSection` quando uma task dessas seções tratar os estados.
+
 ## Resolvidos
 
 ### TD-002 — Listagem de transações ignora `page` e não segue a ordem das operações

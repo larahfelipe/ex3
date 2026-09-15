@@ -5,6 +5,7 @@ import {
   formatMoney,
   formatPercent,
   formatPrice,
+  formatQuoteTime,
   signedValueTone
 } from '@/common/utils';
 import { Skeleton, TableCell } from '@/components/ui';
@@ -22,13 +23,6 @@ const MISSING_QUOTE_LABELS = {
   'not-found': 'No quote',
   unavailable: 'Quote unavailable'
 } as const;
-
-const QUOTE_TIME_FORMAT = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit'
-});
 
 export const AssetValuationTableCells: FC<AssetValuationTableCellsProps> = ({
   loading,
@@ -67,7 +61,7 @@ export const AssetValuationTableCells: FC<AssetValuationTableCellsProps> = ({
           <span>{formatPrice(quote.price, quote.currency)}</span>
 
           <time dateTime={quote.timestamp} className="text-xs text-gray-500">
-            {QUOTE_TIME_FORMAT.format(new Date(quote.timestamp))}
+            {formatQuoteTime(quote.timestamp)}
           </time>
         </div>
       </TableCell>

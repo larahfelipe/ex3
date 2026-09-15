@@ -23,6 +23,7 @@ export type PortfolioOverview = {
   profitLossPercent?: string;
   dayChange?: string;
   dayChangePercent?: string;
+  quotedAt?: Date;
 };
 
 export type ListedPosition = HeldPosition &
@@ -113,7 +114,7 @@ const convertingTo =
 export const summarizePortfolio = (
   holdings: PortfolioHoldings
 ): PortfolioOverview => {
-  const { baseCurrency, positions, quotes } = holdings;
+  const { baseCurrency, positions, quotes, exchangeRates } = holdings;
   const toBaseCurrency = convertingTo(holdings);
 
   const heldPositions = positions.filter(holdsUnits);
@@ -148,6 +149,29 @@ export const summarizePortfolio = (
     totalValue && investedValue && totalValue.sub(investedValue);
   const dayChange =
     totalValue && previousValue && totalValue.sub(previousValue);
+  const quotedAt =
+    totalValue &&
+    heldPositions
+      .flatMap(({ symbol }) => {
+        const lookup = quotes.get(symbol);
+
+        if (lookup?.outcome !== 'quoted') return [];
+
+        const { currency, timestamp } = lookup.quote;
+        const rate =
+          currency === baseCurrency ? undefined : exchangeRates.get(currency);
+
+        return rate?.outcome === 'quoted'
+          ? [timestamp, rate.quote.timestamp]
+          : [timestamp];
+      })
+      .reduce<Date | undefined>(
+        (oldest, instant) =>
+          oldest === undefined || instant.getTime() < oldest.getTime()
+            ? instant
+            : oldest,
+        undefined
+      );
 
   return {
     baseCurrency,
@@ -164,7 +188,8 @@ export const summarizePortfolio = (
       previousValue &&
       !previousValue.isZero() && {
         dayChangePercent: fractionOf(dayChange, previousValue)
-      })
+      }),
+    ...(quotedAt && { quotedAt })
   };
 };
 
