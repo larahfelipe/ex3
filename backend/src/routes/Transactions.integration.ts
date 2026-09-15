@@ -30,16 +30,14 @@ import { MAX_PAGE_LIMIT } from '@/validation/schema';
 
 const CREATE_TRANSACTION_ROUTE = '/v1/transaction';
 const TRANSACTIONS_ROUTE = '/v1/transactions';
+const ASSETS_ROUTE = '/v1/assets';
 
 const transactionRoute = (id: string) => `/v1/transaction/${id}`;
-const transactionsCountRoute = (assetSymbol: string) =>
-  `/v1/transactions/${assetSymbol}/count`;
 
 /** Mirrors the default page size in `AssetRepository.getAll`. */
 const ASSET_PAGE_LIMIT = 10;
 
 const INTRUDER_EMAIL = 'intruder@ex3.app';
-const INTRUDER_SYMBOL = 'ETH';
 
 /** Well-formed, and held by no transaction: the baseline a foreign id must be indistinguishable from. */
 const MISSING_TRANSACTION_ID = '00000000-0000-4000-8000-000000000000';
@@ -243,49 +241,19 @@ describe('transactions', () => {
       });
     });
 
-    it("counts only the transactions of the caller's asset", async () => {
-      const { holder, holderToken, intruder } = await seedHolderAndIntruder();
-      const intruderAsset = await createAsset({
-        portfolioId: intruder.portfolio.id,
-        symbol: INTRUDER_SYMBOL
-      });
-      await Promise.all([
-        createTransaction(intruderAsset),
-        createTransaction(intruderAsset),
-        createTransaction(intruderAsset, { type: TransactionTypes.SELL })
-      ]);
-
-      const holderCount = await client
-        .get(transactionsCountRoute(holder.asset.symbol))
-        .query({ portfolioId: holder.portfolio.id })
-        .set(bearer(holderToken));
-      const intruderCount = await client
-        .get(transactionsCountRoute(INTRUDER_SYMBOL))
-        .query({ portfolioId: intruder.portfolio.id })
-        .set(bearer(intruder.accessToken));
-
-      assert.equal(holderCount.status, 200);
-      assert.deepEqual(holderCount.body, { buy: 1, sell: 0 });
-      assert.deepEqual(intruderCount.body, { buy: 2, sell: 1 });
-    });
-
-    it("does not list or count the transactions of another user's asset", async () => {
+    it("does not list the transactions of another user's asset", async () => {
       const { holder, intruder } = await seedHolderAndIntruder();
-      const intruderScope = { portfolioId: intruder.portfolio.id };
 
       const listed = await client
         .get(TRANSACTIONS_ROUTE)
-        .query({ ...intruderScope, symbol: holder.asset.symbol })
-        .set(bearer(intruder.accessToken));
-      const counted = await client
-        .get(transactionsCountRoute(holder.asset.symbol))
-        .query(intruderScope)
+        .query({
+          portfolioId: intruder.portfolio.id,
+          symbol: holder.asset.symbol
+        })
         .set(bearer(intruder.accessToken));
 
       assert.equal(listed.status, 200);
       assert.deepEqual(listed.body.items, []);
-      assert.equal(counted.status, Errors.NOT_FOUND.status);
-      assert.equal(counted.body.message, AssetMessages.NOT_FOUND);
     });
 
     it('keeps apart the ledgers of two portfolios holding the same instrument', async () => {
@@ -311,8 +279,8 @@ describe('transactions', () => {
         .get(TRANSACTIONS_ROUTE)
         .query({ portfolioId: holder.portfolio.id })
         .set(bearer(holderToken));
-      const intruderCounted = await client
-        .get(transactionsCountRoute(holder.asset.symbol))
+      const intruderListed = await client
+        .get(ASSETS_ROUTE)
         .query({ portfolioId: intruder.portfolio.id })
         .set(bearer(intruder.accessToken));
 
@@ -321,7 +289,18 @@ describe('transactions', () => {
         holderListed.body.items.map(({ id }: { id: string }) => id),
         [holder.transaction.id]
       );
-      assert.deepEqual(intruderCounted.body, { buy: 2, sell: 0 });
+      assert.deepEqual(
+        intruderListed.body.assets.map(
+          ({
+            id,
+            transactionCount
+          }: Record<'id', string> & Record<'transactionCount', unknown>) => ({
+            id,
+            transactionCount
+          })
+        ),
+        [{ id: intruderAsset.id, transactionCount: { buy: 2, sell: 0 } }]
+      );
       assert.deepEqual(
         await storedPosition(holder.asset.id),
         heldPosition(holder.asset)
@@ -333,7 +312,7 @@ describe('transactions', () => {
       });
     });
 
-    it('lists and counts transactions for every asset of a portfolio larger than one page', async () => {
+    it('lists the transactions of every asset of a portfolio larger than one page', async () => {
       const { portfolio, accessToken } =
         await signInWithPortfolio(FIXTURE_USER_EMAIL);
       const symbols = Array.from(
@@ -351,10 +330,6 @@ describe('transactions', () => {
           .get(TRANSACTIONS_ROUTE)
           .query({ portfolioId: portfolio.id, symbol })
           .set(bearer(accessToken));
-        const counted = await client
-          .get(transactionsCountRoute(symbol))
-          .query({ portfolioId: portfolio.id })
-          .set(bearer(accessToken));
 
         assert.equal(
           listed.status,
@@ -362,7 +337,6 @@ describe('transactions', () => {
           `${symbol}: ${JSON.stringify(listed.body)}`
         );
         assert.equal(listed.body.items.length, 1, symbol);
-        assert.deepEqual(counted.body, { buy: 1, sell: 0 }, symbol);
       }
     });
 
@@ -627,11 +601,6 @@ describe('transactions', () => {
       'GET transactions': (accessToken: string, portfolioId?: string) =>
         client
           .get(TRANSACTIONS_ROUTE)
-          .query({ portfolioId })
-          .set(bearer(accessToken)),
-      'GET transactions count': (accessToken: string, portfolioId?: string) =>
-        client
-          .get(transactionsCountRoute(FIXTURE_ASSET_SYMBOL))
           .query({ portfolioId })
           .set(bearer(accessToken))
     };

@@ -45,10 +45,6 @@ export type GetTransactionsResponseData = Page<ListedTransaction>;
 
 export type GetTransactionRequestPayload = Pick<Asset, 'symbol'>;
 
-export type GetTransactionCountRequestPayload = Pick<Asset, 'symbol'>;
-
-export type GetTransactionCountResponseData = Record<'buy' | 'sell', number>;
-
 export type CreateTransactionRequestPayload = Pick<
   TransactionProperties,
   'type' | 'currency' | 'executedAt'

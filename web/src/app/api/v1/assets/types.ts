@@ -18,6 +18,10 @@ export type AssetProperties = {
 
 export interface Asset extends WithId, WithDominance, AssetProperties {}
 
+export type TransactionCount = Record<'buy' | 'sell', number>;
+
+export type ListedAsset = Asset & Record<'transactionCount', TransactionCount>;
+
 export type GetAssetRequestParams = {
   page?: number;
   limit?: number;
@@ -25,7 +29,7 @@ export type GetAssetRequestParams = {
 };
 
 export type GetAssetResponseData = {
-  assets: Array<Asset>;
+  assets: Array<ListedAsset>;
   pagination: Pagination;
   sort: {
     field: string;

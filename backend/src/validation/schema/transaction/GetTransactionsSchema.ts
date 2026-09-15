@@ -18,7 +18,3 @@ export const GetTransactionsQuerySchema = z.object({
   dateFrom: ExecutionTimeSchema.optional(),
   dateTo: ExecutionTimeSchema.optional()
 });
-
-export const GetTransactionsParamsSchema = z.object({
-  assetSymbol: AssetSymbolSchema
-});

@@ -83,7 +83,6 @@ const PROTECTED_ROUTES: ReadonlyArray<readonly [HttpMethod, string]> = [
   ['patch', '/v1/instrument/BTC'],
   ['get', '/v1/transaction/unknown-id'],
   ['get', '/v1/transactions'],
-  ['get', '/v1/transactions/BTC/count'],
   ['post', '/v1/transaction'],
   ['patch', '/v1/transaction/unknown-id'],
   ['delete', '/v1/transaction/unknown-id']

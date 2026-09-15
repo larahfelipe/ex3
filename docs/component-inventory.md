@@ -37,7 +37,6 @@ shadcn/ui sobre Radix, com `cn()` (`clsx` + `tailwind-merge`) e `class-variance-
 | Componente | Linhas | Avaliação |
 | --- | --- | --- |
 | `assets-table.tsx` | 497 | **Reescrever** na TASK 9.1. Acumula tabela, busca, ordenação, paginação, seleção de linha e menu de ações em um arquivo. Busca é client-side sobre a página corrente, inconsistente com a paginação server-side |
-| `asset-transaction-table-cell.tsx` | 97 | **Remover.** Origem do N+1 (TASK 7.4) e contém regra financeira — calcula preço médio no componente visual (viola a diretriz 4) |
 | `add-asset-dialog.tsx` | 193 | **Reaproveitar parcialmente.** O schema Zod e o padrão `FormProvider` migram para o Transaction Manager (TASK 9.3) |
 | `add-asset-transaction-dialog.tsx` | 261 | **Reaproveitar parcialmente**, mesma razão |
 | `delete-asset-dialog.tsx` | 61 | **Preservar como padrão** de confirmação destrutiva |
@@ -58,9 +57,9 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 | `lib/react-query.ts` | **Preservar**, revisar defaults (`retry: 2` em mutations é agressivo para operações financeiras) |
 | `app/api/v1/*/types.ts` | **Preservar o padrão** de tipos co-localizados por rota |
 
-**Hooks de domínio:** componente não conhece URL, Axios nem query key. `hooks/use-portfolio.ts` (carteira principal, visão geral, posições e alocação), `hooks/use-assets.ts` (ativos, cotações, criação e remoção), `hooks/use-transactions.ts` (listagem, contagem e criação) e `hooks/use-user.ts` (perfil, sign-in, sign-up e sign-out) montam a query ou a mutation sobre os proxies de `app/api/v1`. Hook escopado por carteira recebe a carteira e não dispara a requisição sem ela (`skipToken`); mutation sem carteira falha com toast.
+**Hooks de domínio:** componente não conhece URL, Axios nem query key. `hooks/use-portfolio.ts` (carteira principal, visão geral, posições e alocação), `hooks/use-assets.ts` (ativos com a contagem de transações, cotações, criação e remoção), `hooks/use-transactions.ts` (listagem e criação) e `hooks/use-user.ts` (perfil, sign-in, sign-up e sign-out) montam a query ou a mutation sobre os proxies de `app/api/v1`. Hook escopado por carteira recebe a carteira e não dispara a requisição sem ela (`skipToken`); mutation sem carteira falha com toast.
 
-**Query keys e invalidação:** toda query key sai de `queryKeys`, em `lib/react-query.ts`, no formato `[raiz, ...escopo, recurso, parâmetros]`: `['user']` para o perfil, `['portfolios', página]` para a lista de carteiras e `['portfolio', portfolioId, recurso, parâmetros]` para o que pertence a uma carteira — `overview`, `positions`, `allocation`, `assets`, `asset-valuations`, `transactions` e `transaction-count`. Os parâmetros são os da requisição, nunca um valor derivado, como o horário de atualização de outra query. Toda escrita bem-sucedida numa carteira, e o botão de atualizar da tela de ativos, invalidam `['portfolio', portfolioId]` por `useRefreshPortfolio`: as queries ativas do escopo buscam de novo, as inativas ficam obsoletas, e as desativadas por `skipToken` ficam de fora. Sign-in, sign-up e sign-out removem todo o cache, e um 401 de sessão recarrega a página em `/sign-in`; por isso as keys não levam o usuário (ver TD-023 sobre o `QueryClient` no servidor).
+**Query keys e invalidação:** toda query key sai de `queryKeys`, em `lib/react-query.ts`, no formato `[raiz, ...escopo, recurso, parâmetros]`: `['user']` para o perfil, `['portfolios', página]` para a lista de carteiras e `['portfolio', portfolioId, recurso, parâmetros]` para o que pertence a uma carteira — `overview`, `positions`, `allocation`, `assets`, `asset-valuations` e `transactions`. Os parâmetros são os da requisição, nunca um valor derivado, como o horário de atualização de outra query. Toda escrita bem-sucedida numa carteira, e o botão de atualizar da tela de ativos, invalidam `['portfolio', portfolioId]` por `useRefreshPortfolio`: as queries ativas do escopo buscam de novo, as inativas ficam obsoletas, e as desativadas por `skipToken` ficam de fora. Sign-in, sign-up e sign-out removem todo o cache, e um 401 de sessão recarrega a página em `/sign-in`; por isso as keys não levam o usuário (ver TD-023 sobre o `QueryClient` no servidor).
 
 ## State
 
@@ -70,7 +69,7 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 | `hooks/use-user.ts` | **Preservar.** Perfil do chamador por `GET /api/v1/user` e mutations de sign-in, sign-up e sign-out, que descartam o cache de queries da sessão anterior |
 | `hooks/use-disclosure.ts` | **Preservar** — bom primitive de UI state |
 
-**Fronteira servidor↔UI:** dado de servidor — carteira, ativos, cotações, contagem de transações e perfil — vem só do React Query. `useState` guarda estado de interface: diálogo aberto, busca, modo de seleção, símbolo selecionado e a página e o limite pedidos. A tabela exibe a paginação canônica da resposta e formata os valores na `baseCurrency` da carteira.
+**Fronteira servidor↔UI:** dado de servidor — carteira, ativos com a contagem de transações, cotações e perfil — vem só do React Query. `useState` guarda estado de interface: diálogo aberto, busca, modo de seleção, símbolo selecionado e a página e o limite pedidos. A tabela exibe a paginação canônica da resposta, formata os valores na `baseCurrency` da carteira e lê a contagem de transações da própria linha, sem requisição por ativo.
 
 ## Utilities
 
@@ -93,7 +92,6 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 
 ## Componentes excessivamente específicos
 
-* `asset-transaction-table-cell.tsx` — uma célula de tabela que busca dados e faz contas.
 * `assets-table.tsx` — acoplado a `LimitPerPageOptions` e ao tipo `PageRequest` importados de `../page`, dependência circular de fato entre página e componente.
 
 ## Candidatos a virar primitive
@@ -112,6 +110,6 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 
 **Refatorar:** `sidebar`, defaults do React Query, `common/utils`.
 
-**Reescrever:** `assets-table`, `assets/page`, e remover `asset-transaction-table-cell`.
+**Reescrever:** `assets-table` e `assets/page`.
 
 **Criar:** primitives financeiras, componentes de estado de dados, navegação mobile, camada de gráficos.

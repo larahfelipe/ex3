@@ -5,7 +5,6 @@ import {
   deleteTransactionControllerHandler,
   getAllTransactionsControllerHandler,
   getTransactionControllerHandler,
-  getTransactionsCountControllerHandler,
   updateTransactionControllerHandler
 } from '@/controllers/transaction';
 import { authMiddleware } from '@/middleware';
@@ -22,12 +21,6 @@ transactionRouter.get(
   '/v1/transactions',
   authMiddleware,
   getAllTransactionsControllerHandler as Application
-);
-
-transactionRouter.get(
-  '/v1/transactions/:assetSymbol/count',
-  authMiddleware,
-  getTransactionsCountControllerHandler as Application
 );
 
 transactionRouter.post(

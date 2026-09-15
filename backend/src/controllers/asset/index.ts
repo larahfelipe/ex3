@@ -3,7 +3,8 @@ import type { Request, Response } from 'express';
 import {
   AssetRepository,
   InstrumentRepository,
-  PortfolioRepository
+  PortfolioRepository,
+  TransactionRepository
 } from '@/infra/database';
 import { YahooFinanceProvider } from '@/infra/market-data';
 import {
@@ -57,10 +58,12 @@ export const deleteAssetControllerHandler = (req: Request, res: Response) => {
 export const getAllAssetsControllerHandler = (req: Request, res: Response) => {
   const assetRepository = AssetRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
+  const transactionRepository = TransactionRepository.getInstance();
 
   const getAllAssetsService = GetAllAssetsService.getInstance(
     assetRepository,
-    portfolioRepository
+    portfolioRepository,
+    transactionRepository
   );
 
   const getAllAssetsController =
