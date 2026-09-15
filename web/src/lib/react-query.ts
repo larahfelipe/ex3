@@ -43,7 +43,5 @@ export const queryKeys = {
   assetValuations: (portfolioId: PortfolioId, symbols: ReadonlyArray<string>) =>
     [...portfolioScope(portfolioId), 'asset-valuations', symbols] as const,
   transactions: (portfolioId: PortfolioId, filters: TransactionFilters) =>
-    [...portfolioScope(portfolioId), 'transactions', filters] as const,
-  transactionCount: (portfolioId: PortfolioId, symbol: string) =>
-    [...portfolioScope(portfolioId), 'transaction-count', symbol] as const
+    [...portfolioScope(portfolioId), 'transactions', filters] as const
 };

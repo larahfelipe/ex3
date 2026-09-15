@@ -116,7 +116,7 @@ Os achados da task foram corrigidos, e os testes que os fixavam passaram a prote
 
 **Cobertura acrescentada.**
 
-* `src/routes/Transactions.integration.ts`: transação de outro usuário responde como inexistente em `GET`, `PATCH` e `DELETE`, sem alterar a transação nem a posição; listagem e contagem só enxergam a carteira do chamador, inclusive em carteira com mais ativos que uma página.
+* `src/routes/Transactions.integration.ts`: transação de outro usuário responde como inexistente em `GET`, `PATCH` e `DELETE`, sem alterar a transação nem a posição; a listagem só enxerga a carteira do chamador, inclusive em carteira com mais ativos que uma página.
 * `src/routes/Assets.integration.ts`: símbolo fora da allowlist, fronteira de 100 no tamanho de página e rename (caixa, símbolo legado, allowlist, ativo de outra carteira como inexistente, transações levadas junto).
 * `src/routes/Transactions.integration.ts`, razão: `BUY` soma e `SELL` subtrai da posição; `SELL` além da posição recusado sem gravar; edição substitui o impacto em vez de somar; edição ou exclusão que levaria a posição abaixo de zero recusada sem alterar nada; de três `SELL`s concorrentes sobre posição 1, só um passa. Validação: `type` em qualquer caixa e com espaços aceito, em branco ou desconhecido recusado sem gravar; id que não é UUID → 400 em `GET`, `PATCH` e `DELETE`.
 * `src/config/App.integration.ts`: falha não prevista responde 500 genérico, sem detalhe interno, e é registrada uma única vez.
@@ -306,3 +306,7 @@ O bloco `allocation` do mesmo arquivo cobre `GET /v1/portfolio/allocation` com a
 ## Listagem de transações
 
 O bloco `listing` de `src/routes/Transactions.integration.ts` cobre `GET /v1/transactions`: transações da carteira pedida do mais recente ao mais antigo, com a ordem de gravação desempatando o mesmo `executedAt`, cada item com os campos da transação e o `symbol` do instrumento, sem as de outra carteira do mesmo usuário; filtros por `symbol` e `type` em qualquer caixa, por `broker` igual ao valor gravado, com outra caixa, `%` e `_` sem correspondência, e por `dateFrom` e `dateTo` inclusivos e em qualquer fuso, combinados, invertidos e sem correspondência; páginas sem repetir nem pular transação, e página além da última, até a maior que o schema aceita, com `items` vazio e os mesmos totais; filtro ou página malformados com 400. O bloco `portfolio scope` inclui o endpoint, e os testes que listavam por símbolo, nas suítes de transações e de ativos, passaram a filtrar por `symbol`.
+
+## Contagem de transações na listagem de ativos
+
+O bloco `list` de `src/routes/Assets.integration.ts` cobre o `transactionCount` de `GET /v1/assets`: compras e vendas de cada ativo listado, só da carteira pedida, sem o dividendo nem as transações do mesmo instrumento noutra carteira, com zero para o ativo sem transação; e a contagem dos ativos de uma página além da primeira. Em `src/routes/Transactions.integration.ts`, o teste das duas carteiras no mesmo instrumento confere pela listagem de ativos a contagem da carteira que gravou.

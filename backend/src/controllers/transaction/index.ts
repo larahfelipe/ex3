@@ -1,16 +1,11 @@
 import type { Request, Response } from 'express';
 
-import {
-  AssetRepository,
-  PortfolioRepository,
-  TransactionRepository
-} from '@/infra/database';
+import { PortfolioRepository, TransactionRepository } from '@/infra/database';
 import {
   CreateTransactionService,
   DeleteTransactionService,
   GetAllTransactionsService,
   GetTransactionService,
-  GetTransactionsCountService,
   UpdateTransactionService
 } from '@/services/transaction';
 
@@ -18,7 +13,6 @@ import { CreateTransactionController } from './CreateTransactionController';
 import { DeleteTransactionController } from './DeleteTransactionController';
 import { GetAllTransactionsController } from './GetAllTransactionsController';
 import { GetTransactionController } from './GetTransactionController';
-import { GetTransactionsCountController } from './GetTransactionsCountController';
 import { UpdateTransactionController } from './UpdateTransactionController';
 
 export const createTransactionControllerHandler = (
@@ -91,26 +85,6 @@ export const getTransactionControllerHandler = (
   );
 
   return getTransactionController.handle(req, res);
-};
-
-export const getTransactionsCountControllerHandler = (
-  req: Request,
-  res: Response
-) => {
-  const transactionRepository = TransactionRepository.getInstance();
-  const portfolioRepository = PortfolioRepository.getInstance();
-  const assetRepository = AssetRepository.getInstance();
-
-  const getTransactionsCountService = GetTransactionsCountService.getInstance(
-    transactionRepository,
-    portfolioRepository,
-    assetRepository
-  );
-
-  const getTransactionsCountController =
-    GetTransactionsCountController.getInstance(getTransactionsCountService);
-
-  return getTransactionsCountController.handle(req, res);
 };
 
 export const updateTransactionControllerHandler = (

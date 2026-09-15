@@ -2,12 +2,10 @@ import { skipToken, useMutation, useQuery } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import { toast } from 'sonner';
 
-import type { Asset } from '@/app/api/v1/assets';
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import type {
   CreateTransactionRequestPayload,
   CreateTransactionResponseData,
-  GetTransactionCountResponseData,
   GetTransactionsRequestParams,
   GetTransactionsResponseData,
   TransactionFilters
@@ -17,8 +15,6 @@ import { queryKeys } from '@/lib/react-query';
 import type { Maybe } from '@/types';
 
 import { requirePortfolio, useRefreshPortfolio } from './use-portfolio';
-
-const TRANSACTION_COUNT_STALE_TIME_MS = 30_000;
 
 export const useTransactions = (
   portfolio: Maybe<Portfolio>,
@@ -40,26 +36,6 @@ export const useTransactions = (
           })
       : skipToken,
     select: ({ data }) => data
-  });
-
-export const useTransactionCount = ({
-  symbol,
-  portfolioId
-}: Pick<Asset, 'symbol' | 'portfolioId'>) =>
-  useQuery<
-    AxiosResponse<GetTransactionCountResponseData>,
-    ApiProxyErrorData,
-    GetTransactionCountResponseData
-  >({
-    queryKey: queryKeys.transactionCount(portfolioId, symbol),
-    queryFn: () =>
-      api
-        .getInstance()
-        .get(`/v1/transactions/${encodeURIComponent(symbol)}/count`, {
-          params: { portfolioId }
-        }),
-    select: ({ data }) => data,
-    staleTime: TRANSACTION_COUNT_STALE_TIME_MS
   });
 
 export const useCreateTransaction = (portfolio: Maybe<Portfolio>) => {

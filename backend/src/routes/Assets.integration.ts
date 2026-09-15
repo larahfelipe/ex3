@@ -5,7 +5,8 @@ import {
   AssetMessages,
   Errors,
   InstrumentMessages,
-  PortfolioMessages
+  PortfolioMessages,
+  TransactionTypes
 } from '@/config';
 import type { Instrument, Position } from '@/domain/models';
 import { PrismaClient } from '@/infra/database/PrismaClient';
@@ -337,6 +338,62 @@ describe('assets', () => {
           totalPages: 0
         },
         assets: []
+      });
+    });
+
+    const transactionCountsOf = (
+      assets: ReadonlyArray<
+        Record<'symbol', string> & Record<'transactionCount', unknown>
+      >
+    ) =>
+      Object.fromEntries(
+        assets.map(({ symbol, transactionCount }) => [symbol, transactionCount])
+      );
+
+    it('counts the buy and sell transactions of each listed asset in the caller portfolio only', async () => {
+      const { portfolio, asset, accessToken } = await signInSeeded();
+      const untraded = await createAsset({
+        portfolioId: portfolio.id,
+        symbol: UNHELD_SYMBOL
+      });
+      const other = await signInWithPortfolio(OTHER_USER_EMAIL);
+      const otherAsset = await createAsset({
+        portfolioId: other.portfolio.id,
+        symbol: asset.symbol
+      });
+      await Promise.all([
+        createTransaction(asset, { type: TransactionTypes.SELL }),
+        createTransaction(asset, { type: TransactionTypes.DIVIDEND }),
+        createTransaction(otherAsset),
+        createTransaction(otherAsset, { type: TransactionTypes.SELL })
+      ]);
+
+      const res = await client
+        .get(ASSETS_ROUTE)
+        .query({ portfolioId: portfolio.id })
+        .set(bearer(accessToken));
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(transactionCountsOf(res.body.assets), {
+        [asset.symbol]: { buy: 1, sell: 1 },
+        [untraded.symbol]: { buy: 0, sell: 0 }
+      });
+    });
+
+    it('counts the transactions of the assets on a later page', async () => {
+      const heldCount = DEFAULT_PAGE_LIMIT + 1;
+      const { portfolio, accessToken } = await signInWithPortfolio();
+      const assets = await holdAssets(portfolio.id, heldCount);
+      await Promise.all(assets.map((held) => createTransaction(held)));
+
+      const res = await client
+        .get(ASSETS_ROUTE)
+        .query({ portfolioId: portfolio.id, page: 2, sort: 'asc' })
+        .set(bearer(accessToken));
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(transactionCountsOf(res.body.assets), {
+        [heldSymbol(DEFAULT_PAGE_LIMIT)]: { buy: 1, sell: 0 }
       });
     });
   });

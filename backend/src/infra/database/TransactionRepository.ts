@@ -1,6 +1,5 @@
 import type { Prisma, Transaction as TransactionRow } from '@prisma/client';
 
-import type { TransactionTypes } from '@/config/Constants';
 import type {
   Instrument,
   Transaction,
@@ -95,12 +94,22 @@ export class TransactionRepository {
     return TransactionRepository.INSTANCE;
   }
 
-  async count(params: TransactionRepository.CountParams) {
-    const { type, instrumentId, portfolioId } = params;
+  async countByType(
+    params: TransactionRepository.CountByTypeParams
+  ): Promise<Array<TransactionRepository.TypeCount>> {
+    const { portfolioId, instrumentIds } = params;
 
-    return this.prismaClient.transaction.count({
-      where: { type, instrumentId, portfolioId }
+    const groups = await this.prismaClient.transaction.groupBy({
+      by: ['instrumentId', 'type'],
+      where: { portfolioId, instrumentId: { in: instrumentIds } },
+      _count: { _all: true }
     });
+
+    return groups.map(({ instrumentId, type, _count }) => ({
+      instrumentId,
+      type,
+      count: _count._all
+    }));
   }
 
   /** Newest first, the reverse of ledger order, with inclusive execution time bounds. */
@@ -261,8 +270,10 @@ namespace TransactionRepository {
   export type AddParams = TransactionEntry &
     Pick<Transaction, 'portfolioId'> &
     Record<'assetSymbol', string>;
-  export type CountParams = AssetScope &
-    Record<'type', keyof typeof TransactionTypes>;
+  export type CountByTypeParams = Pick<Transaction, 'portfolioId'> &
+    Record<'instrumentIds', Array<Transaction['instrumentId']>>;
+  export type TypeCount = Pick<Transaction, 'instrumentId' | 'type'> &
+    Record<'count', number>;
   export type GetByIdParams = Pick<Transaction, 'id'> &
     Record<'userId', string>;
   export type UpdateParams = TransactionEntry & GetByIdParams;

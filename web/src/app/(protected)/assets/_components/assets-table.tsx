@@ -50,7 +50,6 @@ import {
 import type { Maybe } from '@/types';
 
 import { LimitPerPageOptions, type PageRequest } from '../page';
-import { AssetTransactionTableCell } from './asset-transaction-table-cell';
 import { AssetValuationTableCells } from './asset-valuation-table-cells';
 
 export type DispatchType =
@@ -317,10 +316,17 @@ export const AssetsTable: FC<AssetsTableProps> = ({
 
                 <TableCell>{asset?.dominance ?? '-'}</TableCell>
 
-                <AssetTransactionTableCell
-                  symbol={asset.symbol}
-                  portfolioId={asset.portfolioId}
-                />
+                <TableCell>
+                  <div className="flex gap-2">
+                    <span className="text-green-600">
+                      {asset.transactionCount.buy} Buy
+                    </span>
+
+                    <span className="text-red-600">
+                      {asset.transactionCount.sell} Sell
+                    </span>
+                  </div>
+                </TableCell>
 
                 <TableCell className="px-0">
                   <DropdownMenu>
