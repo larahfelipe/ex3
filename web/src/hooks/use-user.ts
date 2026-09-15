@@ -42,7 +42,7 @@ export const useSignIn = () => {
     onSuccess: ({ data: userData }) => {
       queryClient.removeQueries();
       toast.success(`Logged in as ${userData.name}`);
-      push(APP_ROUTES.Protected.Assets);
+      push(APP_ROUTES.Protected.Overview);
     },
     onError: (e) => toast.error(e.message)
   });
@@ -63,7 +63,7 @@ export const useSignUp = () => {
       queryClient.removeQueries();
       toast.success(message);
       toast.success(`Logged in as ${userData.name}`);
-      push(APP_ROUTES.Protected.Assets);
+      push(APP_ROUTES.Protected.Overview);
     },
     onError: (e) => toast.error(e.message)
   });

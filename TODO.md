@@ -72,9 +72,9 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-013 — Web opera só a carteira mais antiga
 
 - **Origem:** várias carteiras por usuário · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
-- **Contexto:** a tela de ativos pede `GET /v1/portfolios` com `page=1&limit=1` e usa essa carteira, a mais antiga, em todas as chamadas; o web não tem seletor nem criação de carteira. O diálogo de transação e a tabela de ativos usam a `baseCurrency` dessa carteira, e só as colunas de preço, valor de mercado e lucro usam a moeda da cotação.
-- **Impacto:** carteiras criadas pela API não aparecem no web, e quem tem mais de uma não registra nem consulta transações das demais pela interface.
-- **Proposta:** seletor e criação de carteira no web, com a tela de ativos e o diálogo de transação escopados pela carteira selecionada e rotulados na `baseCurrency` dela.
+- **Contexto:** a Overview e a tela de ativos pedem `GET /v1/portfolios` com `page=1&limit=1` (`usePrimaryPortfolio`) e usam essa carteira, a mais antiga, em todas as chamadas; o web não tem seletor nem criação de carteira. O diálogo de transação, a tabela de ativos e a Overview usam a `baseCurrency` dessa carteira; na tabela de ativos, só as colunas de preço, valor de mercado e lucro usam a moeda da cotação, e nas transações recentes da Overview o preço unitário usa a moeda da transação.
+- **Impacto:** carteiras criadas pela API não aparecem no web, e quem tem mais de uma não vê o resumo nem registra ou consulta transações das demais pela interface.
+- **Proposta:** seletor e criação de carteira no web, com a Overview, a tela de ativos e o diálogo de transação escopados pela carteira selecionada e rotulados na `baseCurrency` dela. `usePositions` mantém a página anterior enquanto a pedida carrega (`keepPreviousData`); com seletor, a troca de carteira exibiria por instantes as posições da anterior, então o placeholder deve valer só dentro da mesma carteira.
 
 ### TD-014 — Nome do usuário sem limite de tamanho
 

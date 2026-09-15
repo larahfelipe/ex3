@@ -1,9 +1,14 @@
 import type { FC, JSX } from 'react';
 
 import type { AssetValuation } from '@/app/api/v1/assets';
-import { formatNumber } from '@/common/utils';
+import {
+  formatMoney,
+  formatPercent,
+  formatPrice,
+  signedValueTone
+} from '@/common/utils';
 import { Skeleton, TableCell } from '@/components/ui';
-import type { DecimalString, Maybe } from '@/types';
+import type { Maybe } from '@/types';
 
 type AssetValuationTableCellsProps = {
   loading?: boolean;
@@ -12,7 +17,6 @@ type AssetValuationTableCellsProps = {
 
 const NO_VALUE = '-';
 const VALUATION_COLUMNS = ['price', 'market-value', 'profit-loss'];
-const PERCENT_FRACTION_DIGITS = 2;
 
 const MISSING_QUOTE_LABELS = {
   'not-found': 'No quote',
@@ -25,27 +29,6 @@ const QUOTE_TIME_FORMAT = new Intl.DateTimeFormat('en-US', {
   hour: '2-digit',
   minute: '2-digit'
 });
-
-const decimalPlacesOf = (value: DecimalString) =>
-  value.split('.').at(1)?.length ?? 0;
-
-const currencyFractionDigits = (currency: string) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency
-  }).resolvedOptions().maximumFractionDigits ?? 0;
-
-const formatMoney = (
-  value: DecimalString,
-  currency: string,
-  options?: Intl.NumberFormatOptions
-) => formatNumber(value, { style: 'currency', currency, ...options });
-
-const profitLossTone = (profitLoss: DecimalString) => {
-  if (profitLoss === '0') return 'text-gray-300';
-
-  return profitLoss.startsWith('-') ? 'text-red-600' : 'text-green-600';
-};
 
 export const AssetValuationTableCells: FC<AssetValuationTableCellsProps> = ({
   loading,
@@ -81,14 +64,7 @@ export const AssetValuationTableCells: FC<AssetValuationTableCellsProps> = ({
     <>
       <TableCell>
         <div className="flex flex-col">
-          <span>
-            {formatMoney(quote.price, quote.currency, {
-              maximumFractionDigits: Math.max(
-                decimalPlacesOf(quote.price),
-                currencyFractionDigits(quote.currency)
-              )
-            })}
-          </span>
+          <span>{formatPrice(quote.price, quote.currency)}</span>
 
           <time dateTime={quote.timestamp} className="text-xs text-gray-500">
             {QUOTE_TIME_FORMAT.format(new Date(quote.timestamp))}
@@ -108,7 +84,7 @@ export const AssetValuationTableCells: FC<AssetValuationTableCellsProps> = ({
             </span>
           </span>
         ) : (
-          <div className={`flex flex-col ${profitLossTone(profitLoss)}`}>
+          <div className={`flex flex-col ${signedValueTone(profitLoss)}`}>
             <span>
               {formatMoney(profitLoss, quote.currency, {
                 signDisplay: 'exceptZero'
@@ -117,9 +93,7 @@ export const AssetValuationTableCells: FC<AssetValuationTableCellsProps> = ({
 
             {profitLossPercent !== undefined && (
               <span className="text-xs">
-                {formatNumber(profitLossPercent, {
-                  style: 'percent',
-                  maximumFractionDigits: PERCENT_FRACTION_DIGITS,
+                {formatPercent(profitLossPercent, {
                   signDisplay: 'exceptZero'
                 })}
               </span>

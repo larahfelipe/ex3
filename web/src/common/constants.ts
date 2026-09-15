@@ -60,6 +60,7 @@ export const APP_ROUTES = {
   },
   Protected: {
     Account: '/account',
-    Assets: '/assets'
+    Assets: '/assets',
+    Overview: '/'
   }
 } as const;
