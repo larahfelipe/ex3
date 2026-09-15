@@ -1,6 +1,11 @@
 import { useCallback } from 'react';
 
-import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  skipToken,
+  useQuery,
+  useQueryClient
+} from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 
 import type {
@@ -96,7 +101,8 @@ export const usePositions = (
             } satisfies GetPortfolioPositionsRequestParams
           })
       : skipToken,
-    select: ({ data }) => data
+    select: ({ data }) => data,
+    placeholderData: keepPreviousData
   });
 
 export const useAllocation = (portfolio: Maybe<Portfolio>) =>

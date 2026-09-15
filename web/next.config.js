@@ -6,14 +6,7 @@ const nextConfig = {
   },
   images: {
     unoptimized: true
-  },
-  redirects: async () => [
-    {
-      source: '/',
-      destination: '/assets',
-      permanent: true
-    }
-  ]
+  }
 };
 
 const withPWA = require('next-pwa')({

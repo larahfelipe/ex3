@@ -53,7 +53,9 @@ export const proxy = async (req: NextRequest) => {
   }
 
   if (isPubRoute(pathname) && isAuthenticated)
-    return NextResponse.redirect(new URL(APP_ROUTES.Protected.Assets, req.url));
+    return NextResponse.redirect(
+      new URL(APP_ROUTES.Protected.Overview, req.url)
+    );
 
   const nonce = Buffer.from(
     crypto.getRandomValues(new Uint8Array(CSP_NONCE_BYTES))

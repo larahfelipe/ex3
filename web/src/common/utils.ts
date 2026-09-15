@@ -1,9 +1,53 @@
 import type { DecimalString } from '@/types';
 
+const PERCENT_FRACTION_DIGITS = 2;
+
 export const formatNumber = (
   value: number | DecimalString,
   options?: Intl.NumberFormatOptions
 ) => new Intl.NumberFormat('en-US', options).format(value);
+
+const decimalPlacesOf = (value: DecimalString) =>
+  value.split('.').at(1)?.length ?? 0;
+
+const currencyFractionDigits = (currency: string) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency
+  }).resolvedOptions().maximumFractionDigits ?? 0;
+
+export const formatMoney = (
+  value: DecimalString,
+  currency: string,
+  options?: Intl.NumberFormatOptions
+) => formatNumber(value, { style: 'currency', currency, ...options });
+
+export const formatPrice = (price: DecimalString, currency: string) =>
+  formatMoney(price, currency, {
+    maximumFractionDigits: Math.max(
+      decimalPlacesOf(price),
+      currencyFractionDigits(currency)
+    )
+  });
+
+export const formatQuantity = (quantity: DecimalString) =>
+  formatNumber(quantity, { maximumFractionDigits: decimalPlacesOf(quantity) });
+
+export const formatPercent = (
+  fraction: DecimalString,
+  options?: Intl.NumberFormatOptions
+) =>
+  formatNumber(fraction, {
+    style: 'percent',
+    maximumFractionDigits: PERCENT_FRACTION_DIGITS,
+    ...options
+  });
+
+export const signedValueTone = (value: DecimalString) => {
+  if (value === '0') return 'text-gray-300';
+
+  return value.startsWith('-') ? 'text-red-600' : 'text-green-600';
+};
 
 export const replaceUrl = (href: string) =>
   window.history.pushState({}, '', href);
