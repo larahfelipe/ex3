@@ -2,6 +2,7 @@ import type {
   MarketDataProvider,
   PriceHistoryLookup,
   PricedInstrument,
+  PriceInterval,
   PriceRange,
   Quote,
   QuoteLookup
@@ -53,7 +54,8 @@ export class FakeMarketDataProvider implements MarketDataProvider {
 
   async getHistoricalPrices(
     { symbol }: PricedInstrument,
-    { from, to }: PriceRange
+    { from, to }: PriceRange,
+    _interval: PriceInterval
   ): Promise<PriceHistoryLookup> {
     if (!this.isAvailable) return { outcome: 'unavailable' };
 

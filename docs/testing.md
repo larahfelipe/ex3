@@ -313,4 +313,8 @@ O bloco `list` de `src/routes/Assets.integration.ts` cobre o `transactionCount` 
 
 ## Cotações gravadas
 
+`src/domain/PriceHistory.test.ts` cobre, sem banco, o que falta buscar de uma série: o instante levado ao início do seu dia em UTC; o intervalo inteiro quando nada está gravado; nada a pedir quando os fechamentos alcançam o dia corrente; cada borda isolada e as duas juntas; o dia sem negociação entre os extremos, que nunca é repedido; o intervalo que termina no passado, preservado inteiro; e o intervalo restrito ao dia corrente, que não pede nada. O agora é parâmetro, nunca `new Date()` dentro do teste.
+
+`src/services/market-data/GetPriceHistoryService.integration.ts` cobre a orquestração contra o banco, com relógio fixo e o `getHistoricalPrices` do `FakeMarketDataProvider` substituído por `t.mock.method` em cada caso: o que é pedido ao provedor exclui o dia corrente e chega com o intervalo diário; série que já alcança o dia corrente não chama o provedor; só os dias posteriores ao fechamento mais novo são pedidos; provedor que não responde devolve o que está gravado; e símbolo fora do catálogo é recusado com `NotFoundError`.
+
 `src/infra/database/MarketQuoteRepository.integration.ts` é a primeira suíte de integração de repositório: não sobe a API nem usa o cliente HTTP, e confere pelo `PrismaClient` o que a tabela guarda, com `registerIntegrationHooks` e o instrumento de `createInstrument`. Cobre `recordDailyCloses`: uma linha por dia de negociação, com o instante no início do dia em UTC, o decimal exato e o instrumento da linha; dia já gravado pela mesma fonte mantendo o preço primeiro observado, com o retorno contando só os dias novos; o mesmo dia de outra fonte como linha própria; e lista vazia sem gravar nada.
