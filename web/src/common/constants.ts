@@ -46,6 +46,16 @@ export const TRANSACTION_TYPES: Array<TransactionType> = [
   'SELL'
 ] as const;
 
+export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
+  BUY: 'Buy',
+  SELL: 'Sell'
+};
+
+export const TRANSACTION_TYPE_TONES: Record<TransactionType, string> = {
+  BUY: 'text-green-600',
+  SELL: 'text-red-600'
+};
+
 export const ASSET_DIALOG_ACTIONS = {
   Add: 'add-asset',
   AddTransaction: 'add-transaction',
