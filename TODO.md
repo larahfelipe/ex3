@@ -139,6 +139,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** depois de uma atualização que falha, ao voltar à Overview ou após registrar uma transação, o card aparece desatualizado e as demais seções mostram os valores anteriores como atuais.
 - **Proposta:** levar o aviso de desatualizado, com a semântica do card, para `OverviewSection` quando uma task dessas seções tratar os estados.
 
+### TD-025 — Cores do gráfico de alocação fora dos tokens e repetidas acima de 10 grupos
+
+- **Origem:** TASK 8.4 · **Tipo:** UX · **Prioridade:** baixa · **Encaminhamento:** TASK 12.1
+- **Contexto:** `AllocationChart` (`web/src/app/(protected)/(overview)/_components/allocation-chart.tsx`) pinta o anel e a legenda com uma paleta local de 10 classes do Tailwind, a primeira `primary`, atribuída pela posição do grupo na lista. O tema não tem tokens de gráfico, e a alocação por ativo lista todas as posições com unidades, sem agrupar as menores.
+- **Impacto:** a partir do 11º grupo as cores se repetem, e dois ativos de mesma cor no anel só se distinguem pela ordem; a legenda em tabela continua exata.
+- **Proposta:** criar tokens de gráfico na consolidação de tokens e decidir com o produto se a alocação por ativo agrupa as menores posições num grupo "Other", calculado no domínio para o web não somar alocações.
+
 ## Resolvidos
 
 ### TD-002 — Listagem de transações ignora `page` e não segue a ordem das operações
