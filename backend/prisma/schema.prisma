@@ -65,10 +65,27 @@ model Instrument {
   country      String?
   positions    Position[]
   transactions Transaction[]
+  marketQuotes MarketQuote[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
   @@map("instruments")
+}
+
+model MarketQuote {
+  id           String     @id @default(uuid())
+  price        Decimal    @db.Decimal(38, 18)
+  currency     String
+  source       String
+  /// The close of a trading day, at the start of that day in UTC, so an
+  /// instrument has one row per trading day and source.
+  timestamp    DateTime
+  instrument   Instrument @relation(fields: [instrumentId], references: [id])
+  instrumentId String
+  createdAt    DateTime   @default(now())
+
+  @@unique([instrumentId, timestamp, source])
+  @@map("market_quotes")
 }
 
 model Position {

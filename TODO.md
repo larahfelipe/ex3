@@ -146,6 +146,20 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** a partir do 11º grupo as cores se repetem, e dois ativos de mesma cor no anel só se distinguem pela ordem; a legenda em tabela continua exata.
 - **Proposta:** criar tokens de gráfico na consolidação de tokens e decidir com o produto se a alocação por ativo agrupa as menores posições num grupo "Other", calculado no domínio para o web não somar alocações.
 
+### TD-026 — Cotações gravadas sem política de retenção
+
+- **Origem:** TASK 5.2 · **Tipo:** dados · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** `market_quotes` guarda um fechamento por instrumento, dia de negociação e fonte (`backend/src/infra/database/MarketQuoteRepository.ts`), preenchido por backfill sob demanda. Nada apaga linha antiga, e o catálogo de instrumentos não tem teto.
+- **Impacto:** a tabela cresce cerca de 250 linhas por instrumento por ano de série coberta, indefinidamente. Não pesa na escala atual; vira custo de armazenamento e de consulta conforme o catálogo e o alcance das séries crescerem.
+- **Proposta:** decidir com o produto o alcance máximo do histórico exibido e, a partir dele, se as linhas mais antigas são descartadas ou agregadas.
+
+### TD-027 — Fechamento corrigido pelo provedor não substitui o gravado
+
+- **Origem:** TASK 5.2 · **Tipo:** dados · **Prioridade:** baixa · **Encaminhamento:** TASK 5.4
+- **Contexto:** `recordDailyCloses` grava com `skipDuplicates`, então o dia já gravado por uma fonte mantém o preço primeiro observado (`backend/src/infra/database/MarketQuoteRepository.ts`). O provedor pode revisar um fechamento depois de publicá-lo.
+- **Impacto:** série já coberta nunca incorpora correção do provedor, e as métricas de performance seguem o valor da primeira observação. Não há caminho para reprocessar um intervalo.
+- **Proposta:** na task que orquestra o backfill, decidir se um intervalo pode ser reprocessado explicitamente, substituindo os fechamentos daquele intervalo, e sob qual gatilho.
+
 ## Resolvidos
 
 ### TD-002 — Listagem de transações ignora `page` e não segue a ordem das operações
