@@ -54,9 +54,24 @@ export class FakeMarketDataProvider implements MarketDataProvider {
 
   async getHistoricalPrices(
     { symbol }: PricedInstrument,
-    { from, to }: PriceRange,
+    range: PriceRange,
     _interval: PriceInterval
   ): Promise<PriceHistoryLookup> {
+    return this.history(symbol, range);
+  }
+
+  async getHistoricalExchangeRate(
+    currency: string,
+    baseCurrency: string,
+    range: PriceRange
+  ): Promise<PriceHistoryLookup> {
+    return this.history(`${currency}${baseCurrency}`, range);
+  }
+
+  private history(
+    symbol: string,
+    { from, to }: PriceRange
+  ): PriceHistoryLookup {
     if (!this.isAvailable) return { outcome: 'unavailable' };
 
     const prices = this.pricesBySymbol.get(symbol);

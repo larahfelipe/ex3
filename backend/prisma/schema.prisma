@@ -88,6 +88,21 @@ model MarketQuote {
   @@map("market_quotes")
 }
 
+model ExchangeRate {
+  id           String   @id @default(uuid())
+  currency     String
+  baseCurrency String
+  rate         Decimal  @db.Decimal(38, 18)
+  source       String
+  /// The close of a trading day, at the start of that day in UTC, so a pair of
+  /// currencies has one row per trading day and source.
+  timestamp    DateTime
+  createdAt    DateTime @default(now())
+
+  @@unique([currency, baseCurrency, timestamp, source])
+  @@map("exchange_rates")
+}
+
 model Position {
   id            String     @id @default(uuid())
   quantity      Decimal    @default(0) @db.Decimal(38, 18)
