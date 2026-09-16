@@ -17,7 +17,7 @@ User
 | `Instrument` | O ativo de mercado negociável: ação, ETF, fundo, FII, cripto, título, caixa. Catálogo global, compartilhado por todos os usuários. | — | `symbol`, único no catálogo |
 | `Transaction` | Um evento financeiro de uma carteira sobre um instrumento. Fonte de verdade de toda movimentação. | um `Portfolio` | `id` |
 | `Position` | Quanto uma carteira detém de um instrumento e a que custo. Projeção derivada das transações, nunca editada diretamente. | um `Portfolio` | `(portfolioId, instrumentId)` |
-| `MarketQuote` | Um preço observado de um instrumento num instante, com moeda e fonte. | — | `(instrumentId, timestamp, source)` |
+| `MarketQuote` | O fechamento de um dia de negociação de um instrumento, com moeda e fonte. | — | `(instrumentId, timestamp, source)`, com `timestamp` no início do dia em UTC |
 
 ## Catálogo de instrumentos
 
@@ -196,13 +196,30 @@ O domínio obtém preços por `MarketDataProvider`, em `backend/src/domain/Marke
 * `previousClose` vem de `regularMarketPreviousClose`, arredondado como o preço; valor inválido é descartado sem recusar a cotação.
 * Cotações ficam em cache na memória do processo por 60 segundos, inclusive `not-found`. Um símbolo já em consulta aproveita a requisição em curso, e os demais vão em lotes de 10 por requisição.
 * Cada requisição expira em 5 segundos. Status de erro, timeout, falha de rede ou resposta fora do formato suspendem as chamadas ao provedor por 30 segundos; na falha e durante a pausa, cada símbolo responde a última cotação recebida, com o `timestamp` em que foi observada, ou `unavailable` sem cotação anterior. O histórico não usa o cache.
-* Cotação não é gravada: `MarketQuote` ainda não tem tabela.
+* A cotação corrente não é gravada; o que a tabela guarda é o fechamento diário (ver [Cotações gravadas](#cotações-gravadas)).
 
 Os valores de timeout, cache, pausa e lote são assumidos, não medidos, e a cota e o preço dos planos do provedor não foram verificados (TD-020).
 
+### Cotações gravadas
+
+`MarketQuote` guarda o fechamento de cada dia de negociação de um instrumento, na tabela `market_quotes`. A série é preenchida por backfill sob demanda a partir de `getHistoricalPrices`: nenhuma leitura de carteira grava cotação, e a cotação corrente continua vindo do provedor a cada requisição, com o cache dele.
+
+| Campo | Regra |
+| --- | --- |
+| `instrumentId` | o instrumento do catálogo; só instrumento catalogado tem série |
+| `timestamp` | o início do dia de negociação em UTC, não o instante do fechamento |
+| `price` | decimal na escala das colunas monetárias, como o provedor o devolveu |
+| `currency` | moeda da cotação, código ISO 4217 |
+| `source` | o provedor que observou o preço, como `yahoo-finance` |
+
+* Um instrumento tem no máximo uma linha por dia e fonte, e o índice único `(instrumentId, timestamp, source)` é a única autoridade sobre isso: gravar de novo um dia já gravado mantém o preço primeiro observado, e duas gravações simultâneas do mesmo dia produzem uma linha só.
+* Correção de fechamento publicada pelo provedor não substitui o valor gravado (TD-027), e nada descarta linha antiga (TD-026).
+* O preço gravado é o que o adaptador já validou (ver [Yahoo Finance](#yahoo-finance)); a escrita não revalida.
+* Benchmark e par de câmbio não têm série: a tabela cobre o catálogo de instrumentos, e onde eles moram fica para quando forem implementados.
+
 ## Valores, moedas e datas
 
-* Quantidades e valores monetários são decimais exatos, nunca ponto flutuante: `DECIMAL(38,18)`, até 20 dígitos inteiros e 18 casas, em transação e posição. A API os recebe e devolve como string decimal, e valor que a coluna arredondaria é recusado, não arredondado.
+* Quantidades e valores monetários são decimais exatos, nunca ponto flutuante: `DECIMAL(38,18)`, até 20 dígitos inteiros e 18 casas, em transação, posição e cotação gravada. A API os recebe e devolve como string decimal, e valor que a coluna arredondaria é recusado, não arredondado.
 * O custo médio é truncado em 18 casas a cada `BUY`, e `investedValue` uma vez, ao fim da reconstrução. Razão que passa por posição fora de `DECIMAL(38,18)`, `investedValue` incluído, é recusado, mesmo que a posição final caiba.
 * Todo valor monetário tem moeda explícita. `Instrument.currency` é a moeda de cotação, `Transaction.currency` a da operação e `Portfolio.baseCurrency` a de consolidação.
 * Valores em moedas diferentes só se somam por conversão com cotação de câmbio explícita; sem cotação, o total não é calculado. A cotação de câmbio vem do provedor de cotação, pela taxa mais recente (ver [Visão geral da carteira](#visão-geral-da-carteira)).

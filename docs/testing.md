@@ -310,3 +310,7 @@ O bloco `listing` de `src/routes/Transactions.integration.ts` cobre `GET /v1/tra
 ## Contagem de transações na listagem de ativos
 
 O bloco `list` de `src/routes/Assets.integration.ts` cobre o `transactionCount` de `GET /v1/assets`: compras e vendas de cada ativo listado, só da carteira pedida, sem o dividendo nem as transações do mesmo instrumento noutra carteira, com zero para o ativo sem transação; e a contagem dos ativos de uma página além da primeira. Em `src/routes/Transactions.integration.ts`, o teste das duas carteiras no mesmo instrumento confere pela listagem de ativos a contagem da carteira que gravou.
+
+## Cotações gravadas
+
+`src/infra/database/MarketQuoteRepository.integration.ts` é a primeira suíte de integração de repositório: não sobe a API nem usa o cliente HTTP, e confere pelo `PrismaClient` o que a tabela guarda, com `registerIntegrationHooks` e o instrumento de `createInstrument`. Cobre `recordDailyCloses`: uma linha por dia de negociação, com o instante no início do dia em UTC, o decimal exato e o instrumento da linha; dia já gravado pela mesma fonte mantendo o preço primeiro observado, com o retorno contando só os dias novos; o mesmo dia de outra fonte como linha própria; e lista vazia sem gravar nada.
