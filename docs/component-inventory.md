@@ -99,7 +99,7 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 
 ## Duplicações relevantes
 
-1. **Cálculo financeiro em três lugares** — `dominance`/`totalInvestedValue` no proxy (`api/v1/assets/route.ts`), preço médio em `asset-transaction-table-cell.tsx`, `investedValue` no backend. Uma única fonte de verdade na FASE 5.
+1. **Cálculo financeiro em três lugares** — `dominance`/`totalInvestedValue` no proxy (`api/v1/assets/route.ts`), preço médio em `asset-transaction-table-cell.tsx`, `investedValue` no backend. Uma única fonte de verdade na FASE 5. **Resolvido:** o componente de transação saiu junto com a listagem por símbolo, o proxy passou a só encaminhar, e o web exibe os valores que o backend calcula — participação por ativo de `GET /v1/portfolio/allocation` e total investido de `GET /v1/portfolio/overview`.
 2. **Bloco `try/catch` idêntico em todas as 9 rotas de proxy** — mesmas 4 linhas de leitura do cookie + mesmo `catch`. Candidato a um wrapper único.
 3. **Bloco `catch` idêntico nos 16 controllers do backend** — resolvido por error handler global (TASK 1.6).
 4. **Dois pacotes de ícones**: `react-icons` e `lucide-react`, ambos em uso no mesmo arquivo (`assets-table.tsx`). Consolidar em `lucide-react` (TASK 16.5/20.3).

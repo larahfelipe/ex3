@@ -15,9 +15,9 @@ import { RefreshCw } from 'lucide-react';
 
 import {
   type AssetValuation,
-  type GetAssetWithTotalInvestedValueResponseData
+  type GetAssetResponseData
 } from '@/app/api/v1/assets';
-import { formatNumber } from '@/common/utils';
+import { formatNumber, formatPercent } from '@/common/utils';
 import {
   Button,
   Checkbox,
@@ -47,10 +47,12 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui';
-import type { Maybe } from '@/types';
+import type { DecimalString, Maybe } from '@/types';
 
 import { LimitPerPageOptions, type PageRequest } from '../page';
 import { AssetValuationTableCells } from './asset-valuation-table-cells';
+
+const NO_VALUE = '-';
 
 export type DispatchType =
   | 'createAsset'
@@ -67,13 +69,16 @@ type AssetTableData = {
   requestedPage: PageRequest;
   selectedSymbol: Maybe<string>;
   baseCurrency: Maybe<string>;
-  result: Maybe<GetAssetWithTotalInvestedValueResponseData>;
+  result: Maybe<GetAssetResponseData>;
   valuations: Maybe<ReadonlyMap<string, AssetValuation>>;
+  allocationBySymbol: Maybe<ReadonlyMap<string, DecimalString>>;
+  investedValue: Maybe<DecimalString>;
 };
 
 type AssetsTableProps = {
   loading?: boolean;
   loadingValuations?: boolean;
+  loadingShares?: boolean;
   caption?: string;
   data: AssetTableData;
   onDispatch: (type: DispatchType, payload?: unknown) => void;
@@ -82,6 +87,7 @@ type AssetsTableProps = {
 export const AssetsTable: FC<AssetsTableProps> = ({
   loading,
   loadingValuations,
+  loadingShares,
   caption,
   data,
   onDispatch
@@ -281,104 +287,116 @@ export const AssetsTable: FC<AssetsTableProps> = ({
           )}
 
           {!loading &&
-            assets?.map((asset, i) => (
-              <TableRow key={asset.id}>
-                {!isAssetSelectionActive && <TableCell>{i + 1}</TableCell>}
+            assets?.map((asset, i) => {
+              const share = data.allocationBySymbol?.get(asset.symbol);
 
-                {isAssetSelectionActive && (
+              return (
+                <TableRow key={asset.id}>
+                  {!isAssetSelectionActive && <TableCell>{i + 1}</TableCell>}
+
+                  {isAssetSelectionActive && (
+                    <TableCell>
+                      <Checkbox
+                        checked={asset.symbol === data.selectedSymbol}
+                        onCheckedChange={(checked) =>
+                          onDispatch(
+                            'setSelectedAsset',
+                            checked ? asset.symbol : null
+                          )
+                        }
+                      />
+                    </TableCell>
+                  )}
+
                   <TableCell>
-                    <Checkbox
-                      checked={asset.symbol === data.selectedSymbol}
-                      onCheckedChange={(checked) =>
-                        onDispatch(
-                          'setSelectedAsset',
-                          checked ? asset.symbol : null
-                        )
-                      }
-                    />
+                    <span className="font-semibold">{asset.symbol}</span>
                   </TableCell>
-                )}
 
-                <TableCell>
-                  <span className="font-semibold">{asset.symbol}</span>
-                </TableCell>
+                  <TableCell>{asset.quantity}</TableCell>
 
-                <TableCell>{asset.quantity}</TableCell>
+                  <TableCell>{formatAmount(asset.investedValue)}</TableCell>
 
-                <TableCell>{formatAmount(asset.investedValue)}</TableCell>
+                  <TableCell>{formatAmount(asset.averageCost)}</TableCell>
 
-                <TableCell>{formatAmount(asset.averageCost)}</TableCell>
+                  <AssetValuationTableCells
+                    loading={loadingValuations}
+                    valuation={data.valuations?.get(asset.symbol)}
+                  />
 
-                <AssetValuationTableCells
-                  loading={loadingValuations}
-                  valuation={data.valuations?.get(asset.symbol)}
-                />
+                  <TableCell>
+                    {loadingShares ? (
+                      <Skeleton className="w-3/4 h-5" />
+                    ) : share ? (
+                      formatPercent(share)
+                    ) : (
+                      NO_VALUE
+                    )}
+                  </TableCell>
 
-                <TableCell>{asset?.dominance ?? '-'}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <span className="text-green-600">
+                        {asset.transactionCount.buy} Buy
+                      </span>
 
-                <TableCell>
-                  <div className="flex gap-2">
-                    <span className="text-green-600">
-                      {asset.transactionCount.buy} Buy
-                    </span>
+                      <span className="text-red-600">
+                        {asset.transactionCount.sell} Sell
+                      </span>
+                    </div>
+                  </TableCell>
 
-                    <span className="text-red-600">
-                      {asset.transactionCount.sell} Sell
-                    </span>
-                  </div>
-                </TableCell>
-
-                <TableCell className="px-0">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label="Action"
-                        className="h-8 sm:w-fit sm:self-end"
-                        disabled={loading}
-                      >
-                        <IoEllipsisHorizontal
-                          size={18}
-                          className="text-gray-300"
-                        />
-                      </Button>
-                    </DropdownMenuTrigger>
-
-                    <DropdownMenuContent>
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem
-                          aria-label="Edit"
-                          className="space-x-2"
-                          disabled={isAssetSelectionActive}
-                          onClick={() => onDispatch('editAsset', asset)}
+                  <TableCell className="px-0">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label="Action"
+                          className="h-8 sm:w-fit sm:self-end"
+                          disabled={loading}
                         >
-                          <FiEdit size={16} className="text-gray-500" />
-
-                          <span>Edit</span>
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem
-                          aria-label="Delete"
-                          className="space-x-2"
-                          disabled={isAssetSelectionActive}
-                          onClick={() =>
-                            onDispatch('deleteAsset', asset.symbol)
-                          }
-                        >
-                          <IoTrashBinOutline
-                            size={16}
-                            className="text-red-500"
+                          <IoEllipsisHorizontal
+                            size={18}
+                            className="text-gray-300"
                           />
+                        </Button>
+                      </DropdownMenuTrigger>
 
-                          <span className="text-red-500">Delete</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
+                      <DropdownMenuContent>
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem
+                            aria-label="Edit"
+                            className="space-x-2"
+                            disabled={isAssetSelectionActive}
+                            onClick={() => onDispatch('editAsset', asset)}
+                          >
+                            <FiEdit size={16} className="text-gray-500" />
+
+                            <span>Edit</span>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            aria-label="Delete"
+                            className="space-x-2"
+                            disabled={isAssetSelectionActive}
+                            onClick={() =>
+                              onDispatch('deleteAsset', asset.symbol)
+                            }
+                          >
+                            <IoTrashBinOutline
+                              size={16}
+                              className="text-red-500"
+                            />
+
+                            <span className="text-red-500">Delete</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
         </TableBody>
 
         {!loading && !!assets.length && (
@@ -391,7 +409,13 @@ export const AssetsTable: FC<AssetsTableProps> = ({
                       <span>Total</span>
 
                       <span className="font-semibold">
-                        {formatAmount(data.result?.totalInvestedValue ?? 0)}
+                        {loadingShares ? (
+                          <Skeleton className="w-20 h-5" />
+                        ) : data.investedValue ? (
+                          formatAmount(data.investedValue)
+                        ) : (
+                          NO_VALUE
+                        )}
                       </span>
                     </div>
 

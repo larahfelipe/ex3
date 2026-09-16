@@ -9,9 +9,9 @@ import type {
   DeleteAssetRequestPayload,
   DeleteAssetResponseData,
   GetAssetRequestParams,
+  GetAssetResponseData,
   GetAssetValuationsRequestParams,
-  GetAssetValuationsResponseData,
-  GetAssetWithTotalInvestedValueResponseData
+  GetAssetValuationsResponseData
 } from '@/app/api/v1/assets';
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
@@ -34,9 +34,9 @@ export const useAssets = (
   requestedPage: Pick<GetAssetRequestParams, 'page' | 'limit'>
 ) =>
   useQuery<
-    AxiosResponse<GetAssetWithTotalInvestedValueResponseData>,
+    AxiosResponse<GetAssetResponseData>,
     ApiProxyErrorData,
-    GetAssetWithTotalInvestedValueResponseData
+    GetAssetResponseData
   >({
     queryKey: queryKeys.assets(portfolio?.id, requestedPage),
     queryFn: portfolio
@@ -56,7 +56,7 @@ export const useAssets = (
 
 export const useAssetValuations = (
   portfolio: Maybe<Portfolio>,
-  listing: Maybe<GetAssetWithTotalInvestedValueResponseData>
+  listing: Maybe<GetAssetResponseData>
 ) => {
   const listedSymbols = listing?.assets.map(({ symbol }) => symbol) ?? [];
 

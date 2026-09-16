@@ -1,12 +1,4 @@
-import type {
-  DecimalString,
-  Maybe,
-  Pagination,
-  WithId,
-  WithMessage
-} from '@/types';
-
-export type WithDominance = Record<'dominance', Maybe<string>>;
+import type { DecimalString, Pagination, WithId, WithMessage } from '@/types';
 
 export type AssetProperties = {
   symbol: string;
@@ -16,7 +8,7 @@ export type AssetProperties = {
   portfolioId: string;
 };
 
-export interface Asset extends WithId, WithDominance, AssetProperties {}
+export interface Asset extends WithId, AssetProperties {}
 
 export type TransactionCount = Record<'buy' | 'sell', number>;
 
@@ -36,9 +28,6 @@ export type GetAssetResponseData = {
     order: GetAssetRequestParams['sort'];
   };
 };
-
-export type GetAssetWithTotalInvestedValueResponseData = GetAssetResponseData &
-  Record<'totalInvestedValue', number>;
 
 export type Quote = {
   price: DecimalString;
