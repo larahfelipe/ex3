@@ -37,6 +37,13 @@ export class InstrumentRepository {
     };
   }
 
+  async getByIds(ids: ReadonlyArray<string>) {
+    return this.prismaClient.instrument.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true, symbol: true, currency: true }
+    });
+  }
+
   async getBySymbol(symbol: string) {
     return this.prismaClient.instrument.findUnique({ where: { symbol } });
   }

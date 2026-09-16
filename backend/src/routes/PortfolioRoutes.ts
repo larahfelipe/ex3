@@ -6,6 +6,7 @@ import {
   getPortfolioAllocationControllerHandler,
   getPortfolioControllerHandler,
   getPortfolioOverviewControllerHandler,
+  getPortfolioPerformanceControllerHandler,
   getPortfolioPositionsControllerHandler
 } from '@/controllers/portfolio';
 import { authMiddleware } from '@/middleware';
@@ -28,6 +29,12 @@ portfolioRouter.get(
   '/v1/portfolio/overview',
   authMiddleware,
   getPortfolioOverviewControllerHandler as Application
+);
+
+portfolioRouter.get(
+  '/v1/portfolio/performance',
+  authMiddleware,
+  getPortfolioPerformanceControllerHandler as Application
 );
 
 portfolioRouter.get(

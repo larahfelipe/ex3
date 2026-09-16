@@ -162,10 +162,10 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 
 ### TD-028 — Série de preços não distingue a fonte
 
-- **Origem:** TASK 5.4 · **Tipo:** dados · **Prioridade:** baixa · **Encaminhamento:** TASK 6.5
-- **Contexto:** `MarketQuoteRepository.getDailyCloses` devolve os fechamentos de todas as fontes no intervalo, e `GetPriceHistoryService` repassa a série como veio. O service não sabe qual provedor está em uso — `source` chega dentro de cada preço que a porta devolve —, e filtrar por fonte nessa camada vazaria a identidade do provedor para o domínio. Hoje só `yahoo-finance` grava.
-- **Impacto:** com uma segunda fonte gravando, cada dia aparece duas vezes na série, e o gráfico e as métricas de performance contariam o mesmo dia mais de uma vez.
-- **Proposta:** no endpoint de performance, decidir a precedência entre fontes — uma preferida, ou a mais recente por dia — e aplicá-la na consulta, mantendo `source` em cada ponto do resultado.
+- **Origem:** TASK 5.4 · **Tipo:** dados · **Prioridade:** baixa · **Encaminhamento:** backlog
+- **Contexto:** `MarketQuoteRepository.getDailyCloses` devolve os fechamentos de todas as fontes no intervalo, e `GetPriceHistoryService` repassa a série como veio; `ExchangeRateRepository.getDailyRates` faz o mesmo com o câmbio. O service não sabe qual provedor está em uso — `source` chega dentro de cada preço que a porta devolve —, e filtrar por fonte nessa camada vazaria a identidade do provedor para o domínio. Hoje só `yahoo-finance` grava.
+- **Impacto:** com uma segunda fonte gravando, cada dia aparece duas vezes na série. A série de performance indexa os fechamentos por dia e fica com o último que a consulta devolveu para aquele dia, sem critério declarado entre as fontes.
+- **Proposta:** decidir a precedência entre fontes — uma preferida, ou a mais recente por dia — e aplicá-la na consulta das duas tabelas, mantendo `source` em cada ponto do resultado.
 
 ### TD-029 — Custo e preço médio da tabela de ativos sem conversão de moeda
 
@@ -173,6 +173,20 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** `GET /v1/assets` devolve `averageCost` e `investedValue` na moeda em que a posição foi registrada, sem conversão, e a tabela de ativos formata as duas colunas com a `baseCurrency` da carteira. O total do rodapé passou a vir do `investedValue` de `GET /v1/portfolio/overview`, esse sim convertido pelo câmbio do provedor.
 - **Impacto:** carteira com posições em mais de uma moeda rotula `Invested` e `Avg Price` com uma moeda que não é a do valor, e a soma das linhas não fecha com o total do rodapé. Carteira de moeda única não é afetada.
 - **Proposta:** ao redesenhar a tabela, ler as colunas de `GET /v1/portfolio/positions`, que já entrega `averageCost` e `marketValue` na moeda base, ou exibir cada linha na moeda da própria posição.
+
+### TD-030 — Retorno do benchmark na moeda dele, sem conversão para a base
+
+- **Origem:** TASK 6.5 · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** TASK 8.3
+- **Contexto:** `GET /v1/portfolio/performance` normaliza a série da carteira por retorno ponderado no tempo na `baseCurrency`, e a do `benchmark` pelo primeiro fechamento da janela, na moeda em que ele é cotado. A carteira já incorpora a variação do câmbio de cada dia; o benchmark, não.
+- **Impacto:** benchmark cotado em moeda diferente da base — `IVV` em USD numa carteira em BRL — compara retorno em USD com retorno em BRL, e a distância entre as duas linhas inclui a variação cambial do período, que não é desempenho de nenhum dos dois. Benchmark na moeda base não é afetado.
+- **Proposta:** ao montar o gráfico, decidir com o produto se o benchmark é convertido para a moeda base dia a dia, pela série de câmbio que o endpoint já busca, ou se a comparação fica restrita a benchmark cotado na moeda base.
+
+### TD-031 — Série de performance reconstrói o razão inteiro a cada dia da janela
+
+- **Origem:** TASK 6.5 · **Tipo:** desempenho · **Prioridade:** baixa · **Encaminhamento:** backlog
+- **Contexto:** `trackPortfolioPerformance` reconstrói cada posição a partir do razão em cada dia da janela, para que a série siga as mesmas regras de `rebuildPosition` e transação retroativa mova a série inteira. O custo é dias × posições × tamanho do razão, em memória, sem consulta por dia.
+- **Impacto:** nenhum nas carteiras de hoje. Razão longo com janela `MAX` cresce quadraticamente no tamanho do razão, dentro de uma requisição síncrona.
+- **Proposta:** medir antes de mudar. Se aparecer, percorrer o razão uma vez por posição, avançando a reconstrução de um dia para o seguinte em vez de refazê-la, sem alterar as regras do replay.
 
 ## Resolvidos
 

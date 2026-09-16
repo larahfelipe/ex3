@@ -52,6 +52,9 @@ const LOOKBACK_DAYS: ReadonlyMap<PriceInterval, number> = new Map([
   ['1h', 730]
 ]);
 
+/** Rates are stored as daily closes, so a pair is only ever asked at the daily interval. */
+const DAILY_RATE_INTERVAL: PriceInterval = '1d';
+
 /** Letters and digits only, so neither can change the path or query of the provider URL. */
 const QUOTABLE_SYMBOL_PATTERN = /^[A-Z0-9]+$/;
 const CURRENCY_CODE_PATTERN = /^[A-Z]{3}$/;
@@ -240,12 +243,43 @@ export class YahooFinanceProvider implements MarketDataProvider {
 
   async getHistoricalPrices(
     instrument: PricedInstrument,
-    { from, to }: PriceRange,
+    range: PriceRange,
     interval: PriceInterval
   ): Promise<PriceHistoryLookup> {
     const yahooSymbol = toYahooSymbol(instrument);
 
     if (yahooSymbol === null) return NOT_FOUND;
+
+    return this.lookUpPriceHistory(yahooSymbol, range, interval);
+  }
+
+  /** A series the provider answers in another currency than `baseCurrency` is not the pair asked for. */
+  async getHistoricalExchangeRate(
+    currency: string,
+    baseCurrency: string,
+    range: PriceRange
+  ): Promise<PriceHistoryLookup> {
+    const yahooSymbol = toExchangeRateSymbol(currency, baseCurrency);
+
+    if (yahooSymbol === null) return NOT_FOUND;
+
+    const lookup = await this.lookUpPriceHistory(
+      yahooSymbol,
+      range,
+      DAILY_RATE_INTERVAL
+    );
+
+    return lookup.outcome === 'quoted' &&
+      lookup.prices.some(({ currency: quoted }) => quoted !== baseCurrency)
+      ? UNAVAILABLE
+      : lookup;
+  }
+
+  private async lookUpPriceHistory(
+    yahooSymbol: string,
+    { from, to }: PriceRange,
+    interval: PriceInterval
+  ): Promise<PriceHistoryLookup> {
     if (from.getTime() >= to.getTime())
       return { outcome: 'quoted', prices: [] };
 

@@ -1,12 +1,24 @@
 import type { Request, Response } from 'express';
 
-import { AssetRepository, PortfolioRepository } from '@/infra/database';
+import {
+  AssetRepository,
+  ExchangeRateRepository,
+  InstrumentRepository,
+  MarketQuoteRepository,
+  PortfolioRepository,
+  TransactionRepository
+} from '@/infra/database';
 import { YahooFinanceProvider } from '@/infra/market-data';
+import {
+  GetExchangeRateHistoryService,
+  GetPriceHistoryService
+} from '@/services/market-data';
 import {
   CreatePortfolioService,
   GetAllPortfoliosService,
   GetPortfolioAllocationService,
   GetPortfolioOverviewService,
+  GetPortfolioPerformanceService,
   GetPortfolioPositionsService,
   GetPortfolioService
 } from '@/services/portfolio';
@@ -16,6 +28,7 @@ import { GetAllPortfoliosController } from './GetAllPortfoliosController';
 import { GetPortfolioAllocationController } from './GetPortfolioAllocationController';
 import { GetPortfolioController } from './GetPortfolioController';
 import { GetPortfolioOverviewController } from './GetPortfolioOverviewController';
+import { GetPortfolioPerformanceController } from './GetPortfolioPerformanceController';
 import { GetPortfolioPositionsController } from './GetPortfolioPositionsController';
 
 export const createPortfolioControllerHandler = (
@@ -101,6 +114,41 @@ export const getPortfolioOverviewControllerHandler = (
     GetPortfolioOverviewController.getInstance(getPortfolioOverviewService);
 
   return getPortfolioOverviewController.handle(req, res);
+};
+
+export const getPortfolioPerformanceControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const instrumentRepository = InstrumentRepository.getInstance();
+  const portfolioRepository = PortfolioRepository.getInstance();
+  const transactionRepository = TransactionRepository.getInstance();
+  const marketQuoteRepository = MarketQuoteRepository.getInstance();
+  const exchangeRateRepository = ExchangeRateRepository.getInstance();
+  const marketDataProvider = YahooFinanceProvider.getInstance();
+
+  const getPortfolioPerformanceService =
+    GetPortfolioPerformanceService.getInstance(
+      instrumentRepository,
+      portfolioRepository,
+      transactionRepository,
+      GetPriceHistoryService.getInstance(
+        instrumentRepository,
+        marketQuoteRepository,
+        marketDataProvider
+      ),
+      GetExchangeRateHistoryService.getInstance(
+        exchangeRateRepository,
+        marketDataProvider
+      )
+    );
+
+  const getPortfolioPerformanceController =
+    GetPortfolioPerformanceController.getInstance(
+      getPortfolioPerformanceService
+    );
+
+  return getPortfolioPerformanceController.handle(req, res);
 };
 
 export const getPortfolioPositionsControllerHandler = (

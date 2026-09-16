@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { before, describe, it, type TestContext } from 'node:test';
 
-import { Errors, InstrumentTypes, PortfolioMessages } from '@/config';
+import {
+  Errors,
+  InstrumentMessages,
+  InstrumentTypes,
+  PortfolioMessages
+} from '@/config';
 import type { Instrument, Position } from '@/domain/models';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 import { YahooFinanceProvider } from '@/infra/market-data';
@@ -20,6 +25,7 @@ import { registerIntegrationHooks } from '@/test/IntegrationHooks';
 const PORTFOLIO_ROUTE = '/v1/portfolio';
 const PORTFOLIO_ALLOCATION_ROUTE = '/v1/portfolio/allocation';
 const PORTFOLIO_OVERVIEW_ROUTE = '/v1/portfolio/overview';
+const PORTFOLIO_PERFORMANCE_ROUTE = '/v1/portfolio/performance';
 const PORTFOLIO_POSITIONS_ROUTE = '/v1/portfolio/positions';
 const PORTFOLIOS_ROUTE = '/v1/portfolios';
 
@@ -310,6 +316,26 @@ describe('portfolios', () => {
         'getExchangeRates',
         (...args: Parameters<YahooFinanceProvider['getExchangeRates']>) =>
           provider.getExchangeRates(...args)
+      )
+    };
+  };
+
+  const historyFrom = (t: TestContext, provider: FakeMarketDataProvider) => {
+    const yahooFinanceProvider = YahooFinanceProvider.getInstance();
+
+    return {
+      getHistoricalPrices: t.mock.method(
+        yahooFinanceProvider,
+        'getHistoricalPrices',
+        (...args: Parameters<YahooFinanceProvider['getHistoricalPrices']>) =>
+          provider.getHistoricalPrices(...args)
+      ),
+      getHistoricalExchangeRate: t.mock.method(
+        yahooFinanceProvider,
+        'getHistoricalExchangeRate',
+        (
+          ...args: Parameters<YahooFinanceProvider['getHistoricalExchangeRate']>
+        ) => provider.getHistoricalExchangeRate(...args)
       )
     };
   };
@@ -932,6 +958,244 @@ describe('portfolios', () => {
         const res = await requestAllocation(accessToken, portfolioId);
 
         assert.equal(res.status, Errors.BAD_REQUEST.status, `${portfolioId}`);
+      }
+    });
+  });
+
+  describe('performance', () => {
+    const BENCHMARK = { symbol: 'BOVA11', market: 'B3', currency: 'BRL' };
+
+    /**
+     * The window is resolved from the current day, so the closes are seeded
+     * relative to it instead of at fixed dates the suite would outlive.
+     */
+    const now = new Date();
+    const startOfToday = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    );
+    const monthBefore = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, now.getUTCDate())
+    );
+    const closedOn = (daysBefore: number) =>
+      new Date(startOfToday.getTime() - daysBefore * DAY_MS);
+
+    type SeededClose = Record<'price' | 'currency', string> &
+      Record<'timestamp', Date>;
+
+    const closesOf = (
+      currency: string,
+      ...prices: [string, ...Array<string>]
+    ): [SeededClose, ...Array<SeededClose>] => {
+      const [first, ...rest] = prices;
+      const closedAt = (price: string, index: number) => ({
+        price,
+        currency,
+        timestamp: closedOn(prices.length - index)
+      });
+
+      return [
+        closedAt(first, 0),
+        ...rest.map((price, index) => closedAt(price, index + 1))
+      ];
+    };
+
+    const requestPerformance = (
+      accessToken: string,
+      query: Record<string, string | undefined>
+    ) =>
+      client
+        .get(PORTFOLIO_PERFORMANCE_ROUTE)
+        .query(query)
+        .set(bearer(accessToken));
+
+    it('values the portfolio at each daily close of the window, in its base currency', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await holdPosition(portfolio.id, PETR4, PETR4_POSITION);
+      const { getHistoricalPrices } = historyFrom(
+        t,
+        new FakeMarketDataProvider({ PETR4: closesOf('BRL', '50', '55') })
+      );
+
+      const res = await requestPerformance(accessToken, {
+        portfolioId: portfolio.id,
+        range: '1M'
+      });
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, {
+        baseCurrency: 'BRL',
+        from: monthBefore.toISOString(),
+        to: startOfToday.toISOString(),
+        series: [
+          {
+            date: closedOn(2).toISOString(),
+            value: '5000',
+            investedValue: '4000',
+            netContribution: '0',
+            twr: '0'
+          },
+          {
+            date: closedOn(1).toISOString(),
+            value: '5500',
+            investedValue: '4000',
+            netContribution: '0',
+            twr: '0.1'
+          }
+        ]
+      });
+      assert.deepEqual(getHistoricalPrices.mock.calls[0].arguments[1], {
+        from: monthBefore,
+        to: startOfToday
+      });
+    });
+
+    it('takes a position quoted in another currency to the base currency at the rate of each day', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await holdPosition(
+        portfolio.id,
+        { symbol: 'AAPL', market: 'NASDAQ', currency: 'USD' },
+        {
+          quantity: '2',
+          averageCost: '400',
+          investedValue: '800',
+          ledgerCurrency: 'USD'
+        }
+      );
+      const { getHistoricalExchangeRate } = historyFrom(
+        t,
+        new FakeMarketDataProvider({
+          AAPL: closesOf('USD', '400', '450'),
+          USDBRL: closesOf('BRL', '5', '5')
+        })
+      );
+
+      const res = await requestPerformance(accessToken, {
+        portfolioId: portfolio.id,
+        range: '1M'
+      });
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(
+        res.body.series.map(
+          ({ value, investedValue, twr }: Record<string, string>) => ({
+            value,
+            investedValue,
+            twr
+          })
+        ),
+        [
+          { value: '4000', investedValue: '4000', twr: '0' },
+          { value: '4500', investedValue: '4000', twr: '0.125' }
+        ]
+      );
+      assert.deepEqual(
+        getHistoricalExchangeRate.mock.calls.map(({ arguments: args }) =>
+          args.slice(0, 2)
+        ),
+        [['USD', 'BRL']]
+      );
+    });
+
+    it('returns the benchmark of the window next to the portfolio', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await holdPosition(portfolio.id, PETR4, PETR4_POSITION);
+      await createInstrument(BENCHMARK);
+      historyFrom(
+        t,
+        new FakeMarketDataProvider({
+          PETR4: closesOf('BRL', '50', '55'),
+          BOVA11: closesOf('BRL', '120', '132')
+        })
+      );
+
+      const res = await requestPerformance(accessToken, {
+        portfolioId: portfolio.id,
+        range: '1M',
+        benchmark: BENCHMARK.symbol
+      });
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body.benchmark, {
+        symbol: 'BOVA11',
+        currency: 'BRL',
+        series: [
+          { date: closedOn(2).toISOString(), close: '120', twr: '0' },
+          { date: closedOn(1).toISOString(), close: '132', twr: '0.1' }
+        ]
+      });
+    });
+
+    it('refuses a benchmark outside the catalog', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await holdPosition(portfolio.id, PETR4, PETR4_POSITION);
+      historyFrom(t, new FakeMarketDataProvider({}));
+
+      const res = await requestPerformance(accessToken, {
+        portfolioId: portfolio.id,
+        benchmark: 'NONE'
+      });
+
+      assert.equal(res.status, Errors.NOT_FOUND.status);
+      assert.equal(res.body.message, InstrumentMessages.NOT_FOUND);
+    });
+
+    it('describes a portfolio without transactions as an empty window', async () => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id, { baseCurrency: 'EUR' });
+
+      const res = await requestPerformance(accessToken, {
+        portfolioId: portfolio.id,
+        range: 'MAX'
+      });
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, {
+        baseCurrency: 'EUR',
+        from: startOfToday.toISOString(),
+        to: startOfToday.toISOString(),
+        series: []
+      });
+    });
+
+    it("answers another user's portfolio exactly like one that does not exist", async () => {
+      const holder = await createUser();
+      const foreignPortfolio = await createPortfolio(holder.id);
+      await holdPosition(foreignPortfolio.id, PETR4, PETR4_POSITION);
+      const { accessToken } = await signInUser(OTHER_USER_EMAIL);
+
+      const foreign = await requestPerformance(accessToken, {
+        portfolioId: foreignPortfolio.id
+      });
+      const missing = await requestPerformance(accessToken, {
+        portfolioId: MISSING_PORTFOLIO_ID
+      });
+
+      assert.equal(foreign.status, Errors.NOT_FOUND.status);
+      assert.equal(foreign.body.message, PortfolioMessages.NOT_FOUND);
+      assert.deepEqual(foreign.body, missing.body);
+    });
+
+    it('rejects a missing or malformed portfolio id, range or benchmark', async () => {
+      const { accessToken } = await signInUser();
+
+      for (const query of [
+        {},
+        { portfolioId: 'not-a-uuid' },
+        { portfolioId: MISSING_PORTFOLIO_ID, range: '2M' },
+        { portfolioId: MISSING_PORTFOLIO_ID, range: '' },
+        { portfolioId: MISSING_PORTFOLIO_ID, benchmark: '' }
+      ]) {
+        const res = await requestPerformance(accessToken, query);
+
+        assert.equal(
+          res.status,
+          Errors.BAD_REQUEST.status,
+          JSON.stringify(query)
+        );
       }
     });
   });

@@ -162,6 +162,23 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em
 * Os grupos seguem a ordem das chaves por unidade de código, com `null` por último. A distribuição não é paginada.
 * Carteira sem posições com unidades responde `totalValue` `0` e distribuições vazias.
 
+### Performance da carteira
+
+`GET /v1/portfolio/performance` devolve a série histórica de uma carteira, na `baseCurrency` dela, em `backend/src/domain/PortfolioPerformance.ts`. As demais rotas de valuation usam a cotação corrente; esta usa o fechamento de cada dia (ver [Cotações gravadas](#cotações-gravadas)).
+
+| Janela (`range`) | Começa em |
+| --- | --- |
+| `1M`, `3M`, `6M`, `1Y` | 1, 3, 6 ou 12 meses antes do dia corrente |
+| `YTD` | o primeiro dia do ano corrente |
+| `MAX` | o dia da primeira transação do razão; sem transação, a janela é vazia |
+
+* Toda janela termina no início do dia corrente em UTC, exclusivo, o primeiro dia que ainda não tem fechamento, e começa no início de um dia. A mesma janela pedida duas vezes no mesmo dia responde os mesmos dias, seja qual for o fuso de quem pede.
+* Cada ponto traz `date`, `value`, `investedValue`, `netContribution` e `twr`. A posição de cada dia é reconstruída do razão até o fim daquele dia, pelas regras de [Razão e posição](#razão-e-posição), então transação gravada retroativamente move a série inteira a partir da data dela.
+* Um dia só vira ponto quando toda posição detida nele, e toda transação executada nele, tem fechamento e câmbio para a moeda base. Dia parcial responderia uma carteira menor do que ela é, como se tivesse perdido valor, então fica fora da série.
+* `netContribution` é o caixa do dia: `BUY` soma quantidade × preço mais taxas e impostos, `SELL` subtrai o líquido. `twr` é o retorno ponderado no tempo acumulado desde o primeiro ponto, encadeando `(value − netContribution) ÷ valor do dia anterior`, de modo que dinheiro que entrou ou saiu no dia não conta como ganho. Lacuna na série faz o retorno seguinte abranger a lacuna.
+* `benchmark` é opcional e nomeia um símbolo do catálogo: o corpo ganha `{ symbol, currency, series }`, cada ponto com `close` e o `twr` sobre o primeiro fechamento da janela, comparável ao da carteira. O retorno do benchmark é o da moeda em que ele é cotado, sem conversão para a moeda base (TD-030).
+* Índice de mercado não é cotável hoje, porque o padrão de símbolo do catálogo recusa `^BVSP`, então a comparação é com ETF que replica o índice, como `BOVA11` ou `IVV`.
+
 ## Fonte de cotação
 
 O domínio obtém preços por `MarketDataProvider`, em `backend/src/domain/MarketDataProvider.ts`, sem depender do SDK ou da API de nenhum provedor. As implementações ficam em `backend/src/infra/market-data`, e trocá-las não altera o domínio.
@@ -171,6 +188,7 @@ O domínio obtém preços por `MarketDataProvider`, em `backend/src/domain/Marke
 | `getQuotes(instruments)` | o preço mais recente de cada instrumento, uma entrada por símbolo pedido |
 | `getExchangeRates(currencies, baseCurrency)` | o preço de uma unidade de cada moeda em `baseCurrency`, uma entrada por moeda pedida; moeda sem par com a base, inclusive a própria base, é `not-found` |
 | `getHistoricalPrices(instrument, range, interval)` | o fechamento de cada `interval` (`5m`, `15m`, `30m`, `1h` ou `1d`) de `range.from`, inclusive, a `range.to`, exclusive, em ordem crescente de `timestamp`; `range-not-served` quando o provedor não guarda preços tão antigos nesse intervalo |
+| `getHistoricalExchangeRate(currency, baseCurrency, range)` | o fechamento diário do par, uma taxa por dia negociado de `range`, nos termos que `getExchangeRates` define para o par e `getHistoricalPrices` para o intervalo |
 
 * Cada preço traz `price` em string decimal, `currency` explícita, `timestamp` como instante UTC e `source`, o provedor que o observou. A cotação traz também `previousClose`, o fechamento anterior, quando o provedor o tem.
 * O instrumento chega com `symbol`, `market` e `currency` do catálogo; traduzi-los para o código do provedor cabe à implementação, e instrumento que ela não traduz é `not-found`.
@@ -215,7 +233,7 @@ Os valores de timeout, cache, pausa e lote são assumidos, não medidos, e a cot
 * Um instrumento tem no máximo uma linha por dia e fonte, e o índice único `(instrumentId, timestamp, source)` é a única autoridade sobre isso: gravar de novo um dia já gravado mantém o preço primeiro observado, e duas gravações simultâneas do mesmo dia produzem uma linha só.
 * Correção de fechamento publicada pelo provedor não substitui o valor gravado (TD-027), e nada descarta linha antiga (TD-026).
 * O preço gravado é o que o adaptador já validou (ver [Yahoo Finance](#yahoo-finance)); a escrita não revalida.
-* Benchmark e par de câmbio não têm série: a tabela cobre o catálogo de instrumentos, e onde eles moram fica para quando forem implementados.
+* A tabela cobre o catálogo de instrumentos, e o benchmark da série de performance é um símbolo dele, com a mesma série. O par de câmbio tem tabela própria.
 
 A série é consultada por intervalo, de `from` inclusive a `to` exclusivo, em ordem crescente de dia. O que o intervalo pedido não encontra gravado é pedido ao provedor no intervalo diário e gravado antes da resposta:
 
@@ -223,6 +241,8 @@ A série é consultada por intervalo, de `from` inclusive a `to` exclusivo, em o
 * O dia corrente em UTC nunca é pedido, porque ainda não tem fechamento; pedi-lo gastaria uma requisição ao provedor a cada leitura da série.
 * Provedor que não responde, ou que não guarda preço tão antigo naquele intervalo, deixa a série com o que está gravado: histórico incompleto não é requisição falha.
 * A consulta devolve todas as fontes, então um dia observado por duas fontes são duas entradas. Consumir a série sem distinguir a fonte é o TD-028.
+
+`ExchangeRate` guarda o fechamento diário de um par de moedas, na tabela `exchange_rates`, pelas mesmas regras: uma linha por par, dia e fonte, `timestamp` no início do dia em UTC, `rate` na escala das colunas monetárias, e o mesmo backfill de bordas, a partir de `getHistoricalExchangeRate`. O par vem de quem grava, não do preço: uma taxa é cotada na moeda base, então a moeda que o preço carrega é a base. É essa série que leva posição em moeda estrangeira para a moeda base em [Performance da carteira](#performance-da-carteira); o câmbio corrente das demais rotas continua vindo do provedor a cada requisição, sem gravação.
 
 ## Valores, moedas e datas
 

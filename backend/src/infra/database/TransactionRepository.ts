@@ -156,6 +156,33 @@ export class TransactionRepository {
     };
   }
 
+  /**
+   * Every transaction of the portfolio executed before `to`, in ledger order,
+   * with the instrument each one moves. The whole ledger is read at once so a
+   * position can be replayed at each day of a range without a query per day.
+   */
+  async getLedgerUpTo(
+    params: Pick<Transaction, 'portfolioId'> & Record<'to', Date>
+  ) {
+    const { portfolioId, to } = params;
+
+    return this.prismaClient.transaction.findMany({
+      where: { portfolioId, executedAt: { lt: to } },
+      orderBy: [{ executedAt: 'asc' }, { sequence: 'asc' }],
+      select: {
+        instrumentId: true,
+        sequence: true,
+        type: true,
+        quantity: true,
+        unitPrice: true,
+        fees: true,
+        taxes: true,
+        currency: true,
+        executedAt: true
+      }
+    });
+  }
+
   async getById(params: TransactionRepository.GetByIdParams) {
     const { id, userId } = params;
 

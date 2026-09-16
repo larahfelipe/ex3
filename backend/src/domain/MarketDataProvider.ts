@@ -46,8 +46,11 @@ export type PriceHistoryLookup =
  * answers the closing price of every `interval` starting from `range.from`,
  * inclusive, to `range.to`, exclusive, timestamped at the start of the interval
  * and in ascending order, or `range-not-served` when the provider keeps no
- * prices that old at that interval. Every price the provider returns is
- * untrusted input, validated before it is answered.
+ * prices that old at that interval. `getHistoricalExchangeRate` answers that
+ * same series for a pair of currencies, the daily closing price of one unit of
+ * `currency` in `baseCurrency`, on the terms `getExchangeRates` states for the
+ * pair and `getHistoricalPrices` for the range. Every price the provider
+ * returns is untrusted input, validated before it is answered.
  */
 export interface MarketDataProvider {
   getQuotes: (
@@ -61,5 +64,10 @@ export interface MarketDataProvider {
     instrument: PricedInstrument,
     range: PriceRange,
     interval: PriceInterval
+  ) => Promise<PriceHistoryLookup>;
+  getHistoricalExchangeRate: (
+    currency: string,
+    baseCurrency: string,
+    range: PriceRange
   ) => Promise<PriceHistoryLookup>;
 }
