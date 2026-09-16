@@ -3,7 +3,7 @@
 import { Skeleton } from '@/components/ui';
 import { usePrimaryPortfolio } from '@/hooks/use-portfolio';
 
-import { AllocationSummary } from './_components/allocation-summary';
+import { AllocationChart } from './_components/allocation-chart';
 import { LoadErrorAlert } from './_components/overview-section';
 import { PortfolioValueCard } from './_components/portfolio-value-card';
 import { PositionsSummary } from './_components/positions-summary';
@@ -56,7 +56,7 @@ export default function Overview() {
           <PortfolioValueCard portfolio={portfolio} />
 
           <div className="grid gap-6 xl:grid-cols-3">
-            <AllocationSummary portfolio={portfolio} />
+            <AllocationChart portfolio={portfolio} />
 
             <PositionsSummary portfolio={portfolio} className="xl:col-span-2" />
           </div>
