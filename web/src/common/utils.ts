@@ -9,6 +9,11 @@ const QUOTE_TIME_FORMAT = new Intl.DateTimeFormat('en-US', {
   minute: '2-digit'
 });
 
+const EXECUTION_TIME_FORMAT = new Intl.DateTimeFormat('en-US', {
+  dateStyle: 'medium',
+  timeStyle: 'short'
+});
+
 export const formatNumber = (
   value: number | DecimalString,
   options?: Intl.NumberFormatOptions
@@ -58,6 +63,9 @@ export const signedValueTone = (value: DecimalString) => {
 
 export const formatQuoteTime = (timestamp: string) =>
   QUOTE_TIME_FORMAT.format(new Date(timestamp));
+
+export const formatExecutionTime = (timestamp: string) =>
+  EXECUTION_TIME_FORMAT.format(new Date(timestamp));
 
 export const replaceUrl = (href: string) =>
   window.history.pushState({}, '', href);

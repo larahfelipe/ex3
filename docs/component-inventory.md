@@ -43,7 +43,8 @@ A Overview é a página principal, em `/`. O redirect permanente de `/` para `/a
 | `portfolio-value-card.tsx` | `PortfolioValueCard`, sobre `OverviewSection`, com `GET /v1/portfolio/overview` numa lista de definição: valor total em destaque, variação do dia, valor investido e lucro ou prejuízo, com percentual, e o horário das cotações (`quotedAt`) em `<time>`. Vazio quando a carteira não tem posição com unidades: `totalValue` `0` sem `quotedAt`. Desatualizado quando a nova busca falha com valor em cache (`isRefetchError`): aviso `role="alert"` com nova tentativa acima dos últimos valores. Cotação de reserva do provedor aparece só pelo horário antigo |
 | `allocation-chart.tsx` | `AllocationChart`, sobre `OverviewSection`, com `GET /v1/portfolio/allocation`: seletor por classe (`byType`) ou por ativo (`byAsset`) em botões de rádio nativos no cabeçalho, anel em SVG decorativo (`aria-hidden`) e legenda em tabela, a alternativa textual, com cor, nome, percentual e valor na moeda base. Grupos na ordem da API; grupo sem `allocation` fica fora do anel e aparece como "Not available". Anel e legenda lado a lado quando o card tem ao menos 28rem (container query), empilhados abaixo disso. As cores vêm de uma paleta de 10 e se repetem a partir do 11º grupo (TD-025) |
 | `positions-summary.tsx` | Posições em tabela, 10 por página, com a página anterior exibida enquanto a próxima carrega; sem posições, leva a `/assets?action=add-asset` |
-| `recent-transactions.tsx` | As 5 transações mais recentes: a primeira página da listagem, que ordena por `executedAt` decrescente. Data e hora no fuso do navegador, o mesmo em que o diálogo registra a execução |
+| `recent-transactions.tsx` | As 5 transações mais recentes: a primeira página da listagem, que ordena por `executedAt` decrescente. Data e hora no fuso do navegador, o mesmo em que o diálogo registra a execução. Cada linha tem um botão "Details", cujo nome acessível inclui tipo, ativo e data, que abre o detalhe da transação |
+| `transaction-details-dialog.tsx` | `TransactionDetailsDialog` mostra a transação inteira num diálogo, enquanto o web não tem tela de detalhe: tipo e ativo no título, data de execução na descrição, e quantidade, preço unitário, taxas, impostos, corretora e notas numa lista de definição. Corretora e notas ausentes aparecem como "Not available"; nenhum total é calculado no web |
 | `amounts.tsx` | `Amount`, `SignedAmount` e `UnavailableValue`: valor ausente aparece como `-` e é lido como "Not available" |
 
 ## Feature components — `app/(protected)/assets/_components`
@@ -90,10 +91,10 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 | Item | Avaliação |
 | --- | --- |
 | `lib/utils.ts` → `cn()` | **Preservar** |
-| `common/utils.ts` → `formatNumber`, `formatMoney`, `formatPrice`, `formatQuantity`, `formatPercent`, `formatQuoteTime`, `signedValueTone` | **Promover a primitive.** Formatadores centrais, compartilhados pela tela de ativos e pela Overview: preço e quantidade com as casas decimais do valor recebido, percentual com duas casas, dia e hora da cotação no fuso do navegador e a cor pelo sinal; viram base de `Money`/`Percentage` (TASK 12.2) |
+| `common/utils.ts` → `formatNumber`, `formatMoney`, `formatPrice`, `formatQuantity`, `formatPercent`, `formatQuoteTime`, `formatExecutionTime`, `signedValueTone` | **Promover a primitive.** Formatadores centrais, compartilhados pela tela de ativos e pela Overview: preço e quantidade com as casas decimais do valor recebido, percentual com duas casas, dia e hora da cotação no fuso do navegador e a cor pelo sinal; viram base de `Money`/`Percentage` (TASK 12.2) |
 | `common/utils.ts` → `truncateText`, `sanitizeInputValue` | **Preservar** |
 | `common/utils.ts` → `replaceUrl` | **Remover.** `window.history.pushState` direto conflita com o router do Next (TASK 13.3) |
-| `common/constants.ts` | **Preservar e expandir** — rotas, cookies, moedas, fontes |
+| `common/constants.ts` | **Preservar e expandir** — rotas, cookies, moedas, fontes, rótulos e tons dos tipos de transação |
 | `types/index.ts` | **Preservar** utilitários (`Maybe`, `WithId`, `Pagination`); **remover** `TailwindColors*`, acoplamento à paleta do Tailwind sem uso justificado |
 
 ## Duplicações relevantes
