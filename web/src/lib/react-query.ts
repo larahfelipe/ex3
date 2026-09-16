@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 
 import type { GetAssetRequestParams } from '@/app/api/v1/assets';
+import type { PerformanceRange } from '@/app/api/v1/portfolio';
 import type {
   GetPortfoliosRequestParams,
   Portfolio
@@ -36,6 +37,8 @@ export const queryKeys = {
     [...portfolioScope(portfolioId), 'positions', requestedPage] as const,
   allocation: (portfolioId: PortfolioId) =>
     [...portfolioScope(portfolioId), 'allocation'] as const,
+  performance: (portfolioId: PortfolioId, range: PerformanceRange) =>
+    [...portfolioScope(portfolioId), 'performance', range] as const,
   assets: (
     portfolioId: PortfolioId,
     requestedPage: Pick<GetAssetRequestParams, 'page' | 'limit'>

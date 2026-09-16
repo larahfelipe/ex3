@@ -66,3 +66,17 @@ export type GetPortfolioPositionsRequestParams = PortfolioScopeParams &
 export type GetPortfolioPositionsResponseData = Page<PortfolioPosition>;
 
 export type GetPortfolioAllocationResponseData = PortfolioAllocation;
+
+export type PerformanceRange = '1W' | '1M' | '3M' | '6M' | '1Y' | 'YTD' | 'MAX';
+
+export type PerformancePoint = Record<'date', string> &
+  Record<'value' | 'investedValue' | 'netContribution' | 'twr', DecimalString>;
+
+export type PortfolioPerformance = WithBaseCurrency &
+  Record<'from' | 'to', string> &
+  Record<'series', Array<PerformancePoint>>;
+
+export type GetPortfolioPerformanceRequestParams = PortfolioScopeParams &
+  Record<'range', PerformanceRange>;
+
+export type GetPortfolioPerformanceResponseData = PortfolioPerformance;

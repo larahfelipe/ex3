@@ -176,10 +176,10 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 
 ### TD-030 — Retorno do benchmark na moeda dele, sem conversão para a base
 
-- **Origem:** TASK 6.5 · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** TASK 8.3
+- **Origem:** TASK 6.5 · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** backlog
 - **Contexto:** `GET /v1/portfolio/performance` normaliza a série da carteira por retorno ponderado no tempo na `baseCurrency`, e a do `benchmark` pelo primeiro fechamento da janela, na moeda em que ele é cotado. A carteira já incorpora a variação do câmbio de cada dia; o benchmark, não.
 - **Impacto:** benchmark cotado em moeda diferente da base — `IVV` em USD numa carteira em BRL — compara retorno em USD com retorno em BRL, e a distância entre as duas linhas inclui a variação cambial do período, que não é desempenho de nenhum dos dois. Benchmark na moeda base não é afetado.
-- **Proposta:** ao montar o gráfico, decidir com o produto se o benchmark é convertido para a moeda base dia a dia, pela série de câmbio que o endpoint já busca, ou se a comparação fica restrita a benchmark cotado na moeda base.
+- **Proposta:** o gráfico de performance do web não pede `benchmark`, então nenhuma tela compara as duas linhas hoje e a distorção não tem superfície. Quando a comparação for oferecida, decidir com o produto se o benchmark é convertido para a moeda base dia a dia, pela série de câmbio que o endpoint já busca, ou se fica restrita a benchmark cotado na moeda base.
 
 ### TD-031 — Série de performance reconstrói o razão inteiro a cada dia da janela
 
@@ -187,6 +187,20 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** `trackPortfolioPerformance` reconstrói cada posição a partir do razão em cada dia da janela, para que a série siga as mesmas regras de `rebuildPosition` e transação retroativa mova a série inteira. O custo é dias × posições × tamanho do razão, em memória, sem consulta por dia.
 - **Impacto:** nenhum nas carteiras de hoje. Razão longo com janela `MAX` cresce quadraticamente no tamanho do razão, dentro de uma requisição síncrona.
 - **Proposta:** medir antes de mudar. Se aparecer, percorrer o razão uma vez por posição, avançando a reconstrução de um dia para o seguinte em vez de refazê-la, sem alterar as regras do replay.
+
+### TD-032 — Gráfico de performance sem janela do dia corrente
+
+- **Origem:** TASK 8.3 · **Tipo:** produto · **Prioridade:** baixa · **Encaminhamento:** backlog
+- **Contexto:** a série de `GET /v1/portfolio/performance` é feita de fechamentos diários gravados em `market_quotes`, uma linha por instrumento, dia e fonte. A cotação corrente é buscada no provedor a cada requisição e não vira série, então a menor janela do seletor é `1W`.
+- **Impacto:** o gráfico não oferece uma janela do dia corrente. O movimento do dia continua disponível como número, em `dayChange` de `GET /v1/portfolio/overview`, sem curva.
+- **Proposta:** decidir com o produto se a janela do dia justifica gravar cotações intradiárias em série, com a coleta periódica e a granularidade que isso exige, em vez de derivá-la das cotações avulsas que cada requisição busca.
+
+### TD-033 — Suíte de integração falha de forma intermitente
+
+- **Origem:** TASK 8.3 · **Tipo:** teste · **Prioridade:** média · **Encaminhamento:** backlog
+- **Contexto:** os arquivos de integração rodam em paralelo contra o mesmo banco. Numa execução desta task, dois testes de `Transactions.integration.ts` falharam — o sign-in do harness respondeu `404` e uma contagem de posição veio `0` em vez de `1` —, e a execução seguinte passou 231 de 231 sem nenhuma mudança no código. O harness esvazia todas as tabelas no reset, o que explicaria as duas falhas.
+- **Impacto:** vermelho sem regressão, que só se distingue de defeito real reexecutando a suíte. Na CI, vira falha aleatória num merge legítimo.
+- **Proposta:** confirmar a causa reproduzindo com concorrência 1 e, sendo interferência, dar a cada arquivo de integração um escopo próprio de dados — banco ou schema por worker, ou reset restrito às linhas que o arquivo semeou — em vez de esvaziar tabelas compartilhadas.
 
 ## Resolvidos
 
