@@ -1,16 +1,15 @@
-import type { ObservedPrice } from '@/domain/MarketDataProvider';
+import type { MarketQuote as MarketQuoteRow } from '@prisma/client';
+
+import type { ObservedPrice, PriceRange } from '@/domain/MarketDataProvider';
 import type { MarketQuote } from '@/domain/models';
+import { startOfDayInUtc } from '@/domain/PriceHistory';
 
 import { PrismaClient } from './PrismaClient';
 
-const startOfDayInUtc = (instant: Date) =>
-  new Date(
-    Date.UTC(
-      instant.getUTCFullYear(),
-      instant.getUTCMonth(),
-      instant.getUTCDate()
-    )
-  );
+const toMarketQuote = ({ price, ...quote }: MarketQuoteRow): MarketQuote => ({
+  ...quote,
+  price: price.toFixed()
+});
 
 export class MarketQuoteRepository {
   private static INSTANCE: MarketQuoteRepository;
@@ -52,9 +51,27 @@ export class MarketQuoteRepository {
 
     return count;
   }
+
+  /**
+   * The closes stored for the instrument from `from`, inclusive, to `to`,
+   * exclusive, in ascending order of day. Every source is answered, so a day
+   * observed by two sources is two entries.
+   */
+  async getDailyCloses(params: MarketQuoteRepository.GetDailyClosesParams) {
+    const { instrumentId, from, to } = params;
+
+    const quotes = await this.prismaClient.marketQuote.findMany({
+      where: { instrumentId, timestamp: { gte: from, lt: to } },
+      orderBy: { timestamp: 'asc' }
+    });
+
+    return quotes.map(toMarketQuote);
+  }
 }
 
 namespace MarketQuoteRepository {
   export type RecordDailyClosesParams = Pick<MarketQuote, 'instrumentId'> &
     Record<'prices', ReadonlyArray<ObservedPrice>>;
+  export type GetDailyClosesParams = Pick<MarketQuote, 'instrumentId'> &
+    PriceRange;
 }

@@ -150,8 +150,8 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 
 - **Origem:** TASK 5.2 · **Tipo:** dados · **Prioridade:** baixa · **Encaminhamento:** avulso
 - **Contexto:** `market_quotes` guarda um fechamento por instrumento, dia de negociação e fonte (`backend/src/infra/database/MarketQuoteRepository.ts`), preenchido por backfill sob demanda. Nada apaga linha antiga, e o catálogo de instrumentos não tem teto.
-- **Impacto:** a tabela cresce cerca de 250 linhas por instrumento por ano de série coberta, indefinidamente. Não pesa na escala atual; vira custo de armazenamento e de consulta conforme o catálogo e o alcance das séries crescerem.
-- **Proposta:** decidir com o produto o alcance máximo do histórico exibido e, a partir dele, se as linhas mais antigas são descartadas ou agregadas.
+- **Impacto:** medido em 2026-09-16 com 100 mil linhas, a tabela custa 309 bytes por linha — 13 MB de heap e 17 MB de índices —, ou 76 kB por instrumento por ano de pregões, cerca de 740 MB para mil instrumentos em dez anos. A série é compartilhada entre usuários, então não cresce com a base: cresce com os instrumentos acompanhados e os períodos consultados. Não pesa na escala atual.
+- **Proposta:** decidir com o produto o alcance máximo do histórico exibido e, a partir dele, se as linhas mais antigas são descartadas ou agregadas em fechamentos mensais. Revisto em 2026-09-16 à luz da medição, o desenho foi mantido sem retenção, e a política fica para quando o volume justificar.
 
 ### TD-027 — Fechamento corrigido pelo provedor não substitui o gravado
 
@@ -159,6 +159,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** `recordDailyCloses` grava com `skipDuplicates`, então o dia já gravado por uma fonte mantém o preço primeiro observado (`backend/src/infra/database/MarketQuoteRepository.ts`). O provedor pode revisar um fechamento depois de publicá-lo.
 - **Impacto:** série já coberta nunca incorpora correção do provedor, e as métricas de performance seguem o valor da primeira observação. Não há caminho para reprocessar um intervalo.
 - **Proposta:** na task que orquestra o backfill, decidir se um intervalo pode ser reprocessado explicitamente, substituindo os fechamentos daquele intervalo, e sob qual gatilho.
+
+### TD-028 — Série de preços não distingue a fonte
+
+- **Origem:** TASK 5.4 · **Tipo:** dados · **Prioridade:** baixa · **Encaminhamento:** TASK 6.5
+- **Contexto:** `MarketQuoteRepository.getDailyCloses` devolve os fechamentos de todas as fontes no intervalo, e `GetPriceHistoryService` repassa a série como veio. O service não sabe qual provedor está em uso — `source` chega dentro de cada preço que a porta devolve —, e filtrar por fonte nessa camada vazaria a identidade do provedor para o domínio. Hoje só `yahoo-finance` grava.
+- **Impacto:** com uma segunda fonte gravando, cada dia aparece duas vezes na série, e o gráfico e as métricas de performance contariam o mesmo dia mais de uma vez.
+- **Proposta:** no endpoint de performance, decidir a precedência entre fontes — uma preferida, ou a mais recente por dia — e aplicá-la na consulta, mantendo `source` em cada ponto do resultado.
 
 ## Resolvidos
 

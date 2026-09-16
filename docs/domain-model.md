@@ -217,6 +217,13 @@ Os valores de timeout, cache, pausa e lote são assumidos, não medidos, e a cot
 * O preço gravado é o que o adaptador já validou (ver [Yahoo Finance](#yahoo-finance)); a escrita não revalida.
 * Benchmark e par de câmbio não têm série: a tabela cobre o catálogo de instrumentos, e onde eles moram fica para quando forem implementados.
 
+A série é consultada por intervalo, de `from` inclusive a `to` exclusivo, em ordem crescente de dia. O que o intervalo pedido não encontra gravado é pedido ao provedor no intervalo diário e gravado antes da resposta:
+
+* Só as bordas faltantes são pedidas: o trecho anterior ao fechamento mais antigo e o posterior ao mais novo. Dia sem fechamento entre os extremos é dia em que o mercado não negociou, e não é pedido de novo.
+* O dia corrente em UTC nunca é pedido, porque ainda não tem fechamento; pedi-lo gastaria uma requisição ao provedor a cada leitura da série.
+* Provedor que não responde, ou que não guarda preço tão antigo naquele intervalo, deixa a série com o que está gravado: histórico incompleto não é requisição falha.
+* A consulta devolve todas as fontes, então um dia observado por duas fontes são duas entradas. Consumir a série sem distinguir a fonte é o TD-028.
+
 ## Valores, moedas e datas
 
 * Quantidades e valores monetários são decimais exatos, nunca ponto flutuante: `DECIMAL(38,18)`, até 20 dígitos inteiros e 18 casas, em transação, posição e cotação gravada. A API os recebe e devolve como string decimal, e valor que a coluna arredondaria é recusado, não arredondado.
