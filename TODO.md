@@ -167,6 +167,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** com uma segunda fonte gravando, cada dia aparece duas vezes na série, e o gráfico e as métricas de performance contariam o mesmo dia mais de uma vez.
 - **Proposta:** no endpoint de performance, decidir a precedência entre fontes — uma preferida, ou a mais recente por dia — e aplicá-la na consulta, mantendo `source` em cada ponto do resultado.
 
+### TD-029 — Custo e preço médio da tabela de ativos sem conversão de moeda
+
+- **Origem:** TASK 5.3 · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** TASK 9.1
+- **Contexto:** `GET /v1/assets` devolve `averageCost` e `investedValue` na moeda em que a posição foi registrada, sem conversão, e a tabela de ativos formata as duas colunas com a `baseCurrency` da carteira. O total do rodapé passou a vir do `investedValue` de `GET /v1/portfolio/overview`, esse sim convertido pelo câmbio do provedor.
+- **Impacto:** carteira com posições em mais de uma moeda rotula `Invested` e `Avg Price` com uma moeda que não é a do valor, e a soma das linhas não fecha com o total do rodapé. Carteira de moeda única não é afetada.
+- **Proposta:** ao redesenhar a tabela, ler as colunas de `GET /v1/portfolio/positions`, que já entrega `averageCost` e `marketValue` na moeda base, ou exibir cada linha na moeda da própria posição.
+
 ## Resolvidos
 
 ### TD-002 — Listagem de transações ignora `page` e não segue a ordem das operações

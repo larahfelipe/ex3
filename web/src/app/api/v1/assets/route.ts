@@ -2,13 +2,9 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 
 import { APP_STORAGE_KEYS } from '@/common/constants';
-import { formatNumber } from '@/common/utils';
 import api, { ApiProxyError, type ApiProxyErrorData } from '@/lib/axios';
 
-import type {
-  GetAssetResponseData,
-  GetAssetWithTotalInvestedValueResponseData
-} from './types';
+import type { GetAssetResponseData } from './types';
 
 export const GET = async (req: NextRequest) => {
   try {
@@ -30,28 +26,7 @@ export const GET = async (req: NextRequest) => {
         params: req.nextUrl.searchParams
       });
 
-    const totalInvestedValue = data.assets.reduce((acc, curr) => {
-      acc += Number(curr.investedValue);
-      return acc;
-    }, 0);
-
-    const res: GetAssetWithTotalInvestedValueResponseData = {
-      totalInvestedValue,
-      sort: data.sort,
-      pagination: data.pagination,
-      assets: data.assets.map((a) => {
-        a.dominance =
-          totalInvestedValue > 0
-            ? formatNumber(Number(a.investedValue) / totalInvestedValue, {
-                style: 'percent',
-                maximumFractionDigits: 2
-              })
-            : '0%';
-        return a;
-      })
-    };
-
-    return NextResponse.json<GetAssetWithTotalInvestedValueResponseData>(res, {
+    return NextResponse.json<GetAssetResponseData>(data, {
       status,
       statusText
     });

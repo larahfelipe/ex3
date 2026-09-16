@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
 import { useSearchParams } from 'next/navigation';
@@ -19,6 +19,8 @@ import {
 } from '@/hooks/use-assets';
 import { useDisclosure } from '@/hooks/use-disclosure';
 import {
+  useAllocation,
+  usePortfolioOverview,
   usePrimaryPortfolio,
   useRefreshPortfolio
 } from '@/hooks/use-portfolio';
@@ -104,6 +106,23 @@ export default function Assets() {
 
   const { data: valuations, isLoading: isLoadingValuations } =
     useAssetValuations(portfolio, data);
+
+  const { data: overview, isLoading: isLoadingOverview } =
+    usePortfolioOverview(portfolio);
+
+  const { data: allocation, isLoading: isLoadingAllocation } =
+    useAllocation(portfolio);
+
+  const allocationBySymbol = useMemo(
+    () =>
+      allocation &&
+      new Map(
+        allocation.byAsset.flatMap(({ symbol, allocation: share }) =>
+          share === undefined ? [] : [[symbol, share] as const]
+        )
+      ),
+    [allocation]
+  );
 
   const { mutateAsync: createAssetMutation } = useCreateAsset(portfolio);
 
@@ -222,10 +241,13 @@ export default function Assets() {
             selectedSymbol,
             baseCurrency: portfolio?.baseCurrency,
             result: data,
-            valuations
+            valuations,
+            allocationBySymbol,
+            investedValue: overview?.investedValue
           }}
           loading={isLoadingPortfolio || isLoading || isRefetching}
           loadingValuations={isLoadingValuations}
+          loadingShares={isLoadingOverview || isLoadingAllocation}
           onDispatch={handleDispatch}
         />
       </Card>
