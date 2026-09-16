@@ -14,6 +14,12 @@ const EXECUTION_TIME_FORMAT = new Intl.DateTimeFormat('en-US', {
   timeStyle: 'short'
 });
 
+/** A series day is a calendar day at midnight UTC, and a local zone would name the day before it. */
+const SERIES_DAY_FORMAT = new Intl.DateTimeFormat('en-US', {
+  dateStyle: 'medium',
+  timeZone: 'UTC'
+});
+
 export const formatNumber = (
   value: number | DecimalString,
   options?: Intl.NumberFormatOptions
@@ -66,6 +72,9 @@ export const formatQuoteTime = (timestamp: string) =>
 
 export const formatExecutionTime = (timestamp: string) =>
   EXECUTION_TIME_FORMAT.format(new Date(timestamp));
+
+export const formatSeriesDay = (timestamp: string) =>
+  SERIES_DAY_FORMAT.format(new Date(timestamp));
 
 export const replaceUrl = (href: string) =>
   window.history.pushState({}, '', href);

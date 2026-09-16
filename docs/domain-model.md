@@ -168,6 +168,7 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em
 
 | Janela (`range`) | Começa em |
 | --- | --- |
+| `1W` | 7 dias antes do dia corrente |
 | `1M`, `3M`, `6M`, `1Y` | 1, 3, 6 ou 12 meses antes do dia corrente |
 | `YTD` | o primeiro dia do ano corrente |
 | `MAX` | o dia da primeira transação do razão; sem transação, a janela é vazia |

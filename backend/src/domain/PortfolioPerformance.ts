@@ -53,6 +53,7 @@ export type PortfolioPerformance = {
 };
 
 export const PerformanceRanges = {
+  ONE_WEEK: '1W',
   ONE_MONTH: '1M',
   THREE_MONTHS: '3M',
   SIX_MONTHS: '6M',
@@ -64,11 +65,15 @@ export const PerformanceRanges = {
 export type PerformanceRange =
   (typeof PerformanceRanges)[keyof typeof PerformanceRanges];
 
-const MONTHS_BACK: ReadonlyMap<PerformanceRange, number> = new Map([
-  [PerformanceRanges.ONE_MONTH, 1],
-  [PerformanceRanges.THREE_MONTHS, 3],
-  [PerformanceRanges.SIX_MONTHS, 6],
-  [PerformanceRanges.ONE_YEAR, 12]
+const WINDOW_BACK: ReadonlyMap<
+  PerformanceRange,
+  Record<'months' | 'days', number>
+> = new Map([
+  [PerformanceRanges.ONE_WEEK, { months: 0, days: 7 }],
+  [PerformanceRanges.ONE_MONTH, { months: 1, days: 0 }],
+  [PerformanceRanges.THREE_MONTHS, { months: 3, days: 0 }],
+  [PerformanceRanges.SIX_MONTHS, { months: 6, days: 0 }],
+  [PerformanceRanges.ONE_YEAR, { months: 12, days: 0 }]
 ]);
 
 const ONE = new ValuationDecimal(1);
@@ -86,15 +91,15 @@ export const performanceRangeOf = (
   since?: Date
 ): PriceRange => {
   const to = startOfDayInUtc(now);
-  const months = MONTHS_BACK.get(range);
+  const back = WINDOW_BACK.get(range);
 
-  if (months !== undefined)
+  if (back !== undefined)
     return {
       from: new Date(
         Date.UTC(
           to.getUTCFullYear(),
-          to.getUTCMonth() - months,
-          to.getUTCDate()
+          to.getUTCMonth() - back.months,
+          to.getUTCDate() - back.days
         )
       ),
       to

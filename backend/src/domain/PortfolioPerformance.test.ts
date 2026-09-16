@@ -63,6 +63,13 @@ describe('performanceRangeOf', () => {
     });
   });
 
+  it('goes back seven days for the week', () => {
+    assert.deepEqual(performanceRangeOf(PerformanceRanges.ONE_WEEK, NOW), {
+      from: day('2026-09-09'),
+      to: day('2026-09-16')
+    });
+  });
+
   it('starts the year to date at the first day of the year', () => {
     assert.deepEqual(performanceRangeOf(PerformanceRanges.YEAR_TO_DATE, NOW), {
       from: day('2026-01-01'),

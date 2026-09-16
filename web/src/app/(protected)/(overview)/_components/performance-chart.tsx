@@ -1,0 +1,349 @@
+import { useId, useState, type FC, type PointerEvent } from 'react';
+
+import { twMerge } from 'tailwind-merge';
+
+import type {
+  PerformancePoint,
+  PerformanceRange
+} from '@/app/api/v1/portfolio';
+import type { Portfolio } from '@/app/api/v1/portfolios';
+import {
+  formatMoney,
+  formatPercent,
+  formatSeriesDay,
+  signedValueTone
+} from '@/common/utils';
+import {
+  Skeleton,
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui';
+import { usePerformance } from '@/hooks/use-portfolio';
+
+import { Amount } from './amounts';
+import { OverviewSection } from './overview-section';
+
+type PerformanceChartProps = Record<'portfolio', Portfolio>;
+
+type ChartPoint = Record<'x' | 'y', number>;
+
+const PERFORMANCE_RANGES: PerformanceRange[] = [
+  '1W',
+  '1M',
+  '3M',
+  '6M',
+  '1Y',
+  'YTD',
+  'MAX'
+];
+
+const PERFORMANCE_RANGE_LABELS: Record<
+  PerformanceRange,
+  Record<'name' | 'period', string>
+> = {
+  '1W': { name: '1W', period: 'in the last week' },
+  '1M': { name: '1M', period: 'in the last month' },
+  '3M': { name: '3M', period: 'in the last three months' },
+  '6M': { name: '6M', period: 'in the last six months' },
+  '1Y': { name: '1Y', period: 'in the last year' },
+  YTD: { name: 'YTD', period: 'this year' },
+  MAX: { name: 'All', period: 'since the first transaction' }
+};
+
+const SIGNED_PERCENT: Intl.NumberFormatOptions = { signDisplay: 'exceptZero' };
+
+const CHART_WIDTH = 600;
+const CHART_HEIGHT = 200;
+const CHART_VIEW_BOX = `0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`;
+const CHART_PADDING = 6;
+
+/**
+ * Amounts become numbers here only to be scaled into the drawing box: every
+ * value the reader sees is formatted from the decimal string the API sent.
+ */
+const chartPointsOf = (
+  series: ReadonlyArray<PerformancePoint>
+): ChartPoint[] => {
+  const values = series.map(({ value }) => Number(value));
+  const lowest = Math.min(...values);
+  const span = Math.max(...values) - lowest;
+  const plotHeight = CHART_HEIGHT - 2 * CHART_PADDING;
+  const step = values.length > 1 ? CHART_WIDTH / (values.length - 1) : 0;
+
+  return values.map((value, index) => ({
+    x: values.length > 1 ? index * step : CHART_WIDTH / 2,
+    y:
+      span === 0
+        ? CHART_HEIGHT / 2
+        : CHART_PADDING + plotHeight * (1 - (value - lowest) / span)
+  }));
+};
+
+const linePathOf = (points: ReadonlyArray<ChartPoint>) =>
+  points
+    .map(({ x, y }, index) => `${index === 0 ? 'M' : 'L'}${x} ${y}`)
+    .join(' ');
+
+const areaPathOf = (points: ReadonlyArray<ChartPoint>) => {
+  const first = points.at(0);
+  const last = points.at(-1);
+
+  if (first === undefined || last === undefined) return '';
+
+  return `${linePathOf(points)} L${last.x} ${CHART_HEIGHT} L${first.x} ${CHART_HEIGHT} Z`;
+};
+
+export const PerformanceChart: FC<PerformanceChartProps> = ({ portfolio }) => {
+  const [selectedRange, setSelectedRange] = useState<PerformanceRange>('1Y');
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [isTableOpen, setIsTableOpen] = useState(false);
+  const performanceQuery = usePerformance(portfolio, selectedRange);
+  const rangeInputName = useId();
+
+  const trackPointer = (
+    { clientX, currentTarget }: PointerEvent<HTMLDivElement>,
+    count: number
+  ) => {
+    const { left, width } = currentTarget.getBoundingClientRect();
+
+    if (width === 0 || count === 0) return;
+
+    const position = Math.round(((clientX - left) / width) * (count - 1));
+
+    setActiveIndex(Math.min(count - 1, Math.max(0, position)));
+  };
+
+  const selectRange = (range: PerformanceRange) => {
+    setSelectedRange(range);
+    setActiveIndex(null);
+  };
+
+  return (
+    <OverviewSection
+      title="Performance"
+      query={performanceQuery}
+      errorMessage="The performance could not be loaded"
+      action={
+        <fieldset className="flex flex-wrap rounded-md border p-0.5">
+          <legend className="sr-only">Period</legend>
+
+          {PERFORMANCE_RANGES.map((range) => (
+            <label key={range} className="cursor-pointer">
+              <input
+                type="radio"
+                name={rangeInputName}
+                value={range}
+                checked={range === selectedRange}
+                onChange={() => selectRange(range)}
+                className="peer sr-only"
+              />
+
+              <span className="block rounded-sm px-3 py-1 text-sm font-medium text-muted-foreground ring-offset-background transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
+                {PERFORMANCE_RANGE_LABELS[range].name}
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      }
+      loading={
+        <div className="space-y-4">
+          <Skeleton className="h-8 w-56" />
+
+          <Skeleton className="h-48 w-full" />
+        </div>
+      }
+      empty={
+        <p className="text-sm text-muted-foreground">
+          No performance to display for this period
+        </p>
+      }
+      isEmpty={({ series }) => series.length === 0}
+    >
+      {({ series, baseCurrency }) => {
+        const points = chartPointsOf(series);
+        const activePoint =
+          activeIndex === null ? null : points.at(activeIndex);
+        const readPoint = series.at(activeIndex ?? -1) ?? series[0];
+        const { period } = PERFORMANCE_RANGE_LABELS[selectedRange];
+        const caption = `Portfolio value and return on each trading day ${period}`;
+
+        return (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <p className="text-2xl font-semibold">
+                <Amount amount={readPoint.value} currency={baseCurrency} />
+              </p>
+
+              <p
+                className={twMerge(
+                  'text-sm font-medium',
+                  signedValueTone(readPoint.twr)
+                )}
+              >
+                {formatPercent(readPoint.twr, SIGNED_PERCENT)}
+              </p>
+
+              <p className="text-sm text-muted-foreground">
+                {activeIndex === null
+                  ? period
+                  : formatSeriesDay(readPoint.date)}
+              </p>
+            </div>
+
+            <div
+              className="relative"
+              onPointerMove={(event) => trackPointer(event, points.length)}
+              onPointerLeave={() => setActiveIndex(null)}
+            >
+              <svg
+                aria-hidden="true"
+                viewBox={CHART_VIEW_BOX}
+                preserveAspectRatio="none"
+                className="block h-48 w-full"
+              >
+                <path d={areaPathOf(points)} className="fill-primary/10" />
+
+                <path
+                  d={linePathOf(points)}
+                  fill="none"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                  className="stroke-primary"
+                />
+
+                {activePoint !== undefined && activePoint !== null && (
+                  <line
+                    x1={activePoint.x}
+                    y1={0}
+                    x2={activePoint.x}
+                    y2={CHART_HEIGHT}
+                    strokeWidth={1}
+                    vectorEffect="non-scaling-stroke"
+                    className="stroke-muted-foreground/40"
+                  />
+                )}
+              </svg>
+
+              {activePoint !== undefined && activePoint !== null && (
+                <>
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      left: `${(activePoint.x / CHART_WIDTH) * 100}%`,
+                      top: `${(activePoint.y / CHART_HEIGHT) * 100}%`
+                    }}
+                    className="pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-background"
+                  />
+
+                  <div
+                    aria-hidden="true"
+                    className={twMerge(
+                      'pointer-events-none absolute top-0 space-y-0.5 rounded-md border bg-background px-3 py-2 text-xs shadow-sm',
+                      activePoint.x > CHART_WIDTH / 2 ? 'left-0' : 'right-0'
+                    )}
+                  >
+                    <p className="font-medium">
+                      {formatSeriesDay(readPoint.date)}
+                    </p>
+
+                    <p>{formatMoney(readPoint.value, baseCurrency)}</p>
+
+                    <p className={signedValueTone(readPoint.twr)}>
+                      {formatPercent(readPoint.twr, SIGNED_PERCENT)}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <details
+              open={isTableOpen}
+              onToggle={({ currentTarget }) =>
+                setIsTableOpen(currentTarget.open)
+              }
+            >
+              <summary className="cursor-pointer rounded-sm text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                Performance as a table
+              </summary>
+
+              {isTableOpen && (
+                <div className="mt-3 max-h-72 overflow-y-auto">
+                  <Table>
+                    <TableCaption className="sr-only">{caption}</TableCaption>
+
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Day</TableHead>
+
+                        <TableHead className="text-right">Value</TableHead>
+
+                        <TableHead className="text-right">Invested</TableHead>
+
+                        <TableHead className="text-right">
+                          Net contribution
+                        </TableHead>
+
+                        <TableHead className="text-right">Return</TableHead>
+                      </TableRow>
+                    </TableHeader>
+
+                    <TableBody>
+                      {series.map(
+                        ({
+                          date,
+                          value,
+                          investedValue,
+                          netContribution,
+                          twr
+                        }) => (
+                          <TableRow key={date}>
+                            <TableCell>{formatSeriesDay(date)}</TableCell>
+
+                            <TableCell className="text-right font-medium">
+                              <Amount amount={value} currency={baseCurrency} />
+                            </TableCell>
+
+                            <TableCell className="text-right">
+                              <Amount
+                                amount={investedValue}
+                                currency={baseCurrency}
+                              />
+                            </TableCell>
+
+                            <TableCell className="text-right">
+                              {formatMoney(
+                                netContribution,
+                                baseCurrency,
+                                SIGNED_PERCENT
+                              )}
+                            </TableCell>
+
+                            <TableCell
+                              className={twMerge(
+                                'text-right',
+                                signedValueTone(twr)
+                              )}
+                            >
+                              {formatPercent(twr, SIGNED_PERCENT)}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </details>
+          </div>
+        );
+      }}
+    </OverviewSection>
+  );
+};

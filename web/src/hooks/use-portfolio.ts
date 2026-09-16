@@ -11,8 +11,11 @@ import type { AxiosResponse } from 'axios';
 import type {
   GetPortfolioAllocationResponseData,
   GetPortfolioOverviewResponseData,
+  GetPortfolioPerformanceRequestParams,
+  GetPortfolioPerformanceResponseData,
   GetPortfolioPositionsRequestParams,
   GetPortfolioPositionsResponseData,
+  PerformanceRange,
   PortfolioScopeParams
 } from '@/app/api/v1/portfolio';
 import type {
@@ -99,6 +102,29 @@ export const usePositions = (
               ...requestedPage,
               portfolioId: portfolio.id
             } satisfies GetPortfolioPositionsRequestParams
+          })
+      : skipToken,
+    select: ({ data }) => data,
+    placeholderData: keepPreviousData
+  });
+
+export const usePerformance = (
+  portfolio: Maybe<Portfolio>,
+  range: PerformanceRange
+) =>
+  useQuery<
+    AxiosResponse<GetPortfolioPerformanceResponseData>,
+    ApiProxyErrorData,
+    GetPortfolioPerformanceResponseData
+  >({
+    queryKey: queryKeys.performance(portfolio?.id, range),
+    queryFn: portfolio
+      ? () =>
+          api.getInstance().get('/v1/portfolio/performance', {
+            params: {
+              portfolioId: portfolio.id,
+              range
+            } satisfies GetPortfolioPerformanceRequestParams
           })
       : skipToken,
     select: ({ data }) => data,
