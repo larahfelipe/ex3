@@ -1,10 +1,10 @@
 'use client';
 
+import { LoadErrorAlert } from '@/components/load-error-alert';
 import { Skeleton } from '@/components/ui';
 import { usePrimaryPortfolio } from '@/hooks/use-portfolio';
 
 import { AllocationChart } from './_components/allocation-chart';
-import { LoadErrorAlert } from './_components/overview-section';
 import { PerformanceChart } from './_components/performance-chart';
 import { PortfolioValueCard } from './_components/portfolio-value-card';
 import { PositionsSummary } from './_components/positions-summary';

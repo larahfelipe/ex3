@@ -13,6 +13,7 @@ import {
   formatSeriesDay,
   signedValueTone
 } from '@/common/utils';
+import { Amount } from '@/components/amounts';
 import {
   Skeleton,
   Table,
@@ -25,7 +26,6 @@ import {
 } from '@/components/ui';
 import { usePerformance } from '@/hooks/use-portfolio';
 
-import { Amount } from './amounts';
 import { OverviewSection } from './overview-section';
 
 type PerformanceChartProps = Record<'portfolio', Portfolio>;

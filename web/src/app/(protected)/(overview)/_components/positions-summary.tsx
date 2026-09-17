@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { APP_ROUTES, ASSET_DIALOG_ACTIONS } from '@/common/constants';
 import { formatPercent, formatQuantity } from '@/common/utils';
+import { Amount, SignedAmount, UnavailableValue } from '@/components/amounts';
 import {
   Button,
   Skeleton,
@@ -17,7 +18,6 @@ import {
 } from '@/components/ui';
 import { usePositions } from '@/hooks/use-portfolio';
 
-import { Amount, SignedAmount, UnavailableValue } from './amounts';
 import { OverviewSection } from './overview-section';
 
 type PositionsSummaryProps = Record<'portfolio', Portfolio> &

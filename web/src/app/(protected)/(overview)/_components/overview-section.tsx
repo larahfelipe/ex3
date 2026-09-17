@@ -1,13 +1,11 @@
-import { useId, type FC, type ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 
 import type { UseQueryResult } from '@tanstack/react-query';
 import { twMerge } from 'tailwind-merge';
 
-import { Button, Card, CardContent, CardHeader } from '@/components/ui';
+import { LoadErrorAlert } from '@/components/load-error-alert';
+import { Card, CardContent, CardHeader } from '@/components/ui';
 import type { ApiProxyErrorData } from '@/lib/axios';
-
-type LoadErrorAlertProps = Record<'message', string> &
-  Record<'onRetry', () => unknown>;
 
 type OverviewSectionProps<Content> = {
   title: string;
@@ -23,23 +21,6 @@ type OverviewSectionProps<Content> = {
   isEmpty: (content: Content) => boolean;
   children: (content: Content) => ReactNode;
 };
-
-export const LoadErrorAlert: FC<LoadErrorAlertProps> = ({
-  message,
-  onRetry
-}) => (
-  <div role="alert" className="flex flex-col items-start gap-3">
-    <p className="text-sm text-red-500">{message}</p>
-
-    <Button
-      variant="secondary"
-      className="h-9 max-sm:w-full"
-      onClick={() => onRetry()}
-    >
-      Try again
-    </Button>
-  </div>
-);
 
 export const OverviewSection = <Content,>({
   title,

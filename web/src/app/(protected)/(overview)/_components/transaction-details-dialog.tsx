@@ -13,6 +13,7 @@ import {
   formatPrice,
   formatQuantity
 } from '@/common/utils';
+import { UnavailableValue } from '@/components/amounts';
 import {
   Button,
   Dialog,
@@ -24,8 +25,6 @@ import {
   DialogTitle
 } from '@/components/ui';
 import type { Children } from '@/types';
-
-import { UnavailableValue } from './amounts';
 
 type TransactionDetailsDialogProps = Record<
   'transaction',

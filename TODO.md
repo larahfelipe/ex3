@@ -114,7 +114,7 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-021 — Listagens anteriores ao padrão de resposta
 
 - **Origem:** TASK 6.1 · **Tipo:** API · **Prioridade:** média · **Encaminhamento:** avulso
-- **Contexto:** `GET /v1/assets`, `GET /v1/portfolios` e `GET /v1/instruments` recebem `limit` e respondem a lista sob o nome da entidade, com `pagination: { page, limit, total, totalPages }`, fora do padrão de listagem paginada de `docs/api-inventory.md` (Padrão de resposta). O web consome as duas primeiras.
+- **Contexto:** `GET /v1/assets`, `GET /v1/portfolios` e `GET /v1/instruments` recebem `limit` e respondem a lista sob o nome da entidade, com `pagination: { page, limit, total, totalPages }`, fora do padrão de listagem paginada de `docs/api-inventory.md` (Padrão de resposta). O web consome só `GET /v1/portfolios` (ver TD-034).
 - **Impacto:** o cliente trata dois formatos de paginação, e trocar uma listagem antiga para o padrão quebra a tela que a consome.
 - **Proposta:** migrar cada listagem ao padrão junto com a tela que a consome, ou removê-la quando a tela passar ao endpoint que a substitui; tratar TD-015 na mesma mudança.
 
@@ -167,13 +167,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** com uma segunda fonte gravando, cada dia aparece duas vezes na série. A série de performance indexa os fechamentos por dia e fica com o último que a consulta devolveu para aquele dia, sem critério declarado entre as fontes.
 - **Proposta:** decidir a precedência entre fontes — uma preferida, ou a mais recente por dia — e aplicá-la na consulta das duas tabelas, mantendo `source` em cada ponto do resultado.
 
-### TD-029 — Custo e preço médio da tabela de ativos sem conversão de moeda
-
-- **Origem:** TASK 5.3 · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** TASK 9.1
-- **Contexto:** `GET /v1/assets` devolve `averageCost` e `investedValue` na moeda em que a posição foi registrada, sem conversão, e a tabela de ativos formata as duas colunas com a `baseCurrency` da carteira. O total do rodapé passou a vir do `investedValue` de `GET /v1/portfolio/overview`, esse sim convertido pelo câmbio do provedor.
-- **Impacto:** carteira com posições em mais de uma moeda rotula `Invested` e `Avg Price` com uma moeda que não é a do valor, e a soma das linhas não fecha com o total do rodapé. Carteira de moeda única não é afetada.
-- **Proposta:** ao redesenhar a tabela, ler as colunas de `GET /v1/portfolio/positions`, que já entrega `averageCost` e `marketValue` na moeda base, ou exibir cada linha na moeda da própria posição.
-
 ### TD-030 — Retorno do benchmark na moeda dele, sem conversão para a base
 
 - **Origem:** TASK 6.5 · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** backlog
@@ -198,11 +191,23 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-033 — Suíte de integração falha de forma intermitente
 
 - **Origem:** TASK 8.3 · **Tipo:** teste · **Prioridade:** média · **Encaminhamento:** backlog
-- **Contexto:** os arquivos de integração rodam em paralelo contra o mesmo banco. Numa execução desta task, dois testes de `Transactions.integration.ts` falharam — o sign-in do harness respondeu `404` e uma contagem de posição veio `0` em vez de `1` —, e a execução seguinte passou 231 de 231 sem nenhuma mudança no código. O harness esvazia todas as tabelas no reset, o que explicaria as duas falhas.
+- **Contexto:** numa execução, dois testes de `Transactions.integration.ts` falharam — o sign-in do harness respondeu `404` e uma contagem de posição veio `0` em vez de `1` —, e a execução seguinte passou 231 de 231 sem nenhuma mudança no código. Noutra, o teste de valores pequenos sem expoente do mesmo arquivo recebeu a transação sem os campos; o arquivo sozinho passou 51 de 51, e a suíte inteira, 234 de 234, na execução seguinte. A suíte roda um arquivo por vez (`--test-concurrency=1`), então a causa não é concorrência entre arquivos; as três falhas são de dado que o teste acabou de gravar e não encontrou, e o harness esvazia todas as tabelas no reset.
 - **Impacto:** vermelho sem regressão, que só se distingue de defeito real reexecutando a suíte. Na CI, vira falha aleatória num merge legítimo.
-- **Proposta:** confirmar a causa reproduzindo com concorrência 1 e, sendo interferência, dar a cada arquivo de integração um escopo próprio de dados — banco ou schema por worker, ou reset restrito às linhas que o arquivo semeou — em vez de esvaziar tabelas compartilhadas.
+- **Proposta:** reproduzir a falha repetindo a suíte e registrando o status e o corpo da resposta no teste que falha, para saber se o dado some depois de gravado — reset ou escrita pendente de um teste anterior — ou nunca é gravado; corrigir a causa encontrada, sem novas tentativas automáticas que a escondam.
+
+### TD-034 — Listagem e avaliação de ativos sem consumidor no web
+
+- **Origem:** TASK 9.1 · **Tipo:** API · **Prioridade:** baixa · **Encaminhamento:** TASK 9.2
+- **Contexto:** a tabela de posições lê `GET /v1/portfolio/positions`, e os proxies `GET /api/v1/assets` e `/api/v1/assets/valuations` foram removidos com a tabela de ativos. `GET /v1/assets`, com a contagem de transações por ativo, e `GET /v1/assets/valuations` seguem no backend e nos testes de integração, sem consumidor no web.
+- **Impacto:** superfície de API autenticada mantida, testada e documentada sem uso pelo produto; `GET /v1/assets` segue fora do padrão de listagem (TD-021).
+- **Proposta:** decidir com o detalhe do ativo se a avaliação por símbolo e a contagem de transações o servem; o que não servir sai do backend com os testes e a documentação.
 
 ## Resolvidos
+
+### TD-029 — Custo e preço médio da tabela de ativos sem conversão de moeda
+
+- **Tipo:** produto · **Prioridade:** média
+- **Resolução:** a tabela de posições substituiu a de ativos e lê `GET /v1/portfolio/positions`, que entrega preço médio, preço, valor, alocação e resultado convertidos para a `baseCurrency` da carteira, a moeda com que as colunas são formatadas. A coluna de valor investido e o total do rodapé saíram com a tabela antiga, então nenhuma linha é rotulada com moeda diferente da do valor. Ver `docs/domain-model.md`, §Posições da carteira, e `docs/component-inventory.md`, §Feature components.
 
 ### TD-002 — Listagem de transações ignora `page` e não segue a ordem das operações
 

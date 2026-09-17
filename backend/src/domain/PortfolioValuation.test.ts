@@ -1,13 +1,20 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { SortOrderTypes } from '@/config/Constants';
+
 import type { QuoteLookup } from './MarketDataProvider';
 import {
   type AllocatedPosition,
   allocatePortfolio,
   foreignCurrenciesOf,
   type ListedPosition,
+  matchesPositionFilter,
   type PortfolioHoldings,
+  type PortfolioPosition,
+  type PositionFilter,
+  PositionStatuses,
+  sortPositionsBy,
   summarizePortfolio,
   valuePositionsInBaseCurrency
 } from './PortfolioValuation';
@@ -520,6 +527,116 @@ describe('valuePositionsInBaseCurrency', () => {
         }
       ]
     );
+  });
+});
+
+const filterable = (
+  symbol: string,
+  name: string,
+  type: AllocatedPosition['type'],
+  quantity: string
+) => ({ symbol, name, type, quantity });
+
+const FILTERABLE_POSITIONS = [
+  filterable('PETR4', 'Petrobras', 'STOCK', '100'),
+  filterable('BOVA11', 'iShares Ibovespa', 'ETF', '0.000000000000000001'),
+  filterable('OIBR3', 'Oi', 'STOCK', '0')
+];
+
+const symbolsMatching = (filter: PositionFilter) =>
+  FILTERABLE_POSITIONS.filter(matchesPositionFilter(filter)).map(
+    ({ symbol }) => symbol
+  );
+
+describe('matchesPositionFilter', () => {
+  it('matches every position without a criterion', () => {
+    assert.deepEqual(symbolsMatching({}), ['PETR4', 'BOVA11', 'OIBR3']);
+  });
+
+  it('matches a search in part of the symbol or of the name, in any letter case', () => {
+    assert.deepEqual(symbolsMatching({ search: 'petr' }), ['PETR4']);
+    assert.deepEqual(symbolsMatching({ search: 'IBOV' }), ['BOVA11']);
+    assert.deepEqual(symbolsMatching({ search: 'vale' }), []);
+  });
+
+  it('matches the type, and whether the position holds any units', () => {
+    assert.deepEqual(symbolsMatching({ type: 'STOCK' }), ['PETR4', 'OIBR3']);
+    assert.deepEqual(symbolsMatching({ status: PositionStatuses.OPEN }), [
+      'PETR4',
+      'BOVA11'
+    ]);
+    assert.deepEqual(symbolsMatching({ status: PositionStatuses.CLOSED }), [
+      'OIBR3'
+    ]);
+  });
+
+  it('matches only the positions that meet every criterion', () => {
+    assert.deepEqual(
+      symbolsMatching({
+        search: 'o',
+        type: 'STOCK',
+        status: PositionStatuses.OPEN
+      }),
+      ['PETR4']
+    );
+  });
+});
+
+const withProfitLoss = (
+  symbol: string,
+  profitLoss?: string
+): PortfolioPosition => ({
+  symbol,
+  name: `Name of ${symbol}`,
+  quantity: '1',
+  baseCurrency: BASE_CURRENCY,
+  ...(profitLoss !== undefined && { profitLoss })
+});
+
+const symbolsByProfitLoss = (
+  positions: ReadonlyArray<PortfolioPosition>,
+  sortOrder: (typeof SortOrderTypes)[keyof typeof SortOrderTypes]
+) =>
+  sortPositionsBy(positions, 'profitLoss', sortOrder).map(
+    ({ symbol }) => symbol
+  );
+
+describe('sortPositionsBy', () => {
+  it('compares the values as decimals in either direction, the positions without one last', () => {
+    const positions = [
+      withProfitLoss('AAPL', '10'),
+      withProfitLoss('BBAS3'),
+      withProfitLoss('PETR4', '9.5'),
+      withProfitLoss('VALE3', '-250')
+    ];
+
+    assert.deepEqual(symbolsByProfitLoss(positions, SortOrderTypes.ASCENDENT), [
+      'VALE3',
+      'PETR4',
+      'AAPL',
+      'BBAS3'
+    ]);
+    assert.deepEqual(
+      symbolsByProfitLoss(positions, SortOrderTypes.DESCENDENT),
+      ['AAPL', 'PETR4', 'VALE3', 'BBAS3']
+    );
+  });
+
+  it('keeps ties in the order the positions came in, in either direction', () => {
+    const positions = [
+      withProfitLoss('AAPL', '1'),
+      withProfitLoss('BBAS3'),
+      withProfitLoss('PETR4', '1.0'),
+      withProfitLoss('VALE3')
+    ];
+
+    for (const sortOrder of Object.values(SortOrderTypes))
+      assert.deepEqual(symbolsByProfitLoss(positions, sortOrder), [
+        'AAPL',
+        'PETR4',
+        'BBAS3',
+        'VALE3'
+      ]);
   });
 });
 

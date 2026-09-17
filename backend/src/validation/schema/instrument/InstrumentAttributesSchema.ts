@@ -10,13 +10,13 @@ import { currencyCodeSchema } from '../CurrencyCodeSchema';
  * consumption). Assumed, not measured: above the longest name and sector label
  * an exchange listing publishes.
  */
-const NAME_MAX_LENGTH = 120;
+export const INSTRUMENT_NAME_MAX_LENGTH = 120;
 const SECTOR_MAX_LENGTH = 60;
 
 const COUNTRY_CODE_PATTERN = /^[A-Z]{2}$/;
 
 export const InstrumentAttributesSchema = z.object({
-  name: boundedTextSchema('Instrument name', NAME_MAX_LENGTH),
+  name: boundedTextSchema('Instrument name', INSTRUMENT_NAME_MAX_LENGTH),
   type: z
     .string()
     .trim()

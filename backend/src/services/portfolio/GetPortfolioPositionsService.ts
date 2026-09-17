@@ -1,9 +1,15 @@
-import { PortfolioMessages } from '@/config';
+import { PortfolioMessages, SortOrderTypes } from '@/config';
 import type { MarketDataProvider } from '@/domain/MarketDataProvider';
 import {
   foreignCurrenciesOf,
   holdsUnits,
+  matchesPositionFilter,
   type PortfolioPosition,
+  type PositionFilter,
+  type PositionSortField,
+  PositionSortFields,
+  type SortOrder,
+  sortPositionsBy,
   valuePositionsInBaseCurrency
 } from '@/domain/PortfolioValuation';
 import { NotFoundError } from '@/errors';
@@ -42,14 +48,19 @@ export class GetPortfolioPositionsService {
   }
 
   /**
-   * Positions are listed in symbol order. Allocation is a fraction of the whole
-   * portfolio, so every position with units is quoted, not only those listed.
+   * Positions come in symbol order, and a sort by a value keeps it for ties.
+   * Allocation is a fraction of the whole portfolio, so every position with
+   * units is quoted, not only those listed, and a sort by a value quotes every
+   * position the filter matches, since the page is cut after valuing them.
    */
   async execute({
     userId,
     portfolioId,
     page,
-    pageSize
+    pageSize,
+    sortBy,
+    sortOrder,
+    ...filter
   }: GetPortfolioPositionsService.DTO): Promise<GetPortfolioPositionsService.Result> {
     const portfolio = await this.portfolioRepository.getById({
       id: portfolioId,
@@ -62,10 +73,17 @@ export class GetPortfolioPositionsService {
     const positions = await this.assetRepository.getPricedPositions({
       portfolioId: portfolio.id
     });
-    const listedPositions = positions.slice(
-      (page - 1) * pageSize,
-      page * pageSize
-    );
+    const matchingPositions = positions.filter(matchesPositionFilter(filter));
+    const pageOf = <Item>(items: ReadonlyArray<Item>) =>
+      items.slice((page - 1) * pageSize, page * pageSize);
+    const listedPositions =
+      sortBy === PositionSortFields.SYMBOL
+        ? pageOf(
+            sortOrder === SortOrderTypes.DESCENDENT
+              ? matchingPositions.toReversed()
+              : matchingPositions
+          )
+        : matchingPositions;
     const valuedPositions = positions.filter(
       (position) => holdsUnits(position) || listedPositions.includes(position)
     );
@@ -78,15 +96,20 @@ export class GetPortfolioPositionsService {
       )
     ]);
 
+    const listedValues = valuePositionsInBaseCurrency(
+      { baseCurrency, positions, quotes, exchangeRates },
+      listedPositions
+    );
+
     return {
-      items: valuePositionsInBaseCurrency(
-        { baseCurrency, positions, quotes, exchangeRates },
-        listedPositions
-      ),
+      items:
+        sortBy === PositionSortFields.SYMBOL
+          ? listedValues
+          : pageOf(sortPositionsBy(listedValues, sortBy, sortOrder)),
       page,
       pageSize,
-      total: positions.length,
-      totalPages: Math.ceil(positions.length / pageSize)
+      total: matchingPositions.length,
+      totalPages: Math.ceil(matchingPositions.length / pageSize)
     };
   }
 }
@@ -97,6 +120,8 @@ namespace GetPortfolioPositionsService {
     portfolioId: string;
     page: number;
     pageSize: number;
-  };
+    sortBy: PositionSortField;
+    sortOrder: SortOrder;
+  } & PositionFilter;
   export type Result = Page<PortfolioPosition>;
 }

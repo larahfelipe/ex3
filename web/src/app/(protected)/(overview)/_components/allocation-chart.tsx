@@ -2,12 +2,11 @@ import { useId, useState, type FC } from 'react';
 
 import { twMerge } from 'tailwind-merge';
 
-import type {
-  InstrumentType,
-  PortfolioAllocation
-} from '@/app/api/v1/portfolio';
+import type { PortfolioAllocation } from '@/app/api/v1/portfolio';
 import type { Portfolio } from '@/app/api/v1/portfolios';
+import { INSTRUMENT_TYPE_LABELS } from '@/common/constants';
 import { formatPercent } from '@/common/utils';
+import { Amount, UnavailableValue } from '@/components/amounts';
 import {
   Skeleton,
   Table,
@@ -20,7 +19,6 @@ import {
 } from '@/components/ui';
 import { useAllocation } from '@/hooks/use-portfolio';
 
-import { Amount, UnavailableValue } from './amounts';
 import { OverviewSection } from './overview-section';
 
 type AllocationChartProps = Record<'portfolio', Portfolio>;
@@ -36,18 +34,6 @@ type AllocationGroup = Omit<PortfolioAllocation['byType'][number], 'type'> &
 
 type RingArc = Record<'key' | 'className', string> &
   Record<'start' | 'length', number>;
-
-const INSTRUMENT_TYPE_LABELS: Record<InstrumentType, string> = {
-  STOCK: 'Stocks',
-  ETF: 'ETFs',
-  FUND: 'Funds',
-  REIT: 'REITs',
-  CRYPTO: 'Crypto',
-  BOND: 'Bonds',
-  TREASURY: 'Treasuries',
-  CASH: 'Cash',
-  OTHER: 'Other'
-};
 
 const ALLOCATION_VIEWS: AllocationView[] = ['type', 'asset'];
 
