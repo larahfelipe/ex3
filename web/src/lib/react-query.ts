@@ -18,9 +18,6 @@ export const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       retry: QUERY_RETRY_LIMIT
-    },
-    mutations: {
-      retry: 2
     }
   }
 });

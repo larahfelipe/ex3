@@ -1,5 +1,6 @@
 import { useState, type FC } from 'react';
 
+import type { Portfolio } from '@/app/api/v1/portfolios';
 import type { ListedTransaction } from '@/app/api/v1/transactions';
 import {
   TRANSACTION_TYPE_LABELS,
@@ -10,7 +11,9 @@ import {
   formatPrice,
   formatQuantity
 } from '@/common/utils';
+import { DeleteTransactionDialog } from '@/components/delete-transaction-dialog';
 import { TransactionDetailsDialog } from '@/components/transaction-details-dialog';
+import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import {
   Button,
   Table,
@@ -20,19 +23,29 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui';
+import {
+  useDeleteTransaction,
+  useUpdateTransaction
+} from '@/hooks/use-transactions';
 
-type TransactionsTableProps = Record<
-  'transactions',
-  ReadonlyArray<ListedTransaction>
-> &
+type TransactionsTableProps = Record<'portfolio', Portfolio> &
+  Record<'transactions', ReadonlyArray<ListedTransaction>> &
   Record<'hasAssetColumn', boolean>;
 
+type TransactionSelection = {
+  transaction: ListedTransaction;
+  action: 'details' | 'edit' | 'delete';
+};
+
 export const TransactionsTable: FC<TransactionsTableProps> = ({
+  portfolio,
   transactions,
   hasAssetColumn
 }) => {
-  const [selectedTransaction, setSelectedTransaction] =
-    useState<ListedTransaction | null>(null);
+  const [selection, setSelection] = useState<TransactionSelection | null>(null);
+
+  const { mutateAsync: updateTransaction } = useUpdateTransaction(portfolio);
+  const { mutateAsync: deleteTransaction } = useDeleteTransaction(portfolio);
 
   return (
     <>
@@ -87,7 +100,9 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                   variant="link"
                   size="sm"
                   className="h-auto p-0"
-                  onClick={() => setSelectedTransaction(transaction)}
+                  onClick={() =>
+                    setSelection({ transaction, action: 'details' })
+                  }
                 >
                   Details
                   <span className="sr-only">
@@ -101,9 +116,39 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
       </Table>
 
       <TransactionDetailsDialog
-        transaction={selectedTransaction}
-        onClose={() => setSelectedTransaction(null)}
+        transaction={selection?.transaction ?? null}
+        onClose={() => setSelection(null)}
+        onEdit={(transaction) => setSelection({ transaction, action: 'edit' })}
+        onDelete={(transaction) =>
+          setSelection({ transaction, action: 'delete' })
+        }
       />
+
+      {selection?.action === 'edit' && (
+        <TransactionFormDialog
+          target={{ kind: 'edit', transaction: selection.transaction }}
+          onCancel={() => setSelection({ ...selection, action: 'details' })}
+          onSubmit={async (draft) => {
+            await updateTransaction({
+              ...draft,
+              id: selection.transaction.id,
+              currency: selection.transaction.currency
+            });
+            setSelection(null);
+          }}
+        />
+      )}
+
+      {selection?.action === 'delete' && (
+        <DeleteTransactionDialog
+          transaction={selection.transaction}
+          onCancel={() => setSelection({ ...selection, action: 'details' })}
+          onConfirm={async () => {
+            await deleteTransaction({ id: selection.transaction.id });
+            setSelection(null);
+          }}
+        />
+      )}
     </>
   );
 };
