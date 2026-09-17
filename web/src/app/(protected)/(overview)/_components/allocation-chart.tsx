@@ -7,6 +7,7 @@ import type { Portfolio } from '@/app/api/v1/portfolios';
 import { INSTRUMENT_TYPE_LABELS } from '@/common/constants';
 import { formatPercent } from '@/common/utils';
 import { Amount, UnavailableValue } from '@/components/amounts';
+import { QuerySection } from '@/components/query-section';
 import {
   Skeleton,
   Table,
@@ -18,8 +19,6 @@ import {
   TableRow
 } from '@/components/ui';
 import { useAllocation } from '@/hooks/use-portfolio';
-
-import { OverviewSection } from './overview-section';
 
 type AllocationChartProps = Record<'portfolio', Portfolio>;
 
@@ -157,7 +156,7 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
     allocationQuery.data.byType.length > 0;
 
   return (
-    <OverviewSection
+    <QuerySection
       title="Allocation"
       query={allocationQuery}
       errorMessage="The allocation could not be loaded"
@@ -282,6 +281,6 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
           </div>
         );
       }}
-    </OverviewSection>
+    </QuerySection>
   );
 };

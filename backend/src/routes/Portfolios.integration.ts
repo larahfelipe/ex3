@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { before, describe, it, type TestContext } from 'node:test';
 
 import {
+  AssetMessages,
   Errors,
   InstrumentMessages,
   InstrumentTypes,
@@ -891,6 +892,178 @@ describe('portfolios', () => {
         );
       }
     });
+
+    describe('by symbol', () => {
+      const SYMBOL_MAX_LENGTH = 6;
+
+      const AAPL_CATALOG = {
+        type: InstrumentTypes.STOCK,
+        market: 'NASDAQ',
+        currency: 'USD',
+        sector: null
+      };
+
+      const requestPosition = (
+        accessToken: string,
+        symbol: string,
+        portfolioId?: string
+      ) =>
+        client
+          .get(`${PORTFOLIO_POSITIONS_ROUTE}/${encodeURIComponent(symbol)}`)
+          .query({ portfolioId })
+          .set(bearer(accessToken));
+
+      it('describes a position of the portfolio valued in its base currency, next to its catalog and the quote it was valued at', async (t) => {
+        const { user, accessToken } = await signInUser();
+        const portfolio = await createPortfolio(user.id);
+        await holdListedPositions(portfolio.id);
+        const { getQuotes, getExchangeRates } = quoteFrom(
+          t,
+          new FakeMarketDataProvider({
+            PETR4: [{ price: '55', currency: 'BRL', timestamp: OBSERVED_AT }],
+            AAPL: [
+              {
+                price: '450',
+                currency: 'USD',
+                timestamp: OBSERVED_AT,
+                previousClose: '400'
+              }
+            ],
+            USDBRL: [{ price: '5', currency: 'BRL', timestamp: OBSERVED_AT }]
+          })
+        );
+
+        const res = await requestPosition(accessToken, 'aapl', portfolio.id);
+
+        assert.equal(res.status, 200);
+        assert.deepEqual(res.body, {
+          ...AAPL_ITEM,
+          ...AAPL_CATALOG,
+          quote: {
+            price: '450',
+            currency: 'USD',
+            timestamp: OBSERVED_AT.toISOString(),
+            previousClose: '400',
+            dayChange: '50',
+            dayChangePercent: '0.125'
+          }
+        });
+        assert.deepEqual(quotedSymbols(getQuotes), [['AAPL', 'PETR4']]);
+        assert.deepEqual(
+          getExchangeRates.mock.calls.map(({ arguments: args }) => args),
+          [[['USD'], 'BRL']]
+        );
+      });
+
+      it('describes a position without units, quoting it besides those with units', async (t) => {
+        const { user, accessToken } = await signInUser();
+        const portfolio = await createPortfolio(user.id);
+        await holdListedPositions(portfolio.id);
+        const { getQuotes } = quoteFrom(t, pricedMarket());
+
+        const res = await requestPosition(accessToken, 'OIBR3', portfolio.id);
+
+        assert.equal(res.status, 200);
+        assert.deepEqual(res.body, {
+          ...OIBR3_ITEM,
+          type: InstrumentTypes.STOCK,
+          market: 'B3',
+          currency: 'BRL',
+          sector: null,
+          quote: {
+            price: '1.5',
+            currency: 'BRL',
+            timestamp: OBSERVED_AT.toISOString()
+          }
+        });
+        assert.deepEqual(quotedSymbols(getQuotes), [
+          ['AAPL', 'OIBR3', 'PETR4']
+        ]);
+      });
+
+      it('describes the position without the quote and the values that need one the provider could not give', async (t) => {
+        const { user, accessToken } = await signInUser();
+        const portfolio = await createPortfolio(user.id);
+        await holdListedPositions(portfolio.id);
+        quoteFrom(t, new FakeMarketDataProvider({}, { isAvailable: false }));
+
+        const res = await requestPosition(accessToken, 'AAPL', portfolio.id);
+
+        assert.equal(res.status, 200);
+        assert.deepEqual(res.body, {
+          symbol: 'AAPL',
+          name: 'Apple',
+          quantity: '2',
+          baseCurrency: 'BRL',
+          ...AAPL_CATALOG
+        });
+      });
+
+      it('refuses a symbol the portfolio does not hold, even one another portfolio of the caller holds', async (t) => {
+        const { user, accessToken } = await signInUser();
+        const portfolio = await createPortfolio(user.id);
+        const otherPortfolio = await createPortfolio(user.id, {
+          name: 'Other'
+        });
+        await holdPosition(portfolio.id, NAMED_PETR4, PETR4_POSITION);
+        await holdPosition(otherPortfolio.id, AAPL, {
+          quantity: '2',
+          averageCost: '400',
+          investedValue: '800',
+          ledgerCurrency: 'USD'
+        });
+        const { getQuotes } = quoteFrom(t, pricedMarket());
+
+        for (const symbol of ['AAPL', 'NONE']) {
+          const res = await requestPosition(accessToken, symbol, portfolio.id);
+
+          assert.equal(res.status, Errors.NOT_FOUND.status, symbol);
+          assert.equal(res.body.message, AssetMessages.NOT_FOUND);
+        }
+        assert.equal(getQuotes.mock.callCount(), 0);
+      });
+
+      it("answers another user's portfolio exactly like one that does not exist", async () => {
+        const holder = await createUser();
+        const foreignPortfolio = await createPortfolio(holder.id);
+        await holdPosition(foreignPortfolio.id, PETR4, PETR4_POSITION);
+        const { accessToken } = await signInUser(OTHER_USER_EMAIL);
+
+        const foreign = await requestPosition(
+          accessToken,
+          PETR4.symbol,
+          foreignPortfolio.id
+        );
+        const missing = await requestPosition(
+          accessToken,
+          PETR4.symbol,
+          MISSING_PORTFOLIO_ID
+        );
+
+        assert.equal(foreign.status, Errors.NOT_FOUND.status);
+        assert.equal(foreign.body.message, PortfolioMessages.NOT_FOUND);
+        assert.deepEqual(foreign.body, missing.body);
+      });
+
+      it('rejects a missing or malformed portfolio id or symbol', async () => {
+        const { accessToken } = await signInUser();
+
+        for (const [symbol, portfolioId] of [
+          ['PETR4', undefined],
+          ['PETR4', 'not-a-uuid'],
+          [' ', MISSING_PORTFOLIO_ID],
+          ['A'.repeat(SYMBOL_MAX_LENGTH + 1), MISSING_PORTFOLIO_ID]
+        ] as const) {
+          const res = await requestPosition(accessToken, symbol, portfolioId);
+
+          assert.equal(
+            res.status,
+            Errors.BAD_REQUEST.status,
+            JSON.stringify({ symbol, portfolioId })
+          );
+        }
+      });
+    });
   });
 
   describe('allocation', () => {
@@ -1271,6 +1444,74 @@ describe('portfolios', () => {
       });
     });
 
+    it('follows only the position of the symbol, from its own transactions', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await holdPosition(portfolio.id, PETR4, PETR4_POSITION);
+      await holdPosition(
+        portfolio.id,
+        { symbol: 'AAPL', market: 'NASDAQ', currency: 'USD' },
+        {
+          quantity: '2',
+          averageCost: '400',
+          investedValue: '800',
+          ledgerCurrency: 'USD'
+        }
+      );
+      const { getHistoricalPrices, getHistoricalExchangeRate } = historyFrom(
+        t,
+        new FakeMarketDataProvider({
+          PETR4: closesOf('BRL', '50', '55'),
+          AAPL: closesOf('USD', '400', '450'),
+          USDBRL: closesOf('BRL', '5', '5')
+        })
+      );
+
+      const res = await requestPerformance(accessToken, {
+        portfolioId: portfolio.id,
+        range: '1M',
+        symbol: 'petr4'
+      });
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(
+        res.body.series.map(
+          ({ value, investedValue, twr }: Record<string, string>) => ({
+            value,
+            investedValue,
+            twr
+          })
+        ),
+        [
+          { value: '5000', investedValue: '4000', twr: '0' },
+          { value: '5500', investedValue: '4000', twr: '0.1' }
+        ]
+      );
+      assert.deepEqual(
+        getHistoricalPrices.mock.calls.map(
+          ({ arguments: [{ symbol }] }) => symbol
+        ),
+        ['PETR4']
+      );
+      assert.equal(getHistoricalExchangeRate.mock.callCount(), 0);
+    });
+
+    it('refuses a symbol the portfolio does not hold', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await holdPosition(portfolio.id, PETR4, PETR4_POSITION);
+      await createInstrument(BENCHMARK);
+      historyFrom(t, new FakeMarketDataProvider({}));
+
+      const res = await requestPerformance(accessToken, {
+        portfolioId: portfolio.id,
+        symbol: BENCHMARK.symbol
+      });
+
+      assert.equal(res.status, Errors.NOT_FOUND.status);
+      assert.equal(res.body.message, AssetMessages.NOT_FOUND);
+    });
+
     it('refuses a benchmark outside the catalog', async (t) => {
       const { user, accessToken } = await signInUser();
       const portfolio = await createPortfolio(user.id);
@@ -1322,7 +1563,7 @@ describe('portfolios', () => {
       assert.deepEqual(foreign.body, missing.body);
     });
 
-    it('rejects a missing or malformed portfolio id, range or benchmark', async () => {
+    it('rejects a missing or malformed portfolio id, range, benchmark or symbol', async () => {
       const { accessToken } = await signInUser();
 
       for (const query of [
@@ -1330,7 +1571,8 @@ describe('portfolios', () => {
         { portfolioId: 'not-a-uuid' },
         { portfolioId: MISSING_PORTFOLIO_ID, range: '2M' },
         { portfolioId: MISSING_PORTFOLIO_ID, range: '' },
-        { portfolioId: MISSING_PORTFOLIO_ID, benchmark: '' }
+        { portfolioId: MISSING_PORTFOLIO_ID, benchmark: '' },
+        { portfolioId: MISSING_PORTFOLIO_ID, symbol: ' ' }
       ]) {
         const res = await requestPerformance(accessToken, query);
 

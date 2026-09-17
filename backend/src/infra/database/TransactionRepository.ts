@@ -162,12 +162,18 @@ export class TransactionRepository {
    * position can be replayed at each day of a range without a query per day.
    */
   async getLedgerUpTo(
-    params: Pick<Transaction, 'portfolioId'> & Record<'to', Date>
+    params: Pick<Transaction, 'portfolioId'> &
+      Partial<Pick<Transaction, 'instrumentId'>> &
+      Record<'to', Date>
   ) {
-    const { portfolioId, to } = params;
+    const { portfolioId, instrumentId, to } = params;
 
     return this.prismaClient.transaction.findMany({
-      where: { portfolioId, executedAt: { lt: to } },
+      where: {
+        portfolioId,
+        ...(instrumentId !== undefined && { instrumentId }),
+        executedAt: { lt: to }
+      },
       orderBy: [{ executedAt: 'asc' }, { sequence: 'asc' }],
       select: {
         instrumentId: true,

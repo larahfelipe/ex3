@@ -19,6 +19,7 @@ import {
   GetPortfolioAllocationService,
   GetPortfolioOverviewService,
   GetPortfolioPerformanceService,
+  GetPortfolioPositionService,
   GetPortfolioPositionsService,
   GetPortfolioService
 } from '@/services/portfolio';
@@ -29,6 +30,7 @@ import { GetPortfolioAllocationController } from './GetPortfolioAllocationContro
 import { GetPortfolioController } from './GetPortfolioController';
 import { GetPortfolioOverviewController } from './GetPortfolioOverviewController';
 import { GetPortfolioPerformanceController } from './GetPortfolioPerformanceController';
+import { GetPortfolioPositionController } from './GetPortfolioPositionController';
 import { GetPortfolioPositionsController } from './GetPortfolioPositionsController';
 
 export const createPortfolioControllerHandler = (
@@ -120,6 +122,7 @@ export const getPortfolioPerformanceControllerHandler = (
   req: Request,
   res: Response
 ) => {
+  const assetRepository = AssetRepository.getInstance();
   const instrumentRepository = InstrumentRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
   const transactionRepository = TransactionRepository.getInstance();
@@ -129,6 +132,7 @@ export const getPortfolioPerformanceControllerHandler = (
 
   const getPortfolioPerformanceService =
     GetPortfolioPerformanceService.getInstance(
+      assetRepository,
       instrumentRepository,
       portfolioRepository,
       transactionRepository,
@@ -149,6 +153,26 @@ export const getPortfolioPerformanceControllerHandler = (
     );
 
   return getPortfolioPerformanceController.handle(req, res);
+};
+
+export const getPortfolioPositionControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const assetRepository = AssetRepository.getInstance();
+  const portfolioRepository = PortfolioRepository.getInstance();
+  const marketDataProvider = YahooFinanceProvider.getInstance();
+
+  const getPortfolioPositionService = GetPortfolioPositionService.getInstance(
+    assetRepository,
+    portfolioRepository,
+    marketDataProvider
+  );
+
+  const getPortfolioPositionController =
+    GetPortfolioPositionController.getInstance(getPortfolioPositionService);
+
+  return getPortfolioPositionController.handle(req, res);
 };
 
 export const getPortfolioPositionsControllerHandler = (

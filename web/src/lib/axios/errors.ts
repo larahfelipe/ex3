@@ -18,6 +18,12 @@ export type ApiProxyErrorData = {
 
 export interface IApiProxyError extends WithStatusHeader, ApiProxyErrorData {}
 
+const NOT_FOUND_ERROR_CODE = 'NOT_FOUND';
+
+export const isNotFoundError = ({
+  _error
+}: Pick<ApiProxyErrorData, '_error'>) => _error?.code === NOT_FOUND_ERROR_CODE;
+
 export class ApiProxyError extends AxiosError implements IApiProxyError {
   _error: ApiServerErrorData | null = null;
   statusText: string = 'Internal Server Error';

@@ -2,6 +2,8 @@ import type { DecimalString } from '@/types';
 
 const PERCENT_FRACTION_DIGITS = 2;
 
+const UNIT_AMOUNT_SIGNIFICANT_DIGITS = 4;
+
 const QUOTE_TIME_FORMAT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
@@ -46,6 +48,13 @@ export const formatPrice = (price: DecimalString, currency: string) =>
       decimalPlacesOf(price),
       currencyFractionDigits(currency)
     )
+  });
+
+/** Keeps the amount of a unit below one cent, such as a crypto unit's price, from rounding to zero. */
+export const formatUnitAmount = (amount: DecimalString, currency: string) =>
+  formatMoney(amount, currency, {
+    maximumSignificantDigits: UNIT_AMOUNT_SIGNIFICANT_DIGITS,
+    roundingPriority: 'morePrecision'
   });
 
 export const formatQuantity = (quantity: DecimalString) =>

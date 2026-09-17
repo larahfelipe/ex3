@@ -15,5 +15,6 @@ export const GetPortfolioPerformanceSchema = z.object({
       `Range must be one of ${PERFORMANCE_RANGES.join(', ')}`
     )
     .default(PerformanceRanges.ONE_YEAR),
-  benchmark: AssetSymbolSchema.optional()
+  benchmark: AssetSymbolSchema.optional(),
+  symbol: AssetSymbolSchema.optional()
 });

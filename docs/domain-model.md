@@ -146,6 +146,12 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em
 * `search` compara, sem diferenciar caixa, com `symbol` e `name`; `type`, com a classe do instrumento; e `status` separa as posições com unidades (`open`) das sem unidades (`closed`). `total` e `totalPages` contam só as posições filtradas, e a alocação continua sobre a carteira inteira.
 * Valores e frações são truncados em direção a zero em 18 casas, e o resultado é a diferença exata.
 
+`GET /v1/portfolio/positions/:symbol` descreve uma posição com `describePosition`, no mesmo arquivo:
+
+* Os campos de valor são os do item acima, calculados da mesma forma. A alocação continua sobre a carteira inteira, então a descrição de uma posição cota também todas as posições com unidades.
+* `type`, `market`, `currency` e `sector` vêm do catálogo. `quote` traz a cotação corrente na moeda em que foi cotada, sem conversão, e fica fora do corpo sem cotação.
+* `dayChange` é `price − previousClose`, e `dayChangePercent` é `dayChange ÷ previousClose`, como fração, ambos truncados em direção a zero em 18 casas. Sem `previousClose` saem os dois; com ele zero, só o percentual.
+
 ### Alocação da carteira
 
 `GET /v1/portfolio/allocation` distribui o valor de uma carteira, na `baseCurrency` dela, por ativo, tipo, setor e moeda, também em `backend/src/domain/PortfolioValuation.ts`:
@@ -179,6 +185,7 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em
 * Um dia só vira ponto quando toda posição detida nele, e toda transação executada nele, tem fechamento e câmbio para a moeda base. Dia parcial responderia uma carteira menor do que ela é, como se tivesse perdido valor, então fica fora da série.
 * `netContribution` é o caixa do dia: `BUY` soma quantidade × preço mais taxas e impostos, `SELL` subtrai o líquido. `twr` é o retorno ponderado no tempo acumulado desde o primeiro ponto, encadeando `(value − netContribution) ÷ valor do dia anterior`, de modo que dinheiro que entrou ou saiu no dia não conta como ganho. Lacuna na série faz o retorno seguinte abranger a lacuna.
 * `benchmark` é opcional e nomeia um símbolo do catálogo: o corpo ganha `{ symbol, currency, series }`, cada ponto com `close` e o `twr` sobre o primeiro fechamento da janela, comparável ao da carteira. O retorno do benchmark é o da moeda em que ele é cotado, sem conversão para a moeda base (TD-030).
+* `symbol` é opcional e restringe o razão às transações da posição daquele símbolo na carteira, então valor, aporte e retorno de toda a série são só dela. Símbolo sem posição na carteira responde `404`.
 * Índice de mercado não é cotável hoje, porque o padrão de símbolo do catálogo recusa `^BVSP`, então a comparação é com ETF que replica o índice, como `BOVA11` ou `IVV`.
 
 ## Fonte de cotação

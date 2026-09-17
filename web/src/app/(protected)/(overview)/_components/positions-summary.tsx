@@ -3,9 +3,14 @@ import { useState, type FC } from 'react';
 import Link from 'next/link';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
-import { APP_ROUTES, ASSET_DIALOG_ACTIONS } from '@/common/constants';
+import {
+  APP_ROUTES,
+  ASSET_DIALOG_ACTIONS,
+  assetDetailRoute
+} from '@/common/constants';
 import { formatPercent, formatQuantity } from '@/common/utils';
 import { Amount, SignedAmount, UnavailableValue } from '@/components/amounts';
+import { QuerySection } from '@/components/query-section';
 import {
   Button,
   Skeleton,
@@ -17,8 +22,6 @@ import {
   TableRow
 } from '@/components/ui';
 import { usePositions } from '@/hooks/use-portfolio';
-
-import { OverviewSection } from './overview-section';
 
 type PositionsSummaryProps = Record<'portfolio', Portfolio> &
   Partial<Record<'className', string>>;
@@ -39,7 +42,7 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
   });
 
   return (
-    <OverviewSection
+    <QuerySection
       title="Positions"
       className={className}
       query={positionsQuery}
@@ -82,8 +85,16 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
               {items.map((position) => (
                 <TableRow key={position.symbol}>
                   <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{position.symbol}</span>
+                    <div className="flex flex-col items-start">
+                      <Button
+                        asChild
+                        variant="link"
+                        className="h-auto p-0 font-medium"
+                      >
+                        <Link href={assetDetailRoute(position.symbol)}>
+                          {position.symbol}
+                        </Link>
+                      </Button>
 
                       <span className="text-xs text-muted-foreground">
                         {position.name}
@@ -155,6 +166,6 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
           )}
         </div>
       )}
-    </OverviewSection>
+    </QuerySection>
   );
 };

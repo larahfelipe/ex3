@@ -7,7 +7,7 @@ import { LoadErrorAlert } from '@/components/load-error-alert';
 import { Card, CardContent, CardHeader } from '@/components/ui';
 import type { ApiProxyErrorData } from '@/lib/axios';
 
-type OverviewSectionProps<Content> = {
+type QuerySectionProps<Content> = {
   title: string;
   action?: ReactNode;
   className?: string;
@@ -22,7 +22,7 @@ type OverviewSectionProps<Content> = {
   children: (content: Content) => ReactNode;
 };
 
-export const OverviewSection = <Content,>({
+export const QuerySection = <Content,>({
   title,
   action,
   className,
@@ -32,7 +32,7 @@ export const OverviewSection = <Content,>({
   empty,
   isEmpty,
   children
-}: OverviewSectionProps<Content>) => {
+}: QuerySectionProps<Content>) => {
   const headingId = useId();
   const { data, isError, refetch } = query;
 
