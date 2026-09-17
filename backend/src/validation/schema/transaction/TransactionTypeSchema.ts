@@ -4,6 +4,10 @@ import { z } from 'zod';
 // when this schema loads, and `z.enum` reads the object right away.
 import { RecordableTransactionTypes } from '@/config/Constants';
 
+const RECORDABLE_TYPE_LIST = Object.values(RecordableTransactionTypes)
+  .map((type) => `\`${type}\``)
+  .join(', ');
+
 export const TransactionTypeSchema = z
   .string()
   .trim()
@@ -11,6 +15,6 @@ export const TransactionTypeSchema = z
   .pipe(
     z.enum(
       RecordableTransactionTypes,
-      'Transaction type must be either `BUY` or `SELL`'
+      `Transaction type must be one of ${RECORDABLE_TYPE_LIST}`
     )
   );

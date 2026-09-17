@@ -122,6 +122,7 @@ enum TransactionType {
   BUY
   SELL
   DIVIDEND
+  JCP
   INTEREST
   DEPOSIT
   WITHDRAWAL

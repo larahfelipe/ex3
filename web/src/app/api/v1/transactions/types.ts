@@ -11,7 +11,8 @@ import type {
 import type { Asset } from '../assets';
 import type { PortfolioScopeParams } from '../portfolio';
 
-export type TransactionType = 'BUY' | 'SELL';
+export type TransactionType =
+  'BUY' | 'SELL' | 'DIVIDEND' | 'JCP' | 'INTEREST' | 'BONUS';
 
 export type TransactionProperties = {
   type: TransactionType;

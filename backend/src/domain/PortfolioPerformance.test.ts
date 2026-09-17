@@ -155,6 +155,76 @@ describe('trackPortfolioPerformance', () => {
     );
   });
 
+  it('counts the income paid out on a day, net of fees and taxes, as a return of that day', () => {
+    const { series } = trackPortfolioPerformance({
+      baseCurrency: 'BRL',
+      range: RANGE,
+      ledger: [
+        ...BOUGHT_IN_BASE_CURRENCY,
+        {
+          ...tradeOf(
+            TransactionTypes.JCP,
+            '2026-09-15T13:00:00.000Z',
+            '10',
+            '1'
+          ),
+          taxes: '1'
+        }
+      ],
+      instruments: quotedIn('BRL', [
+        closeOn('2026-09-14', '10'),
+        closeOn('2026-09-15', '10')
+      ]),
+      ratesByCurrency: new Map()
+    });
+
+    assert.deepEqual(
+      series.map(({ value, netContribution, twr }) => ({
+        value,
+        netContribution,
+        twr
+      })),
+      [
+        { value: '100', netContribution: '100', twr: '0' },
+        { value: '100', netContribution: '-9', twr: '0.09' }
+      ]
+    );
+  });
+
+  it('does not count the units a BONUS adds as money put in', () => {
+    const { series } = trackPortfolioPerformance({
+      baseCurrency: 'BRL',
+      range: RANGE,
+      ledger: [
+        ...BOUGHT_IN_BASE_CURRENCY,
+        tradeOf(TransactionTypes.BONUS, '2026-09-15T13:00:00.000Z', '10', '5')
+      ],
+      instruments: quotedIn('BRL', [
+        closeOn('2026-09-14', '10'),
+        closeOn('2026-09-15', '5')
+      ]),
+      ratesByCurrency: new Map()
+    });
+
+    assert.deepEqual(
+      series.map(({ value, investedValue, netContribution, twr }) => ({
+        value,
+        investedValue,
+        netContribution,
+        twr
+      })),
+      [
+        {
+          value: '100',
+          investedValue: '100',
+          netContribution: '100',
+          twr: '0'
+        },
+        { value: '100', investedValue: '150', netContribution: '0', twr: '0' }
+      ]
+    );
+  });
+
   it('takes a position quoted in another currency to the base currency', () => {
     const { series } = trackPortfolioPerformance({
       baseCurrency: 'BRL',

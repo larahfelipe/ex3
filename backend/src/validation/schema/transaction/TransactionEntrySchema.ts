@@ -1,8 +1,14 @@
 import { z } from 'zod';
 
+import { TransactionTypes } from '@/config/Constants';
+
 import { boundedTextSchema } from '../BoundedTextSchema';
 import { currencyCodeSchema } from '../CurrencyCodeSchema';
-import { decimalSchema, positiveDecimalSchema } from '../DecimalSchema';
+import {
+  decimalSchema,
+  NONZERO_DIGIT,
+  positiveDecimalSchema
+} from '../DecimalSchema';
 import { TransactionTypeSchema } from './TransactionTypeSchema';
 
 /**
@@ -28,7 +34,7 @@ export const ExecutionTimeSchema = z.iso
 export const TransactionEntrySchema = z.object({
   type: TransactionTypeSchema,
   quantity: positiveDecimalSchema('Transaction quantity'),
-  unitPrice: positiveDecimalSchema('Transaction unit price'),
+  unitPrice: decimalSchema('Transaction unit price'),
   fees: decimalSchema('Transaction fees').default('0'),
   taxes: decimalSchema('Transaction taxes').default('0'),
   currency: currencyCodeSchema('Transaction currency'),
@@ -38,3 +44,18 @@ export const TransactionEntrySchema = z.object({
     .nullable()
     .default(null)
 });
+
+export const requireUnitPriceUnlessBonus = (
+  {
+    type,
+    unitPrice
+  }: Pick<z.output<typeof TransactionEntrySchema>, 'type' | 'unitPrice'>,
+  ctx: z.RefinementCtx
+) => {
+  if (type !== TransactionTypes.BONUS && !NONZERO_DIGIT.test(unitPrice))
+    ctx.addIssue({
+      code: 'custom',
+      path: ['unitPrice'],
+      message: 'Transaction unit price must be greater than zero'
+    });
+};

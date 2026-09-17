@@ -2,6 +2,7 @@ export type TransactionType =
   | 'BUY'
   | 'SELL'
   | 'DIVIDEND'
+  | 'JCP'
   | 'INTEREST'
   | 'DEPOSIT'
   | 'WITHDRAWAL'

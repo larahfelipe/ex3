@@ -141,9 +141,10 @@ const cashFlowOf = ({
   const traded = new ValuationDecimal(quantity).mul(unitPrice);
   const charges = new ValuationDecimal(fees).add(taxes);
 
-  return type === TransactionTypes.BUY
-    ? traded.add(charges)
-    : traded.sub(charges).neg();
+  if (type === TransactionTypes.BUY) return traded.add(charges);
+  if (type === TransactionTypes.BONUS) return charges;
+
+  return traded.sub(charges).neg();
 };
 
 const returnsOf = (

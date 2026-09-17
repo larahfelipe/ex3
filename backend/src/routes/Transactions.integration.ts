@@ -563,7 +563,7 @@ describe('transactions', () => {
     it('rejects a malformed filter or page', async () => {
       const { list } = await seedLedger();
       const malformedQueries: Array<Record<string, string | number>> = [
-        { type: 'DIVIDEND' },
+        { type: 'SPLIT' },
         { symbol: ' ' },
         { broker: ' ' },
         { dateFrom: '2026-01-05' },
@@ -746,6 +746,63 @@ describe('transactions', () => {
         quantity: '6',
         averageCost: '10',
         investedValue: '60'
+      });
+    });
+
+    it('records DIVIDEND, JCP and INTEREST as income that moves neither the quantity nor the cost', async () => {
+      const { asset, record } = await openEmptyPosition();
+      await record({ type: 'BUY', quantity: '10', unitPrice: '10' });
+
+      const recorded = [];
+
+      for (const type of [
+        TransactionTypes.DIVIDEND,
+        TransactionTypes.JCP,
+        TransactionTypes.INTEREST
+      ]) {
+        const res = await record({
+          type,
+          quantity: '10',
+          unitPrice: '0.5',
+          taxes: '0.75'
+        });
+
+        recorded.push([res.status, res.body.transaction.type]);
+      }
+
+      assert.deepEqual(recorded, [
+        [201, TransactionTypes.DIVIDEND],
+        [201, TransactionTypes.JCP],
+        [201, TransactionTypes.INTEREST]
+      ]);
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: '10',
+        averageCost: '10',
+        investedValue: '100'
+      });
+    });
+
+    it('adds a BONUS to the position at its attributed cost, zero included', async () => {
+      const { asset, record } = await openEmptyPosition();
+      await record({ type: 'BUY', quantity: '10', unitPrice: '12' });
+
+      const unpriced = await record({
+        type: 'BONUS',
+        quantity: '2',
+        unitPrice: '0'
+      });
+      const priced = await record({
+        type: 'BONUS',
+        quantity: '8',
+        unitPrice: '3'
+      });
+
+      assert.equal(unpriced.status, 201);
+      assert.equal(priced.status, 201);
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: '20',
+        averageCost: '7.2',
+        investedValue: '144'
       });
     });
 
@@ -1439,13 +1496,7 @@ describe('transactions', () => {
         await signInWithPortfolio(FIXTURE_USER_EMAIL);
       const asset = await createAsset({ portfolioId: portfolio.id });
 
-      for (const type of [
-        '',
-        '   ',
-        'HOLD',
-        'BUYS',
-        TransactionTypes.DIVIDEND
-      ]) {
+      for (const type of ['', '   ', 'HOLD', 'BUYS', TransactionTypes.SPLIT]) {
         const res = await client
           .post(CREATE_TRANSACTION_ROUTE)
           .set(bearer(accessToken))
@@ -1560,6 +1611,35 @@ describe('transactions', () => {
           { ...ACCEPTED_ENTRY, taxes: value }
         ])
       ]);
+    });
+
+    it('rejects a zero unit price on every type but BONUS, and changes nothing', async () => {
+      const seeded = await seedHolderAndIntruder();
+      const unpricedEntries = [
+        TransactionTypes.SELL,
+        TransactionTypes.DIVIDEND,
+        TransactionTypes.JCP,
+        TransactionTypes.INTEREST
+      ].map((type) => ({ ...ACCEPTED_ENTRY, type, unitPrice: '0' }));
+
+      const res = await client
+        .post(CREATE_TRANSACTION_ROUTE)
+        .set(bearer(seeded.holderToken))
+        .send({
+          ...ACCEPTED_ENTRY,
+          type: TransactionTypes.JCP,
+          unitPrice: '0',
+          assetSymbol: seeded.holder.asset.symbol,
+          portfolioId: seeded.holder.portfolio.id
+        });
+
+      assert.deepEqual(res.body.details, [
+        {
+          path: 'unitPrice',
+          message: 'Transaction unit price must be greater than zero'
+        }
+      ]);
+      await assertEntriesRejected(seeded, unpricedEntries);
     });
 
     it('rejects a missing or malformed currency or execution time, and changes nothing', async () => {
