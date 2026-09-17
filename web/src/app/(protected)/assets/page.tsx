@@ -1,31 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
 import { useSearchParams } from 'next/navigation';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { toast } from 'sonner';
 
 import { ASSET_DIALOG_ACTIONS, TRANSACTION_TYPES } from '@/common/constants';
 import { replaceUrl } from '@/common/utils';
-import { Card } from '@/components/ui';
-import {
-  useAssets,
-  useAssetValuations,
-  useCreateAsset,
-  useDeleteAsset
-} from '@/hooks/use-assets';
+import { LoadErrorAlert } from '@/components/load-error-alert';
+import { Button, Skeleton } from '@/components/ui';
+import { useCreateAsset, useDeleteAsset } from '@/hooks/use-assets';
 import { useDisclosure } from '@/hooks/use-disclosure';
-import {
-  useAllocation,
-  usePortfolioOverview,
-  usePrimaryPortfolio,
-  useRefreshPortfolio
-} from '@/hooks/use-portfolio';
+import { usePrimaryPortfolio } from '@/hooks/use-portfolio';
 import { useCreateTransaction } from '@/hooks/use-transactions';
-import type { Maybe, Pagination as TPagination } from '@/types';
+import type { Maybe } from '@/types';
 
 import {
   AddAssetDialog,
@@ -38,27 +28,16 @@ import {
   type AddAssetTransactionSchemaInput,
   type AddAssetTransactionSchemaType
 } from './_components/add-asset-transaction-dialog';
-import { AssetsTable, type DispatchType } from './_components/assets-table';
 import { DeleteAssetDialog } from './_components/delete-asset-dialog';
+import { PositionsTable } from './_components/positions-table';
 
 type AssetDialogActions =
   (typeof ASSET_DIALOG_ACTIONS)[keyof typeof ASSET_DIALOG_ACTIONS];
 
-export type PageRequest = Pick<TPagination, 'page' | 'limit'>;
-
-export const LimitPerPageOptions = ['5', '10', '25', '50'];
-
-export const PaginationInitialState: PageRequest = {
-  page: 1,
-  limit: +LimitPerPageOptions[0]
-};
-
 export default function Assets() {
-  const [dialogAction, setDialogAction] = useState('' as AssetDialogActions);
+  const [dialogAction, setDialogAction] =
+    useState<Maybe<AssetDialogActions>>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<Maybe<string>>(null);
-  const [requestedPage, setRequestedPage] = useState<PageRequest>(
-    PaginationInitialState
-  );
 
   const [opened, { toggle }] = useDisclosure(false);
 
@@ -97,32 +76,13 @@ export default function Assets() {
     [dialogAction, opened, toggle]
   );
 
-  const { data: portfolio, isLoading: isLoadingPortfolio } =
-    usePrimaryPortfolio();
-
-  const refreshPortfolio = useRefreshPortfolio(portfolio);
-
-  const { data, isLoading, isRefetching } = useAssets(portfolio, requestedPage);
-
-  const { data: valuations, isLoading: isLoadingValuations } =
-    useAssetValuations(portfolio, data);
-
-  const { data: overview, isLoading: isLoadingOverview } =
-    usePortfolioOverview(portfolio);
-
-  const { data: allocation, isLoading: isLoadingAllocation } =
-    useAllocation(portfolio);
-
-  const allocationBySymbol = useMemo(
-    () =>
-      allocation &&
-      new Map(
-        allocation.byAsset.flatMap(({ symbol, allocation: share }) =>
-          share === undefined ? [] : [[symbol, share] as const]
-        )
-      ),
-    [allocation]
-  );
+  const {
+    data: portfolio,
+    isPending,
+    isError,
+    isSuccess,
+    refetch
+  } = usePrimaryPortfolio();
 
   const { mutateAsync: createAssetMutation } = useCreateAsset(portfolio);
 
@@ -131,63 +91,10 @@ export default function Assets() {
 
   const { mutateAsync: deleteAssetMutation } = useDeleteAsset(portfolio);
 
-  const handleDispatch = useCallback(
-    async (type: DispatchType, payload?: unknown) => {
-      try {
-        switch (type) {
-          case 'refetchAssets':
-            await refreshPortfolio();
-            break;
-          case 'createAsset':
-            handleToggleDialog(ASSET_DIALOG_ACTIONS.Add);
-            break;
-          case 'createAssetTransaction':
-            handleToggleDialog(ASSET_DIALOG_ACTIONS.AddTransaction);
-            break;
-          // TODO:
-          // case 'editAsset':
-          //   if (!payload) throw new Error('EditAssetError: Missing asset');
-          //   setSelectedAsset(payload as Asset);
-          //   break;
-          case 'deleteAsset':
-            if (typeof payload !== 'string')
-              throw new Error('Missing asset symbol');
-            setSelectedSymbol(payload);
-            handleToggleDialog(ASSET_DIALOG_ACTIONS.Delete);
-            break;
-          case 'setSelectedAsset':
-            setSelectedSymbol(typeof payload === 'string' ? payload : null);
-            break;
-          case 'setPage':
-            if (!payload) throw new Error('Missing page number');
-            setRequestedPage((state) => ({
-              ...state,
-              page: payload as number
-            }));
-            break;
-          case 'setLimit':
-            if (typeof payload !== 'number')
-              throw new Error('Missing limit param');
-            setRequestedPage({
-              page: PaginationInitialState.page,
-              limit: payload
-            });
-            break;
-          // TODO:
-          // case 'setSortOrder':
-          //   if (!payload)
-          //     throw new Error('setSortOrderError: Missing sort param');
-          //   break;
-          default:
-            throw new Error(`Dispatch type for "${type}" is not defined`);
-        }
-      } catch (e) {
-        const { message } = e as Error;
-        toast.error(message);
-      }
-    },
-    [refreshPortfolio, handleToggleDialog]
-  );
+  const openDialogFor = (action: AssetDialogActions) => (symbol: string) => {
+    setSelectedSymbol(symbol);
+    handleToggleDialog(action);
+  };
 
   useEffect(() => {
     if (!searchParams.size) return;
@@ -202,7 +109,58 @@ export default function Assets() {
   }, [searchParams, opened, handleToggleDialog]);
 
   return (
-    <>
+    <div className="space-y-6 px-3 py-8 sm:px-4">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-bold">Assets</h1>
+
+          {isPending && <Skeleton className="h-5 w-48" />}
+
+          {portfolio && (
+            <p className="text-sm text-muted-foreground">
+              {`${portfolio.name} · Base currency ${portfolio.baseCurrency}`}
+            </p>
+          )}
+        </div>
+
+        {portfolio && (
+          <Button
+            className="h-9 max-sm:w-full"
+            onClick={() => handleToggleDialog(ASSET_DIALOG_ACTIONS.Add)}
+          >
+            Add asset
+          </Button>
+        )}
+      </header>
+
+      {isPending && (
+        <div aria-busy="true">
+          <Skeleton className="h-96 w-full rounded-xl" />
+        </div>
+      )}
+
+      {isError && !portfolio && (
+        <LoadErrorAlert
+          message="Your portfolio could not be loaded"
+          onRetry={refetch}
+        />
+      )}
+
+      {isSuccess && !portfolio && (
+        <p className="text-sm text-muted-foreground">
+          No portfolio found for this account
+        </p>
+      )}
+
+      {portfolio && (
+        <PositionsTable
+          portfolio={portfolio}
+          onAddAsset={() => handleToggleDialog(ASSET_DIALOG_ACTIONS.Add)}
+          onAddTransaction={openDialogFor(ASSET_DIALOG_ACTIONS.AddTransaction)}
+          onDeleteAsset={openDialogFor(ASSET_DIALOG_ACTIONS.Delete)}
+        />
+      )}
+
       <FormProvider {...addAssetFormMethods}>
         <AddAssetDialog
           open={opened && dialogAction === ASSET_DIALOG_ACTIONS.Add}
@@ -233,24 +191,6 @@ export default function Assets() {
         onCancel={handleToggleDialog}
         onConfirm={deleteAssetMutation}
       />
-
-      <Card className="h-fit mt-8 px-5 py-8 mx-3 shadow-none sm:mx-4 sm:pt-6 sm:pb-2">
-        <AssetsTable
-          data={{
-            requestedPage,
-            selectedSymbol,
-            baseCurrency: portfolio?.baseCurrency,
-            result: data,
-            valuations,
-            allocationBySymbol,
-            investedValue: overview?.investedValue
-          }}
-          loading={isLoadingPortfolio || isLoading || isRefetching}
-          loadingValuations={isLoadingValuations}
-          loadingShares={isLoadingOverview || isLoadingAllocation}
-          onDispatch={handleDispatch}
-        />
-      </Card>
-    </>
+    </div>
   );
 }

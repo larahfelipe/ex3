@@ -1,6 +1,7 @@
 import { type ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies';
 import { Inter, Raleway } from 'next/font/google';
 
+import type { InstrumentType } from '@/app/api/v1/portfolio';
 import type { TransactionType } from '@/app/api/v1/transactions';
 
 export const inter = Inter({
@@ -56,10 +57,33 @@ export const TRANSACTION_TYPE_TONES: Record<TransactionType, string> = {
   SELL: 'text-red-600'
 };
 
+export const INSTRUMENT_TYPE_LABELS: Record<InstrumentType, string> = {
+  STOCK: 'Stocks',
+  ETF: 'ETFs',
+  FUND: 'Funds',
+  REIT: 'REITs',
+  CRYPTO: 'Crypto',
+  BOND: 'Bonds',
+  TREASURY: 'Treasuries',
+  CASH: 'Cash',
+  OTHER: 'Other'
+};
+
+export const INSTRUMENT_TYPES: Array<InstrumentType> = [
+  'STOCK',
+  'ETF',
+  'FUND',
+  'REIT',
+  'CRYPTO',
+  'BOND',
+  'TREASURY',
+  'CASH',
+  'OTHER'
+];
+
 export const ASSET_DIALOG_ACTIONS = {
   Add: 'add-asset',
   AddTransaction: 'add-transaction',
-  Edit: 'edit-asset',
   Delete: 'delete-asset'
 } as const;
 

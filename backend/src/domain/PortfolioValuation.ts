@@ -1,5 +1,7 @@
 import type { Prisma } from '@prisma/client';
 
+import { SortOrderTypes } from '@/config/Constants';
+
 import type { Quote, QuoteLookup } from './MarketDataProvider';
 import type { Instrument, Portfolio, Position } from './models';
 import {
@@ -45,6 +47,36 @@ export type PortfolioPosition = Pick<
 
 export type AllocatedPosition = ListedPosition &
   Pick<Instrument, 'type' | 'sector' | 'currency'>;
+
+export const PositionStatuses = {
+  OPEN: 'open',
+  CLOSED: 'closed'
+} as const;
+
+export type PositionStatus =
+  (typeof PositionStatuses)[keyof typeof PositionStatuses];
+
+export type PositionFilter = Partial<{
+  search: string;
+  type: Instrument['type'];
+  status: PositionStatus;
+}>;
+
+export const PositionSortFields = {
+  SYMBOL: 'symbol',
+  QUANTITY: 'quantity',
+  AVERAGE_COST: 'averageCost',
+  MARKET_PRICE: 'marketPrice',
+  MARKET_VALUE: 'marketValue',
+  ALLOCATION: 'allocation',
+  PROFIT_LOSS: 'profitLoss',
+  PROFIT_LOSS_PERCENT: 'profitLossPercent'
+} as const satisfies Record<string, keyof PortfolioPosition>;
+
+export type PositionSortField =
+  (typeof PositionSortFields)[keyof typeof PositionSortFields];
+
+export type SortOrder = (typeof SortOrderTypes)[keyof typeof SortOrderTypes];
 
 type AllocationShare = Pick<PortfolioPosition, 'marketValue' | 'allocation'>;
 
@@ -270,6 +302,46 @@ export const valuePositionsInBaseCurrency = (
       };
     }
   );
+};
+
+export const matchesPositionFilter =
+  ({ search, type, status }: PositionFilter) =>
+  (
+    position: Pick<AllocatedPosition, 'symbol' | 'name' | 'type' | 'quantity'>
+  ) => {
+    const searchTerm = search?.toLowerCase();
+
+    return (
+      (searchTerm === undefined ||
+        [position.symbol, position.name].some((text) =>
+          text.toLowerCase().includes(searchTerm)
+        )) &&
+      (type === undefined || position.type === type) &&
+      (status === undefined ||
+        holdsUnits(position) === (status === PositionStatuses.OPEN))
+    );
+  };
+
+/**
+ * Positions without the value go last in either direction. The sort is stable,
+ * so ties keep the order the positions came in.
+ */
+export const sortPositionsBy = (
+  positions: ReadonlyArray<PortfolioPosition>,
+  sortBy: Exclude<PositionSortField, typeof PositionSortFields.SYMBOL>,
+  sortOrder: SortOrder
+) => {
+  const direction = sortOrder === SortOrderTypes.DESCENDENT ? -1 : 1;
+
+  return positions.toSorted((a, b) => {
+    const valueA = a[sortBy];
+    const valueB = b[sortBy];
+
+    if (valueA === undefined) return valueB === undefined ? 0 : 1;
+    if (valueB === undefined) return -1;
+
+    return direction * new ValuationDecimal(valueA).cmp(valueB);
+  });
 };
 
 const shareOf = (

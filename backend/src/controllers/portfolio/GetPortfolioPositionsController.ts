@@ -28,16 +28,27 @@ export class GetPortfolioPositionsController implements Controller {
   async handle(req: Request, res: Response) {
     const { user, query } = req;
 
-    const { portfolioId, page, pageSize } = await validate(
-      GetPortfolioPositionsSchema,
-      query
-    );
+    const {
+      portfolioId,
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      search,
+      type,
+      status
+    } = await validate(GetPortfolioPositionsSchema, query);
 
     const result = await this.getPortfolioPositionsService.execute({
       userId: user.id,
       portfolioId,
       page,
-      pageSize
+      pageSize,
+      sortBy,
+      sortOrder,
+      search,
+      type,
+      status
     });
 
     return res.status(200).json(result);

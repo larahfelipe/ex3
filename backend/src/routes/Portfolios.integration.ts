@@ -493,16 +493,24 @@ describe('portfolios', () => {
   });
 
   describe('positions', () => {
-    const NAMED_PETR4 = { ...PETR4, name: 'Petrobras' };
+    const SEARCH_MAX_LENGTH = 120;
+
+    const NAMED_PETR4 = {
+      ...PETR4,
+      name: 'Petrobras',
+      type: InstrumentTypes.STOCK
+    };
     const AAPL = {
       symbol: 'AAPL',
       name: 'Apple',
+      type: InstrumentTypes.STOCK,
       market: 'NASDAQ',
       currency: 'USD'
     };
     const OIBR3 = {
       symbol: 'OIBR3',
       name: 'Oi',
+      type: InstrumentTypes.STOCK,
       market: 'B3',
       currency: 'BRL'
     };
@@ -662,6 +670,132 @@ describe('portfolios', () => {
       ]);
     });
 
+    it('lists the positions in reverse symbol order, quoting besides the listed ones only those with units', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await holdListedPositions(portfolio.id);
+      const { getQuotes } = quoteFrom(t, pricedMarket());
+
+      const firstPage = await requestPositions(accessToken, {
+        portfolioId: portfolio.id,
+        sortOrder: 'desc',
+        pageSize: 2
+      });
+      const lastPage = await requestPositions(accessToken, {
+        portfolioId: portfolio.id,
+        sortOrder: 'desc',
+        page: 2,
+        pageSize: 2
+      });
+
+      assert.equal(firstPage.status, 200);
+      assert.deepEqual(firstPage.body.items, [PETR4_ITEM, OIBR3_ITEM]);
+      assert.equal(lastPage.status, 200);
+      assert.deepEqual(lastPage.body.items, [AAPL_ITEM]);
+      assert.deepEqual(quotedSymbols(getQuotes), [
+        ['AAPL', 'OIBR3', 'PETR4'],
+        ['AAPL', 'PETR4']
+      ]);
+    });
+
+    it('sorts the positions by a value in either direction before paging, those without it last, quoting every position that matches', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await holdListedPositions(portfolio.id);
+      const { getQuotes } = quoteFrom(t, pricedMarket());
+
+      const byValue = await requestPositions(accessToken, {
+        portfolioId: portfolio.id,
+        sortBy: 'marketValue',
+        sortOrder: 'desc',
+        pageSize: 2
+      });
+      const byReturn = await requestPositions(accessToken, {
+        portfolioId: portfolio.id,
+        sortBy: 'profitLossPercent'
+      });
+
+      assert.equal(byValue.status, 200);
+      assert.deepEqual(byValue.body, {
+        items: [PETR4_ITEM, AAPL_ITEM],
+        page: 1,
+        pageSize: 2,
+        total: 3,
+        totalPages: 2
+      });
+      assert.equal(byReturn.status, 200);
+      assert.deepEqual(byReturn.body.items, [
+        AAPL_ITEM,
+        PETR4_ITEM,
+        OIBR3_ITEM
+      ]);
+      assert.deepEqual(quotedSymbols(getQuotes), [
+        ['AAPL', 'OIBR3', 'PETR4'],
+        ['AAPL', 'OIBR3', 'PETR4']
+      ]);
+    });
+
+    it('filters the positions by a search, their type and whether they hold units, counting only those that match', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await holdListedPositions(portfolio.id);
+      await holdPosition(
+        portfolio.id,
+        {
+          symbol: 'BOVA11',
+          name: 'iShares Ibovespa',
+          type: InstrumentTypes.ETF,
+          market: 'B3',
+          currency: 'BRL'
+        },
+        {
+          quantity: '10',
+          averageCost: '100',
+          investedValue: '1000',
+          ledgerCurrency: 'BRL'
+        }
+      );
+      quoteFrom(t, pricedMarket());
+
+      for (const [filter, expected] of [
+        [{ search: 'BRAS' }, { symbols: ['PETR4'], total: 1, totalPages: 1 }],
+        [{ search: 'oi' }, { symbols: ['OIBR3'], total: 1, totalPages: 1 }],
+        [{ type: 'ETF' }, { symbols: ['BOVA11'], total: 1, totalPages: 1 }],
+        [
+          { type: 'STOCK' },
+          { symbols: ['AAPL', 'OIBR3', 'PETR4'], total: 3, totalPages: 1 }
+        ],
+        [
+          { status: 'open' },
+          { symbols: ['AAPL', 'BOVA11', 'PETR4'], total: 3, totalPages: 1 }
+        ],
+        [{ status: 'closed' }, { symbols: ['OIBR3'], total: 1, totalPages: 1 }],
+        [
+          { type: 'STOCK', status: 'open', pageSize: 1 },
+          { symbols: ['AAPL'], total: 2, totalPages: 2 }
+        ],
+        [{ search: 'VALE' }, { symbols: [], total: 0, totalPages: 0 }]
+      ] as const) {
+        const res = await requestPositions(accessToken, {
+          portfolioId: portfolio.id,
+          ...filter
+        });
+
+        assert.equal(res.status, 200, JSON.stringify(filter));
+        assert.deepEqual(
+          {
+            symbols: res.body.items.map(
+              ({ symbol }: { symbol: string }) => symbol
+            ),
+            total: res.body.total,
+            totalPages: res.body.totalPages
+          },
+          expected,
+          JSON.stringify(filter)
+        );
+      }
+    });
+
     it('lists the positions without the values that need a quote the provider could not give', async (t) => {
       const { user, accessToken } = await signInUser();
       const portfolio = await createPortfolio(user.id);
@@ -728,7 +862,7 @@ describe('portfolios', () => {
       assert.deepEqual(foreign.body, missing.body);
     });
 
-    it('rejects a missing or malformed portfolio id, page or page size', async () => {
+    it('rejects a missing or malformed portfolio id, page, page size, sort, search, type or status', async () => {
       const { accessToken } = await signInUser();
 
       for (const query of [
@@ -737,7 +871,16 @@ describe('portfolios', () => {
         { portfolioId: MISSING_PORTFOLIO_ID, page: 0 },
         { portfolioId: MISSING_PORTFOLIO_ID, page: 1.5 },
         { portfolioId: MISSING_PORTFOLIO_ID, pageSize: 0 },
-        { portfolioId: MISSING_PORTFOLIO_ID, pageSize: MAX_PAGE_LIMIT + 1 }
+        { portfolioId: MISSING_PORTFOLIO_ID, pageSize: MAX_PAGE_LIMIT + 1 },
+        { portfolioId: MISSING_PORTFOLIO_ID, sortBy: 'name' },
+        { portfolioId: MISSING_PORTFOLIO_ID, sortOrder: 'up' },
+        { portfolioId: MISSING_PORTFOLIO_ID, search: ' ' },
+        {
+          portfolioId: MISSING_PORTFOLIO_ID,
+          search: 'A'.repeat(SEARCH_MAX_LENGTH + 1)
+        },
+        { portfolioId: MISSING_PORTFOLIO_ID, type: 'SHARE' },
+        { portfolioId: MISSING_PORTFOLIO_ID, status: 'sold' }
       ]) {
         const res = await requestPositions(accessToken, query);
 

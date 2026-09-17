@@ -16,7 +16,8 @@ import type {
   GetPortfolioPositionsRequestParams,
   GetPortfolioPositionsResponseData,
   PerformanceRange,
-  PortfolioScopeParams
+  PortfolioScopeParams,
+  PositionListingParams
 } from '@/app/api/v1/portfolio';
 import type {
   GetPortfoliosRequestParams,
@@ -25,7 +26,7 @@ import type {
 } from '@/app/api/v1/portfolios';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
 import { queryKeys } from '@/lib/react-query';
-import type { Maybe, PageParams } from '@/types';
+import type { Maybe } from '@/types';
 
 const PORTFOLIOS_STALE_TIME_MS = 60_000;
 
@@ -87,19 +88,19 @@ export const usePortfolioOverview = (portfolio: Maybe<Portfolio>) =>
 
 export const usePositions = (
   portfolio: Maybe<Portfolio>,
-  requestedPage: PageParams
+  listing: PositionListingParams
 ) =>
   useQuery<
     AxiosResponse<GetPortfolioPositionsResponseData>,
     ApiProxyErrorData,
     GetPortfolioPositionsResponseData
   >({
-    queryKey: queryKeys.positions(portfolio?.id, requestedPage),
+    queryKey: queryKeys.positions(portfolio?.id, listing),
     queryFn: portfolio
       ? () =>
           api.getInstance().get('/v1/portfolio/positions', {
             params: {
-              ...requestedPage,
+              ...listing,
               portfolioId: portfolio.id
             } satisfies GetPortfolioPositionsRequestParams
           })

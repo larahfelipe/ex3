@@ -60,8 +60,33 @@ export type PortfolioAllocation = WithBaseCurrency &
 
 export type GetPortfolioOverviewResponseData = PortfolioOverview;
 
+export type PositionSortField = keyof Pick<
+  PortfolioPosition,
+  | 'symbol'
+  | 'quantity'
+  | 'averageCost'
+  | 'marketPrice'
+  | 'marketValue'
+  | 'allocation'
+  | 'profitLoss'
+  | 'profitLossPercent'
+>;
+
+export type SortOrder = 'asc' | 'desc';
+
+export type PositionStatus = 'open' | 'closed';
+
+export type PositionListingParams = PageParams &
+  Partial<{
+    sortBy: PositionSortField;
+    sortOrder: SortOrder;
+    search: string;
+    type: InstrumentType;
+    status: PositionStatus;
+  }>;
+
 export type GetPortfolioPositionsRequestParams = PortfolioScopeParams &
-  PageParams;
+  PositionListingParams;
 
 export type GetPortfolioPositionsResponseData = Page<PortfolioPosition>;
 

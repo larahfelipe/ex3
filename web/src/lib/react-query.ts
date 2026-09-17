@@ -1,13 +1,15 @@
 import { QueryClient } from '@tanstack/react-query';
 
-import type { GetAssetRequestParams } from '@/app/api/v1/assets';
-import type { PerformanceRange } from '@/app/api/v1/portfolio';
+import type {
+  PerformanceRange,
+  PositionListingParams
+} from '@/app/api/v1/portfolio';
 import type {
   GetPortfoliosRequestParams,
   Portfolio
 } from '@/app/api/v1/portfolios';
 import type { TransactionFilters } from '@/app/api/v1/transactions';
-import type { Maybe, PageParams } from '@/types';
+import type { Maybe } from '@/types';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,18 +35,12 @@ export const queryKeys = {
   portfolio: portfolioScope,
   portfolioOverview: (portfolioId: PortfolioId) =>
     [...portfolioScope(portfolioId), 'overview'] as const,
-  positions: (portfolioId: PortfolioId, requestedPage: PageParams) =>
-    [...portfolioScope(portfolioId), 'positions', requestedPage] as const,
+  positions: (portfolioId: PortfolioId, listing: PositionListingParams) =>
+    [...portfolioScope(portfolioId), 'positions', listing] as const,
   allocation: (portfolioId: PortfolioId) =>
     [...portfolioScope(portfolioId), 'allocation'] as const,
   performance: (portfolioId: PortfolioId, range: PerformanceRange) =>
     [...portfolioScope(portfolioId), 'performance', range] as const,
-  assets: (
-    portfolioId: PortfolioId,
-    requestedPage: Pick<GetAssetRequestParams, 'page' | 'limit'>
-  ) => [...portfolioScope(portfolioId), 'assets', requestedPage] as const,
-  assetValuations: (portfolioId: PortfolioId, symbols: ReadonlyArray<string>) =>
-    [...portfolioScope(portfolioId), 'asset-valuations', symbols] as const,
   transactions: (portfolioId: PortfolioId, filters: TransactionFilters) =>
     [...portfolioScope(portfolioId), 'transactions', filters] as const
 };

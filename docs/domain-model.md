@@ -102,7 +102,7 @@ Valuation não é entidade. É o resultado calculado de uma posição contra a c
 * `investedValue` está na moeda das transações da posição e `marketValue` na da cotação; em moedas diferentes, compará-los exigiria câmbio (ver [Valores, moedas e datas](#valores-moedas-e-datas)).
 * Instrumento sem cotação e provedor indisponível chegam como `not-found` e `unavailable` no ativo, não como erro da requisição.
 
-Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em `backend/src/domain/PositionValuation.ts`: o frontend exibe, não calcula. `GET /v1/assets/valuations` avalia os ativos pedidos de uma carteira, e a tela de ativos o consulta depois da listagem, sem bloqueá-la enquanto o provedor responde.
+Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em `backend/src/domain/PositionValuation.ts`: o frontend exibe, não calcula. `GET /v1/assets/valuations` avalia os ativos pedidos de uma carteira; o web não o consulta desde que a tabela de posições passou a ler `GET /v1/portfolio/positions` (TD-034).
 
 ### Visão geral da carteira
 
@@ -127,7 +127,7 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em
 
 ### Posições da carteira
 
-`GET /v1/portfolio/positions` lista as posições de uma carteira em ordem de `symbol`, em páginas, com os valores na `baseCurrency` dela, também em `backend/src/domain/PortfolioValuation.ts`:
+`GET /v1/portfolio/positions` lista as posições de uma carteira em páginas, com os valores na `baseCurrency` dela, também em `backend/src/domain/PortfolioValuation.ts`:
 
 | Campo | Cálculo |
 | --- | --- |
@@ -141,8 +141,9 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em
 * A taxa é a da visão geral, então nenhum campo reflete o movimento do câmbio (TD-022). Valor zero não precisa de taxa.
 * Campo cujo insumo falta fica fora do item, sem erro: sem cotação ou sem taxa da moeda da cotação saem `marketPrice`, `marketValue`, `allocation` e o resultado; sem moeda conhecida ou sem taxa da moeda das transações saem `averageCost` e o resultado.
 * `allocation` só sai quando o `totalValue` da visão geral existe e não é zero, então uma posição com unidades sem cotação tira a alocação de todos os itens.
-* Posição sem unidades é listada, com `marketValue` e `allocation` zero, e só é cotada quando está na página pedida. As posições com unidades são cotadas em toda página, porque a alocação depende do total.
-* A ordem por `symbol` não depende de cotação, então a mudança de preço não move posição entre páginas.
+* Posição sem unidades é listada, com `marketValue` e `allocation` zero. As posições com unidades são cotadas em toda página, porque a alocação depende do total; a sem unidades, só quando está na página pedida ou quando a ordem é por um valor.
+* A ordem padrão é por `symbol`, crescente ou decrescente, e não depende de cotação, então a mudança de preço não move posição entre páginas. Por um valor, a página é cortada depois de avaliar todas as posições que atendem aos filtros: a posição sem o valor vai por último nos dois sentidos, o empate segue a ordem de `symbol`, e a mudança de preço pode mover posição entre páginas.
+* `search` compara, sem diferenciar caixa, com `symbol` e `name`; `type`, com a classe do instrumento; e `status` separa as posições com unidades (`open`) das sem unidades (`closed`). `total` e `totalPages` contam só as posições filtradas, e a alocação continua sobre a carteira inteira.
 * Valores e frações são truncados em direção a zero em 18 casas, e o resultado é a diferença exata.
 
 ### Alocação da carteira
