@@ -3,7 +3,8 @@ import type { FC } from 'react';
 import type { ListedTransaction } from '@/app/api/v1/transactions';
 import {
   TRANSACTION_TYPE_LABELS,
-  TRANSACTION_TYPE_TONES
+  TRANSACTION_TYPE_TONES,
+  TRANSACTION_UNIT_PRICE_LABELS
 } from '@/common/constants';
 import {
   formatExecutionTime,
@@ -72,7 +73,7 @@ const TransactionDetails: FC<
       <dl className="grid gap-4 sm:grid-cols-2">
         <DetailItem label="Quantity">{formatQuantity(quantity)}</DetailItem>
 
-        <DetailItem label="Unit price">
+        <DetailItem label={TRANSACTION_UNIT_PRICE_LABELS[type]}>
           {formatPrice(unitPrice, currency)}
         </DetailItem>
 

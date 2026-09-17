@@ -90,11 +90,11 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** mudar o tamanho padrão exige tocar quatro arquivos, e o literal escapa de uma busca pela constante.
 - **Proposta:** usar o padrão do schema nos três repositórios, junto com a migração de cada listagem em TD-021.
 
-### TD-017 — API recusa os tipos de transação além de `BUY` e `SELL`
+### TD-017 — API recusa desdobramento, transferências, aportes, retiradas e ajustes
 
-- **Origem:** remodelagem da transação · **Tipo:** domínio · **Prioridade:** média · **Encaminhamento:** `avulso` para os tipos que movem a posição, até a representação de cada um estar definida; TASK 10.1 para `DIVIDEND` e `INTEREST`
-- **Contexto:** o enum `TransactionType` guarda os 11 tipos de `docs/domain-model.md`, mas `TransactionTypeSchema` aceita só `RecordableTransactionTypes` (`BUY` e `SELL`), e `rebuildPosition` (`backend/src/domain/PositionLedger.ts`) lança para qualquer outro tipo. O efeito de `DEPOSIT`, `WITHDRAWAL` e `ADJUSTMENT` está nas decisões em aberto do modelo de domínio, e `quantity` e `unitPrice` positivos obrigatórios não descrevem todos os tipos (um `SPLIT` tem fator, não preço).
-- **Impacto:** proventos, desdobramentos, bonificações, transferências, aportes e ajustes não são registráveis; enviar um deles responde 400 sem gravar.
+- **Origem:** remodelagem da transação · **Tipo:** domínio · **Prioridade:** média · **Encaminhamento:** `avulso`, até a representação de cada tipo estar definida
+- **Contexto:** o enum `TransactionType` guarda os 12 tipos de `docs/domain-model.md`, mas `TransactionTypeSchema` aceita só `RecordableTransactionTypes` (`BUY`, `SELL`, `DIVIDEND`, `JCP`, `INTEREST` e `BONUS`), e `rebuildPosition` (`backend/src/domain/PositionLedger.ts`) lança para `SPLIT`, `TRANSFER_IN`, `TRANSFER_OUT`, `DEPOSIT`, `WITHDRAWAL` e `ADJUSTMENT`. O efeito de `DEPOSIT`, `WITHDRAWAL` e `ADJUSTMENT` está nas decisões em aberto do modelo de domínio, e `quantity` e `unitPrice` não descrevem os demais: um `SPLIT` tem fator, não preço, e uma transferência traz o custo de origem.
+- **Impacto:** desdobramentos, grupamentos, transferências entre corretoras, aportes, retiradas e ajustes não são registráveis; enviar um deles responde 400 sem gravar.
 - **Proposta:** implementar em `rebuildPosition` o efeito de cada tipo definido no modelo de domínio, com a validação de campos própria do tipo e testes, e só então incluí-lo em `RecordableTransactionTypes`; decidir com o produto os tipos em aberto antes de aceitá-los.
 
 ### TD-020 — Consumo da cota do provedor de cotação não medido
@@ -198,7 +198,7 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-035 — Detalhe do ativo sem proventos
 
 - **Origem:** TASK 9.2 · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** TASK 10.3
-- **Contexto:** o detalhe do ativo, em `/assets/[symbol]`, tem visão geral, posição, performance e transações. A seção de proventos ficou fora por decisão de produto até existir o modelo de proventos: a API aceita só transações `BUY` e `SELL` (TD-017), e nenhum endpoint devolve provento.
+- **Contexto:** o detalhe do ativo, em `/assets/[symbol]`, tem visão geral, posição, performance e transações. A seção de proventos ficou fora por decisão de produto até existir o modelo de proventos. O modelo existe, com `DIVIDEND`, `JCP` e `INTEREST` registráveis como transação, mas nenhum endpoint consolida os proventos de um ativo.
 - **Impacto:** o usuário não vê no ativo os proventos recebidos nem o rendimento deles sobre o custo.
 - **Proposta:** acrescentar a seção de proventos ao detalhe do ativo quando o modelo e a API de proventos existirem, com o recorte por ativo que a API oferecer.
 
@@ -215,6 +215,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** `web/src/app/(protected)/assets/page.tsx` lê `?action` sem validar o valor e marca um diálogo como aberto mesmo quando nenhum corresponde. Enquanto o parâmetro fica na URL, o efeito reabre esse estado a cada fechamento.
 - **Impacto:** com um `action` desconhecido na URL, editado à mão, o botão "Add asset" alterna um estado sem diálogo e não abre o formulário até a URL ser limpa.
 - **Proposta:** aceitar só os valores de `ASSET_DIALOG_ACTIONS`, e os que dependem de símbolo só com `symbol`, e limpar a URL do resto, junto com a troca de `replaceUrl` pelo router.
+
+### TD-038 — Verde de compra e de ganho abaixo do contraste AA
+
+- **Origem:** modelo de proventos · **Tipo:** acessibilidade · **Prioridade:** média · **Encaminhamento:** TASK 14.1
+- **Contexto:** `text-green-600` do Tailwind 4 tem contraste de cerca de 3,2:1 sobre fundo branco, abaixo dos 4,5:1 que o WCAG 2.2 AA exige para texto no tamanho `text-sm`. Ele colore o tipo `BUY` em `TRANSACTION_TYPE_TONES` (`web/src/common/constants.ts`), na tabela e no diálogo de transações, e o valor positivo em `web/src/common/utils.ts`.
+- **Impacto:** o tipo da compra e os ganhos ficam difíceis de ler com baixa visão ou tela sob luz forte.
+- **Proposta:** trocar pelo tom verde que atinja 4,5:1 nos dois lugares, dentro da revisão de contraste dos tokens.
 
 ## Resolvidos
 

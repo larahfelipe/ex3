@@ -246,11 +246,101 @@ describe('rebuildPosition', () => {
     assert.deepEqual(rebuildPosition(ledger), { outcome: 'out-of-range' });
   });
 
+  it('adds a BONUS to the quantity and the cost at its attributed cost, which may be zero', () => {
+    const bought = ledgerEntry({
+      type: 'BUY',
+      quantity: '10',
+      unitPrice: '12',
+      sequence: 1n
+    });
+
+    assert.deepEqual(
+      rebuildPosition([
+        bought,
+        ledgerEntry({
+          type: 'BONUS',
+          quantity: '2',
+          unitPrice: '0',
+          sequence: 2n
+        })
+      ]),
+      {
+        outcome: 'rebuilt',
+        position: { quantity: '12', averageCost: '10', investedValue: '120' }
+      }
+    );
+    assert.deepEqual(
+      rebuildPosition([
+        bought,
+        ledgerEntry({
+          type: 'BONUS',
+          quantity: '10',
+          unitPrice: '6',
+          sequence: 2n
+        })
+      ]),
+      {
+        outcome: 'rebuilt',
+        position: { quantity: '20', averageCost: '9', investedValue: '180' }
+      }
+    );
+  });
+
+  it('leaves the quantity and the cost unchanged on income, whether or not anything is held', () => {
+    const bought = ledgerEntry({
+      type: 'BUY',
+      quantity: '10',
+      unitPrice: '10',
+      executedAt: EXECUTED_LATER,
+      sequence: 1n
+    });
+
+    for (const type of ['DIVIDEND', 'JCP', 'INTEREST'] as const) {
+      const paidBeforeHolding = ledgerEntry({
+        type,
+        quantity: '5',
+        unitPrice: '1',
+        taxes: '0.75',
+        sequence: 2n
+      });
+      const paidWhileHolding = ledgerEntry({
+        type,
+        quantity: '10',
+        unitPrice: '1',
+        fees: '1',
+        executedAt: EXECUTED_LATER,
+        sequence: 3n
+      });
+
+      assert.deepEqual(
+        rebuildPosition([paidBeforeHolding]),
+        {
+          outcome: 'rebuilt',
+          position: { quantity: '0', averageCost: '0', investedValue: '0' }
+        },
+        type
+      );
+      assert.deepEqual(
+        rebuildPosition([bought, paidBeforeHolding, paidWhileHolding]),
+        {
+          outcome: 'rebuilt',
+          position: { quantity: '10', averageCost: '10', investedValue: '100' }
+        },
+        type
+      );
+      assert.deepEqual(
+        rebuildPosition([bought, { ...paidWhileHolding, currency: 'USD' }]),
+        { outcome: 'currency-mismatch' },
+        type
+      );
+    }
+  });
+
   it('throws on a type the replay does not implement', () => {
     const ledger = [
-      ledgerEntry({ type: 'DIVIDEND', quantity: '1', unitPrice: '10' })
+      ledgerEntry({ type: 'SPLIT', quantity: '1', unitPrice: '10' })
     ];
 
-    assert.throws(() => rebuildPosition(ledger), /does not implement DIVIDEND/);
+    assert.throws(() => rebuildPosition(ledger), /does not implement SPLIT/);
   });
 });

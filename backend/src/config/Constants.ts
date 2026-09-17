@@ -97,6 +97,7 @@ export const TransactionTypes: Record<TransactionType, TransactionType> = {
   BUY: 'BUY',
   SELL: 'SELL',
   DIVIDEND: 'DIVIDEND',
+  JCP: 'JCP',
   INTEREST: 'INTEREST',
   DEPOSIT: 'DEPOSIT',
   WITHDRAWAL: 'WITHDRAWAL',
@@ -113,7 +114,17 @@ export const TransactionTypes: Record<TransactionType, TransactionType> = {
  */
 export const RecordableTransactionTypes = {
   BUY: 'BUY',
-  SELL: 'SELL'
+  SELL: 'SELL',
+  DIVIDEND: 'DIVIDEND',
+  JCP: 'JCP',
+  INTEREST: 'INTEREST',
+  BONUS: 'BONUS'
+} as const satisfies Partial<Record<TransactionType, TransactionType>>;
+
+export const IncomeTransactionTypes = {
+  DIVIDEND: 'DIVIDEND',
+  JCP: 'JCP',
+  INTEREST: 'INTEREST'
 } as const satisfies Partial<Record<TransactionType, TransactionType>>;
 
 /**

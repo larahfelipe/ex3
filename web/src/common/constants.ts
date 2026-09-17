@@ -44,17 +44,38 @@ export const CURRENCIES = {
 
 export const TRANSACTION_TYPES: Array<TransactionType> = [
   'BUY',
-  'SELL'
+  'SELL',
+  'DIVIDEND',
+  'JCP',
+  'INTEREST',
+  'BONUS'
 ] as const;
 
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   BUY: 'Buy',
-  SELL: 'Sell'
+  SELL: 'Sell',
+  DIVIDEND: 'Dividend',
+  JCP: 'JCP',
+  INTEREST: 'Interest',
+  BONUS: 'Bonus'
 };
 
 export const TRANSACTION_TYPE_TONES: Record<TransactionType, string> = {
   BUY: 'text-green-600',
-  SELL: 'text-red-600'
+  SELL: 'text-red-600',
+  DIVIDEND: 'text-blue-600',
+  JCP: 'text-blue-600',
+  INTEREST: 'text-blue-600',
+  BONUS: 'text-violet-600'
+};
+
+export const TRANSACTION_UNIT_PRICE_LABELS: Record<TransactionType, string> = {
+  BUY: 'Unit price',
+  SELL: 'Unit price',
+  DIVIDEND: 'Amount per unit',
+  JCP: 'Amount per unit',
+  INTEREST: 'Amount per unit',
+  BONUS: 'Attributed cost per unit'
 };
 
 export const INSTRUMENT_TYPE_LABELS: Record<InstrumentType, string> = {

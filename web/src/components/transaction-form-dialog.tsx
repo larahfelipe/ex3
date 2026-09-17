@@ -4,17 +4,21 @@ import {
   type InputHTMLAttributes,
   type ReactNode
 } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
-import type { ListedTransaction } from '@/app/api/v1/transactions';
+import type {
+  ListedTransaction,
+  TransactionType
+} from '@/app/api/v1/transactions';
 import {
   CURRENCIES,
   TRANSACTION_TYPE_LABELS,
-  TRANSACTION_TYPES
+  TRANSACTION_TYPES,
+  TRANSACTION_UNIT_PRICE_LABELS
 } from '@/common/constants';
 import {
   Button,
@@ -102,21 +106,39 @@ const optionalTextField = (field: string, maxLength: number) =>
     .max(maxLength, `${field} must have at most ${maxLength} characters`)
     .transform((value) => (value === '' ? null : value));
 
-const TransactionFormSchema = z.object({
-  type: z.enum(TRANSACTION_TYPES),
-  quantity: positiveDecimalField('Quantity'),
-  unitPrice: positiveDecimalField('Unit price'),
-  fees: chargeField('Fees'),
-  taxes: chargeField('Taxes'),
-  executedAt: z
-    .string()
-    .min(1, 'Execution date is required')
-    .transform((value) => new Date(value))
-    .pipe(z.date('Execution date must be a valid date'))
-    .transform((date) => date.toISOString()),
-  broker: optionalTextField('Broker', BROKER_MAX_LENGTH),
-  notes: optionalTextField('Notes', NOTES_MAX_LENGTH)
-});
+const unitPriceIssueOf = (type: TransactionType, unitPrice: string) => {
+  const label = TRANSACTION_UNIT_PRICE_LABELS[type];
+
+  if (unitPrice === '') return `${label} is required`;
+  if (!DECIMAL_PATTERN.test(unitPrice)) return decimalFormatMessage(label);
+  if (type !== 'BONUS' && !NONZERO_DIGIT.test(unitPrice))
+    return `${label} must be greater than zero`;
+
+  return null;
+};
+
+const TransactionFormSchema = z
+  .object({
+    type: z.enum(TRANSACTION_TYPES),
+    quantity: positiveDecimalField('Quantity'),
+    unitPrice: z.string().trim(),
+    fees: chargeField('Fees'),
+    taxes: chargeField('Taxes'),
+    executedAt: z
+      .string()
+      .min(1, 'Execution date is required')
+      .transform((value) => new Date(value))
+      .pipe(z.date('Execution date must be a valid date'))
+      .transform((date) => date.toISOString()),
+    broker: optionalTextField('Broker', BROKER_MAX_LENGTH),
+    notes: optionalTextField('Notes', NOTES_MAX_LENGTH)
+  })
+  .superRefine(({ type, unitPrice }, ctx) => {
+    const message = unitPriceIssueOf(type, unitPrice);
+
+    if (message !== null)
+      ctx.addIssue({ code: 'custom', path: ['unitPrice'], message });
+  });
 
 const TRANSACTION_FORM_FIELDS = TransactionFormSchema.keyof().options;
 
@@ -222,6 +244,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
   );
 
   const {
+    control: formControl,
     register,
     handleSubmit,
     setError,
@@ -231,6 +254,8 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
     resolver: zodResolver(TransactionFormSchema),
     defaultValues
   });
+
+  const selectedType = useWatch({ control: formControl, name: 'type' });
 
   const presentSubmitError = (error: unknown) => {
     const issues =
@@ -310,7 +335,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
                 Type
               </legend>
 
-              <div className="flex w-fit rounded-md border p-0.5">
+              <div className="grid grid-cols-3 rounded-md border p-0.5 sm:flex sm:w-fit">
                 {TRANSACTION_TYPES.map((type) => (
                   <label key={type} className="cursor-pointer">
                     <input
@@ -320,7 +345,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
                       {...register('type')}
                     />
 
-                    <span className="block rounded-sm px-3 py-1 text-sm font-medium text-muted-foreground ring-offset-background transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
+                    <span className="block rounded-sm px-3 py-1 text-center text-sm font-medium text-muted-foreground ring-offset-background transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
                       {TRANSACTION_TYPE_LABELS[type]}
                     </span>
                   </label>
@@ -347,7 +372,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
             </FormField>
 
             <FormField
-              label={`Unit price (${currency})`}
+              label={`${TRANSACTION_UNIT_PRICE_LABELS[selectedType]} (${currency})`}
               error={errors.unitPrice?.message}
             >
               {(control) => (

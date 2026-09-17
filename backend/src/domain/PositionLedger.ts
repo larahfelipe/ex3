@@ -1,6 +1,10 @@
 import { Prisma } from '@prisma/client';
 
-import { DecimalColumn, TransactionTypes } from '@/config/Constants';
+import {
+  DecimalColumn,
+  IncomeTransactionTypes,
+  TransactionTypes
+} from '@/config/Constants';
 
 import type { Position, Transaction } from './models';
 
@@ -64,11 +68,13 @@ const truncateToColumnScale = (value: Prisma.Decimal) =>
  * same transactions rebuild the same position in whatever order they are given.
  * A ledger holds one currency, since costs in different currencies do not add
  * up. A BUY adds its quantity and its cost, quantity × unit price plus fees and
- * taxes, and truncates the new average cost to the column scale; a SELL leaves
- * the average cost unchanged, back to zero once nothing is held, and is refused
- * when it exceeds what the ledger holds at that point. `investedValue` is
- * quantity × average cost, truncated to the column scale at the end. A ledger
- * passing through a position that does not fit the columns is refused.
+ * taxes, and truncates the new average cost to the column scale, and so does a
+ * BONUS, priced at the cost attributed to each unit; a SELL leaves the average
+ * cost unchanged, back to zero once nothing is held, and is refused when it
+ * exceeds what the ledger holds at that point; income changes nothing.
+ * `investedValue` is quantity × average cost, truncated to the column scale at
+ * the end. A ledger passing through a position that does not fit the columns is
+ * refused.
  */
 export const rebuildPosition = (
   ledger: ReadonlyArray<LedgerEntry>
@@ -82,7 +88,10 @@ export const rebuildPosition = (
   for (const entry of ledger.toSorted(byLedgerOrder)) {
     const entryQuantity = new LedgerDecimal(entry.quantity);
 
-    if (entry.type === TransactionTypes.BUY) {
+    if (
+      entry.type === TransactionTypes.BUY ||
+      entry.type === TransactionTypes.BONUS
+    ) {
       const heldQuantity = quantity.add(entryQuantity);
       const totalCost = quantity
         .mul(averageCost)
@@ -100,7 +109,7 @@ export const rebuildPosition = (
 
       quantity = quantity.sub(entryQuantity);
       averageCost = quantity.isZero() ? ZERO : averageCost;
-    } else {
+    } else if (!Object.hasOwn(IncomeTransactionTypes, entry.type)) {
       throw new Error(`The ledger replay does not implement ${entry.type}`);
     }
 

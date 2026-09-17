@@ -9,7 +9,7 @@ const DECIMAL_PATTERN = new RegExp(
   `^(0|[1-9]\\d{0,${INTEGER_DIGITS - 1}})(\\.\\d{1,${DecimalColumn.SCALE}})?$`
 );
 
-const NONZERO_DIGIT = /[1-9]/;
+export const NONZERO_DIGIT = /[1-9]/;
 
 export const decimalSchema = (field: string) =>
   z

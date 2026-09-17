@@ -100,7 +100,7 @@ Os achados da task foram corrigidos, e os testes que os fixavam passaram a prote
 | `PATCH` de transação somava o novo impacto à posição sem desfazer o anterior, e respondia `Transaction created` | a edição desfaz o impacto gravado e aplica o novo; responde `Transaction updated` | `infra/database/TransactionRepository.ts`, `services/transaction/UpdateTransactionService.ts` |
 | linha do razão e posição gravadas em escritas independentes: `SELL`s concorrentes passavam pela mesma checagem | uma transação serializável por escrita: dos `SELL`s concorrentes, só passam os que a posição cobre | `infra/database/PrismaClient.ts`, `infra/database/TransactionRepository.ts` |
 | edição ou exclusão que levava a posição abaixo de zero era aceita | 400 `ACC_NEGATIVE_AMOUNT`, sem alterar nada | `infra/database/TransactionRepository.ts` |
-| `type` de transação com `min`/`max` antes do `trim`: `' buy '` recusado | `trim` e caixa alta antes de comparar com `BUY`/`SELL` | `validation/schema/transaction/TransactionTypeSchema.ts` |
+| `type` de transação com `min`/`max` antes do `trim`: `' buy '` recusado | `trim` e caixa alta antes de comparar com os tipos aceitos | `validation/schema/transaction/TransactionTypeSchema.ts` |
 | id de transação aceito como qualquer string e levado ao banco | UUID validado no schema: 400 | `validation/schema/transaction/TransactionIdSchema.ts` |
 | exclusão de ativo e de conta em escritas independentes; conta com ativos respondia 500 | uma transação serializável cada, dependentes primeiro | `infra/database/AssetRepository.ts`, `infra/database/UserRepository.ts` |
 
@@ -207,11 +207,14 @@ O bloco `ledger` de `src/routes/Transactions.integration.ts` passou a cobrir:
 * transação em moeda diferente das outras da posição recusada com `CURRENCY_MISMATCH`, sem gravar;
 * `BUY` retroativo entrando no razão pela data de execução e reprecificando a posição;
 * `SELL` executado antes da compra que o cobriria recusado, na criação e na edição que o move para antes dela;
+* `DIVIDEND`, `JCP` e `INTEREST` gravados sem mover a posição, e `BONUS` somando unidades pelo custo atribuído, zero inclusive;
 * posição no teto de `DECIMAL(38,18)` aceita, e a escrita que o passaria, em quantidade ou em `investedValue`, recusada com `POSITION_OUT_OF_RANGE`.
 
-O bloco de validação cobre, em `POST` e `PATCH`, sem gravar nem mover a posição: tipo em branco, desconhecido ou ainda não aceito pela API (`DIVIDEND`); decimal em `number`, negativo, com expoente, com zero à esquerda, com ponto sem casas, com espaços, vazio, com 21 dígitos inteiros ou 19 casas, e zero em `quantity` e `unitPrice`; `currency` ausente ou fora de ISO 4217; `executedAt` ausente, sem hora, sem fuso ou em outro formato; `broker` e `notes` acima do limite. Um teste confere que a criação grava cada campo como enviado, com o `executedAt` enviado com fuso devolvido em UTC, e que a edição substitui todos, voltando os opcionais omitidos ao padrão.
+O bloco de validação cobre, em `POST` e `PATCH`, sem gravar nem mover a posição: tipo em branco, desconhecido ou ainda não aceito pela API (`SPLIT`); decimal em `number`, negativo, com expoente, com zero à esquerda, com ponto sem casas, com espaços, vazio, com 21 dígitos inteiros ou 19 casas, e zero em `quantity` e em `unitPrice`, este em todo tipo menos `BONUS`, com o `path` `unitPrice` no detalhe; `currency` ausente ou fora de ISO 4217; `executedAt` ausente, sem hora, sem fuso ou em outro formato; `broker` e `notes` acima do limite. Um teste confere que a criação grava cada campo como enviado, com o `executedAt` enviado com fuso devolvido em UTC, e que a edição substitui todos, voltando os opcionais omitidos ao padrão.
 
 **Migração.** Conferida à parte, sobre um banco com as migrations anteriores e dados no formato antigo: nenhuma transação perdida; `amount` e `price` convertidos pela menor representação decimal de cada `double` (`0.1` e `0.2` somam exatamente `0.3`, e `BUY 0.3`, `SELL 0.1`, `SELL 0.2` zeram a posição); `currency` da moeda base de cada carteira e `executedAt = createdAt`; posições reconstruídas em decimal, com custo médio truncado em 18 casas; colunas, nulabilidade e enum como no schema; tabela temporária removida. Aborta sem alterar nada com tipo fora do enum, transação sem carteira, `amount` ou `price` zero, negativo, com mais de 18 casas ou a partir de 10²⁰, razão que vende mais do que detém, `DIVIDEND` no razão e razão que passa por posição fora da coluna, mesmo terminando dentro dela. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
+
+**Migração do `JCP`.** Só acrescenta o valor ao enum `TransactionType`, depois de `DIVIDEND`, sem tocar em linha gravada. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
 
 ## Reconstrução determinística da posição
 
@@ -222,8 +225,10 @@ O bloco de validação cobre, em `POST` e `PATCH`, sem gravar nem mover a posiç
 * custo médio e `investedValue` truncados em 18 casas;
 * as 24 permutações de um razão de quatro transações reconstroem a mesma posição;
 * transações com o mesmo `executedAt` seguem a ordem de gravação, e a ainda não gravada vem por último;
+* `BONUS` soma quantidade e custo atribuído, zero inclusive;
+* `DIVIDEND`, `JCP` e `INTEREST` não alteram quantidade nem custo, com ou sem unidades detidas, e em outra moeda recusam o razão;
 * recusados: `SELL` antes da compra que o cobriria, razão com duas moedas, razão que passa por posição fora da coluna e `investedValue` fora da coluna com os demais valores dentro dela;
-* tipo que a reconstrução não implementa lança.
+* tipo que a reconstrução não implementa (`SPLIT`) lança.
 
 **Ordem de gravação.** `Transaction.sequence` é `BIGINT` único, preenchido pelo banco na inserção e nunca devolvido pela API. `createTransaction` aceita `id` e `createdAt`, o que permite gravar transações no mesmo instante com ids em ordem contrária à de gravação.
 
@@ -323,6 +328,6 @@ O bloco `list` de `src/routes/Assets.integration.ts` cobre o `transactionCount` 
 
 ## Performance da carteira
 
-`src/domain/PortfolioPerformance.test.ts` cobre, sem banco, a resolução da janela e a série: meses inteiros para trás a partir do início do dia corrente em UTC, o ano corrente do `YTD`, o dia da primeira transação do `MAX` e a janela vazia do razão sem transação; a posição valorizada a cada fechamento, com retorno zero no primeiro ponto; o aporte do dia que não conta como ganho; a posição cotada em outra moeda levada à moeda base pela taxa do dia; o dia sem taxa e o dia sem fechamento de alguma posição detida, ambos fora da série; o benchmark sobre o primeiro fechamento da janela; e a carteira sem nada cotado, de série vazia. O agora é parâmetro, nunca `new Date()` dentro do teste.
+`src/domain/PortfolioPerformance.test.ts` cobre, sem banco, a resolução da janela e a série: meses inteiros para trás a partir do início do dia corrente em UTC, o ano corrente do `YTD`, o dia da primeira transação do `MAX` e a janela vazia do razão sem transação; a posição valorizada a cada fechamento, com retorno zero no primeiro ponto; o aporte do dia que não conta como ganho; o provento líquido pago no dia contado como retorno; as unidades de `BONUS` sem aporte; a posição cotada em outra moeda levada à moeda base pela taxa do dia; o dia sem taxa e o dia sem fechamento de alguma posição detida, ambos fora da série; o benchmark sobre o primeiro fechamento da janela; e a carteira sem nada cotado, de série vazia. O agora é parâmetro, nunca `new Date()` dentro do teste.
 
 O bloco `performance` de `src/routes/Portfolios.integration.ts` cobre `GET /v1/portfolio/performance` contra o banco, trocando `getHistoricalPrices` e `getHistoricalExchangeRate` do singleton por `t.mock.method`, como as demais rotas trocam a cotação: a série da carteira pedida na moeda base, com a janela que chegou ao provedor; a posição em moeda estrangeira convertida pela taxa de cada dia, com o par pedido uma vez; o benchmark ao lado da carteira; benchmark fora do catálogo com 404; a série de uma só posição, pelo símbolo sem diferenciar caixa, sem buscar fechamento nem câmbio das demais; símbolo sem posição na carteira com 404; carteira sem transação como janela vazia; carteira de outro usuário igual à inexistente; e `portfolioId`, `range`, `benchmark` ou `symbol` ausente ou malformado com 400. Os fechamentos são semeados relativos ao dia corrente, e não em datas fixas, que a suíte deixaria para trás.

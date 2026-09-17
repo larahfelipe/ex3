@@ -46,12 +46,14 @@ Toda transação pertence a uma carteira e referencia um instrumento; a posiçã
 | Campo | Regra |
 | --- | --- |
 | `type` | um dos tipos de [Efeito de cada tipo](#efeito-de-cada-tipo) |
-| `quantity`, `unitPrice` | decimais positivos, gravados separados |
+| `quantity`, `unitPrice` | decimais positivos, gravados separados; `unitPrice` pode ser zero num `BONUS` |
 | `fees`, `taxes` | decimais não negativos; zero quando não informados |
 | `currency` | moeda da operação, código ISO 4217 |
 | `executedAt` | quando a operação aconteceu, com fuso; obrigatório e independente de `createdAt` |
 | `broker` | opcional, até 60 caracteres |
 | `notes` | opcional, até 500 caracteres |
+
+**Proventos e bonificação.** `DIVIDEND`, `JCP` e `INTEREST` registram a renda que a posição paga: `quantity` é o número de unidades que a gerou, `unitPrice` o valor bruto por unidade, `taxes` o imposto retido e `fees` as tarifas, e o líquido recebido é `quantity × unitPrice − fees − taxes`. O provento não exige unidades detidas na data, porque quem vende depois da data com direito ainda recebe. `BONUS` registra as unidades recebidas em bonificação, e `unitPrice` é o custo atribuído a cada uma, zero quando não houver.
 
 **Uma moeda por posição.** A moeda da transação não precisa ser a moeda base da carteira, mas todas as transações de uma posição usam a mesma, porque o custo médio só soma valores na mesma moeda. Transação em outra moeda é recusada sem gravar nada.
 
@@ -78,14 +80,14 @@ A ordem do razão é `executedAt`, depois a ordem de gravação, o `sequence` qu
 | --- | --- | --- |
 | `BUY` | soma | soma `quantity × unitPrice + fees + taxes` |
 | `SELL` | subtrai | subtrai `quantity × averageCost`; gera lucro realizado |
-| `DIVIDEND`, `INTEREST` | não altera | não altera; é renda |
+| `DIVIDEND`, `JCP`, `INTEREST` | não altera | não altera; é renda |
 | `SPLIT` | altera pelo desdobramento ou grupamento | não altera; o custo médio se ajusta |
-| `BONUS` | soma | soma o custo atribuído, quando houver |
+| `BONUS` | soma | soma `quantity × unitPrice + fees + taxes`, com `unitPrice` o custo atribuído |
 | `TRANSFER_IN` | soma | soma o custo de origem informado |
 | `TRANSFER_OUT` | subtrai | subtrai `quantity × averageCost`, sem lucro realizado |
 | `DEPOSIT`, `WITHDRAWAL`, `ADJUSTMENT` | ver decisões em aberto | ver decisões em aberto |
 
-A API só aceita um tipo depois que o seu efeito estiver definido aqui e implementado na reconstrução da posição. Hoje aceita `BUY` e `SELL`; os demais existem no schema e são recusados com 400.
+A API só aceita um tipo depois que o seu efeito estiver definido aqui e implementado na reconstrução da posição. Hoje aceita `BUY`, `SELL`, `DIVIDEND`, `JCP`, `INTEREST` e `BONUS`; os demais existem no schema e são recusados com 400.
 
 ## Valuation
 
@@ -183,7 +185,7 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em
 * Toda janela termina no início do dia corrente em UTC, exclusivo, o primeiro dia que ainda não tem fechamento, e começa no início de um dia. A mesma janela pedida duas vezes no mesmo dia responde os mesmos dias, seja qual for o fuso de quem pede.
 * Cada ponto traz `date`, `value`, `investedValue`, `netContribution` e `twr`. A posição de cada dia é reconstruída do razão até o fim daquele dia, pelas regras de [Razão e posição](#razão-e-posição), então transação gravada retroativamente move a série inteira a partir da data dela.
 * Um dia só vira ponto quando toda posição detida nele, e toda transação executada nele, tem fechamento e câmbio para a moeda base. Dia parcial responderia uma carteira menor do que ela é, como se tivesse perdido valor, então fica fora da série.
-* `netContribution` é o caixa do dia: `BUY` soma quantidade × preço mais taxas e impostos, `SELL` subtrai o líquido. `twr` é o retorno ponderado no tempo acumulado desde o primeiro ponto, encadeando `(value − netContribution) ÷ valor do dia anterior`, de modo que dinheiro que entrou ou saiu no dia não conta como ganho. Lacuna na série faz o retorno seguinte abranger a lacuna.
+* `netContribution` é o caixa do dia: `BUY` soma quantidade × preço mais taxas e impostos, `SELL` e os proventos subtraem o líquido, e `BONUS` soma só taxas e impostos, porque o custo atribuído não é dinheiro que entrou. Sem saldo em caixa (ver [Decisões em aberto](#decisões-em-aberto)), o provento sai da carteira como o líquido de uma venda, então conta como retorno do dia em que foi pago. `twr` é o retorno ponderado no tempo acumulado desde o primeiro ponto, encadeando `(value − netContribution) ÷ valor do dia anterior`, de modo que dinheiro que entrou ou saiu no dia não conta como ganho. Lacuna na série faz o retorno seguinte abranger a lacuna.
 * `benchmark` é opcional e nomeia um símbolo do catálogo: o corpo ganha `{ symbol, currency, series }`, cada ponto com `close` e o `twr` sobre o primeiro fechamento da janela, comparável ao da carteira. O retorno do benchmark é o da moeda em que ele é cotado, sem conversão para a moeda base (TD-030).
 * `symbol` é opcional e restringe o razão às transações da posição daquele símbolo na carteira, então valor, aporte e retorno de toda a série são só dela. Símbolo sem posição na carteira responde `404`.
 * Índice de mercado não é cotável hoje, porque o padrão de símbolo do catálogo recusa `^BVSP`, então a comparação é com ETF que replica o índice, como `BOVA11` ou `IVV`.
