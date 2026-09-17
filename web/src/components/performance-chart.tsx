@@ -14,6 +14,7 @@ import {
   signedValueTone
 } from '@/common/utils';
 import { Amount } from '@/components/amounts';
+import { QuerySection } from '@/components/query-section';
 import {
   Skeleton,
   Table,
@@ -26,9 +27,8 @@ import {
 } from '@/components/ui';
 import { usePerformance } from '@/hooks/use-portfolio';
 
-import { OverviewSection } from './overview-section';
-
-type PerformanceChartProps = Record<'portfolio', Portfolio>;
+type PerformanceChartProps = Record<'portfolio', Portfolio> &
+  Partial<Record<'symbol', string>>;
 
 type ChartPoint = Record<'x' | 'y', number>;
 
@@ -98,11 +98,17 @@ const areaPathOf = (points: ReadonlyArray<ChartPoint>) => {
   return `${linePathOf(points)} L${last.x} ${CHART_HEIGHT} L${first.x} ${CHART_HEIGHT} Z`;
 };
 
-export const PerformanceChart: FC<PerformanceChartProps> = ({ portfolio }) => {
+export const PerformanceChart: FC<PerformanceChartProps> = ({
+  portfolio,
+  symbol
+}) => {
   const [selectedRange, setSelectedRange] = useState<PerformanceRange>('1Y');
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [isTableOpen, setIsTableOpen] = useState(false);
-  const performanceQuery = usePerformance(portfolio, selectedRange);
+  const performanceQuery = usePerformance(portfolio, {
+    range: selectedRange,
+    symbol
+  });
   const rangeInputName = useId();
 
   const trackPointer = (
@@ -124,7 +130,7 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({ portfolio }) => {
   };
 
   return (
-    <OverviewSection
+    <QuerySection
       title="Performance"
       query={performanceQuery}
       errorMessage="The performance could not be loaded"
@@ -170,7 +176,7 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({ portfolio }) => {
           activeIndex === null ? null : points.at(activeIndex);
         const readPoint = series.at(activeIndex ?? -1) ?? series[0];
         const { period } = PERFORMANCE_RANGE_LABELS[selectedRange];
-        const caption = `Portfolio value and return on each trading day ${period}`;
+        const caption = `${symbol ?? 'Portfolio'} value and return on each trading day ${period}`;
 
         return (
           <div className="space-y-4">
@@ -344,6 +350,6 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({ portfolio }) => {
           </div>
         );
       }}
-    </OverviewSection>
+    </QuerySection>
   );
 };

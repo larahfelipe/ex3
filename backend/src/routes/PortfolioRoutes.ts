@@ -7,6 +7,7 @@ import {
   getPortfolioControllerHandler,
   getPortfolioOverviewControllerHandler,
   getPortfolioPerformanceControllerHandler,
+  getPortfolioPositionControllerHandler,
   getPortfolioPositionsControllerHandler
 } from '@/controllers/portfolio';
 import { authMiddleware } from '@/middleware';
@@ -41,6 +42,12 @@ portfolioRouter.get(
   '/v1/portfolio/positions',
   authMiddleware,
   getPortfolioPositionsControllerHandler as Application
+);
+
+portfolioRouter.get(
+  '/v1/portfolio/positions/:symbol',
+  authMiddleware,
+  getPortfolioPositionControllerHandler as Application
 );
 
 portfolioRouter.get(

@@ -98,3 +98,6 @@ export const APP_ROUTES = {
     Overview: '/'
   }
 } as const;
+
+export const assetDetailRoute = (symbol: string) =>
+  `${APP_ROUTES.Protected.Assets}/${encodeURIComponent(symbol)}`;

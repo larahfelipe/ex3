@@ -1,5 +1,7 @@
 import { useEffect, useId, useState, type FC } from 'react';
 
+import Link from 'next/link';
+
 import {
   ArrowDown,
   ArrowUp,
@@ -18,11 +20,15 @@ import type {
   SortOrder
 } from '@/app/api/v1/portfolio';
 import type { Portfolio } from '@/app/api/v1/portfolios';
-import { INSTRUMENT_TYPE_LABELS, INSTRUMENT_TYPES } from '@/common/constants';
 import {
-  formatMoney,
+  assetDetailRoute,
+  INSTRUMENT_TYPE_LABELS,
+  INSTRUMENT_TYPES
+} from '@/common/constants';
+import {
   formatPercent,
   formatQuantity,
+  formatUnitAmount,
   signedValueTone
 } from '@/common/utils';
 import { Amount, SignedAmount, UnavailableValue } from '@/components/amounts';
@@ -119,14 +125,6 @@ const SORT_ICONS: Record<SortOrder, LucideIcon> = {
 };
 
 const SIGNED_FORMAT: Intl.NumberFormatOptions = { signDisplay: 'exceptZero' };
-
-const PRICE_SIGNIFICANT_DIGITS = 4;
-
-/** Keeps a price below one cent, such as a crypto unit's, from rounding to zero. */
-const PRICE_FORMAT: Intl.NumberFormatOptions = {
-  maximumSignificantDigits: PRICE_SIGNIFICANT_DIGITS,
-  roundingPriority: 'morePrecision'
-};
 
 const firstOrderOf = (field: PositionSortField): SortOrder =>
   field === 'symbol' ? 'asc' : 'desc';
@@ -424,8 +422,16 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                   {data.items.map((position) => (
                     <TableRow key={position.symbol}>
                       <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{position.symbol}</span>
+                        <div className="flex flex-col items-start">
+                          <Button
+                            asChild
+                            variant="link"
+                            className="h-auto p-0 font-medium"
+                          >
+                            <Link href={assetDetailRoute(position.symbol)}>
+                              {position.symbol}
+                            </Link>
+                          </Button>
 
                           <span className="text-xs text-muted-foreground">
                             {position.name}
@@ -441,10 +447,9 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                         {position.averageCost === undefined ? (
                           <UnavailableValue />
                         ) : (
-                          formatMoney(
+                          formatUnitAmount(
                             position.averageCost,
-                            position.baseCurrency,
-                            PRICE_FORMAT
+                            position.baseCurrency
                           )
                         )}
                       </TableCell>
@@ -453,10 +458,9 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                         {position.marketPrice === undefined ? (
                           <UnavailableValue />
                         ) : (
-                          formatMoney(
+                          formatUnitAmount(
                             position.marketPrice,
-                            position.baseCurrency,
-                            PRICE_FORMAT
+                            position.baseCurrency
                           )
                         )}
                       </TableCell>

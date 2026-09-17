@@ -1,4 +1,4 @@
-import { InstrumentMessages, PortfolioMessages } from '@/config';
+import { AssetMessages, InstrumentMessages, PortfolioMessages } from '@/config';
 import type { PriceRange } from '@/domain/MarketDataProvider';
 import type { Instrument, Portfolio } from '@/domain/models';
 import {
@@ -12,6 +12,7 @@ import {
 import { startOfDayInUtc } from '@/domain/PriceHistory';
 import { NotFoundError } from '@/errors';
 import type {
+  AssetRepository,
   InstrumentRepository,
   PortfolioRepository,
   TransactionRepository
@@ -25,6 +26,7 @@ type TradedInstrument = Pick<Instrument, 'id' | 'symbol' | 'currency'>;
 
 export class GetPortfolioPerformanceService {
   private static INSTANCE: GetPortfolioPerformanceService;
+  private readonly assetRepository: AssetRepository;
   private readonly instrumentRepository: InstrumentRepository;
   private readonly portfolioRepository: PortfolioRepository;
   private readonly transactionRepository: TransactionRepository;
@@ -33,6 +35,7 @@ export class GetPortfolioPerformanceService {
   private readonly now: () => Date;
 
   private constructor(
+    assetRepository: AssetRepository,
     instrumentRepository: InstrumentRepository,
     portfolioRepository: PortfolioRepository,
     transactionRepository: TransactionRepository,
@@ -40,6 +43,7 @@ export class GetPortfolioPerformanceService {
     getExchangeRateHistoryService: GetExchangeRateHistoryService,
     now: () => Date
   ) {
+    this.assetRepository = assetRepository;
     this.instrumentRepository = instrumentRepository;
     this.portfolioRepository = portfolioRepository;
     this.transactionRepository = transactionRepository;
@@ -49,6 +53,7 @@ export class GetPortfolioPerformanceService {
   }
 
   static getInstance(
+    assetRepository: AssetRepository,
     instrumentRepository: InstrumentRepository,
     portfolioRepository: PortfolioRepository,
     transactionRepository: TransactionRepository,
@@ -59,6 +64,7 @@ export class GetPortfolioPerformanceService {
     if (!GetPortfolioPerformanceService.INSTANCE)
       GetPortfolioPerformanceService.INSTANCE =
         new GetPortfolioPerformanceService(
+          assetRepository,
           instrumentRepository,
           portfolioRepository,
           transactionRepository,
@@ -73,13 +79,15 @@ export class GetPortfolioPerformanceService {
   /**
    * The whole ledger up to today is read, not only the window's, because the
    * positions held on the first day of the window are replayed from every
-   * transaction that precedes it. `MAX` starts at the first of them.
+   * transaction that precedes it. `MAX` starts at the first of them. With a
+   * symbol, the ledger and so the whole series is that position's alone.
    */
   async execute({
     userId,
     portfolioId,
     range,
-    benchmark
+    benchmark,
+    symbol
   }: GetPortfolioPerformanceService.DTO): Promise<GetPortfolioPerformanceService.Result> {
     const portfolio = await this.portfolioRepository.getById({
       id: portfolioId,
@@ -90,10 +98,11 @@ export class GetPortfolioPerformanceService {
 
     const { baseCurrency } = portfolio;
     const now = this.now();
-    const ledger = await this.transactionRepository.getLedgerUpTo({
+    const ledger = await this.ledgerOf(
       portfolioId,
-      to: startOfDayInUtc(now)
-    });
+      symbol,
+      startOfDayInUtc(now)
+    );
     const [firstEntry] = ledger;
     const window = performanceRangeOf(range, now, firstEntry?.executedAt);
 
@@ -121,6 +130,28 @@ export class GetPortfolioPerformanceService {
       instruments,
       ratesByCurrency,
       ...(benchmarkSeries && { benchmark: benchmarkSeries })
+    });
+  }
+
+  private async ledgerOf(
+    portfolioId: Portfolio['id'],
+    symbol: string | undefined,
+    to: Date
+  ) {
+    if (symbol === undefined)
+      return this.transactionRepository.getLedgerUpTo({ portfolioId, to });
+
+    const position = await this.assetRepository.getBySymbol({
+      symbol,
+      portfolioId
+    });
+
+    if (!position) throw new NotFoundError(AssetMessages.NOT_FOUND);
+
+    return this.transactionRepository.getLedgerUpTo({
+      portfolioId,
+      instrumentId: position.instrumentId,
+      to
     });
   }
 
@@ -189,6 +220,6 @@ namespace GetPortfolioPerformanceService {
   export type DTO = Record<'userId', string> &
     Record<'portfolioId', Portfolio['id']> &
     Record<'range', PerformanceRange> &
-    Partial<Record<'benchmark', string>>;
+    Partial<Record<'benchmark' | 'symbol', string>>;
   export type Result = PortfolioPerformance;
 }

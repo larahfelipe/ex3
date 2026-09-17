@@ -1,7 +1,5 @@
 import type { FC } from 'react';
 
-import { twMerge } from 'tailwind-merge';
-
 import type { ListedTransaction } from '@/app/api/v1/transactions';
 import {
   TRANSACTION_TYPE_LABELS,
@@ -14,6 +12,7 @@ import {
   formatQuantity
 } from '@/common/utils';
 import { UnavailableValue } from '@/components/amounts';
+import { DetailItem } from '@/components/detail-item';
 import {
   Button,
   Dialog,
@@ -24,25 +23,12 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui';
-import type { Children } from '@/types';
 
 type TransactionDetailsDialogProps = Record<
   'transaction',
   ListedTransaction | null
 > &
   Record<'onClose', VoidFunction>;
-
-type DetailItemProps = Children &
-  Record<'label', string> &
-  Partial<Record<'className', string>>;
-
-const DetailItem: FC<DetailItemProps> = ({ label, className, children }) => (
-  <div className={twMerge('min-w-0 space-y-1', className)}>
-    <dt className="text-sm text-muted-foreground">{label}</dt>
-
-    <dd className="font-medium wrap-anywhere">{children}</dd>
-  </div>
-);
 
 const TransactionDetails: FC<Record<'transaction', ListedTransaction>> = ({
   transaction: {

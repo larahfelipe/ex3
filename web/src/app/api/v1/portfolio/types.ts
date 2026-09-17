@@ -90,6 +90,19 @@ export type GetPortfolioPositionsRequestParams = PortfolioScopeParams &
 
 export type GetPortfolioPositionsResponseData = Page<PortfolioPosition>;
 
+export type PositionQuote = Record<'price', DecimalString> &
+  Record<'currency' | 'timestamp', string> &
+  Partial<
+    Record<'previousClose' | 'dayChange' | 'dayChangePercent', DecimalString>
+  >;
+
+export type PositionDetail = PortfolioPosition &
+  Record<'type', InstrumentType> &
+  Record<'market' | 'currency' | 'sector', Maybe<string>> &
+  Partial<Record<'quote', PositionQuote>>;
+
+export type GetPortfolioPositionResponseData = PositionDetail;
+
 export type GetPortfolioAllocationResponseData = PortfolioAllocation;
 
 export type PerformanceRange = '1W' | '1M' | '3M' | '6M' | '1Y' | 'YTD' | 'MAX';
@@ -101,7 +114,10 @@ export type PortfolioPerformance = WithBaseCurrency &
   Record<'from' | 'to', string> &
   Record<'series', Array<PerformancePoint>>;
 
+export type PerformanceParams = Record<'range', PerformanceRange> &
+  Partial<Record<'symbol', string>>;
+
 export type GetPortfolioPerformanceRequestParams = PortfolioScopeParams &
-  Record<'range', PerformanceRange>;
+  PerformanceParams;
 
 export type GetPortfolioPerformanceResponseData = PortfolioPerformance;

@@ -28,7 +28,7 @@ export class GetPortfolioPerformanceController implements Controller {
   async handle(req: Request, res: Response) {
     const { user, query } = req;
 
-    const { portfolioId, range, benchmark } = await validate(
+    const { portfolioId, range, benchmark, symbol } = await validate(
       GetPortfolioPerformanceSchema,
       query
     );
@@ -37,7 +37,8 @@ export class GetPortfolioPerformanceController implements Controller {
       userId: user.id,
       portfolioId,
       range,
-      ...(benchmark !== undefined && { benchmark })
+      ...(benchmark !== undefined && { benchmark }),
+      ...(symbol !== undefined && { symbol })
     });
 
     return res.status(200).json(result);

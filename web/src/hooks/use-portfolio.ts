@@ -13,9 +13,10 @@ import type {
   GetPortfolioOverviewResponseData,
   GetPortfolioPerformanceRequestParams,
   GetPortfolioPerformanceResponseData,
+  GetPortfolioPositionResponseData,
   GetPortfolioPositionsRequestParams,
   GetPortfolioPositionsResponseData,
-  PerformanceRange,
+  PerformanceParams,
   PortfolioScopeParams,
   PositionListingParams
 } from '@/app/api/v1/portfolio';
@@ -24,8 +25,8 @@ import type {
   GetPortfoliosResponseData,
   Portfolio
 } from '@/app/api/v1/portfolios';
-import api, { type ApiProxyErrorData } from '@/lib/axios';
-import { queryKeys } from '@/lib/react-query';
+import api, { isNotFoundError, type ApiProxyErrorData } from '@/lib/axios';
+import { QUERY_RETRY_LIMIT, queryKeys } from '@/lib/react-query';
 import type { Maybe } from '@/types';
 
 const PORTFOLIOS_STALE_TIME_MS = 60_000;
@@ -109,22 +110,44 @@ export const usePositions = (
     placeholderData: keepPreviousData
   });
 
+export const usePosition = (portfolio: Maybe<Portfolio>, symbol: string) =>
+  useQuery<
+    AxiosResponse<GetPortfolioPositionResponseData>,
+    ApiProxyErrorData,
+    GetPortfolioPositionResponseData
+  >({
+    queryKey: queryKeys.position(portfolio?.id, symbol),
+    queryFn: portfolio
+      ? () =>
+          api
+            .getInstance()
+            .get(`/v1/portfolio/positions/${encodeURIComponent(symbol)}`, {
+              params: {
+                portfolioId: portfolio.id
+              } satisfies PortfolioScopeParams
+            })
+      : skipToken,
+    select: ({ data }) => data,
+    retry: (failureCount, error) =>
+      !isNotFoundError(error) && failureCount < QUERY_RETRY_LIMIT
+  });
+
 export const usePerformance = (
   portfolio: Maybe<Portfolio>,
-  range: PerformanceRange
+  performance: PerformanceParams
 ) =>
   useQuery<
     AxiosResponse<GetPortfolioPerformanceResponseData>,
     ApiProxyErrorData,
     GetPortfolioPerformanceResponseData
   >({
-    queryKey: queryKeys.performance(portfolio?.id, range),
+    queryKey: queryKeys.performance(portfolio?.id, performance),
     queryFn: portfolio
       ? () =>
           api.getInstance().get('/v1/portfolio/performance', {
             params: {
-              portfolioId: portfolio.id,
-              range
+              ...performance,
+              portfolioId: portfolio.id
             } satisfies GetPortfolioPerformanceRequestParams
           })
       : skipToken,

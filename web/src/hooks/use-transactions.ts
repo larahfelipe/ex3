@@ -1,4 +1,9 @@
-import { skipToken, useMutation, useQuery } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  skipToken,
+  useMutation,
+  useQuery
+} from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import { toast } from 'sonner';
 
@@ -35,7 +40,8 @@ export const useTransactions = (
             } satisfies GetTransactionsRequestParams
           })
       : skipToken,
-    select: ({ data }) => data
+    select: ({ data }) => data,
+    placeholderData: keepPreviousData
   });
 
 export const useCreateTransaction = (portfolio: Maybe<Portfolio>) => {

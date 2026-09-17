@@ -6,11 +6,10 @@ import { twMerge } from 'tailwind-merge';
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { formatQuoteTime } from '@/common/utils';
 import { Amount, SignedAmount } from '@/components/amounts';
+import { QuerySection } from '@/components/query-section';
 import { Button, Skeleton } from '@/components/ui';
 import { usePortfolioOverview } from '@/hooks/use-portfolio';
 import type { Children } from '@/types';
-
-import { OverviewSection } from './overview-section';
 
 type PortfolioValueCardProps = Record<'portfolio', Portfolio>;
 
@@ -35,7 +34,7 @@ export const PortfolioValueCard: FC<PortfolioValueCardProps> = ({
   const { isRefetchError, isFetching, refetch } = overviewQuery;
 
   return (
-    <OverviewSection
+    <QuerySection
       title="Portfolio value"
       query={overviewQuery}
       errorMessage="The portfolio value could not be loaded"
@@ -127,6 +126,6 @@ export const PortfolioValueCard: FC<PortfolioValueCardProps> = ({
           )}
         </div>
       )}
-    </OverviewSection>
+    </QuerySection>
   );
 };

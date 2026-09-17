@@ -1,11 +1,11 @@
 'use client';
 
 import { LoadErrorAlert } from '@/components/load-error-alert';
+import { PerformanceChart } from '@/components/performance-chart';
 import { Skeleton } from '@/components/ui';
 import { usePrimaryPortfolio } from '@/hooks/use-portfolio';
 
 import { AllocationChart } from './_components/allocation-chart';
-import { PerformanceChart } from './_components/performance-chart';
 import { PortfolioValueCard } from './_components/portfolio-value-card';
 import { PositionsSummary } from './_components/positions-summary';
 import { RecentTransactions } from './_components/recent-transactions';

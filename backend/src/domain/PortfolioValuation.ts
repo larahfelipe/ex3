@@ -48,6 +48,19 @@ export type PortfolioPosition = Pick<
 export type AllocatedPosition = ListedPosition &
   Pick<Instrument, 'type' | 'sector' | 'currency'>;
 
+export type PositionQuote = Pick<
+  Quote,
+  'price' | 'currency' | 'timestamp' | 'previousClose'
+> & {
+  dayChange?: string;
+  dayChangePercent?: string;
+};
+
+export type PositionDetail = PortfolioPosition &
+  Pick<Instrument, 'type' | 'market' | 'currency' | 'sector'> & {
+    quote?: PositionQuote;
+  };
+
 export const PositionStatuses = {
   OPEN: 'open',
   CLOSED: 'closed'
@@ -302,6 +315,54 @@ export const valuePositionsInBaseCurrency = (
       };
     }
   );
+};
+
+/**
+ * The position valued as in `valuePositionsInBaseCurrency`, next to its latest
+ * quote in the currency it was quoted in. `dayChange` is the price less the
+ * previous close and `dayChangePercent` a fraction of that close, both absent
+ * without it and the percentage also when it is zero. Both are truncated
+ * towards zero at the column scale.
+ */
+export const describePosition = (
+  holdings: PortfolioHoldings,
+  position: AllocatedPosition & Pick<Instrument, 'market'>
+): PositionDetail => {
+  const [valuedPosition] = valuePositionsInBaseCurrency(holdings, [position]);
+  const { type, market, currency, sector } = position;
+  const lookup = holdings.quotes.get(position.symbol);
+  const quote = lookup?.outcome === 'quoted' ? lookup.quote : null;
+
+  const previousClose =
+    quote?.previousClose === undefined
+      ? null
+      : new ValuationDecimal(quote.previousClose);
+  const dayChange =
+    quote &&
+    previousClose &&
+    truncateToColumnScale(new ValuationDecimal(quote.price).sub(previousClose));
+
+  return {
+    ...valuedPosition,
+    type,
+    market,
+    currency,
+    sector,
+    ...(quote && {
+      quote: {
+        price: quote.price,
+        currency: quote.currency,
+        timestamp: quote.timestamp,
+        ...(previousClose && { previousClose: quote.previousClose }),
+        ...(dayChange && { dayChange: dayChange.toFixed() }),
+        ...(dayChange &&
+          previousClose &&
+          !previousClose.isZero() && {
+            dayChangePercent: fractionOf(dayChange, previousClose)
+          })
+      }
+    })
+  };
 };
 
 export const matchesPositionFilter =

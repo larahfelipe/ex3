@@ -135,9 +135,9 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-024 — Seções da Overview sem sinal de dado desatualizado
 
 - **Origem:** TASK 8.2 · **Tipo:** UX · **Prioridade:** baixa · **Encaminhamento:** avulso
-- **Contexto:** o `PortfolioValueCard` avisa quando a nova busca falha e o valor exibido é o do cache (`isRefetchError`). `OverviewSection` mantém o dado em cache nesse caso também para alocação, posições e transações recentes, mas essas seções não sinalizam (`web/src/app/(protected)/(overview)/_components/overview-section.tsx`).
+- **Contexto:** o `PortfolioValueCard` avisa quando a nova busca falha e o valor exibido é o do cache (`isRefetchError`). `QuerySection` mantém o dado em cache nesse caso também para as demais seções da Overview e para a performance e as transações do detalhe do ativo, mas essas seções não sinalizam (`web/src/components/query-section.tsx`).
 - **Impacto:** depois de uma atualização que falha, ao voltar à Overview ou após registrar uma transação, o card aparece desatualizado e as demais seções mostram os valores anteriores como atuais.
-- **Proposta:** levar o aviso de desatualizado, com a semântica do card, para `OverviewSection` quando uma task dessas seções tratar os estados.
+- **Proposta:** levar o aviso de desatualizado, com a semântica do card, para `QuerySection` quando uma task dessas seções tratar os estados.
 
 ### TD-025 — Cores do gráfico de alocação fora dos tokens e repetidas acima de 10 grupos
 
@@ -197,10 +197,17 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 
 ### TD-034 — Listagem e avaliação de ativos sem consumidor no web
 
-- **Origem:** TASK 9.1 · **Tipo:** API · **Prioridade:** baixa · **Encaminhamento:** TASK 9.2
-- **Contexto:** a tabela de posições lê `GET /v1/portfolio/positions`, e os proxies `GET /api/v1/assets` e `/api/v1/assets/valuations` foram removidos com a tabela de ativos. `GET /v1/assets`, com a contagem de transações por ativo, e `GET /v1/assets/valuations` seguem no backend e nos testes de integração, sem consumidor no web.
+- **Origem:** TASK 9.1 · **Tipo:** API · **Prioridade:** baixa · **Encaminhamento:** TASK 20.1
+- **Contexto:** a tabela de posições lê `GET /v1/portfolio/positions`, e os proxies `GET /api/v1/assets` e `/api/v1/assets/valuations` foram removidos com a tabela de ativos. `GET /v1/assets`, com a contagem de transações por ativo, e `GET /v1/assets/valuations` seguem no backend e nos testes de integração, sem consumidor no web. O detalhe do ativo também não os usa: lê `GET /v1/portfolio/positions/:symbol` e `GET /v1/transactions` com `symbol`. O mesmo vale para `GET /v1/asset/:symbol`, do qual o web só usa o `DELETE`.
 - **Impacto:** superfície de API autenticada mantida, testada e documentada sem uso pelo produto; `GET /v1/assets` segue fora do padrão de listagem (TD-021).
-- **Proposta:** decidir com o detalhe do ativo se a avaliação por símbolo e a contagem de transações o servem; o que não servir sai do backend com os testes e a documentação.
+- **Proposta:** remover do backend, com os testes e a documentação, os endpoints de leitura de ativo que nenhuma tela tiver passado a consumir, tratando TD-021 na mesma mudança.
+
+### TD-035 — Detalhe do ativo sem proventos
+
+- **Origem:** TASK 9.2 · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** TASK 10.3
+- **Contexto:** o detalhe do ativo, em `/assets/[symbol]`, tem visão geral, posição, performance e transações. A seção de proventos ficou fora por decisão de produto até existir o modelo de proventos: a API aceita só transações `BUY` e `SELL` (TD-017), e nenhum endpoint devolve provento.
+- **Impacto:** o usuário não vê no ativo os proventos recebidos nem o rendimento deles sobre o custo.
+- **Proposta:** acrescentar a seção de proventos ao detalhe do ativo quando o modelo e a API de proventos existirem, com o recorte por ativo que a API oferecer.
 
 ## Resolvidos
 

@@ -7,11 +7,13 @@ import type { QuoteLookup } from './MarketDataProvider';
 import {
   type AllocatedPosition,
   allocatePortfolio,
+  describePosition,
   foreignCurrenciesOf,
   type ListedPosition,
   matchesPositionFilter,
   type PortfolioHoldings,
   type PortfolioPosition,
+  type PositionDetail,
   type PositionFilter,
   PositionStatuses,
   sortPositionsBy,
@@ -547,6 +549,84 @@ const symbolsMatching = (filter: PositionFilter) =>
   FILTERABLE_POSITIONS.filter(matchesPositionFilter(filter)).map(
     ({ symbol }) => symbol
   );
+
+describe('describePosition', () => {
+  const AAPL_CATALOG: Pick<
+    PositionDetail,
+    'type' | 'market' | 'currency' | 'sector'
+  > = {
+    type: 'STOCK',
+    market: 'NASDAQ',
+    currency: 'USD',
+    sector: 'Technology'
+  };
+
+  const describeAapl = (aaplQuote: QuoteLookup) =>
+    describePosition(
+      {
+        baseCurrency: BASE_CURRENCY,
+        positions: [PETR4_LISTED, AAPL_LISTED],
+        quotes: new Map([
+          ['PETR4', LISTED_QUOTES.PETR4],
+          ['AAPL', aaplQuote]
+        ]),
+        exchangeRates: new Map([['USD', USD_RATE]])
+      },
+      { ...AAPL_LISTED, ...AAPL_CATALOG }
+    );
+
+  it('values the position in the base currency next to its quote in the currency it was quoted in, with the change since the previous close', () => {
+    assert.deepEqual(describeAapl(quoted('100', 'USD', '80')), {
+      ...AAPL_POSITION,
+      ...AAPL_CATALOG,
+      quote: {
+        price: '100',
+        currency: 'USD',
+        timestamp: OBSERVED_AT,
+        previousClose: '80',
+        dayChange: '20',
+        dayChangePercent: '0.25'
+      }
+    });
+  });
+
+  it('truncates the change of the day and its percentage towards zero at the column scale', () => {
+    assert.deepEqual(
+      describeAapl(quoted('2.0000000000000000019', 'USD', '3')).quote,
+      {
+        price: '2.0000000000000000019',
+        currency: 'USD',
+        timestamp: OBSERVED_AT,
+        previousClose: '3',
+        dayChange: '-0.999999999999999998',
+        dayChangePercent: '-0.333333333333333332'
+      }
+    );
+  });
+
+  it('leaves out the change of the day without a previous close, and its percentage for a close of zero', () => {
+    assert.deepEqual(describeAapl(quoted('100', 'USD')).quote, {
+      price: '100',
+      currency: 'USD',
+      timestamp: OBSERVED_AT
+    });
+    assert.deepEqual(describeAapl(quoted('100', 'USD', '0')).quote, {
+      price: '100',
+      currency: 'USD',
+      timestamp: OBSERVED_AT,
+      previousClose: '0',
+      dayChange: '100'
+    });
+  });
+
+  it('leaves out the quote and the values that need it when the provider did not give one', () => {
+    assert.deepEqual(describeAapl({ outcome: 'unavailable' }), {
+      ...positionOf(AAPL_LISTED),
+      ...AAPL_CATALOG,
+      averageCost: '625'
+    });
+  });
+});
 
 describe('matchesPositionFilter', () => {
   it('matches every position without a criterion', () => {

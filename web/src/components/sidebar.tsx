@@ -67,7 +67,9 @@ export const Sidebar: FC = () => {
     className,
     variant = 'secondary'
   }: SectionButtonProps) => {
-    const isActive = path === pathname;
+    const isActive =
+      path !== undefined &&
+      (pathname === path || pathname.startsWith(`${path}/`));
 
     return (
       <TooltipProvider>

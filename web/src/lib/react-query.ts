@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 
 import type {
-  PerformanceRange,
+  PerformanceParams,
   PositionListingParams
 } from '@/app/api/v1/portfolio';
 import type {
@@ -11,11 +11,13 @@ import type {
 import type { TransactionFilters } from '@/app/api/v1/transactions';
 import type { Maybe } from '@/types';
 
+export const QUERY_RETRY_LIMIT = 2;
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      retry: 2
+      retry: QUERY_RETRY_LIMIT
     },
     mutations: {
       retry: 2
@@ -37,10 +39,12 @@ export const queryKeys = {
     [...portfolioScope(portfolioId), 'overview'] as const,
   positions: (portfolioId: PortfolioId, listing: PositionListingParams) =>
     [...portfolioScope(portfolioId), 'positions', listing] as const,
+  position: (portfolioId: PortfolioId, symbol: string) =>
+    [...portfolioScope(portfolioId), 'position', symbol] as const,
   allocation: (portfolioId: PortfolioId) =>
     [...portfolioScope(portfolioId), 'allocation'] as const,
-  performance: (portfolioId: PortfolioId, range: PerformanceRange) =>
-    [...portfolioScope(portfolioId), 'performance', range] as const,
+  performance: (portfolioId: PortfolioId, params: PerformanceParams) =>
+    [...portfolioScope(portfolioId), 'performance', params] as const,
   transactions: (portfolioId: PortfolioId, filters: TransactionFilters) =>
     [...portfolioScope(portfolioId), 'transactions', filters] as const
 };
