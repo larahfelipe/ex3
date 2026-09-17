@@ -24,14 +24,21 @@ import {
   DialogTitle
 } from '@/components/ui';
 
+type TransactionAction = (transaction: ListedTransaction) => void;
+
+type TransactionActions = Record<'onEdit' | 'onDelete', TransactionAction>;
+
 type TransactionDetailsDialogProps = Record<
   'transaction',
   ListedTransaction | null
 > &
-  Record<'onClose', VoidFunction>;
+  Record<'onClose', VoidFunction> &
+  TransactionActions;
 
-const TransactionDetails: FC<Record<'transaction', ListedTransaction>> = ({
-  transaction: {
+const TransactionDetails: FC<
+  Record<'transaction', ListedTransaction> & TransactionActions
+> = ({ transaction, onEdit, onDelete }) => {
+  const {
     type,
     symbol,
     executedAt,
@@ -42,58 +49,78 @@ const TransactionDetails: FC<Record<'transaction', ListedTransaction>> = ({
     taxes,
     broker,
     notes
-  }
-}) => (
-  <>
-    <DialogHeader>
-      <DialogTitle>
-        <span className={TRANSACTION_TYPE_TONES[type]}>
-          {TRANSACTION_TYPE_LABELS[type]}
-        </span>
+  } = transaction;
 
-        {` ${symbol}`}
-      </DialogTitle>
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>
+          <span className={TRANSACTION_TYPE_TONES[type]}>
+            {TRANSACTION_TYPE_LABELS[type]}
+          </span>
 
-      <DialogDescription>
-        {'Executed on '}
+          {` ${symbol}`}
+        </DialogTitle>
 
-        <time dateTime={executedAt}>{formatExecutionTime(executedAt)}</time>
-      </DialogDescription>
-    </DialogHeader>
+        <DialogDescription>
+          {'Executed on '}
 
-    <dl className="grid gap-4 sm:grid-cols-2">
-      <DetailItem label="Quantity">{formatQuantity(quantity)}</DetailItem>
+          <time dateTime={executedAt}>{formatExecutionTime(executedAt)}</time>
+        </DialogDescription>
+      </DialogHeader>
 
-      <DetailItem label="Unit price">
-        {formatPrice(unitPrice, currency)}
-      </DetailItem>
+      <dl className="grid gap-4 sm:grid-cols-2">
+        <DetailItem label="Quantity">{formatQuantity(quantity)}</DetailItem>
 
-      <DetailItem label="Fees">{formatMoney(fees, currency)}</DetailItem>
+        <DetailItem label="Unit price">
+          {formatPrice(unitPrice, currency)}
+        </DetailItem>
 
-      <DetailItem label="Taxes">{formatMoney(taxes, currency)}</DetailItem>
+        <DetailItem label="Fees">{formatMoney(fees, currency)}</DetailItem>
 
-      <DetailItem label="Broker">{broker ?? <UnavailableValue />}</DetailItem>
+        <DetailItem label="Taxes">{formatMoney(taxes, currency)}</DetailItem>
 
-      <DetailItem label="Notes" className="sm:col-span-2">
-        {notes ?? <UnavailableValue />}
-      </DetailItem>
-    </dl>
+        <DetailItem label="Broker">{broker ?? <UnavailableValue />}</DetailItem>
 
-    <DialogFooter>
-      <DialogClose asChild>
-        <Button variant="secondary">Close</Button>
-      </DialogClose>
-    </DialogFooter>
-  </>
-);
+        <DetailItem label="Notes" className="sm:col-span-2">
+          {notes ?? <UnavailableValue />}
+        </DetailItem>
+      </dl>
+
+      <DialogFooter className="gap-2 sm:space-x-0">
+        <Button
+          variant="outline"
+          className="text-destructive hover:text-destructive sm:mr-auto"
+          onClick={() => onDelete(transaction)}
+        >
+          Delete
+        </Button>
+
+        <DialogClose asChild>
+          <Button variant="secondary">Close</Button>
+        </DialogClose>
+
+        <Button onClick={() => onEdit(transaction)}>Edit</Button>
+      </DialogFooter>
+    </>
+  );
+};
 
 export const TransactionDetailsDialog: FC<TransactionDetailsDialogProps> = ({
   transaction,
-  onClose
+  onClose,
+  onEdit,
+  onDelete
 }) => (
   <Dialog open={transaction !== null} onOpenChange={onClose}>
     <DialogContent>
-      {transaction !== null && <TransactionDetails transaction={transaction} />}
+      {transaction !== null && (
+        <TransactionDetails
+          transaction={transaction}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
+      )}
     </DialogContent>
   </Dialog>
 );

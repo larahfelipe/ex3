@@ -30,7 +30,13 @@ export const RecentTransactions: FC<RecentTransactionsProps> = ({
         <p className="text-sm text-muted-foreground">No transactions yet</p>
       }
     >
-      {({ items }) => <TransactionsTable transactions={items} hasAssetColumn />}
+      {({ items }) => (
+        <TransactionsTable
+          portfolio={portfolio}
+          transactions={items}
+          hasAssetColumn
+        />
+      )}
     </QuerySection>
   );
 };

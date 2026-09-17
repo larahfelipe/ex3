@@ -45,12 +45,21 @@ export type GetTransactionsResponseData = Page<ListedTransaction>;
 
 export type GetTransactionRequestPayload = Pick<Asset, 'symbol'>;
 
-export type CreateTransactionRequestPayload = Pick<
+export type TransactionEntryPayload = Pick<
   TransactionProperties,
-  'type' | 'currency' | 'executedAt'
+  'type' | 'currency' | 'executedAt' | 'broker' | 'notes'
 > &
-  Record<'quantity' | 'unitPrice' | 'assetSymbol' | 'portfolioId', string>;
+  Record<'quantity' | 'unitPrice' | 'fees' | 'taxes', string>;
+
+export type CreateTransactionRequestPayload = TransactionEntryPayload &
+  Record<'assetSymbol' | 'portfolioId', string>;
 
 export interface CreateTransactionResponseData extends WithMessage {
   transaction: Transaction;
 }
+
+export type UpdateTransactionRequestPayload = TransactionEntryPayload;
+
+export type UpdateTransactionResponseData = WithMessage;
+
+export type DeleteTransactionResponseData = WithMessage;

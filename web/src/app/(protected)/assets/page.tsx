@@ -7,9 +7,10 @@ import { useSearchParams } from 'next/navigation';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 
-import { ASSET_DIALOG_ACTIONS, TRANSACTION_TYPES } from '@/common/constants';
+import { ASSET_DIALOG_ACTIONS } from '@/common/constants';
 import { replaceUrl } from '@/common/utils';
 import { LoadErrorAlert } from '@/components/load-error-alert';
+import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import { Button, Skeleton } from '@/components/ui';
 import { useCreateAsset, useDeleteAsset } from '@/hooks/use-assets';
 import { useDisclosure } from '@/hooks/use-disclosure';
@@ -22,12 +23,6 @@ import {
   AddAssetSchema,
   type AddAssetSchemaType
 } from './_components/add-asset-dialog';
-import {
-  AddAssetTransactionDialog,
-  AddAssetTransactionSchema,
-  type AddAssetTransactionSchemaInput,
-  type AddAssetTransactionSchemaType
-} from './_components/add-asset-transaction-dialog';
 import { DeleteAssetDialog } from './_components/delete-asset-dialog';
 import { PositionsTable } from './_components/positions-table';
 
@@ -51,21 +46,6 @@ export default function Assets() {
     }
   });
 
-  const addAssetTransactionFormMethods = useForm<
-    AddAssetTransactionSchemaInput,
-    unknown,
-    AddAssetTransactionSchemaType
-  >({
-    mode: 'onBlur',
-    resolver: zodResolver(AddAssetTransactionSchema),
-    defaultValues: {
-      type: TRANSACTION_TYPES[0],
-      quantity: '',
-      unitPrice: '',
-      executedAt: ''
-    }
-  });
-
   const handleToggleDialog = useCallback(
     (action?: AssetDialogActions) => {
       if (opened && !action) replaceUrl(window.location.pathname);
@@ -86,8 +66,7 @@ export default function Assets() {
 
   const { mutateAsync: createAssetMutation } = useCreateAsset(portfolio);
 
-  const { mutateAsync: createAssetTransactionMutation } =
-    useCreateTransaction(portfolio);
+  const { mutateAsync: createTransaction } = useCreateTransaction(portfolio);
 
   const { mutateAsync: deleteAssetMutation } = useDeleteAsset(portfolio);
 
@@ -104,6 +83,7 @@ export default function Assets() {
 
     const maybeAssetSymbol = searchParams.get('symbol');
     if (maybeAssetSymbol) setSelectedSymbol(maybeAssetSymbol.toUpperCase());
+    else if (maybeDialogAction === ASSET_DIALOG_ACTIONS.AddTransaction) return;
 
     if (!opened) handleToggleDialog(maybeDialogAction);
   }, [searchParams, opened, handleToggleDialog]);
@@ -169,21 +149,26 @@ export default function Assets() {
         />
       </FormProvider>
 
-      <FormProvider {...addAssetTransactionFormMethods}>
-        <AddAssetTransactionDialog
-          open={opened && dialogAction === ASSET_DIALOG_ACTIONS.AddTransaction}
-          symbol={selectedSymbol}
-          currency={portfolio?.baseCurrency}
-          onCancel={handleToggleDialog}
-          onConfirm={(payload) =>
-            createAssetTransactionMutation(payload, {
-              onSuccess: () => {
-                if (searchParams.size) replaceUrl(window.location.pathname);
-              }
-            })
-          }
-        />
-      </FormProvider>
+      {portfolio &&
+        opened &&
+        dialogAction === ASSET_DIALOG_ACTIONS.AddTransaction &&
+        typeof selectedSymbol === 'string' && (
+          <TransactionFormDialog
+            target={{
+              kind: 'create',
+              symbol: selectedSymbol,
+              currency: portfolio.baseCurrency
+            }}
+            onCancel={() => handleToggleDialog()}
+            onSubmit={async (draft) => {
+              await createTransaction({
+                ...draft,
+                assetSymbol: selectedSymbol
+              });
+              handleToggleDialog();
+            }}
+          />
+        )}
 
       <DeleteAssetDialog
         open={opened && dialogAction === ASSET_DIALOG_ACTIONS.Delete}

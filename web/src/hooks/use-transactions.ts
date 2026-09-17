@@ -11,9 +11,13 @@ import type { Portfolio } from '@/app/api/v1/portfolios';
 import type {
   CreateTransactionRequestPayload,
   CreateTransactionResponseData,
+  DeleteTransactionResponseData,
   GetTransactionsRequestParams,
   GetTransactionsResponseData,
-  TransactionFilters
+  Transaction,
+  TransactionFilters,
+  UpdateTransactionRequestPayload,
+  UpdateTransactionResponseData
 } from '@/app/api/v1/transactions';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
 import { queryKeys } from '@/lib/react-query';
@@ -64,7 +68,45 @@ export const useCreateTransaction = (portfolio: Maybe<Portfolio>) => {
     onSuccess: async ({ data }) => {
       toast.success(data.message);
       await refreshPortfolio();
-    },
-    onError: (e) => toast.error(e.message)
+    }
+  });
+};
+
+export const useUpdateTransaction = (portfolio: Maybe<Portfolio>) => {
+  const refreshPortfolio = useRefreshPortfolio(portfolio);
+
+  return useMutation<
+    AxiosResponse<UpdateTransactionResponseData>,
+    ApiProxyErrorData,
+    UpdateTransactionRequestPayload & Pick<Transaction, 'id'>
+  >({
+    mutationFn: ({ id, ...payload }) =>
+      api
+        .getInstance()
+        .patch(
+          `/v1/transactions/${encodeURIComponent(id)}`,
+          payload satisfies UpdateTransactionRequestPayload
+        ),
+    onSuccess: async ({ data }) => {
+      toast.success(data.message);
+      await refreshPortfolio();
+    }
+  });
+};
+
+export const useDeleteTransaction = (portfolio: Maybe<Portfolio>) => {
+  const refreshPortfolio = useRefreshPortfolio(portfolio);
+
+  return useMutation<
+    AxiosResponse<DeleteTransactionResponseData>,
+    ApiProxyErrorData,
+    Pick<Transaction, 'id'>
+  >({
+    mutationFn: ({ id }) =>
+      api.getInstance().delete(`/v1/transactions/${encodeURIComponent(id)}`),
+    onSuccess: async ({ data }) => {
+      toast.success(data.message);
+      await refreshPortfolio();
+    }
   });
 };

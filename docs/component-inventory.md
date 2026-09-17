@@ -44,7 +44,7 @@ A Overview é a página principal, em `/`. O redirect permanente de `/` para `/a
 | `positions-summary.tsx` | Posições em tabela, 10 por página, com a página anterior exibida enquanto a próxima carrega; o símbolo leva ao detalhe do ativo; sem posições, leva a `/assets?action=add-asset` |
 | `recent-transactions.tsx` | As 5 transações mais recentes em `TransactionsTable`: a primeira página da listagem, que ordena por `executedAt` decrescente |
 
-## Componentes de exibição compartilhados — `src/components`
+## Componentes compartilhados — `src/components`
 
 | Componente | Responsabilidade |
 | --- | --- |
@@ -52,8 +52,10 @@ A Overview é a página principal, em `/`. O redirect permanente de `/` para `/a
 | `load-error-alert.tsx` | `LoadErrorAlert`, o erro com nova tentativa (`role="alert"`), usado pelas seções e pelas páginas da Overview, da tela de ativos e do detalhe do ativo |
 | `query-section.tsx` | `QuerySection` enquadra a seção num card com título `h2` e resolve, a partir da query, carregando (`aria-busy`), erro com nova tentativa, vazio e conteúdo; o dado em cache segue exibido se a nova busca falhar. O erro com nova tentativa é o `LoadErrorAlert` compartilhado |
 | `performance-chart.tsx` | `PerformanceChart`, sobre `QuerySection`, com `GET /v1/portfolio/performance`, da carteira inteira na Overview e de uma posição, por `symbol`, no detalhe do ativo: seletor de período em botões de rádio nativos no cabeçalho, de `1W` a `MAX`, com o período anterior exibido enquanto o novo carrega; linha em SVG decorativo (`aria-hidden`), com área sob ela, e a série inteira em tabela dentro de um `<details>`, a alternativa textual, com dia, valor, investido, aporte líquido e retorno. O ponteiro move o marcador e a leitura de dia, valor e retorno, que se posiciona do lado oposto ao ponto para não sair do card; sem ponteiro, a leitura é a do último ponto. Nenhum valor é calculado no web: os números viram coordenadas apenas para desenhar, e todo valor exibido é formatado da string decimal da API. O dia da série é formatado em UTC, o fuso em que ele fecha. `1D` fica fora do seletor (TD-032) |
-| `transactions-table.tsx` | `TransactionsTable` lista as transações recebidas, com a coluna de ativo opcional, omitida no detalhe do ativo. Data e hora no fuso do navegador, o mesmo em que o diálogo registra a execução. Cada linha tem um botão "Details", cujo nome acessível inclui tipo, ativo e data, que abre `TransactionDetailsDialog` |
-| `transaction-details-dialog.tsx` | `TransactionDetailsDialog` mostra a transação inteira num diálogo, enquanto o web não tem tela de detalhe: tipo e ativo no título, data de execução na descrição, e quantidade, preço unitário, taxas, impostos, corretora e notas numa lista de definição. Corretora e notas ausentes aparecem como "Not available"; nenhum total é calculado no web |
+| `transactions-table.tsx` | `TransactionsTable` lista as transações recebidas, com a coluna de ativo opcional, omitida no detalhe do ativo. Data e hora no fuso do navegador, o mesmo em que o formulário registra a execução. Cada linha tem um botão "Details", cujo nome acessível inclui tipo, ativo e data, que abre `TransactionDetailsDialog`. Editar e excluir partem desse diálogo e abrem por cima dele `TransactionFormDialog` ou `DeleteTransactionDialog`: cancelar volta ao detalhe, e concluir fecha os dois. A escrita invalida a carteira por `useRefreshPortfolio`, e transações, posição, indicadores e performance buscam de novo |
+| `transaction-details-dialog.tsx` | `TransactionDetailsDialog` mostra a transação inteira num diálogo, enquanto o web não tem tela de detalhe: tipo e ativo no título, data de execução na descrição, e quantidade, preço unitário, taxas, impostos, corretora e notas numa lista de definição. Corretora e notas ausentes aparecem como "Not available"; nenhum total é calculado no web. O rodapé tem "Delete", "Close" e "Edit" |
+| `transaction-form-dialog.tsx` | `TransactionFormDialog` cria ou edita uma transação: a criação parte do detalhe do ativo e do menu da linha na tabela de posições, sempre no contexto de um ativo, e a edição, do diálogo de detalhes. O formulário é montado a cada abertura. Tipo em botões de rádio nativos; quantidade, preço unitário, taxas e impostos em texto com teclado decimal, com o código da moeda no rótulo e o símbolo dela dentro do campo de valor, a base da carteira na criação e a da transação na edição; data de execução no fuso do navegador, com segundos; corretora e notas opcionais. Valida com os limites da API: decimal com ponto, até 20 dígitos inteiros e 18 casas, quantidade e preço maiores que zero, taxas e impostos em branco como zero, corretora até 60 e notas até 500 caracteres, em branco como `null`. Na edição, a data que não foi alterada segue a gravada, com os milissegundos, para não mudar a ordem do razão. Enquanto envia, campos e botões ficam desabilitados e o diálogo não fecha; o erro da API aparece no campo que o `path` do detalhe indica ou, sem campo correspondente, num alerta, e o que foi digitado continua no formulário |
+| `delete-transaction-dialog.tsx` | `DeleteTransactionDialog` confirma a exclusão num `AlertDialog` com tipo, quantidade, ativo e data, avisando que a posição é recalculada sem a transação e que não há como desfazer. Durante a exclusão, os botões ficam desabilitados e o diálogo não fecha; a recusa da API, como a de excluir um `BUY` do qual um `SELL` depende, aparece num alerta no próprio diálogo |
 | `detail-item.tsx` | `DetailItem`, termo e valor de uma lista de definição, usado pelo diálogo de transação e pelo detalhe do ativo |
 
 ## Feature components — `app/(protected)/assets/[symbol]`
@@ -64,23 +66,24 @@ O detalhe do ativo, em `/assets/[symbol]`, abre pelo símbolo nas posições da 
 | --- | --- |
 | `[symbol]/page.tsx` | Página de servidor que repassa o símbolo da rota a `AssetDetail` |
 | `asset-detail.tsx` | `AssetDetail` lê a carteira principal e `GET /v1/portfolio/positions/:symbol` por `usePosition`. Cabeçalho com retorno à tela de ativos, símbolo em `h1` e nome. Visão geral na moeda da cotação: preço, variação do dia, fechamento anterior, horário da cotação em `<time>`, classe, mercado, moeda e setor. Posição na moeda base: quantidade, preço médio, preço, valor, alocação e resultado com percentual. Em seguida, a performance da posição e as transações do ativo. Carregando, erro com nova tentativa para a carteira e para a posição, carteira ausente e ativo fora da carteira, com atalho para a tela de ativos; valor ausente aparece como "Not available". Visão geral e posição lado a lado em telas largas |
-| `asset-transactions.tsx` | `AssetTransactions`, sobre `QuerySection`, lista as transações do ativo por `GET /v1/transactions` com `symbol`, 10 por página, em `TransactionsTable` sem a coluna de ativo, com a página anterior exibida enquanto a próxima carrega e navegação anterior e próxima com a página atual anunciada (`aria-live`) |
+| `asset-transactions.tsx` | `AssetTransactions`, sobre `QuerySection`, lista as transações do ativo por `GET /v1/transactions` com `symbol`, 10 por página, em `TransactionsTable` sem a coluna de ativo, com a página anterior exibida enquanto a próxima carrega e navegação anterior e próxima com a página atual anunciada (`aria-live`). O botão "Add transaction" do cabeçalho abre `TransactionFormDialog` na moeda base da carteira, e a página que ficou além da última depois de uma exclusão oferece ir para a última |
 
 ## Feature components — `app/(protected)/assets/_components`
 
 | Componente | Linhas | Avaliação |
 | --- | --- | --- |
 | `positions-table.tsx` | 612 | Substituiu `assets-table.tsx`, que buscava só na página carregada. Lê `GET /v1/portfolio/positions` por `usePositions`, com busca, filtros, ordenação e paginação no servidor, sobre a carteira inteira: busca por símbolo ou nome enviada 300 ms depois da última tecla, filtros de classe e situação, ordenação por qualquer coluna em botões no cabeçalho com `aria-sort`, e 10, 25 ou 50 linhas por página, com a página anterior esmaecida enquanto a nova carrega. Colunas de ativo (símbolo, que leva ao detalhe do ativo, e nome), quantidade, preço médio, preço, valor, alocação, resultado e resultado percentual, na moeda base e sem cálculo no web. Carregando, erro com nova tentativa, vazio com atalho para adicionar ativo e sem resultado com atalho para limpar busca e filtros. Menu de ações por linha com nova transação e exclusão |
-| `add-asset-dialog.tsx` | 193 | **Reaproveitar parcialmente.** O schema Zod e o padrão `FormProvider` migram para o Transaction Manager (TASK 9.3) |
-| `add-asset-transaction-dialog.tsx` | 261 | **Reaproveitar parcialmente**, mesma razão |
+| `add-asset-dialog.tsx` | 203 | **Reaproveitar parcialmente.** Recebe o formulário por `FormProvider`, montado na página, e ainda usa `react-icons`; o formulário de transação já monta o próprio formulário a cada abertura |
 | `delete-asset-dialog.tsx` | 61 | **Preservar como padrão** de confirmação destrutiva |
-| `assets/page.tsx` | 196 | **Reescrita.** Cabeçalho com o nome e a moeda base da carteira e o botão de adicionar ativo; carregando, erro com nova tentativa e carteira ausente como na Overview. Orquestra os três diálogos, abertos também por `?action` e `symbol`, e ainda usa `window.history.pushState` direto (`replaceUrl`) em vez do router |
+| `assets/page.tsx` | 181 | **Reescrita.** Cabeçalho com o nome e a moeda base da carteira e o botão de adicionar ativo; carregando, erro com nova tentativa e carteira ausente como na Overview. Orquestra adicionar ativo, nova transação, em `TransactionFormDialog`, e excluir ativo, abertos também por `?action` e `symbol`; `add-transaction` sem `symbol` é ignorado, e `action` desconhecido ainda marca um diálogo como aberto (TD-037). Ainda usa `window.history.pushState` direto (`replaceUrl`) em vez do router |
 
 ## Forms
 
-Padrão consistente e adequado: `react-hook-form` + `zodResolver`, schema Zod co-localizado com o diálogo e exportado junto do componente. **Preservar o padrão.**
+Padrão consistente e adequado: `react-hook-form` + `zodResolver`, schema Zod co-localizado com o diálogo. **Preservar o padrão.**
 
-Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/`aria-describedby` não são aplicados (TASK 14.5).
+`TransactionFormDialog` é a referência: liga rótulo, `aria-invalid` e `aria-describedby` a cada campo, leva o erro da API ao campo do `path` do detalhe, ou a um alerta quando nenhum campo corresponde, e não limpa o que foi digitado.
+
+Lacunas: nos demais formulários, erro de servidor não é mapeado de volta para o campo; `aria-invalid`/`aria-describedby` não são aplicados (TASK 14.5).
 
 ## Data fetching
 
@@ -88,10 +91,10 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 | --- | --- |
 | `lib/axios/axios.ts` | **Preservar.** Duas instâncias — `proxyApi` (browser, `/api`) e `serverApi` (server, `API_URL`) — resolvidas por `api.getInstance()`. Interceptor de 401 dispara sign-out e redireciona |
 | `lib/axios/errors.ts` | **Preservar.** `ApiProxyError` normaliza o erro do backend, e `isNotFoundError` reconhece o 404 pelo `code` do corpo, que chega ao navegador pelo proxy |
-| `lib/react-query.ts` | **Preservar**, revisar defaults (`retry: 2` em mutations é agressivo para operações financeiras) |
+| `lib/react-query.ts` | **Preservar.** Query repete até duas vezes; mutation segue o padrão do TanStack Query e não repete, para que uma escrita cujo tempo esgotou não seja gravada de novo e o erro chegue ao formulário na primeira resposta |
 | `app/api/v1/*/types.ts` | **Preservar o padrão** de tipos co-localizados por rota |
 
-**Hooks de domínio:** componente não conhece URL, Axios nem query key. `hooks/use-portfolio.ts` (carteira principal, visão geral, posições, posição por símbolo, alocação e performance; as posições mantêm a página anterior enquanto a pedida, com outra ordenação, busca ou filtro, carrega, e a posição por símbolo não repete a busca que respondeu 404), `hooks/use-assets.ts` (criação e remoção de ativo), `hooks/use-transactions.ts` (listagem, que mantém a página anterior enquanto a pedida carrega, e criação) e `hooks/use-user.ts` (perfil, sign-in, sign-up e sign-out) montam a query ou a mutation sobre os proxies de `app/api/v1`. Hook escopado por carteira recebe a carteira e não dispara a requisição sem ela (`skipToken`); mutation sem carteira falha com toast.
+**Hooks de domínio:** componente não conhece URL, Axios nem query key. `hooks/use-portfolio.ts` (carteira principal, visão geral, posições, posição por símbolo, alocação e performance; as posições mantêm a página anterior enquanto a pedida, com outra ordenação, busca ou filtro, carrega, e a posição por símbolo não repete a busca que respondeu 404), `hooks/use-assets.ts` (criação e remoção de ativo), `hooks/use-transactions.ts` (listagem, que mantém a página anterior enquanto a pedida carrega, criação, edição e exclusão) e `hooks/use-user.ts` (perfil, sign-in, sign-up e sign-out) montam a query ou a mutation sobre os proxies de `app/api/v1`. Hook escopado por carteira recebe a carteira e não dispara a requisição sem ela (`skipToken`); mutation sem carteira falha, com toast nas de ativo e no diálogo que a disparou nas de transação, que não abrem toast de erro.
 
 **Query keys e invalidação:** toda query key sai de `queryKeys`, em `lib/react-query.ts`, no formato `[raiz, ...escopo, recurso, parâmetros]`: `['user']` para o perfil, `['portfolios', página]` para a lista de carteiras e `['portfolio', portfolioId, recurso, parâmetros]` para o que pertence a uma carteira — `overview`, `positions`, `position`, `allocation`, `performance` e `transactions`. Os parâmetros são os da requisição, nunca um valor derivado, como o horário de atualização de outra query. Toda escrita bem-sucedida numa carteira, e o botão de atualizar da tela de ativos, invalidam `['portfolio', portfolioId]` por `useRefreshPortfolio`: as queries ativas do escopo buscam de novo, as inativas ficam obsoletas, e as desativadas por `skipToken` ficam de fora. Sign-in, sign-up e sign-out removem todo o cache, e um 401 de sessão recarrega a página em `/sign-in`; por isso as keys não levam o usuário (ver TD-023 sobre o `QueryClient` no servidor).
 
@@ -103,7 +106,7 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 | `hooks/use-user.ts` | **Preservar.** Perfil do chamador por `GET /api/v1/user` e mutations de sign-in, sign-up e sign-out, que descartam o cache de queries da sessão anterior |
 | `hooks/use-disclosure.ts` | **Preservar** — bom primitive de UI state |
 
-**Fronteira servidor↔UI:** dado de servidor — carteira, visão geral, posições, alocação, performance, transações e perfil — vem só do React Query. `useState` guarda estado de interface: diálogo aberto, símbolo selecionado, o texto digitado na busca e a listagem pedida, com página, tamanho, ordenação e filtros. As tabelas exibem a paginação canônica da resposta e formatam os valores na moeda que a resposta informa.
+**Fronteira servidor↔UI:** dado de servidor — carteira, visão geral, posições, alocação, performance, transações e perfil — vem só do React Query. `useState` guarda estado de interface: diálogo aberto, símbolo selecionado, a transação selecionada e a ação sobre ela, o texto digitado na busca e a listagem pedida, com página, tamanho, ordenação e filtros. As tabelas exibem a paginação canônica da resposta e formatam os valores na moeda que a resposta informa.
 
 ## Utilities
 
@@ -121,7 +124,7 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 1. **Cálculo financeiro em três lugares** — `dominance`/`totalInvestedValue` no proxy (`api/v1/assets/route.ts`), preço médio em `asset-transaction-table-cell.tsx`, `investedValue` no backend. Uma única fonte de verdade na FASE 5. **Resolvido:** o componente de transação saiu junto com a listagem por símbolo, o proxy foi removido, e o web exibe os valores que o backend calcula, como a alocação e o resultado por posição de `GET /v1/portfolio/positions`.
 2. **Bloco `try/catch` idêntico em todas as 9 rotas de proxy** — mesmas 4 linhas de leitura do cookie + mesmo `catch`. Candidato a um wrapper único.
 3. **Bloco `catch` idêntico nos 16 controllers do backend** — resolvido por error handler global (TASK 1.6).
-4. **Dois pacotes de ícones**: `react-icons` e `lucide-react`, ambos em uso nos mesmos arquivos (`add-asset-dialog.tsx`, `add-asset-transaction-dialog.tsx`, `sidebar.tsx`, `app-provider.tsx`). Consolidar em `lucide-react` (TASK 16.5/20.3).
+4. **Dois pacotes de ícones**: `react-icons` e `lucide-react`, ambos em uso nos mesmos arquivos (`add-asset-dialog.tsx`, `sidebar.tsx`, `app-provider.tsx`). Consolidar em `lucide-react` (TASK 16.5/20.3).
 5. **Schema Zod duplicado entre front e back** — `AddAssetSchema` (web) e `CreateAssetSchema` (backend) repetem as mesmas regras sem contrato compartilhado.
 
 ## Componentes excessivamente específicos
@@ -142,7 +145,7 @@ Lacunas: erro de servidor não é mapeado de volta para o campo; `aria-invalid`/
 
 **Preservar sem alteração relevante:** todos os primitives de `components/ui`, camada axios, providers de app, `use-disclosure`, padrão de formulários, padrão de tipos por rota.
 
-**Refatorar:** `sidebar`, defaults do React Query, `common/utils`.
+**Refatorar:** `sidebar`, `common/utils`.
 
 **Reescrever:** `assets-table` e `assets/page`, já reescritos; a tabela deu lugar a `positions-table`.
 

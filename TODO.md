@@ -97,13 +97,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** proventos, desdobramentos, bonificações, transferências, aportes e ajustes não são registráveis; enviar um deles responde 400 sem gravar.
 - **Proposta:** implementar em `rebuildPosition` o efeito de cada tipo definido no modelo de domínio, com a validação de campos própria do tipo e testes, e só então incluí-lo em `RecordableTransactionTypes`; decidir com o produto os tipos em aberto antes de aceitá-los.
 
-### TD-018 — Formulário de transação do web sem taxas, impostos, corretora e notas
-
-- **Origem:** remodelagem da transação · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** TASK 9.3
-- **Contexto:** a API aceita `fees`, `taxes`, `broker` e `notes`, mas `web/src/app/(protected)/assets/_components/add-asset-transaction-dialog.tsx` envia só `type`, `quantity`, `unitPrice`, `executedAt` e a moeda base da carteira como `currency`. O web não edita nem exclui transação e não exibe `executedAt`.
-- **Impacto:** transação criada pelo web grava taxas e impostos zero, e o custo médio omite a corretagem e os impostos que o usuário pagou até a transação ser editada pela API.
-- **Proposta:** incluir os quatro campos no formulário, com os mesmos limites da API, junto com a edição e a exclusão de transação no web.
-
 ### TD-020 — Consumo da cota do provedor de cotação não medido
 
 - **Origem:** integração com a YH Finance API · **Tipo:** integração · **Prioridade:** média · **Encaminhamento:** avulso
@@ -209,7 +202,26 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** o usuário não vê no ativo os proventos recebidos nem o rendimento deles sobre o custo.
 - **Proposta:** acrescentar a seção de proventos ao detalhe do ativo quando o modelo e a API de proventos existirem, com o recorte por ativo que a API oferecer.
 
+### TD-036 — Proxy do web responde 200 a erro que não vem da API
+
+- **Origem:** gerenciador de transações · **Tipo:** API · **Prioridade:** baixa · **Encaminhamento:** backlog
+- **Contexto:** os route handlers de `web/src/app/api/v1` tratam todo erro como `ApiProxyError` e repassam `status` e `statusText` dele. Um corpo que não é JSON faz `req.json()` lançar `SyntaxError`, sem esses campos, e o proxy responde `200` com `{}` sem chamar a API, em sign-in, sign-up, criação de ativo e criação e edição de transação.
+- **Impacto:** nenhuma escrita acontece, mas quem chama o proxy fora do web recebe sucesso para uma requisição recusada. O web sempre envia JSON e não é afetado.
+- **Proposta:** responder `400` quando o corpo não é JSON e `500` genérico a qualquer erro que não seja `ApiProxyError`, no ponto único que a consolidação do `try/catch` dos proxies criar.
+
+### TD-037 — Tela de ativos aceita `action` desconhecido na URL
+
+- **Origem:** gerenciador de transações · **Tipo:** UX · **Prioridade:** baixa · **Encaminhamento:** TASK 13.3
+- **Contexto:** `web/src/app/(protected)/assets/page.tsx` lê `?action` sem validar o valor e marca um diálogo como aberto mesmo quando nenhum corresponde. Enquanto o parâmetro fica na URL, o efeito reabre esse estado a cada fechamento.
+- **Impacto:** com um `action` desconhecido na URL, editado à mão, o botão "Add asset" alterna um estado sem diálogo e não abre o formulário até a URL ser limpa.
+- **Proposta:** aceitar só os valores de `ASSET_DIALOG_ACTIONS`, e os que dependem de símbolo só com `symbol`, e limpar a URL do resto, junto com a troca de `replaceUrl` pelo router.
+
 ## Resolvidos
+
+### TD-018 — Formulário de transação do web sem taxas, impostos, corretora e notas
+
+- **Tipo:** produto · **Prioridade:** média
+- **Resolução:** `TransactionFormDialog` cria e edita transação com tipo, quantidade, preço unitário, taxas, impostos, data de execução, corretora e notas, validados com os limites da API; taxas e impostos em branco valem zero, e corretora e notas em branco, `null`. A criação parte do detalhe do ativo e do menu da tabela de posições; a edição e a exclusão, do diálogo de detalhes da transação, no detalhe do ativo e na Overview, pelos proxies `PATCH` e `DELETE` de `/api/v1/transactions/[id]`. A exclusão pede confirmação, o backend reconstrói a posição, e o erro da API aparece no diálogo sem perder o que foi digitado. `executedAt` já aparecia na tabela e no diálogo de detalhes. Ver `docs/component-inventory.md`, §Componentes compartilhados, e `docs/api-inventory.md`, §Superado desde o snapshot.
 
 ### TD-029 — Custo e preço médio da tabela de ativos sem conversão de moeda
 
