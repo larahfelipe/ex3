@@ -7,8 +7,8 @@ import { useSearchParams } from 'next/navigation';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 
-import { ASSET_DIALOG_ACTIONS } from '@/common/constants';
-import { replaceUrl } from '@/common/utils';
+import { ASSET_DIALOG_ACTIONS, ASSET_DIALOG_PARAMS } from '@/common/constants';
+import { updateUrlQuery } from '@/common/utils';
 import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
 import { PageHeader } from '@/components/page-header';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
@@ -30,6 +30,9 @@ import { PositionsTable } from './_components/positions-table';
 type AssetDialogActions =
   (typeof ASSET_DIALOG_ACTIONS)[keyof typeof ASSET_DIALOG_ACTIONS];
 
+const DIALOG_ACTIONS: Array<AssetDialogActions> =
+  Object.values(ASSET_DIALOG_ACTIONS);
+
 export default function Assets() {
   const [dialogAction, setDialogAction] =
     useState<Maybe<AssetDialogActions>>(null);
@@ -49,12 +52,20 @@ export default function Assets() {
 
   const handleToggleDialog = useCallback(
     (action?: AssetDialogActions) => {
-      if (opened && !action) replaceUrl(window.location.pathname);
+      if (opened && !action) {
+        const params = new URLSearchParams(searchParams);
+
+        params.delete(ASSET_DIALOG_PARAMS.Action);
+        params.delete(ASSET_DIALOG_PARAMS.Symbol);
+
+        updateUrlQuery(params);
+      }
+
       if (action && action !== dialogAction) setDialogAction(action);
 
       toggle();
     },
-    [dialogAction, opened, toggle]
+    [dialogAction, opened, searchParams, toggle]
   );
 
   const {
@@ -77,16 +88,18 @@ export default function Assets() {
   };
 
   useEffect(() => {
-    if (!searchParams.size) return;
+    const requestedAction = DIALOG_ACTIONS.find(
+      (action) => action === searchParams.get(ASSET_DIALOG_PARAMS.Action)
+    );
 
-    const maybeDialogAction = searchParams.get('action') as AssetDialogActions;
-    if (!maybeDialogAction) return;
+    if (!requestedAction) return;
 
-    const maybeAssetSymbol = searchParams.get('symbol');
-    if (maybeAssetSymbol) setSelectedSymbol(maybeAssetSymbol.toUpperCase());
-    else if (maybeDialogAction === ASSET_DIALOG_ACTIONS.AddTransaction) return;
+    const requestedSymbol = searchParams.get(ASSET_DIALOG_PARAMS.Symbol);
 
-    if (!opened) handleToggleDialog(maybeDialogAction);
+    if (requestedSymbol) setSelectedSymbol(requestedSymbol.toUpperCase());
+    else if (requestedAction === ASSET_DIALOG_ACTIONS.AddTransaction) return;
+
+    if (!opened) handleToggleDialog(requestedAction);
   }, [searchParams, opened, handleToggleDialog]);
 
   return (

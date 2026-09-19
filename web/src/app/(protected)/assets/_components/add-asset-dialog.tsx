@@ -12,12 +12,14 @@ import {
 } from 'react-hook-form';
 import { LuArrowDownUp } from 'react-icons/lu';
 
+import { useSearchParams } from 'next/navigation';
+
 import { Loader2, Plus } from 'lucide-react';
 import { z } from 'zod';
 
 import type { CreateAssetRequestPayload } from '@/app/api/v1/assets';
-import { ASSET_DIALOG_ACTIONS } from '@/common/constants';
-import { replaceUrl, sanitizeInputValue } from '@/common/utils';
+import { ASSET_DIALOG_ACTIONS, ASSET_DIALOG_PARAMS } from '@/common/constants';
+import { sanitizeInputValue, updateUrlQuery } from '@/common/utils';
 import {
   Button,
   Dialog,
@@ -79,6 +81,8 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
 }) => {
   const [assetSymbol, setAssetSymbol] = useState('');
 
+  const searchParams = useSearchParams();
+
   const {
     control,
     handleSubmit,
@@ -111,11 +115,15 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
   const handleAddTransaction = useCallback(() => {
     onCancel();
 
-    if (isSubmitSuccessful && assetSymbol.length)
-      replaceUrl(
-        `?symbol=${assetSymbol}&action=${ASSET_DIALOG_ACTIONS.AddTransaction}`
-      );
-  }, [onCancel, isSubmitSuccessful, assetSymbol]);
+    if (!isSubmitSuccessful || !assetSymbol.length) return;
+
+    const params = new URLSearchParams(searchParams);
+
+    params.set(ASSET_DIALOG_PARAMS.Symbol, assetSymbol);
+    params.set(ASSET_DIALOG_PARAMS.Action, ASSET_DIALOG_ACTIONS.AddTransaction);
+
+    updateUrlQuery(params);
+  }, [onCancel, isSubmitSuccessful, assetSymbol, searchParams]);
 
   return (
     <Dialog open={open} onOpenChange={handleCancel}>

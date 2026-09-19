@@ -1,6 +1,15 @@
-import { useEffect, useId, useState, type FC } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type FC
+} from 'react';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 import {
   ArrowDown,
@@ -25,6 +34,7 @@ import {
   INSTRUMENT_TYPE_LABELS,
   INSTRUMENT_TYPES
 } from '@/common/constants';
+import { updateUrlQuery } from '@/common/utils';
 import {
   EmptyState,
   ErrorState,
@@ -80,13 +90,17 @@ type PositionColumn = Record<'field', PositionSortField> &
 const FIRST_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZES = [DEFAULT_PAGE_SIZE, 25, 50];
+const DEFAULT_SORT_FIELD: PositionSortField = 'symbol';
 
-const INITIAL_LISTING: PositionListing = {
-  page: FIRST_PAGE,
-  pageSize: DEFAULT_PAGE_SIZE,
-  sortBy: 'symbol',
-  sortOrder: 'asc'
-};
+const LISTING_PARAMS = {
+  Page: 'page',
+  PageSize: 'pageSize',
+  SortBy: 'sortBy',
+  SortOrder: 'sortOrder',
+  Search: 'search',
+  Type: 'type',
+  Status: 'status'
+} as const;
 
 /** The API rejects a longer search, and no instrument name is longer. */
 const SEARCH_MAX_LENGTH = 120;
@@ -129,8 +143,92 @@ const SORT_ICONS: Record<SortOrder, LucideIcon> = {
   desc: ArrowDown
 };
 
+const SORT_ORDERS: Array<SortOrder> = ['asc', 'desc'];
+
 const firstOrderOf = (field: PositionSortField): SortOrder =>
   field === 'symbol' ? 'asc' : 'desc';
+
+const DEFAULT_SORT_ORDER = firstOrderOf(DEFAULT_SORT_FIELD);
+
+const pageFrom = (value: string | null) => {
+  const page = Number(value);
+
+  return Number.isInteger(page) && page >= FIRST_PAGE ? page : FIRST_PAGE;
+};
+
+const listingFrom = (params: URLSearchParams): PositionListing => {
+  const sortBy =
+    POSITION_COLUMNS.find(
+      ({ field }) => field === params.get(LISTING_PARAMS.SortBy)
+    )?.field ?? DEFAULT_SORT_FIELD;
+
+  const search = params
+    .get(LISTING_PARAMS.Search)
+    ?.trim()
+    .slice(0, SEARCH_MAX_LENGTH);
+
+  return {
+    page: pageFrom(params.get(LISTING_PARAMS.Page)),
+    pageSize:
+      PAGE_SIZES.find(
+        (size) => String(size) === params.get(LISTING_PARAMS.PageSize)
+      ) ?? DEFAULT_PAGE_SIZE,
+    sortBy,
+    sortOrder:
+      SORT_ORDERS.find(
+        (order) => order === params.get(LISTING_PARAMS.SortOrder)
+      ) ?? firstOrderOf(sortBy),
+    search: search || undefined,
+    type: INSTRUMENT_TYPES.find(
+      (type) => type === params.get(LISTING_PARAMS.Type)
+    ),
+    status: POSITION_STATUSES.find(
+      (status) => status === params.get(LISTING_PARAMS.Status)
+    )
+  };
+};
+
+const writeParam = (
+  params: URLSearchParams,
+  name: string,
+  value: string | undefined
+) => (value === undefined ? params.delete(name) : params.set(name, value));
+
+const paramsFor = (current: URLSearchParams, listing: PositionListing) => {
+  const params = new URLSearchParams(current);
+
+  const hasDefaultSort =
+    listing.sortBy === DEFAULT_SORT_FIELD &&
+    listing.sortOrder === DEFAULT_SORT_ORDER;
+
+  writeParam(
+    params,
+    LISTING_PARAMS.Page,
+    listing.page === FIRST_PAGE ? undefined : String(listing.page)
+  );
+  writeParam(
+    params,
+    LISTING_PARAMS.PageSize,
+    listing.pageSize === DEFAULT_PAGE_SIZE
+      ? undefined
+      : String(listing.pageSize)
+  );
+  writeParam(
+    params,
+    LISTING_PARAMS.SortBy,
+    hasDefaultSort ? undefined : listing.sortBy
+  );
+  writeParam(
+    params,
+    LISTING_PARAMS.SortOrder,
+    hasDefaultSort ? undefined : listing.sortOrder
+  );
+  writeParam(params, LISTING_PARAMS.Search, listing.search);
+  writeParam(params, LISTING_PARAMS.Type, listing.type);
+  writeParam(params, LISTING_PARAMS.Status, listing.status);
+
+  return params;
+};
 
 export const PositionsTable: FC<PositionsTableProps> = ({
   portfolio,
@@ -138,8 +236,12 @@ export const PositionsTable: FC<PositionsTableProps> = ({
   onAddTransaction,
   onDeleteAsset
 }) => {
-  const [listing, setListing] = useState(INITIAL_LISTING);
-  const [searchInput, setSearchInput] = useState('');
+  const searchParams = useSearchParams();
+  const listing = useMemo(() => listingFrom(searchParams), [searchParams]);
+
+  const [searchInput, setSearchInput] = useState(() => listing.search ?? '');
+  const committedSearch = useRef(listing.search);
+
   const { data, isError, isFetching, isPlaceholderData, refetch } =
     usePositions(portfolio, listing);
   const refreshPortfolio = useRefreshPortfolio(portfolio);
@@ -157,23 +259,33 @@ export const PositionsTable: FC<PositionsTableProps> = ({
     listing.type !== undefined ||
     listing.status !== undefined;
 
+  const refine = useCallback(
+    (refinement: Partial<PositionListing>) =>
+      updateUrlQuery(
+        paramsFor(searchParams, { ...listing, page: FIRST_PAGE, ...refinement })
+      ),
+    [listing, searchParams]
+  );
+
   useEffect(() => {
     const search = searchTerm || undefined;
-    const timeout = setTimeout(
-      () =>
-        setListing((current) =>
-          current.search === search
-            ? current
-            : { ...current, page: FIRST_PAGE, search }
-        ),
-      SEARCH_DEBOUNCE_MS
-    );
+
+    if (search === listing.search) return;
+
+    const timeout = setTimeout(() => {
+      committedSearch.current = search;
+      refine({ search });
+    }, SEARCH_DEBOUNCE_MS);
 
     return () => clearTimeout(timeout);
-  }, [searchTerm]);
+  }, [searchTerm, listing.search, refine]);
 
-  const refine = (refinement: Partial<PositionListing>) =>
-    setListing((current) => ({ ...current, page: FIRST_PAGE, ...refinement }));
+  useEffect(() => {
+    if (listing.search === committedSearch.current) return;
+
+    committedSearch.current = listing.search;
+    setSearchInput(listing.search ?? '');
+  }, [listing.search]);
 
   const sortBy = (field: PositionSortField) =>
     refine({
