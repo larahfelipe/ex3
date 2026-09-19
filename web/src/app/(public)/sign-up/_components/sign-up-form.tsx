@@ -200,14 +200,13 @@ export const SignUpForm: FC = () => {
       <Button
         type="submit"
         disabled={isSubmitting}
-        className="w-full mt-12 p-6"
-        aria-label="Register"
+        className="w-full mt-12 p-6 gap-2"
       >
-        {isSubmitting ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : (
-          <span>Register</span>
+        {isSubmitting && (
+          <Loader2 aria-hidden="true" className="size-4 animate-spin" />
         )}
+
+        <span>Register</span>
       </Button>
     </form>
   );

@@ -36,25 +36,27 @@ const FallbackContent: FC<FallbackContentProps> = ({
   if (!error)
     return (
       <main className="h-lvh flex">
-        <Loader2 className="m-auto size-6 animate-spin" />
+        <output className="m-auto">
+          <span className="sr-only">Loading</span>
+
+          <Loader2 aria-hidden="true" className="size-6 animate-spin" />
+        </output>
       </main>
     );
 
   return (
     <main className="h-screen flex">
       <div className="flex flex-col justify-center gap-4 m-auto">
-        <h4>Oops, something went wrong</h4>
+        <h1 className="text-lg font-semibold">Oops, something went wrong</h1>
 
         <Button
           variant="secondary"
-          aria-label="Reset"
+          className="gap-2"
           onClick={() => resetErrorBoundary!()}
         >
-          <div className="flex items-center gap-2">
-            <IoRefresh size={16} />
+          <IoRefresh size={16} aria-hidden="true" />
 
-            <span>Try again</span>
-          </div>
+          <span>Try again</span>
         </Button>
       </div>
     </main>
@@ -76,12 +78,34 @@ export const AppProvider: FC<Children> = ({ children }) => (
       position="bottom-right"
       theme="dark"
       icons={{
-        error: <MdOutlineErrorOutline size={22} className="text-negative" />,
-        success: (
-          <IoCheckmarkCircleOutline size={22} className="text-positive" />
+        error: (
+          <MdOutlineErrorOutline
+            aria-hidden="true"
+            size={22}
+            className="text-negative"
+          />
         ),
-        warning: <IoWarningOutline size={22} className="text-warning" />,
-        info: <IoInformationCircleOutline size={22} className="text-info" />
+        success: (
+          <IoCheckmarkCircleOutline
+            aria-hidden="true"
+            size={22}
+            className="text-positive"
+          />
+        ),
+        warning: (
+          <IoWarningOutline
+            aria-hidden="true"
+            size={22}
+            className="text-warning"
+          />
+        ),
+        info: (
+          <IoInformationCircleOutline
+            aria-hidden="true"
+            size={22}
+            className="text-info"
+          />
+        )
       }}
       style={
         {
