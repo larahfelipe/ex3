@@ -55,7 +55,7 @@ export const SignInForm: FC = () => {
           />
 
           {!!errors.email?.message && (
-            <small className="text-red-500">{errors.email.message}</small>
+            <small className="text-negative">{errors.email.message}</small>
           )}
         </div>
 
@@ -70,7 +70,7 @@ export const SignInForm: FC = () => {
           />
 
           {!!errors.password?.message && (
-            <small className="text-red-500">{errors.password.message}</small>
+            <small className="text-negative">{errors.password.message}</small>
           )}
         </div>
       </div>

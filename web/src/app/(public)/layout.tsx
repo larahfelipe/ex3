@@ -10,7 +10,7 @@ import pkg from '../../../package.json';
 
 export default function Layout({ children }: Children) {
   return (
-    <main className="h-screen bg-black lg:grid lg:grid-cols-2">
+    <main className="h-screen bg-background lg:grid lg:grid-cols-2">
       <aside className="h-full min-h-168 flex flex-col justify-center align-center relative space-y-8">
         {children}
 
@@ -19,7 +19,7 @@ export default function Layout({ children }: Children) {
           rel="noopener noreferrer"
           className="absolute bottom-3 self-center"
         >
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             © {pkg.author.name} {new Date().getFullYear()} - v.{pkg.version}
           </p>
         </Link>

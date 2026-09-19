@@ -54,7 +54,7 @@ export const DeleteAssetDialog: FC<DeleteAssetDialogProps> = ({
           <AlertDialogAction
             disabled={!symbol}
             onClick={withSettledRejection(handleConfirm)}
-            className="bg-red-500 hover:bg-red-600"
+            className="bg-destructive hover:bg-destructive/90"
           >
             Confirm
           </AlertDialogAction>

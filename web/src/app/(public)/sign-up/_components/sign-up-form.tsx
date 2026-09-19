@@ -105,7 +105,7 @@ export const SignUpForm: FC = () => {
           />
 
           {!!errors.name?.message && (
-            <small className="text-red-500">{errors.name.message}</small>
+            <small className="text-negative">{errors.name.message}</small>
           )}
         </div>
 
@@ -121,7 +121,7 @@ export const SignUpForm: FC = () => {
           />
 
           {!!errors.email?.message && (
-            <small className="text-red-500">{errors.email.message}</small>
+            <small className="text-negative">{errors.email.message}</small>
           )}
         </div>
 
@@ -136,7 +136,7 @@ export const SignUpForm: FC = () => {
           />
 
           {!!errors.password?.message && (
-            <small className="text-red-500">{errors.password.message}</small>
+            <small className="text-negative">{errors.password.message}</small>
           )}
         </div>
 
@@ -151,7 +151,7 @@ export const SignUpForm: FC = () => {
           />
 
           {!!errors.confirmPassword?.message && (
-            <small className="text-red-500">
+            <small className="text-negative">
               {errors.confirmPassword.message}
             </small>
           )}
@@ -190,7 +190,7 @@ export const SignUpForm: FC = () => {
           />
 
           {!!errors.baseCurrency?.message && (
-            <small className="text-red-500">
+            <small className="text-negative">
               {errors.baseCurrency.message}
             </small>
           )}

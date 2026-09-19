@@ -9,7 +9,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { House, Loader2 } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 
-import { APP_ROUTES, raleway } from '@/common/constants';
+import { APP_ROUTES } from '@/common/constants';
 import { useCurrentUser, useSignOut } from '@/hooks/use-user';
 
 import {
@@ -116,7 +116,7 @@ export const Sidebar: FC = () => {
         <h2
           className={twMerge(
             'text-lg font-bold text-center cursor-default hover:animate-pulse',
-            raleway.className
+            'font-display'
           )}
         >
           EX3
@@ -147,8 +147,8 @@ export const Sidebar: FC = () => {
           text="Logout"
           variant="ghost"
           onClick={handleSignOut}
-          className={{ button: 'hover:bg-red-950/40', text: 'text-red-500' }}
-          left={<RxExit size={18} className="text-red-500" />}
+          className={{ button: 'hover:bg-negative/10', text: 'text-negative' }}
+          left={<RxExit size={18} className="text-negative" />}
         />
       </menu>
     </nav>

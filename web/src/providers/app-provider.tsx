@@ -68,7 +68,7 @@ export const AppProvider: FC<Children> = ({ children }) => (
     <AppProgressBar
       shallowRouting
       height="3px"
-      color="#000"
+      color="hsl(var(--primary))"
       options={{ showSpinner: false }}
     />
 
@@ -76,30 +76,30 @@ export const AppProvider: FC<Children> = ({ children }) => (
       position="bottom-right"
       theme="dark"
       icons={{
-        error: <MdOutlineErrorOutline size={22} className="text-red-400" />,
+        error: <MdOutlineErrorOutline size={22} className="text-negative" />,
         success: (
-          <IoCheckmarkCircleOutline size={22} className="text-emerald-400" />
+          <IoCheckmarkCircleOutline size={22} className="text-positive" />
         ),
-        warning: <IoWarningOutline size={22} className="text-amber-400" />,
-        info: <IoInformationCircleOutline size={22} className="text-sky-400" />
+        warning: <IoWarningOutline size={22} className="text-warning" />,
+        info: <IoInformationCircleOutline size={22} className="text-info" />
       }}
       style={
         {
-          '--normal-bg': 'hsl(var(--popover))',
-          '--normal-text': 'hsl(var(--popover-foreground))',
+          '--normal-bg': 'hsl(var(--surface-elevated))',
+          '--normal-text': 'hsl(var(--surface-elevated-foreground))',
           '--normal-border': 'hsl(var(--border))'
         } as CSSProperties
       }
       toastOptions={{
         classNames: {
-          toast: 'items-start gap-3 border-l-4 shadow-lg',
+          toast: 'items-start gap-3 border-l-4 shadow-elevated',
           icon: 'size-[22px] shrink-0',
-          title: 'text-sm font-medium text-popover-foreground',
-          description: 'text-sm text-popover-foreground/80',
-          error: 'border-l-red-400',
-          success: 'border-l-emerald-400',
-          warning: 'border-l-amber-400',
-          info: 'border-l-sky-400'
+          title: 'text-sm font-medium text-surface-elevated-foreground',
+          description: 'text-sm text-surface-elevated-foreground/80',
+          error: 'border-l-negative',
+          success: 'border-l-positive',
+          warning: 'border-l-warning',
+          info: 'border-l-info'
         }
       }}
     />

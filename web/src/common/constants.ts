@@ -6,12 +6,14 @@ import type { TransactionType } from '@/app/api/v1/transactions';
 
 export const inter = Inter({
   weight: ['400', '500', '700'],
-  subsets: ['latin']
+  subsets: ['latin'],
+  variable: '--font-inter'
 });
 
 export const raleway = Raleway({
   weight: ['400', '500', '700'],
-  subsets: ['latin']
+  subsets: ['latin'],
+  variable: '--font-raleway'
 });
 
 export const COOKIE_OPTIONS: Partial<ResponseCookie> = {
@@ -61,12 +63,12 @@ export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
 };
 
 export const TRANSACTION_TYPE_TONES: Record<TransactionType, string> = {
-  BUY: 'text-green-600',
-  SELL: 'text-red-600',
-  DIVIDEND: 'text-blue-600',
-  JCP: 'text-blue-600',
-  INTEREST: 'text-blue-600',
-  BONUS: 'text-violet-600'
+  BUY: 'text-positive',
+  SELL: 'text-negative',
+  DIVIDEND: 'text-info',
+  JCP: 'text-info',
+  INTEREST: 'text-info',
+  BONUS: 'text-primary'
 };
 
 export const TRANSACTION_UNIT_PRICE_LABELS: Record<TransactionType, string> = {

@@ -156,7 +156,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
             />
 
             {!!errors.symbol?.message && (
-              <small className="text-red-500">{errors.symbol.message}</small>
+              <small className="text-negative">{errors.symbol.message}</small>
             )}
           </div>
         </form>

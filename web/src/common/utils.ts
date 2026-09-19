@@ -71,9 +71,9 @@ export const formatPercent = (
   });
 
 export const signedValueTone = (value: DecimalString) => {
-  if (value === '0') return 'text-gray-300';
+  if (value === '0') return 'text-muted-foreground';
 
-  return value.startsWith('-') ? 'text-red-600' : 'text-green-600';
+  return value.startsWith('-') ? 'text-negative' : 'text-positive';
 };
 
 export const formatQuoteTime = (timestamp: string) =>
