@@ -307,6 +307,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** é estado de visualização secundário — nenhum filtro de dados se perde —, mas quebra a expectativa de link profundo no detalhe do ativo e no overview.
 - **Proposta:** reaproveitar `updateUrlQuery` com um parâmetro `range` por rota e um `transactionsPage`, checando antes se `/` precisa de `Suspense` ao passar a ler `useSearchParams`.
 
+### TD-051 — Rolagem horizontal das tabelas não alcança o teclado
+
+- **Origem:** TASK 14.3 · **Tipo:** acessibilidade · **Prioridade:** média · **Encaminhamento:** FASE 15
+- **Contexto:** `components/ui/table.tsx` envolve toda tabela num `div` com `overflow-auto` que não é focável. Nas tabelas com link ou botão na linha — posições e transações — o `Tab` ainda rola o conteúdo para dentro da viewport; na de alocação, sem nenhum elemento focável, as colunas que transbordam ficam inalcançáveis por teclado (regra `scrollable-region-focusable` do axe).
+- **Impacto:** em viewport estreita, parte dos dados só existe para quem usa ponteiro — o mesmo defeito já corrigido na tabela de performance da TASK 14.3.
+- **Proposta:** decidir na FASE 15 entre refluxo por breakpoint ou região rolável focável; se ficar a rolagem, aplicar `section` focável com nome, como em `performance-chart.tsx`, no próprio primitive.
+
 ## Resolvidos
 
 ### TD-018 — Formulário de transação do web sem taxas, impostos, corretora e notas

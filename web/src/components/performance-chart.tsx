@@ -269,7 +269,11 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
               </summary>
 
               {isTableOpen && (
-                <div className="mt-3 max-h-72 overflow-y-auto">
+                <section
+                  tabIndex={0}
+                  aria-label="Performance table"
+                  className="mt-3 max-h-72 overflow-y-auto ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
+                >
                   <Table>
                     <TableCaption className="sr-only">{caption}</TableCaption>
 
@@ -328,7 +332,7 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
                       )}
                     </TableBody>
                   </Table>
-                </div>
+                </section>
               )}
             </details>
           </div>
