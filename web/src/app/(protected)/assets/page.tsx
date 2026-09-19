@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
 import { useSearchParams } from 'next/navigation';
@@ -39,6 +39,8 @@ export default function Assets() {
   const [selectedSymbol, setSelectedSymbol] = useState<Maybe<string>>(null);
 
   const [opened, { toggle }] = useDisclosure(false);
+
+  const addAssetButtonRef = useRef<HTMLButtonElement>(null);
 
   const searchParams = useSearchParams();
 
@@ -115,6 +117,7 @@ export default function Assets() {
         action={
           portfolio && (
             <Button
+              ref={addAssetButtonRef}
               className="h-9 max-sm:w-full"
               onClick={() => handleToggleDialog(ASSET_DIALOG_ACTIONS.Add)}
             >
@@ -181,7 +184,10 @@ export default function Assets() {
         open={opened && dialogAction === ASSET_DIALOG_ACTIONS.Delete}
         symbol={selectedSymbol}
         onCancel={handleToggleDialog}
-        onConfirm={deleteAssetMutation}
+        onConfirm={async (payload) => {
+          await deleteAssetMutation(payload);
+          addAssetButtonRef.current?.focus();
+        }}
       />
     </div>
   );

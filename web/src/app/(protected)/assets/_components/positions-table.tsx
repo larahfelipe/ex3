@@ -241,6 +241,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
 
   const [searchInput, setSearchInput] = useState(() => listing.search ?? '');
   const committedSearch = useRef(listing.search);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { data, isError, isFetching, isPlaceholderData, refetch } =
     usePositions(portfolio, listing);
@@ -299,6 +300,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
   const clearRefinements = () => {
     setSearchInput('');
     refine({ search: undefined, type: undefined, status: undefined });
+    searchInputRef.current?.focus();
   };
 
   const sortedColumn = POSITION_COLUMNS.find(
@@ -340,6 +342,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
               <Label htmlFor={searchId}>Search</Label>
 
               <Input
+                ref={searchInputRef}
                 id={searchId}
                 type="search"
                 placeholder="Symbol or name"

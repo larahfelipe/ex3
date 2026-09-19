@@ -1,4 +1,4 @@
-import { useState, type FC } from 'react';
+import { useEffect, useRef, useState, type FC } from 'react';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import type { ListedTransaction } from '@/app/api/v1/transactions';
@@ -40,9 +40,19 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   hasAssetColumn
 }) => {
   const [selection, setSelection] = useState<TransactionSelection | null>(null);
+  const [deletedId, setDeletedId] = useState<string | null>(null);
+  const firstDetailsRef = useRef<HTMLButtonElement>(null);
 
   const { mutateAsync: updateTransaction } = useUpdateTransaction(portfolio);
   const { mutateAsync: deleteTransaction } = useDeleteTransaction(portfolio);
+
+  useEffect(() => {
+    if (deletedId === null) return;
+    if (transactions.some(({ id }) => id === deletedId)) return;
+
+    setDeletedId(null);
+    firstDetailsRef.current?.focus();
+  }, [deletedId, transactions]);
 
   return (
     <>
@@ -66,7 +76,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
         </TableHeader>
 
         <TableBody>
-          {transactions.map((transaction) => (
+          {transactions.map((transaction, index) => (
             <TableRow key={transaction.id}>
               <TableCell className="whitespace-nowrap">
                 <time dateTime={transaction.executedAt}>
@@ -98,6 +108,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
 
               <TableCell className="text-right">
                 <Button
+                  ref={index === 0 ? firstDetailsRef : null}
                   variant="link"
                   size="sm"
                   className="h-auto p-0"
@@ -146,6 +157,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
           onCancel={() => setSelection({ ...selection, action: 'details' })}
           onConfirm={async () => {
             await deleteTransaction({ id: selection.transaction.id });
+            setDeletedId(selection.transaction.id);
             setSelection(null);
           }}
         />
