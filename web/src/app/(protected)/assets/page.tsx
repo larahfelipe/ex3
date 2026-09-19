@@ -9,10 +9,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 
 import { ASSET_DIALOG_ACTIONS } from '@/common/constants';
 import { replaceUrl } from '@/common/utils';
-import { LoadErrorAlert } from '@/components/load-error-alert';
+import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
 import { PageHeader } from '@/components/page-header';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
-import { Button, Skeleton } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { useCreateAsset, useDeleteAsset } from '@/hooks/use-assets';
 import { useDisclosure } from '@/hooks/use-disclosure';
 import { usePrimaryPortfolio } from '@/hooks/use-portfolio';
@@ -112,22 +112,18 @@ export default function Assets() {
       />
 
       {isPending && (
-        <div aria-busy="true">
-          <Skeleton className="h-96 w-full rounded-xl" />
-        </div>
+        <LoadingState label="Loading your portfolio" className="h-96" />
       )}
 
       {isError && !portfolio && (
-        <LoadErrorAlert
+        <ErrorState
           message="Your portfolio could not be loaded"
           onRetry={refetch}
         />
       )}
 
       {isSuccess && !portfolio && (
-        <p className="text-sm text-muted-foreground">
-          No portfolio found for this account
-        </p>
+        <EmptyState message="No portfolio found for this account" />
       )}
 
       {portfolio && (

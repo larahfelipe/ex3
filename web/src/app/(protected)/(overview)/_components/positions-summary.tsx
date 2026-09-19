@@ -8,6 +8,7 @@ import {
   ASSET_DIALOG_ACTIONS,
   assetDetailRoute
 } from '@/common/constants';
+import { EmptyState, LoadingState } from '@/components/data-state';
 import {
   Money,
   Percentage,
@@ -17,7 +18,6 @@ import {
 import { QuerySection } from '@/components/query-section';
 import {
   Button,
-  Skeleton,
   Table,
   TableBody,
   TableCell,
@@ -51,16 +51,13 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
       className={className}
       query={positionsQuery}
       errorMessage="The positions could not be loaded"
-      loading={<Skeleton className="h-48 w-full" />}
+      loading={<LoadingState label="Loading positions" className="h-48" />}
       isEmpty={({ total }) => total === 0}
       empty={
-        <div className="flex flex-col items-start gap-3">
-          <p className="text-sm text-muted-foreground">No positions yet</p>
-
-          <Button asChild variant="secondary" className="h-9 max-sm:w-full">
-            <Link href={ADD_ASSET_HREF}>Add asset</Link>
-          </Button>
-        </div>
+        <EmptyState
+          message="No positions yet"
+          action={{ label: 'Add asset', href: ADD_ASSET_HREF }}
+        />
       }
       action={
         <Button asChild variant="link" size="sm" className="h-auto p-0">

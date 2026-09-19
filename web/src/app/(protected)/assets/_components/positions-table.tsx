@@ -26,6 +26,12 @@ import {
   INSTRUMENT_TYPES
 } from '@/common/constants';
 import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  NoResultsState
+} from '@/components/data-state';
+import {
   Money,
   Percentage,
   Price,
@@ -33,7 +39,6 @@ import {
   Quantity,
   Trend
 } from '@/components/financial';
-import { LoadErrorAlert } from '@/components/load-error-alert';
 import { SectionHeader } from '@/components/section-header';
 import {
   Button,
@@ -50,7 +55,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Skeleton,
   Table,
   TableBody,
   TableCaption,
@@ -297,63 +301,44 @@ export const PositionsTable: FC<PositionsTableProps> = ({
           </div>
 
           <div aria-busy={isLoading || isPlaceholderData} className="space-y-4">
-            {isLoading && <Skeleton className="h-64 w-full" />}
+            {isLoading && (
+              <LoadingState
+                label="Loading positions"
+                className="h-64 rounded-none"
+              />
+            )}
 
             {data === undefined && isError && (
-              <LoadErrorAlert
+              <ErrorState
                 message="The positions could not be loaded"
                 onRetry={refetch}
               />
             )}
 
             {data?.total === 0 && !hasRefinement && (
-              <div className="flex flex-col items-start gap-3">
-                <p className="text-sm text-muted-foreground">
-                  No positions yet
-                </p>
-
-                <Button
-                  variant="secondary"
-                  className="h-9 max-sm:w-full"
-                  onClick={onAddAsset}
-                >
-                  Add asset
-                </Button>
-              </div>
+              <EmptyState
+                message="No positions yet"
+                action={{ label: 'Add asset', onSelect: onAddAsset }}
+              />
             )}
 
             {data?.total === 0 && hasRefinement && (
-              <div className="flex flex-col items-start gap-3">
-                <p className="text-sm text-muted-foreground">
-                  No positions match the search and filters
-                </p>
-
-                <Button
-                  variant="secondary"
-                  className="h-9 max-sm:w-full"
-                  onClick={clearRefinements}
-                >
-                  Clear search and filters
-                </Button>
-              </div>
+              <NoResultsState
+                message="No positions match the search and filters"
+                onClear={clearRefinements}
+              />
             )}
 
             {data !== undefined &&
               data.total > 0 &&
               data.items.length === 0 && (
-                <div className="flex flex-col items-start gap-3">
-                  <p className="text-sm text-muted-foreground">
-                    {`No positions on page ${data.page}`}
-                  </p>
-
-                  <Button
-                    variant="secondary"
-                    className="h-9 max-sm:w-full"
-                    onClick={() => refine({ page: data.totalPages })}
-                  >
-                    {`Go to page ${data.totalPages}`}
-                  </Button>
-                </div>
+                <EmptyState
+                  message={`No positions on page ${data.page}`}
+                  action={{
+                    label: `Go to page ${data.totalPages}`,
+                    onSelect: () => refine({ page: data.totalPages })
+                  }}
+                />
               )}
 
             {data !== undefined && data.items.length > 0 && (

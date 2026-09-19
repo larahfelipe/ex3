@@ -2,6 +2,7 @@
 
 import { useId } from 'react';
 
+import { ErrorState } from '@/components/data-state';
 import { PageHeader } from '@/components/page-header';
 import { SectionHeader } from '@/components/section-header';
 import {
@@ -38,19 +39,10 @@ export default function Account() {
 
           <CardContent className="space-y-5" aria-busy={isLoading}>
             {isError ? (
-              <div role="alert" className="flex flex-col items-start gap-3">
-                <p className="text-sm text-negative">
-                  Your account details could not be loaded
-                </p>
-
-                <Button
-                  variant="secondary"
-                  className="h-9 max-sm:w-full"
-                  onClick={() => refetch()}
-                >
-                  Try again
-                </Button>
-              </div>
+              <ErrorState
+                message="Your account details could not be loaded"
+                onRetry={refetch}
+              />
             ) : (
               <>
                 <div className="space-y-1.5">

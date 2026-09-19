@@ -3,7 +3,7 @@ import { useId, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { twMerge } from 'tailwind-merge';
 
-import { LoadErrorAlert } from '@/components/load-error-alert';
+import { ErrorState } from '@/components/data-state';
 import { SectionHeader } from '@/components/section-header';
 import { Card, CardContent } from '@/components/ui';
 import type { ApiProxyErrorData } from '@/lib/axios';
@@ -51,7 +51,7 @@ export const QuerySection = <Content,>({
           {isLoading && loading}
 
           {data === undefined && isError && (
-            <LoadErrorAlert message={errorMessage} onRetry={refetch} />
+            <ErrorState message={errorMessage} onRetry={refetch} />
           )}
 
           {data !== undefined && (isEmpty(data) ? empty : children(data))}

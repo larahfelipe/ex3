@@ -1,10 +1,11 @@
 import { useState, type FC } from 'react';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
+import { EmptyState, LoadingState } from '@/components/data-state';
 import { QuerySection } from '@/components/query-section';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import { TransactionsTable } from '@/components/transactions-table';
-import { Button, Skeleton } from '@/components/ui';
+import { Button } from '@/components/ui';
 import {
   useCreateTransaction,
   useTransactions
@@ -42,29 +43,19 @@ export const AssetTransactions: FC<AssetTransactionsProps> = ({
         }
         query={transactionsQuery}
         errorMessage="The transactions could not be loaded"
-        loading={<Skeleton className="h-40 w-full" />}
+        loading={<LoadingState label="Loading transactions" />}
         isEmpty={({ total }) => total === 0}
-        empty={
-          <p className="text-sm text-muted-foreground">
-            No transactions for this asset
-          </p>
-        }
+        empty={<EmptyState message="No transactions for this asset" />}
       >
         {({ items, page, totalPages }) =>
           items.length === 0 ? (
-            <div className="flex flex-col items-start gap-3">
-              <p className="text-sm text-muted-foreground">
-                {`No transactions on page ${page}`}
-              </p>
-
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setRequestedPage(totalPages)}
-              >
-                {`Go to page ${totalPages}`}
-              </Button>
-            </div>
+            <EmptyState
+              message={`No transactions on page ${page}`}
+              action={{
+                label: `Go to page ${totalPages}`,
+                onSelect: () => setRequestedPage(totalPages)
+              }}
+            />
           ) : (
             <div className="space-y-4">
               <TransactionsTable
