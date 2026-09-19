@@ -40,7 +40,9 @@ const ACCOUNT_SECTION = {
   path: APP_ROUTES.Protected.Account
 } as const;
 
-const NAVIGATION_ITEM_CLASS = 'w-full gap-1.5 active:scale-90';
+/** WCAG 2.5.5 asks for a 44px target, above the default button height. */
+const NAVIGATION_ITEM_CLASS =
+  'w-full min-h-11 gap-1.5 active:scale-90 max-sm:min-w-11';
 
 const isCurrentPath = (pathname: string, path: string) =>
   pathname === path || pathname.startsWith(`${path}/`);
@@ -73,13 +75,13 @@ export const Sidebar: FC = () => {
   return (
     <nav
       aria-label="Main"
-      className="h-(--navigation-bar) flex items-center relative sm:w-(--navigation-rail) sm:h-screen sm:flex-col sm:fixed sm:overflow-y-auto"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-(--navigation-bar) items-center justify-around border-t bg-background sm:inset-y-0 sm:right-auto sm:h-screen sm:w-(--navigation-rail) sm:flex-col sm:justify-start sm:border-t-0 sm:overflow-y-auto"
     >
-      <p className="max-sm:ml-4 sm:mt-3 text-lg font-bold text-center cursor-default font-display hover:animate-pulse">
+      <p className="max-sm:hidden mt-3 text-lg font-bold text-center cursor-default font-display hover:animate-pulse">
         EX3
       </p>
 
-      <ul className="flex gap-2 max-sm:ml-8 sm:w-[95%] sm:mt-8 sm:flex-col">
+      <ul className="flex flex-1 justify-around gap-2 sm:mt-8 sm:w-[95%] sm:flex-none sm:flex-col sm:justify-start">
         {MAIN_SECTIONS.map(({ name, path, icon }) => (
           <li key={path} className="sm:w-full">
             <NavigationLink
@@ -92,7 +94,7 @@ export const Sidebar: FC = () => {
         ))}
       </ul>
 
-      <ul className="flex gap-2 absolute max-sm:right-1 sm:w-[95%] sm:flex-col sm:items-center sm:bottom-3">
+      <ul className="flex flex-1 justify-around gap-2 sm:absolute sm:bottom-3 sm:w-[95%] sm:flex-none sm:flex-col sm:items-center">
         <li className="sm:w-full">
           <NavigationLink
             label={user?.name ?? ACCOUNT_SECTION.name}
