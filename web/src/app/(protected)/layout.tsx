@@ -5,10 +5,12 @@ import type { Children } from '@/types';
 
 export default function Layout({ children }: Children) {
   return (
-    <div className="h-full flex flex-col bg-background sm:grid">
+    <div className="min-h-screen bg-background">
       <Sidebar />
 
-      <main className="sm:ml-(--navigation-rail)">{children}</main>
+      <main className="max-sm:pb-(--navigation-bar) sm:ml-(--navigation-rail)">
+        {children}
+      </main>
     </div>
   );
 }
