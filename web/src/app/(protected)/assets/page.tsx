@@ -10,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ASSET_DIALOG_ACTIONS } from '@/common/constants';
 import { replaceUrl } from '@/common/utils';
 import { LoadErrorAlert } from '@/components/load-error-alert';
+import { PageHeader } from '@/components/page-header';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import { Button, Skeleton } from '@/components/ui';
 import { useCreateAsset, useDeleteAsset } from '@/hooks/use-assets';
@@ -90,28 +91,25 @@ export default function Assets() {
 
   return (
     <div className="space-y-6 px-3 py-8 sm:px-4">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold">Assets</h1>
-
-          {isPending && <Skeleton className="h-5 w-48" />}
-
-          {portfolio && (
-            <p className="text-sm text-muted-foreground">
-              {`${portfolio.name} · Base currency ${portfolio.baseCurrency}`}
-            </p>
-          )}
-        </div>
-
-        {portfolio && (
-          <Button
-            className="h-9 max-sm:w-full"
-            onClick={() => handleToggleDialog(ASSET_DIALOG_ACTIONS.Add)}
-          >
-            Add asset
-          </Button>
-        )}
-      </header>
+      <PageHeader
+        title="Assets"
+        isPending={isPending}
+        description={
+          portfolio
+            ? `${portfolio.name} · Base currency ${portfolio.baseCurrency}`
+            : undefined
+        }
+        action={
+          portfolio && (
+            <Button
+              className="h-9 max-sm:w-full"
+              onClick={() => handleToggleDialog(ASSET_DIALOG_ACTIONS.Add)}
+            >
+              Add asset
+            </Button>
+          )
+        }
+      />
 
       {isPending && (
         <div aria-busy="true">

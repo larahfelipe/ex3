@@ -1,6 +1,7 @@
 'use client';
 
 import { LoadErrorAlert } from '@/components/load-error-alert';
+import { PageHeader } from '@/components/page-header';
 import { PerformanceChart } from '@/components/performance-chart';
 import { Skeleton } from '@/components/ui';
 import { usePrimaryPortfolio } from '@/hooks/use-portfolio';
@@ -21,17 +22,15 @@ export default function Overview() {
 
   return (
     <div className="space-y-6 px-3 py-8 sm:px-4">
-      <header className="space-y-1.5">
-        <h1 className="text-2xl font-bold">Overview</h1>
-
-        {isPending && <Skeleton className="h-5 w-48" />}
-
-        {portfolio && (
-          <p className="text-sm text-muted-foreground">
-            {`${portfolio.name} · Base currency ${portfolio.baseCurrency}`}
-          </p>
-        )}
-      </header>
+      <PageHeader
+        title="Overview"
+        isPending={isPending}
+        description={
+          portfolio
+            ? `${portfolio.name} · Base currency ${portfolio.baseCurrency}`
+            : undefined
+        }
+      />
 
       {isPending && (
         <div aria-busy="true">

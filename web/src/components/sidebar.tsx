@@ -112,16 +112,9 @@ export const Sidebar: FC = () => {
 
   return (
     <nav className="h-[60px] flex items-center relative sm:w-[160px] sm:h-screen sm:flex-col sm:fixed">
-      <section className="max-sm:ml-4 sm:mt-3">
-        <h2
-          className={twMerge(
-            'text-lg font-bold text-center cursor-default hover:animate-pulse',
-            'font-display'
-          )}
-        >
-          EX3
-        </h2>
-      </section>
+      <p className="max-sm:ml-4 sm:mt-3 text-lg font-bold text-center cursor-default font-display hover:animate-pulse">
+        EX3
+      </p>
 
       <menu className="flex gap-2 max-sm:ml-8 sm:w-[95%] sm:mt-8 sm:flex-col">
         {mainSections.map(({ name, path, icon }) => (

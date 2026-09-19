@@ -34,11 +34,11 @@ import {
   Trend
 } from '@/components/financial';
 import { LoadErrorAlert } from '@/components/load-error-alert';
+import { SectionHeader } from '@/components/section-header';
 import {
   Button,
   Card,
   CardContent,
-  CardHeader,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -192,30 +192,27 @@ export const PositionsTable: FC<PositionsTableProps> = ({
   return (
     <section aria-labelledby={headingId} className="min-w-0">
       <Card className="shadow-none">
-        <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
-          <h2
-            id={headingId}
-            className="text-lg font-semibold leading-none tracking-tight"
-          >
-            Positions
-          </h2>
-
-          <Button
-            variant="outline"
-            className="h-9 gap-2 max-sm:w-full"
-            disabled={isFetching}
-            onClick={() => refreshPortfolio()}
-          >
-            <RefreshCw
-              aria-hidden="true"
-              className={twMerge(
-                'size-4',
-                isFetching && 'motion-safe:animate-spin'
-              )}
-            />
-            Refresh
-          </Button>
-        </CardHeader>
+        <SectionHeader
+          id={headingId}
+          title="Positions"
+          action={
+            <Button
+              variant="outline"
+              className="h-9 gap-2 max-sm:w-full"
+              disabled={isFetching}
+              onClick={() => refreshPortfolio()}
+            >
+              <RefreshCw
+                aria-hidden="true"
+                className={twMerge(
+                  'size-4',
+                  isFetching && 'motion-safe:animate-spin'
+                )}
+              />
+              Refresh
+            </Button>
+          }
+        />
 
         <CardContent className="space-y-4">
           <div

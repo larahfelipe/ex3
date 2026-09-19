@@ -4,7 +4,8 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import { twMerge } from 'tailwind-merge';
 
 import { LoadErrorAlert } from '@/components/load-error-alert';
-import { Card, CardContent, CardHeader } from '@/components/ui';
+import { SectionHeader } from '@/components/section-header';
+import { Card, CardContent } from '@/components/ui';
 import type { ApiProxyErrorData } from '@/lib/axios';
 
 type QuerySectionProps<Content> = {
@@ -44,16 +45,7 @@ export const QuerySection = <Content,>({
       className={twMerge('min-w-0', className)}
     >
       <Card className="h-full shadow-none">
-        <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
-          <h2
-            id={headingId}
-            className="text-lg font-semibold leading-none tracking-tight"
-          >
-            {title}
-          </h2>
-
-          {action}
-        </CardHeader>
+        <SectionHeader id={headingId} title={title} action={action} />
 
         <CardContent aria-busy={isLoading}>
           {isLoading && loading}
