@@ -54,6 +54,15 @@ export default tseslint.config(
       ],
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
+      // A scrollable region only reaches the keyboard when it is focusable.
+      'jsx-a11y/no-noninteractive-tabindex': [
+        'error',
+        {
+          tags: ['section'],
+          roles: ['tabpanel', 'region'],
+          allowExpressionValues: true
+        }
+      ],
       'react/prop-types': 'off',
       'react/react-in-jsx-scope': 'off',
       'react/no-unused-prop-types': 'error',
