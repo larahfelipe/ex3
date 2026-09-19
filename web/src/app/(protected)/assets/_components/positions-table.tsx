@@ -394,7 +394,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                             type="button"
                             onClick={() => sortBy(field)}
                             className={twMerge(
-                              'inline-flex items-center gap-1 rounded-sm font-medium transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                              'inline-flex items-center gap-1 rounded-sm font-medium transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2',
                               isSorted && 'text-foreground'
                             )}
                           >
@@ -525,7 +525,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                             </DropdownMenuItem>
 
                             <DropdownMenuItem
-                              className="text-red-500 focus:text-red-500"
+                              className="text-negative focus:text-negative"
                               onSelect={() => onDeleteAsset(position.symbol)}
                             >
                               Delete

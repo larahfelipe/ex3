@@ -29,7 +29,7 @@ export default function Account() {
         <CardContent className="space-y-5" aria-busy={isLoading}>
           {isError ? (
             <section role="alert" className="flex flex-col items-start gap-3">
-              <p className="text-sm text-red-500">
+              <p className="text-sm text-negative">
                 Your account details could not be loaded
               </p>
 
@@ -51,7 +51,7 @@ export default function Account() {
                     disabled
                     id="name"
                     value={user.name ?? ''}
-                    className="bg-zinc-900"
+                    className="bg-surface"
                   />
                 ) : (
                   <Skeleton className="h-9 w-full" />
@@ -66,7 +66,7 @@ export default function Account() {
                     disabled
                     id="email"
                     value={user.email}
-                    className="bg-zinc-900"
+                    className="bg-surface"
                   />
                 ) : (
                   <Skeleton className="h-9 w-full" />
@@ -99,7 +99,7 @@ export default function Account() {
             <Input
               type="password"
               placeholder="Enter your password"
-              className="bg-zinc-900"
+              className="bg-surface"
             />
           </section>
 
@@ -109,7 +109,7 @@ export default function Account() {
             <Input
               type="password"
               placeholder="Enter your new password"
-              className="bg-zinc-900"
+              className="bg-surface"
             />
           </section>
         </CardContent>

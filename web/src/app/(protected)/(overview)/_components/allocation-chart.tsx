@@ -45,16 +45,16 @@ const ALLOCATION_VIEW_LABELS: Record<
 };
 
 const ALLOCATION_COLORS: AllocationColor[] = [
-  { arc: 'stroke-primary', swatch: 'bg-primary' },
-  { arc: 'stroke-sky-400', swatch: 'bg-sky-400' },
-  { arc: 'stroke-emerald-400', swatch: 'bg-emerald-400' },
-  { arc: 'stroke-violet-400', swatch: 'bg-violet-400' },
-  { arc: 'stroke-amber-300', swatch: 'bg-amber-300' },
-  { arc: 'stroke-rose-400', swatch: 'bg-rose-400' },
-  { arc: 'stroke-teal-300', swatch: 'bg-teal-300' },
-  { arc: 'stroke-indigo-400', swatch: 'bg-indigo-400' },
-  { arc: 'stroke-lime-300', swatch: 'bg-lime-300' },
-  { arc: 'stroke-fuchsia-400', swatch: 'bg-fuchsia-400' }
+  { arc: 'stroke-chart-1', swatch: 'bg-chart-1' },
+  { arc: 'stroke-chart-2', swatch: 'bg-chart-2' },
+  { arc: 'stroke-chart-3', swatch: 'bg-chart-3' },
+  { arc: 'stroke-chart-4', swatch: 'bg-chart-4' },
+  { arc: 'stroke-chart-5', swatch: 'bg-chart-5' },
+  { arc: 'stroke-chart-6', swatch: 'bg-chart-6' },
+  { arc: 'stroke-chart-7', swatch: 'bg-chart-7' },
+  { arc: 'stroke-chart-8', swatch: 'bg-chart-8' },
+  { arc: 'stroke-chart-9', swatch: 'bg-chart-9' },
+  { arc: 'stroke-chart-10', swatch: 'bg-chart-10' }
 ];
 
 const RING_CIRCUMFERENCE = 100;
@@ -176,7 +176,7 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
                   className="peer sr-only"
                 />
 
-                <span className="block rounded-sm px-3 py-1 text-sm font-medium text-muted-foreground ring-offset-background transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
+                <span className="block rounded-sm px-3 py-1 text-sm font-medium text-muted-foreground ring-offset-background transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-focus peer-focus-visible:ring-offset-2">
                   {ALLOCATION_VIEW_LABELS[view].name}
                 </span>
               </label>

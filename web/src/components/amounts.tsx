@@ -14,7 +14,7 @@ const NO_VALUE = '-';
 const SIGNED_FORMAT: Intl.NumberFormatOptions = { signDisplay: 'exceptZero' };
 
 export const UnavailableValue: FC = () => (
-  <span className="text-gray-400">
+  <span className="text-muted-foreground">
     <span aria-hidden="true">{NO_VALUE}</span>
 
     <span className="sr-only">Not available</span>

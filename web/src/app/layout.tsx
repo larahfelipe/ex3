@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { connection } from 'next/server';
 
-import { inter } from '@/common/constants';
+import { inter, raleway } from '@/common/constants';
 import { AppProvider } from '@/providers/app-provider';
 import type { Children } from '@/types';
 import './globals.css';
@@ -20,16 +20,16 @@ export default async function RootLayout({ children }: Children) {
   await connection();
 
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className={`dark ${inter.variable} ${raleway.variable}`}>
       <head>
-        <meta name="theme-color" content="#000" />
+        <meta name="theme-color" content="#070707" />
 
         <link rel="shortcut icon" href="favicon.png" type="image/png" />
 
         <link rel="manifest" href="/manifest.json" />
       </head>
 
-      <body className={inter.className}>
+      <body className="font-sans">
         <AppProvider>{children}</AppProvider>
       </body>
     </html>

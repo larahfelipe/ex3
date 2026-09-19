@@ -68,9 +68,9 @@ export const PortfolioValueCard: FC<PortfolioValueCardProps> = ({
           {isRefetchError && (
             <div
               role="alert"
-              className="flex flex-col items-start gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-3 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-3 sm:flex-row sm:items-center sm:justify-between"
             >
-              <p className="flex items-center gap-2 text-sm text-yellow-500">
+              <p className="flex items-center gap-2 text-sm text-warning">
                 <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
                 The values could not be refreshed and may be out of date
               </p>

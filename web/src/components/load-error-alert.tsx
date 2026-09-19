@@ -10,7 +10,7 @@ export const LoadErrorAlert: FC<LoadErrorAlertProps> = ({
   onRetry
 }) => (
   <div role="alert" className="flex flex-col items-start gap-3">
-    <p className="text-sm text-red-500">{message}</p>
+    <p className="text-sm text-negative">{message}</p>
 
     <Button
       variant="secondary"

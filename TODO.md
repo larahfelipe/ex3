@@ -286,6 +286,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** dois formatos de sucesso para o mesmo recurso, e qualquer novo consumidor repete o erro.
 - **Proposta:** decidir um envelope de sucesso único junto da convenção já documentada para erro e para listagem paginada, e registrar em `docs/api-inventory.md`.
 
+### TD-048 — Paleta clara dos tokens semânticos sem cobertura em runtime
+
+- **Origem:** TASK 12.1 · **Tipo:** qualidade · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** `globals.css` define os dois temas, mas `<html>` fixa `className="dark"` e nada alterna. Os valores de `:root` para `surface`, `positive`, `negative`, `warning`, `info`, `focus` e `chart-1..10` foram escolhidos com contraste calculado sobre fundo branco, sem nunca terem sido renderizados.
+- **Impacto:** se o seletor de tema entrar depois, a paleta clara chega sem validação visual e sem auditoria de contraste real.
+- **Proposta:** validar junto da TASK 14.7, ou remover o bloco `:root` se o produto assumir tema escuro único — decisão ligada ao TD-046.
+
 ## Resolvidos
 
 ### TD-018 — Formulário de transação do web sem taxas, impostos, corretora e notas

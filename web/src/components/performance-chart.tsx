@@ -149,7 +149,7 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
                 className="peer sr-only"
               />
 
-              <span className="block rounded-sm px-3 py-1 text-sm font-medium text-muted-foreground ring-offset-background transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
+              <span className="block rounded-sm px-3 py-1 text-sm font-medium text-muted-foreground ring-offset-background transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-focus peer-focus-visible:ring-offset-2">
                 {PERFORMANCE_RANGE_LABELS[range].name}
               </span>
             </label>
@@ -251,7 +251,7 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
                   <div
                     aria-hidden="true"
                     className={twMerge(
-                      'pointer-events-none absolute top-0 space-y-0.5 rounded-md border bg-background px-3 py-2 text-xs shadow-sm',
+                      'pointer-events-none absolute top-0 space-y-0.5 rounded-md border bg-background px-3 py-2 text-xs shadow-elevated',
                       activePoint.x > CHART_WIDTH / 2 ? 'left-0' : 'right-0'
                     )}
                   >
@@ -275,7 +275,7 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
                 setIsTableOpen(currentTarget.open)
               }
             >
-              <summary className="cursor-pointer rounded-sm text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+              <summary className="cursor-pointer rounded-sm text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2">
                 Performance as a table
               </summary>
 
