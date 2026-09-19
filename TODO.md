@@ -223,6 +223,41 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** o tipo da compra e os ganhos ficam difíceis de ler com baixa visão ou tela sob luz forte.
 - **Proposta:** trocar pelo tom verde que atinja 4,5:1 nos dois lugares, dentro da revisão de contraste dos tokens.
 
+### TD-039 — Configuração de containers sem validação num runtime
+
+- **Origem:** configuração Docker Compose · **Tipo:** tooling · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** a máquina em que `compose.yaml`, os Dockerfiles e os `.dockerignore` foram escritos não tem runtime de containers. A validação cobriu os gates do backend, o parse do `compose.yaml` com checagem de dependências, perfis, volumes, portas e estágios, a instalação `--prod` numa cópia dos manifests dos dois pacotes, a resolução de todo import externo do `dist/` contra ela e o local do store do pnpm 11. Nenhuma imagem foi construída e nenhum serviço subiu.
+- **Impacto:** um erro de build ou de runtime aparece só no primeiro `docker compose up` ou no próximo build do Cloud Build, que publica as imagens do `runner`.
+- **Proposta:** num ambiente com Docker, antes da próxima publicação: `docker compose config`; `docker compose up --build` com volumes vazios; cadastro e login no web; `down` e `up` preservando os dados; `run --rm backend-check` e `web-check`; `docker build` dos dois `runner` (web com `--build-arg API_URL`), conferindo usuário `node`, tamanho com `docker image ls` e `docker stop` abaixo de 10 s; um segundo `up` sem rebuild nem download.
+
+### TD-040 — Backend e web sem health check de container
+
+- **Origem:** configuração Docker Compose · **Tipo:** tooling · **Prioridade:** baixa · **Encaminhamento:** TASK 18.3
+- **Contexto:** nenhum dos dois expõe endpoint de saúde. No `compose.yaml`, o `web` espera o `backend` só iniciado, e os Dockerfiles não têm `HEALTHCHECK`.
+- **Impacto:** a primeira requisição do web pode chegar antes de o backend ouvir, e um processo travado não é distinguido de um saudável.
+- **Proposta:** com `/health` e `/ready`, declarar `healthcheck` nos serviços `backend` e `web` e trocar a dependência do `web` para `service_healthy`.
+
+### TD-041 — Backend encerra sem drenar requisições
+
+- **Origem:** configuração Docker Compose · **Tipo:** qualidade · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** `Server.ts` não trata `SIGTERM`. Com `tini` como PID 1 na imagem, o sinal chega ao Node, que termina na hora: não há `server.close()` nem `$disconnect` do Prisma.
+- **Impacto:** num deploy ou numa redução de instâncias, requisições em andamento são cortadas e podem falhar para o cliente.
+- **Proposta:** tratar `SIGTERM` parando de aceitar conexões, esperando as abertas por um prazo menor que o do orquestrador e fechando o pool antes de sair.
+
+### TD-042 — Ambiente novo sem catálogo nem forma de criar o primeiro administrador
+
+- **Origem:** configuração Docker Compose · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** o catálogo de instrumentos começa vazio, só administrador cadastra instrumento, e nenhum endpoint ou script promove um usuário. Hoje o caminho é SQL manual (`docs/containers.md`, §Primeiro uso).
+- **Impacto:** num banco novo não dá para adicionar ativo nem transação sem acessar o banco.
+- **Proposta:** decidir entre um seed idempotente de desenvolvimento, com instrumentos de exemplo, e um comando administrativo que promova o primeiro usuário, e automatizar a escolha no `compose.yaml`.
+
+### TD-043 — Imagem do web leva o `node_modules` de produção inteiro
+
+- **Origem:** configuração Docker Compose · **Tipo:** desempenho · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** o `runner` do web copia todas as dependências de produção e roda `next start`. O `output: 'standalone'` do Next copia só os arquivos rastreados pelo build e dispensa o resto, mas muda o comando de start e o que o script `start` do pacote executa.
+- **Impacto:** imagem maior, com push, pull e cold start mais lentos no Cloud Run.
+- **Proposta:** adotar `output: 'standalone'` junto com a validação do TD-039, conferindo o service worker do `next-pwa` e o `distDir: 'build'`.
+
 ## Resolvidos
 
 ### TD-018 — Formulário de transação do web sem taxas, impostos, corretora e notas

@@ -30,8 +30,8 @@
     "test:unit": "node --env-file=.env.test --import tsx --test \"src/**/*.test.ts\"",
     "test:unit:watch": "node --env-file=.env.test --import tsx --test --watch \"src/**/*.test.ts\"",
     "test:integration": "node --env-file=.env.test --import tsx src/test/PrepareTestDatabase.ts && node --env-file=.env.test --import tsx --test-concurrency=1 --test \"src/**/*.integration.ts\"",
-    "test:db:up": "docker compose up --detach --wait postgres",
-    "test:db:down": "docker compose down --volumes"
+    "test:db:up": "docker compose --file ../compose.yaml up --detach --wait postgres-test",
+    "test:db:down": "docker compose --file ../compose.yaml rm --stop --force postgres-test"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

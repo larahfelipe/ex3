@@ -1,0 +1,9 @@
+node_modules
+build
+.env*
+public/sw.js
+public/workbox-*.js
+next-env.d.ts
+*.tsbuildinfo
+Dockerfile
+.dockerignore
