@@ -9,7 +9,7 @@ import { type SignOutResponseData } from '@/app/api/v1/sign-out';
 import { APP_ROUTES } from '@/common/constants';
 
 import type { ApiServerErrorData, IApiProxyError } from './errors';
-import { ApiProxyError } from './errors';
+import { ApiProxyError, UNEXPECTED_ERROR_MESSAGE } from './errors';
 
 const baseAxiosConfig: CreateAxiosDefaults = {
   headers: { 'Content-Type': 'application/json' },
@@ -68,20 +68,34 @@ proxyApi.interceptors.response.use(
 
       await pendingSignOut;
     }
-    const error = err.response?.data ?? {
-      message: 'Something went wrong. Please try again later'
-    };
+    const error = err.response?.data ?? { message: UNEXPECTED_ERROR_MESSAGE };
     return Promise.reject(new ApiProxyError(error.message, error));
   }
 );
 
+/**
+ * The AxiosError holds the request config, and with it the caller's bearer
+ * token, so the log is built field by field instead of from the error itself.
+ */
+const logUpstreamFailure = (err: unknown, error: ApiProxyError) => {
+  const request = isAxiosError(err) ? err.config : undefined;
+
+  console.error(
+    JSON.stringify({
+      event: 'api.upstream_request_failed',
+      method: request?.method?.toUpperCase(),
+      url: request?.url,
+      status: error.status,
+      code: error._error?.code,
+      message: error.message
+    })
+  );
+};
+
 serverApi.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (process.env.NODE_ENV !== 'production') console.error(err);
-    const error = new ApiProxyError(
-      'Something went wrong. Please try again later'
-    );
+    const error = new ApiProxyError(UNEXPECTED_ERROR_MESSAGE);
     if (isAxiosError<ApiServerErrorData>(err)) {
       const { data, statusText, status } = err.response ?? {};
       if (data) error._error = data;
@@ -89,6 +103,7 @@ serverApi.interceptors.response.use(
       if (statusText) error.statusText = statusText;
       if (status) error.status = status;
     }
+    logUpstreamFailure(err, error);
     return Promise.reject(error);
   }
 );

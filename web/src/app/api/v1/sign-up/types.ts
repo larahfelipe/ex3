@@ -1,6 +1,6 @@
 import type { WithId, WithMessage, WithTimestamps } from '@/types';
 
-import type { UserProperties } from '../sign-in';
+import type { User, UserProperties } from '../sign-in';
 
 export type SignUpRequestPayload = {
   name: string;
@@ -8,6 +8,10 @@ export type SignUpRequestPayload = {
   password: string;
   baseCurrency: string;
 };
+
+export interface SignUpApiResponseData extends WithMessage {
+  user: User;
+}
 
 export interface SignUpResponseData extends WithMessage {
   user: UserProperties & WithId & WithTimestamps;

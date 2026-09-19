@@ -1,9 +1,10 @@
 'use client';
 
-import { Suspense, type FC } from 'react';
+import { Suspense, type CSSProperties, type FC } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import {
   IoCheckmarkCircleOutline,
+  IoInformationCircleOutline,
   IoRefresh,
   IoWarningOutline
 } from 'react-icons/io5';
@@ -73,27 +74,32 @@ export const AppProvider: FC<Children> = ({ children }) => (
 
     <Toaster
       position="bottom-right"
+      theme="dark"
       icons={{
-        error: <MdOutlineErrorOutline size={26} className="text-red-500" />,
+        error: <MdOutlineErrorOutline size={22} className="text-red-400" />,
         success: (
-          <IoCheckmarkCircleOutline size={26} className="text-emerald-500" />
+          <IoCheckmarkCircleOutline size={22} className="text-emerald-400" />
         ),
-        warning: <IoWarningOutline size={26} className="text-yellow-500" />
+        warning: <IoWarningOutline size={22} className="text-amber-400" />,
+        info: <IoInformationCircleOutline size={22} className="text-sky-400" />
       }}
+      style={
+        {
+          '--normal-bg': 'hsl(var(--popover))',
+          '--normal-text': 'hsl(var(--popover-foreground))',
+          '--normal-border': 'hsl(var(--border))'
+        } as CSSProperties
+      }
       toastOptions={{
-        style: {
-          height: '64px',
-          borderTop: '#0F0F0F',
-          borderLeft: '#0F0F0F',
-          borderRight: '#0F0F0F',
-          backgroundColor: '#0F0F0F'
-        },
         classNames: {
-          icon: 'w-[32px] h-[32px]',
-          title: 'text-[14px] text-white',
-          error: 'border-b-[3px] border-b-red-500',
-          success: 'border-b-[3px] border-b-emerald-500',
-          warning: 'border-b-[3px] border-b-yellow-500'
+          toast: 'items-start gap-3 border-l-4 shadow-lg',
+          icon: 'size-[22px] shrink-0',
+          title: 'text-sm font-medium text-popover-foreground',
+          description: 'text-sm text-popover-foreground/80',
+          error: 'border-l-red-400',
+          success: 'border-l-emerald-400',
+          warning: 'border-l-amber-400',
+          info: 'border-l-sky-400'
         }
       }}
     />

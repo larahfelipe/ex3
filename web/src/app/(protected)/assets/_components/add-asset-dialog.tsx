@@ -29,6 +29,7 @@ import {
   Input,
   Label
 } from '@/components/ui';
+import { withSettledRejection } from '@/lib/utils';
 
 type AddAssetDialogProps = {
   open: boolean;
@@ -130,7 +131,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
         </DialogHeader>
 
         <form
-          onSubmit={handleSubmit(handleConfirm)}
+          onSubmit={withSettledRejection(handleSubmit(handleConfirm))}
           id="add-asset-transaction-form"
           className="flex flex-col gap-3"
         >
@@ -140,13 +141,13 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
             <Controller
               name="symbol"
               control={control}
-              disabled={isSubmitting}
               render={({ field }) => (
                 <Input
                   id="symbol"
                   aria-label="Asset symbol"
                   placeholder="Enter the asset symbol"
                   {...field}
+                  disabled={isSubmitting}
                   onChange={(e) =>
                     field.onChange(handleChangeFormFieldValue('symbol', e))
                   }

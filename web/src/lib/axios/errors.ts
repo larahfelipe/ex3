@@ -18,6 +18,9 @@ export type ApiProxyErrorData = {
 
 export interface IApiProxyError extends WithStatusHeader, ApiProxyErrorData {}
 
+export const UNEXPECTED_ERROR_MESSAGE =
+  'Something went wrong. Please try again later';
+
 const NOT_FOUND_ERROR_CODE = 'NOT_FOUND';
 
 export const isNotFoundError = ({

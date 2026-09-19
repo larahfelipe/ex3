@@ -258,6 +258,34 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** imagem maior, com push, pull e cold start mais lentos no Cloud Run.
 - **Proposta:** adotar `output: 'standalone'` junto com a validação do TD-039, conferindo o service worker do `next-pwa` e o `distDir: 'build'`.
 
+### TD-044 — `backend/.env.test` sem `PORT`, `DIRECT_URL` e `YAHOO_FINANCE_API_KEY`
+
+- **Origem:** primeira execução de `--profile check` com runtime de containers · **Tipo:** teste · **Prioridade:** alta · **Encaminhamento:** TD-039
+- **Contexto:** `pnpm test:unit` e `pnpm test:integration` carregam `--env-file=.env.test`, e o arquivo versionado só traz `NODE_ENV`, `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRATION`, `BCRYPT_SALT` e `CORS_ALLOWED_ORIGINS`. `backend-check` não define `environment`, então nada supre o resto.
+- **Impacto:** `backend-check` falha com `PORT: Too small: expected number to be >0` em `Envs.test.ts`, e caem também `Jwt.test.ts`, `AuthMiddleware.test.ts` e `YahooFinanceProvider.test.ts` — quatro arquivos. A suíte só passa em máquina que já tenha essas variáveis exportadas no shell, o que mascarava a lacuna antes do Compose.
+- **Proposta:** completar `.env.test` com as chaves que o `EnvsSchema` exige, e cobrir o caso com o próprio `Envs.test.ts`, que hoje depende do ambiente para o cenário "starts up with a valid environment".
+
+### TD-045 — Toda navegação RSC paga um 307 extra por causa da reescrita de headers no proxy
+
+- **Origem:** investigação do redirecionamento pós-login · **Tipo:** desempenho · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** `proxy.ts` devolve `NextResponse.next({ request: { headers } })` para injetar a CSP com nonce no request. Toda requisição com o header `RSC: 1` e sem o parâmetro `_rsc` esperado responde 307 para a mesma rota com `?_rsc=<hash>`; o cliente segue e recebe 200. Medido no container para `/` autenticado e `/sign-in` anônimo, sem relação com os ramos de autenticação.
+- **Impacto:** cada `router.push` e cada prefetch custa uma viagem a mais ao servidor. Não quebra navegação, porque o browser segue o redirect.
+- **Proposta:** avaliar passar o nonce por um header próprio já presente na resposta, ou restringir a reescrita de request às navegações de documento, medindo antes o ganho real.
+
+### TD-046 — `next-themes` sem consumidor
+
+- **Origem:** correção do contraste dos toasts · **Tipo:** qualidade · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** o único importador era `web/src/components/ui/sonner.tsx`, um segundo `Toaster` que nunca foi montado e chamava `useTheme()` sem `ThemeProvider` na árvore. O arquivo saiu junto com a correção do contraste.
+- **Impacto:** dependência paga no install e no lockfile sem nada que a use.
+- **Proposta:** remover de `web/package.json` se o tema continuar fixo em `dark` pela classe do `<html>`.
+
+### TD-047 — `POST /v1/user/create` envelopa o usuário e `POST /v1/user` devolve flat
+
+- **Origem:** causa raiz do redirecionamento pós-cadastro · **Tipo:** API · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** `CreateUserService.Result` é `{ user, message }`, enquanto `GetUserService.Result` é o usuário com `accessToken` no topo. O route handler do web tratava as duas como flat, e por isso o cadastro não gravava cookie de sessão nem lia o nome; corrigido do lado do web, o backend segue inconsistente.
+- **Impacto:** dois formatos de sucesso para o mesmo recurso, e qualquer novo consumidor repete o erro.
+- **Proposta:** decidir um envelope de sucesso único junto da convenção já documentada para erro e para listagem paginada, e registrar em `docs/api-inventory.md`.
+
 ## Resolvidos
 
 ### TD-018 — Formulário de transação do web sem taxas, impostos, corretora e notas

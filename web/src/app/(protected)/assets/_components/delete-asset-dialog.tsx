@@ -12,6 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from '@/components/ui';
+import { withSettledRejection } from '@/lib/utils';
 import type { Maybe } from '@/types';
 
 type DeleteAssetDialogProps = {
@@ -52,7 +53,7 @@ export const DeleteAssetDialog: FC<DeleteAssetDialogProps> = ({
 
           <AlertDialogAction
             disabled={!symbol}
-            onClick={handleConfirm}
+            onClick={withSettledRejection(handleConfirm)}
             className="bg-red-500 hover:bg-red-600"
           >
             Confirm

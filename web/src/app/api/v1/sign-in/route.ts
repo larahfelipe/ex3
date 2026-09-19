@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
-import api, { type ApiProxyError, type ApiProxyErrorData } from '@/lib/axios';
+import { toApiProxyErrorResponse } from '@/lib/api-error-response';
+import api from '@/lib/axios';
 import { setSessionCookie } from '@/lib/session';
 
 import type { SignInRequestPayload, SignInResponseData, User } from './types';
@@ -21,8 +22,6 @@ export const POST = async (req: NextRequest) => {
 
     return NextResponse.json<SignInResponseData>(res, { status, statusText });
   } catch (e) {
-    const { status, statusText, ...error } = e as ApiProxyError;
-
-    return NextResponse.json<ApiProxyErrorData>(error, { status, statusText });
+    return toApiProxyErrorResponse(e);
   }
 };
