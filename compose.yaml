@@ -1,0 +1,135 @@
+name: ex3
+
+x-backend-workspace: &backend-workspace
+  image: ex3-backend-dev
+  build:
+    context: ./backend
+    target: dev
+  init: true
+  volumes:
+    - ./backend:/usr/src/app/backend
+    - backend-node-modules:/usr/src/app/backend/node_modules
+    - pnpm-store:/pnpm/store
+
+x-web-workspace: &web-workspace
+  image: ex3-web-dev
+  build:
+    context: ./web
+    target: dev
+  init: true
+  volumes:
+    - ./web:/usr/src/app/web
+    - web-node-modules:/usr/src/app/web/node_modules
+    - pnpm-store:/pnpm/store
+
+x-backend-runtime-environment: &backend-runtime-environment
+  NODE_ENV: development
+  PORT: '8080'
+  DATABASE_URL: postgresql://ex3:${POSTGRES_PASSWORD:-}@postgres:5432/ex3
+  DIRECT_URL: postgresql://ex3:${POSTGRES_PASSWORD:-}@postgres:5432/ex3
+  JWT_SECRET: ${JWT_SECRET:-}
+  YAHOO_FINANCE_API_KEY: ${YAHOO_FINANCE_API_KEY:-}
+
+x-postgres-healthcheck: &postgres-healthcheck
+  interval: 2s
+  timeout: 3s
+  retries: 20
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_USER: ex3
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      POSTGRES_DB: ex3
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      <<: *postgres-healthcheck
+      test: ['CMD-SHELL', 'pg_isready --username=ex3 --dbname=ex3']
+
+  backend-deps:
+    <<: *backend-workspace
+    command: ['pnpm', 'install', '--frozen-lockfile']
+
+  migrate:
+    <<: *backend-workspace
+    command: ['pnpm', 'exec', 'prisma', 'migrate', 'deploy']
+    environment: *backend-runtime-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend-deps:
+        condition: service_completed_successfully
+
+  backend:
+    <<: *backend-workspace
+    environment: *backend-runtime-environment
+    ports:
+      - '127.0.0.1:8080:8080'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web-deps:
+    <<: *web-workspace
+    command: ['pnpm', 'install', '--frozen-lockfile']
+
+  web:
+    <<: *web-workspace
+    volumes:
+      - ./web:/usr/src/app/web
+      - web-node-modules:/usr/src/app/web/node_modules
+      - web-dev-build:/usr/src/app/web/build
+    environment:
+      API_URL: http://backend:8080
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      web-deps:
+        condition: service_completed_successfully
+      backend:
+        condition: service_started
+
+  postgres-test:
+    image: postgres:17.6-alpine
+    profiles: [check]
+    environment:
+      POSTGRES_USER: ex3
+      POSTGRES_PASSWORD: ex3
+      POSTGRES_DB: ex3_test
+    ports:
+      - '127.0.0.1:5432:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      <<: *postgres-healthcheck
+      test: ['CMD-SHELL', 'pg_isready --username=ex3 --dbname=ex3_test']
+
+  backend-check:
+    <<: *backend-workspace
+    profiles: [check]
+    # Sharing the test database's network namespace keeps `localhost:5432` from
+    # `.env.test` valid, so the suite never takes a connection string from here.
+    network_mode: service:postgres-test
+    command: ['sh', '-c', 'pnpm lint && pnpm typecheck && pnpm test && pnpm build']
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      backend-deps:
+        condition: service_completed_successfully
+
+  web-check:
+    <<: *web-workspace
+    profiles: [check]
+    command: ['sh', '-c', 'pnpm lint && pnpm typecheck && pnpm build']
+    depends_on:
+      web-deps:
+        condition: service_completed_successfully
+
+volumes:
+  postgres-data:
+  backend-node-modules:
+  web-node-modules:
+  web-dev-build:
+  pnpm-store:

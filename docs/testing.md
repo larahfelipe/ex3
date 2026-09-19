@@ -10,9 +10,9 @@ Infraestrutura de testes do backend. Registra as decisões que não são dedutí
 | `pnpm test:unit` | testes sem IO | não |
 | `pnpm test:integration` | testes contra o banco real | sim |
 | `pnpm test:unit:watch` | unit em watch | não |
-| `pnpm test:db:up` / `pnpm test:db:down` | ciclo de vida do Postgres local | — |
+| `pnpm test:db:up` / `pnpm test:db:down` | ciclo de vida do serviço `postgres-test` do `compose.yaml` da raiz | — |
 
-`pnpm test` é o comando único da suíte. Localmente ele pressupõe o banco de pé (`pnpm test:db:up`); no CI o Postgres é um service container, então `pnpm test` basta.
+`pnpm test` é o comando único da suíte. Localmente ele pressupõe o banco de pé (`pnpm test:db:up`); no CI o Postgres é um service container, então `pnpm test` basta. Em container, `docker compose run --rm backend-check` sobe o banco e roda os gates inteiros (ver `docs/containers.md`).
 
 ## Duas categorias, separadas por nome de arquivo
 
@@ -29,7 +29,7 @@ Todo arquivo de integração chama `registerIntegrationHooks()` uma vez, dentro 
 
 ## Banco de teste
 
-`.env.test` é a **única** fonte da string de conexão, lida via `node --env-file`. O `compose.yaml` e o service container do CI usam as mesmas credenciais (`ex3`/`ex3`/`ex3_test`), então nenhum dos dois ambientes redefine configuração de banco.
+`.env.test` é a **única** fonte da string de conexão, lida via `node --env-file`. O serviço `postgres-test` do `compose.yaml` e o service container do CI usam as mesmas credenciais (`ex3`/`ex3`/`ex3_test`), então nenhum dos dois ambientes redefine configuração de banco. Como o `node --env-file` não sobrescreve variável já presente no ambiente, um `NODE_ENV` ou `DATABASE_URL` exportado vence o `.env.test`; por isso `resetDatabase()` recusa truncar fora de `NODE_ENV=test` (`NonTestDatabaseResetError`).
 
 O armazenamento do container local é `tmpfs`: cada `up` começa com um cluster vazio. A suíte depende de o banco ser descartável, não de limpar o que deixou para trás.
 

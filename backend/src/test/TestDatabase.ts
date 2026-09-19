@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import type { TestContext } from 'node:test';
 
+import { envs } from '@/config';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 
 /**
@@ -8,6 +9,17 @@ import { PrismaClient } from '@/infra/database/PrismaClient';
  * it would make every run reapply the whole history against a populated schema.
  */
 const MIGRATIONS_TABLE = '_prisma_migrations';
+
+const TEST_ENVIRONMENT = 'test';
+
+class NonTestDatabaseResetError extends Error {
+  constructor() {
+    super(
+      `Refusing to empty the database while NODE_ENV is ${envs.nodeEnv}: the process environment overrides .env.test`
+    );
+    this.name = 'NonTestDatabaseResetError';
+  }
+}
 
 const prismaClient = PrismaClient.getInstance();
 
@@ -34,6 +46,8 @@ const listDataTables = async () => {
  * test input.
  */
 export const resetDatabase = async () => {
+  if (envs.nodeEnv !== TEST_ENVIRONMENT) throw new NonTestDatabaseResetError();
+
   const tables = await listDataTables();
 
   if (!tables.length) return;
