@@ -321,6 +321,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** o próximo `Tab` recomeça do topo do documento; nenhum conteúdo fica inacessível.
 - **Proposta:** dar ao `EmptyState` um destino de foco — cabeçalho da seção com `tabIndex={-1}` ou a própria ação do estado vazio — e apontar os fluxos de exclusão para ele.
 
+### TD-053 — Token `destructive` reprova no contraste quando vira texto
+
+- **Origem:** TASK 14.5 · **Tipo:** acessibilidade · **Prioridade:** média · **Encaminhamento:** TASK 14.7
+- **Contexto:** as mensagens de erro migraram para `text-negative`, medido em 4,80:1 sobre o fundo claro e 7,31:1 sobre o escuro, mas `--destructive` continua servindo de cor de texto na ação "Delete transaction" de `transaction-details-dialog.tsx`: `hsl(0 84.2% 60.2%)` dá 3,76:1 sobre `hsl(0 0% 100%)` e `hsl(0 62.8% 30.6%)` dá 2,01:1 sobre `hsl(0 0% 2.9%)`, ambos abaixo dos 4,5:1 exigidos para texto normal.
+- **Impacto:** o rótulo da ação destrutiva é o texto menos legível da interface justamente onde o erro é irreversível; o par `bg-destructive`/`text-destructive-foreground` do botão sólido ainda não foi medido.
+- **Proposta:** medir o par inteiro na varredura de contraste da TASK 14.7 e corrigir o token em `globals.css`, em vez de trocar a classe em cada uso.
+
 ## Resolvidos
 
 ### TD-018 — Formulário de transação do web sem taxas, impostos, corretora e notas

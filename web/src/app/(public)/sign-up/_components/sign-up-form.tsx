@@ -9,10 +9,10 @@ import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
 import { CURRENCIES } from '@/common/constants';
+import { FormField } from '@/components/form-field';
 import {
   Button,
   Input,
-  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -66,7 +66,7 @@ export const SignUpForm: FC = () => {
   const { mutateAsync: signUpMutationFn } = useSignUp();
 
   const {
-    control,
+    control: formControl,
     register,
     reset,
     handleSubmit,
@@ -92,109 +92,95 @@ export const SignUpForm: FC = () => {
   };
 
   return (
-    <form onSubmit={withSettledRejection(handleSubmit(handleSignUp))}>
+    <form
+      noValidate
+      onSubmit={withSettledRejection(handleSubmit(handleSignUp))}
+    >
       <div className="flex-col align-center space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="name">Name</Label>
-
-          <Input
-            id="name"
-            disabled={isSubmitting}
-            autoCorrect="off"
-            {...register('name')}
-          />
-
-          {!!errors.name?.message && (
-            <small className="text-negative">{errors.name.message}</small>
+        <FormField label="Name" error={errors.name?.message}>
+          {(control) => (
+            <Input
+              {...control}
+              autoComplete="name"
+              autoCorrect="off"
+              disabled={isSubmitting}
+              {...register('name')}
+            />
           )}
-        </div>
+        </FormField>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="email">Email</Label>
-
-          <Input
-            type="email"
-            id="email"
-            autoComplete="off"
-            disabled={isSubmitting}
-            {...register('email')}
-          />
-
-          {!!errors.email?.message && (
-            <small className="text-negative">{errors.email.message}</small>
+        <FormField label="Email" error={errors.email?.message}>
+          {(control) => (
+            <Input
+              {...control}
+              type="email"
+              autoComplete="username"
+              disabled={isSubmitting}
+              {...register('email')}
+            />
           )}
-        </div>
+        </FormField>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="password">Password</Label>
-
-          <Input
-            type="password"
-            id="password"
-            disabled={isSubmitting}
-            {...register('password')}
-          />
-
-          {!!errors.password?.message && (
-            <small className="text-negative">{errors.password.message}</small>
+        <FormField label="Password" error={errors.password?.message}>
+          {(control) => (
+            <Input
+              {...control}
+              type="password"
+              autoComplete="new-password"
+              disabled={isSubmitting}
+              {...register('password')}
+            />
           )}
-        </div>
+        </FormField>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="confirmPassword">Confirm password</Label>
-
-          <Input
-            type="password"
-            id="confirmPassword"
-            disabled={isSubmitting}
-            {...register('confirmPassword')}
-          />
-
-          {!!errors.confirmPassword?.message && (
-            <small className="text-negative">
-              {errors.confirmPassword.message}
-            </small>
+        <FormField
+          label="Confirm password"
+          error={errors.confirmPassword?.message}
+        >
+          {(control) => (
+            <Input
+              {...control}
+              type="password"
+              autoComplete="new-password"
+              disabled={isSubmitting}
+              {...register('confirmPassword')}
+            />
           )}
-        </div>
+        </FormField>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="baseCurrency">Base currency</Label>
-
-          <Controller
-            name="baseCurrency"
-            control={control}
-            render={({ field }) => (
-              <Select
-                name={field.name}
-                value={field.value}
-                disabled={isSubmitting}
-                onValueChange={field.onChange}
-              >
-                <SelectTrigger
-                  id="baseCurrency"
-                  className="w-full"
-                  onBlur={field.onBlur}
+        <FormField label="Base currency" error={errors.baseCurrency?.message}>
+          {({ required, ...control }) => (
+            <Controller
+              name="baseCurrency"
+              control={formControl}
+              render={({ field }) => (
+                <Select
+                  required={required}
+                  name={field.name}
+                  value={field.value}
+                  disabled={isSubmitting}
+                  onValueChange={field.onChange}
                 >
-                  <SelectValue placeholder="Select a currency" />
-                </SelectTrigger>
+                  <SelectTrigger
+                    {...control}
+                    className="w-full"
+                    onBlur={field.onBlur}
+                  >
+                    <SelectValue placeholder="Select a currency" />
+                  </SelectTrigger>
 
-                <SelectContent>
-                  {Object.values(CURRENCIES).map(({ id, name, symbol }) => (
-                    <SelectItem key={id} value={id}>
-                      {`${name} (${symbol})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-
-          {!!errors.baseCurrency?.message && (
-            <small className="text-negative">
-              {errors.baseCurrency.message}
-            </small>
+                  <SelectContent>
+                    {Object.values(CURRENCIES).map(({ id, name, symbol }) => (
+                      <SelectItem key={id} value={id}>
+                        {`${name} (${symbol})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           )}
-        </div>
+        </FormField>
       </div>
 
       <Button

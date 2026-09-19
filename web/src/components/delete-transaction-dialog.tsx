@@ -63,7 +63,7 @@ export const DeleteTransactionDialog: FC<DeleteTransactionDialogProps> = ({
         </AlertDialogHeader>
 
         {deleteError !== null && (
-          <p role="alert" className="text-sm text-destructive">
+          <p role="alert" className="text-sm text-negative">
             {deleteError}
           </p>
         )}
