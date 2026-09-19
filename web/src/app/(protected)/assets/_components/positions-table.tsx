@@ -26,12 +26,13 @@ import {
   INSTRUMENT_TYPES
 } from '@/common/constants';
 import {
-  formatPercent,
-  formatQuantity,
-  formatUnitAmount,
-  signedValueTone
-} from '@/common/utils';
-import { Amount, SignedAmount, UnavailableValue } from '@/components/amounts';
+  Money,
+  Percentage,
+  Price,
+  ProfitLoss,
+  Quantity,
+  Trend
+} from '@/components/financial';
 import { LoadErrorAlert } from '@/components/load-error-alert';
 import {
   Button,
@@ -123,8 +124,6 @@ const SORT_ICONS: Record<SortOrder, LucideIcon> = {
   asc: ArrowUp,
   desc: ArrowDown
 };
-
-const SIGNED_FORMAT: Intl.NumberFormatOptions = { signDisplay: 'exceptZero' };
 
 const firstOrderOf = (field: PositionSortField): SortOrder =>
   field === 'symbol' ? 'asc' : 'desc';
@@ -440,68 +439,43 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                       </TableCell>
 
                       <TableCell className="text-right">
-                        {formatQuantity(position.quantity)}
+                        <Quantity value={position.quantity} />
                       </TableCell>
 
                       <TableCell className="whitespace-nowrap text-right">
-                        {position.averageCost === undefined ? (
-                          <UnavailableValue />
-                        ) : (
-                          formatUnitAmount(
-                            position.averageCost,
-                            position.baseCurrency
-                          )
-                        )}
+                        <Price
+                          value={position.averageCost}
+                          currency={position.baseCurrency}
+                        />
                       </TableCell>
 
                       <TableCell className="whitespace-nowrap text-right">
-                        {position.marketPrice === undefined ? (
-                          <UnavailableValue />
-                        ) : (
-                          formatUnitAmount(
-                            position.marketPrice,
-                            position.baseCurrency
-                          )
-                        )}
+                        <Price
+                          value={position.marketPrice}
+                          currency={position.baseCurrency}
+                        />
                       </TableCell>
 
                       <TableCell className="whitespace-nowrap text-right font-medium">
-                        <Amount
-                          amount={position.marketValue}
+                        <Money
+                          value={position.marketValue}
                           currency={position.baseCurrency}
                         />
                       </TableCell>
 
                       <TableCell className="text-right">
-                        {position.allocation === undefined ? (
-                          <UnavailableValue />
-                        ) : (
-                          formatPercent(position.allocation)
-                        )}
+                        <Percentage value={position.allocation} />
                       </TableCell>
 
                       <TableCell className="whitespace-nowrap text-right">
-                        <SignedAmount
-                          amount={position.profitLoss}
+                        <ProfitLoss
+                          value={position.profitLoss}
                           currency={position.baseCurrency}
                         />
                       </TableCell>
 
                       <TableCell className="text-right">
-                        {position.profitLossPercent === undefined ? (
-                          <UnavailableValue />
-                        ) : (
-                          <span
-                            className={signedValueTone(
-                              position.profitLossPercent
-                            )}
-                          >
-                            {formatPercent(
-                              position.profitLossPercent,
-                              SIGNED_FORMAT
-                            )}
-                          </span>
-                        )}
+                        <Trend value={position.profitLossPercent} />
                       </TableCell>
 
                       <TableCell className="text-right">

@@ -6,14 +6,14 @@ import {
   TRANSACTION_TYPE_TONES,
   TRANSACTION_UNIT_PRICE_LABELS
 } from '@/common/constants';
+import { formatExecutionTime } from '@/common/utils';
 import {
-  formatExecutionTime,
-  formatMoney,
-  formatPrice,
-  formatQuantity
-} from '@/common/utils';
-import { UnavailableValue } from '@/components/amounts';
-import { DetailItem } from '@/components/detail-item';
+  Metric,
+  Money,
+  Price,
+  Quantity,
+  UnavailableValue
+} from '@/components/financial';
 import {
   Button,
   Dialog,
@@ -71,21 +71,27 @@ const TransactionDetails: FC<
       </DialogHeader>
 
       <dl className="grid gap-4 sm:grid-cols-2">
-        <DetailItem label="Quantity">{formatQuantity(quantity)}</DetailItem>
+        <Metric label="Quantity">
+          <Quantity value={quantity} />
+        </Metric>
 
-        <DetailItem label={TRANSACTION_UNIT_PRICE_LABELS[type]}>
-          {formatPrice(unitPrice, currency)}
-        </DetailItem>
+        <Metric label={TRANSACTION_UNIT_PRICE_LABELS[type]}>
+          <Price exact value={unitPrice} currency={currency} />
+        </Metric>
 
-        <DetailItem label="Fees">{formatMoney(fees, currency)}</DetailItem>
+        <Metric label="Fees">
+          <Money value={fees} currency={currency} />
+        </Metric>
 
-        <DetailItem label="Taxes">{formatMoney(taxes, currency)}</DetailItem>
+        <Metric label="Taxes">
+          <Money value={taxes} currency={currency} />
+        </Metric>
 
-        <DetailItem label="Broker">{broker ?? <UnavailableValue />}</DetailItem>
+        <Metric label="Broker">{broker ?? <UnavailableValue />}</Metric>
 
-        <DetailItem label="Notes" className="sm:col-span-2">
+        <Metric label="Notes" className="sm:col-span-2">
           {notes ?? <UnavailableValue />}
-        </DetailItem>
+        </Metric>
       </dl>
 
       <DialogFooter className="gap-2 sm:space-x-0">

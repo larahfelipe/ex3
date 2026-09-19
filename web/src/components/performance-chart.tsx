@@ -7,13 +7,8 @@ import type {
   PerformanceRange
 } from '@/app/api/v1/portfolio';
 import type { Portfolio } from '@/app/api/v1/portfolios';
-import {
-  formatMoney,
-  formatPercent,
-  formatSeriesDay,
-  signedValueTone
-} from '@/common/utils';
-import { Amount } from '@/components/amounts';
+import { formatSeriesDay } from '@/common/utils';
+import { Money, Trend } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
 import {
   Skeleton,
@@ -54,8 +49,6 @@ const PERFORMANCE_RANGE_LABELS: Record<
   YTD: { name: 'YTD', period: 'this year' },
   MAX: { name: 'All', period: 'since the first transaction' }
 };
-
-const SIGNED_PERCENT: Intl.NumberFormatOptions = { signDisplay: 'exceptZero' };
 
 const CHART_WIDTH = 600;
 const CHART_HEIGHT = 200;
@@ -182,16 +175,11 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
           <div className="space-y-4">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <p className="text-2xl font-semibold">
-                <Amount amount={readPoint.value} currency={baseCurrency} />
+                <Money value={readPoint.value} currency={baseCurrency} />
               </p>
 
-              <p
-                className={twMerge(
-                  'text-sm font-medium',
-                  signedValueTone(readPoint.twr)
-                )}
-              >
-                {formatPercent(readPoint.twr, SIGNED_PERCENT)}
+              <p className="text-sm font-medium">
+                <Trend value={readPoint.twr} />
               </p>
 
               <p className="text-sm text-muted-foreground">
@@ -259,10 +247,12 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
                       {formatSeriesDay(readPoint.date)}
                     </p>
 
-                    <p>{formatMoney(readPoint.value, baseCurrency)}</p>
+                    <p>
+                      <Money value={readPoint.value} currency={baseCurrency} />
+                    </p>
 
-                    <p className={signedValueTone(readPoint.twr)}>
-                      {formatPercent(readPoint.twr, SIGNED_PERCENT)}
+                    <p>
+                      <Trend value={readPoint.twr} />
                     </p>
                   </div>
                 </>
@@ -313,31 +303,26 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
                             <TableCell>{formatSeriesDay(date)}</TableCell>
 
                             <TableCell className="text-right font-medium">
-                              <Amount amount={value} currency={baseCurrency} />
+                              <Money value={value} currency={baseCurrency} />
                             </TableCell>
 
                             <TableCell className="text-right">
-                              <Amount
-                                amount={investedValue}
+                              <Money
+                                value={investedValue}
                                 currency={baseCurrency}
                               />
                             </TableCell>
 
                             <TableCell className="text-right">
-                              {formatMoney(
-                                netContribution,
-                                baseCurrency,
-                                SIGNED_PERCENT
-                              )}
+                              <Money
+                                signed
+                                value={netContribution}
+                                currency={baseCurrency}
+                              />
                             </TableCell>
 
-                            <TableCell
-                              className={twMerge(
-                                'text-right',
-                                signedValueTone(twr)
-                              )}
-                            >
-                              {formatPercent(twr, SIGNED_PERCENT)}
+                            <TableCell className="text-right">
+                              <Trend value={twr} />
                             </TableCell>
                           </TableRow>
                         )

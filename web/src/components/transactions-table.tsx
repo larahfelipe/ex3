@@ -6,12 +6,9 @@ import {
   TRANSACTION_TYPE_LABELS,
   TRANSACTION_TYPE_TONES
 } from '@/common/constants';
-import {
-  formatExecutionTime,
-  formatPrice,
-  formatQuantity
-} from '@/common/utils';
+import { formatExecutionTime } from '@/common/utils';
 import { DeleteTransactionDialog } from '@/components/delete-transaction-dialog';
+import { Price, Quantity } from '@/components/financial';
 import { TransactionDetailsDialog } from '@/components/transaction-details-dialog';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import {
@@ -88,11 +85,15 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
               )}
 
               <TableCell className="text-right">
-                {formatQuantity(transaction.quantity)}
+                <Quantity value={transaction.quantity} />
               </TableCell>
 
               <TableCell className="text-right">
-                {formatPrice(transaction.unitPrice, transaction.currency)}
+                <Price
+                  exact
+                  value={transaction.unitPrice}
+                  currency={transaction.currency}
+                />
               </TableCell>
 
               <TableCell className="text-right">

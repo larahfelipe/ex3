@@ -5,8 +5,7 @@ import { twMerge } from 'tailwind-merge';
 import type { PortfolioAllocation } from '@/app/api/v1/portfolio';
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { INSTRUMENT_TYPE_LABELS } from '@/common/constants';
-import { formatPercent } from '@/common/utils';
-import { Amount, UnavailableValue } from '@/components/amounts';
+import { Money, Percentage } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
 import {
   Skeleton,
@@ -259,16 +258,12 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
                         </TableCell>
 
                         <TableCell className="text-right font-medium">
-                          {allocation === undefined ? (
-                            <UnavailableValue />
-                          ) : (
-                            formatPercent(allocation)
-                          )}
+                          <Percentage value={allocation} />
                         </TableCell>
 
                         <TableCell className="text-right">
-                          <Amount
-                            amount={marketValue}
+                          <Money
+                            value={marketValue}
                             currency={portfolioAllocation.baseCurrency}
                           />
                         </TableCell>

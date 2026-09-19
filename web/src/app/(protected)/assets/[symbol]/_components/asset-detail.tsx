@@ -8,14 +8,16 @@ import { ArrowLeft } from 'lucide-react';
 
 import type { PositionDetail } from '@/app/api/v1/portfolio';
 import { APP_ROUTES, INSTRUMENT_TYPE_LABELS } from '@/common/constants';
+import { formatQuoteTime } from '@/common/utils';
 import {
-  formatPercent,
-  formatQuantity,
-  formatQuoteTime,
-  formatUnitAmount
-} from '@/common/utils';
-import { Amount, SignedAmount, UnavailableValue } from '@/components/amounts';
-import { DetailItem } from '@/components/detail-item';
+  Metric,
+  Money,
+  Percentage,
+  Price,
+  ProfitLoss,
+  Quantity,
+  UnavailableValue
+} from '@/components/financial';
 import { LoadErrorAlert } from '@/components/load-error-alert';
 import { PerformanceChart } from '@/components/performance-chart';
 import {
@@ -64,35 +66,23 @@ const QuoteOverview: FC<PositionSectionProps> = ({
   position: { type, market, currency, sector, quote }
 }) => (
   <DetailSection title="Overview">
-    <DetailItem label="Price">
-      {quote === undefined ? (
-        <UnavailableValue />
-      ) : (
-        formatUnitAmount(quote.price, quote.currency)
-      )}
-    </DetailItem>
+    <Metric label="Price">
+      <Price value={quote?.price} currency={quote?.currency} />
+    </Metric>
 
-    <DetailItem label="Day change">
-      {quote?.dayChange === undefined ? (
-        <UnavailableValue />
-      ) : (
-        <SignedAmount
-          amount={quote.dayChange}
-          percent={quote.dayChangePercent}
-          currency={quote.currency}
-        />
-      )}
-    </DetailItem>
+    <Metric label="Day change">
+      <ProfitLoss
+        value={quote?.dayChange}
+        percent={quote?.dayChangePercent}
+        currency={quote?.currency}
+      />
+    </Metric>
 
-    <DetailItem label="Previous close">
-      {quote?.previousClose === undefined ? (
-        <UnavailableValue />
-      ) : (
-        formatUnitAmount(quote.previousClose, quote.currency)
-      )}
-    </DetailItem>
+    <Metric label="Previous close">
+      <Price value={quote?.previousClose} currency={quote?.currency} />
+    </Metric>
 
-    <DetailItem label="Quoted at">
+    <Metric label="Quoted at">
       {quote === undefined ? (
         <UnavailableValue />
       ) : (
@@ -100,15 +90,15 @@ const QuoteOverview: FC<PositionSectionProps> = ({
           {formatQuoteTime(quote.timestamp)}
         </time>
       )}
-    </DetailItem>
+    </Metric>
 
-    <DetailItem label="Class">{INSTRUMENT_TYPE_LABELS[type]}</DetailItem>
+    <Metric label="Class">{INSTRUMENT_TYPE_LABELS[type]}</Metric>
 
-    <DetailItem label="Market">{market ?? <UnavailableValue />}</DetailItem>
+    <Metric label="Market">{market ?? <UnavailableValue />}</Metric>
 
-    <DetailItem label="Currency">{currency ?? <UnavailableValue />}</DetailItem>
+    <Metric label="Currency">{currency ?? <UnavailableValue />}</Metric>
 
-    <DetailItem label="Sector">{sector ?? <UnavailableValue />}</DetailItem>
+    <Metric label="Sector">{sector ?? <UnavailableValue />}</Metric>
   </DetailSection>
 );
 
@@ -125,43 +115,33 @@ const PositionValues: FC<PositionSectionProps> = ({
   }
 }) => (
   <DetailSection title="Position">
-    <DetailItem label="Quantity">{formatQuantity(quantity)}</DetailItem>
+    <Metric label="Quantity">
+      <Quantity value={quantity} />
+    </Metric>
 
-    <DetailItem label="Average cost">
-      {averageCost === undefined ? (
-        <UnavailableValue />
-      ) : (
-        formatUnitAmount(averageCost, baseCurrency)
-      )}
-    </DetailItem>
+    <Metric label="Average cost">
+      <Price value={averageCost} currency={baseCurrency} />
+    </Metric>
 
-    <DetailItem label="Market price">
-      {marketPrice === undefined ? (
-        <UnavailableValue />
-      ) : (
-        formatUnitAmount(marketPrice, baseCurrency)
-      )}
-    </DetailItem>
+    <Metric label="Market price">
+      <Price value={marketPrice} currency={baseCurrency} />
+    </Metric>
 
-    <DetailItem label="Market value">
-      <Amount amount={marketValue} currency={baseCurrency} />
-    </DetailItem>
+    <Metric label="Market value">
+      <Money value={marketValue} currency={baseCurrency} />
+    </Metric>
 
-    <DetailItem label="Allocation">
-      {allocation === undefined ? (
-        <UnavailableValue />
-      ) : (
-        formatPercent(allocation)
-      )}
-    </DetailItem>
+    <Metric label="Allocation">
+      <Percentage value={allocation} />
+    </Metric>
 
-    <DetailItem label="Profit/Loss">
-      <SignedAmount
-        amount={profitLoss}
+    <Metric label="Profit/Loss">
+      <ProfitLoss
+        value={profitLoss}
         percent={profitLossPercent}
         currency={baseCurrency}
       />
-    </DetailItem>
+    </Metric>
   </DetailSection>
 );
 

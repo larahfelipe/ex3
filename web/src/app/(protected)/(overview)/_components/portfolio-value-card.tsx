@@ -1,31 +1,19 @@
 import type { FC } from 'react';
 
 import { LoaderCircle, TriangleAlert } from 'lucide-react';
-import { twMerge } from 'tailwind-merge';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { formatQuoteTime } from '@/common/utils';
-import { Amount, SignedAmount } from '@/components/amounts';
+import { Metric, Money, ProfitLoss } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
 import { Button, Skeleton } from '@/components/ui';
 import { usePortfolioOverview } from '@/hooks/use-portfolio';
-import type { Children } from '@/types';
 
 type PortfolioValueCardProps = Record<'portfolio', Portfolio>;
 
-type ValueItemProps = Children &
-  Record<'label', string> &
-  Partial<Record<'className', string>>;
+const VALUE_CLASS = 'text-lg font-semibold';
 
-const ValueItem: FC<ValueItemProps> = ({ label, className, children }) => (
-  <div className="min-w-0 space-y-1">
-    <dt className="text-sm text-muted-foreground">{label}</dt>
-
-    <dd className={twMerge('text-lg font-semibold wrap-anywhere', className)}>
-      {children}
-    </dd>
-  </div>
-);
+const TOTAL_VALUE_CLASS = 'text-3xl font-bold';
 
 export const PortfolioValueCard: FC<PortfolioValueCardProps> = ({
   portfolio
@@ -92,29 +80,29 @@ export const PortfolioValueCard: FC<PortfolioValueCardProps> = ({
           )}
 
           <dl className="flex flex-wrap items-end gap-x-10 gap-y-4">
-            <ValueItem label="Total value" className="text-3xl font-bold">
-              <Amount amount={totalValue} currency={baseCurrency} />
-            </ValueItem>
+            <Metric label="Total value" valueClassName={TOTAL_VALUE_CLASS}>
+              <Money value={totalValue} currency={baseCurrency} />
+            </Metric>
 
-            <ValueItem label="Day change">
-              <SignedAmount
-                amount={dayChange}
+            <Metric label="Day change" valueClassName={VALUE_CLASS}>
+              <ProfitLoss
+                value={dayChange}
                 percent={dayChangePercent}
                 currency={baseCurrency}
               />
-            </ValueItem>
+            </Metric>
 
-            <ValueItem label="Invested">
-              <Amount amount={investedValue} currency={baseCurrency} />
-            </ValueItem>
+            <Metric label="Invested" valueClassName={VALUE_CLASS}>
+              <Money value={investedValue} currency={baseCurrency} />
+            </Metric>
 
-            <ValueItem label="Profit/Loss">
-              <SignedAmount
-                amount={profitLoss}
+            <Metric label="Profit/Loss" valueClassName={VALUE_CLASS}>
+              <ProfitLoss
+                value={profitLoss}
                 percent={profitLossPercent}
                 currency={baseCurrency}
               />
-            </ValueItem>
+            </Metric>
           </dl>
 
           {quotedAt && (

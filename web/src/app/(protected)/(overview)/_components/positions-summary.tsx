@@ -8,8 +8,12 @@ import {
   ASSET_DIALOG_ACTIONS,
   assetDetailRoute
 } from '@/common/constants';
-import { formatPercent, formatQuantity } from '@/common/utils';
-import { Amount, SignedAmount, UnavailableValue } from '@/components/amounts';
+import {
+  Money,
+  Percentage,
+  ProfitLoss,
+  Quantity
+} from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
 import {
   Button,
@@ -103,27 +107,23 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
                   </TableCell>
 
                   <TableCell className="text-right">
-                    {formatQuantity(position.quantity)}
+                    <Quantity value={position.quantity} />
                   </TableCell>
 
                   <TableCell className="text-right">
-                    <Amount
-                      amount={position.marketValue}
+                    <Money
+                      value={position.marketValue}
                       currency={position.baseCurrency}
                     />
                   </TableCell>
 
                   <TableCell className="text-right">
-                    {position.allocation === undefined ? (
-                      <UnavailableValue />
-                    ) : (
-                      formatPercent(position.allocation)
-                    )}
+                    <Percentage value={position.allocation} />
                   </TableCell>
 
                   <TableCell className="text-right">
-                    <SignedAmount
-                      amount={position.profitLoss}
+                    <ProfitLoss
+                      value={position.profitLoss}
                       percent={position.profitLossPercent}
                       currency={position.baseCurrency}
                     />
