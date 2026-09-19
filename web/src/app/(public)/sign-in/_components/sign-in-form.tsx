@@ -78,10 +78,11 @@ export const SignInForm: FC = () => {
       <Button
         type="submit"
         disabled={isSubmitting}
-        className="w-full mt-12 p-6 space-x-2"
-        aria-label="Login"
+        className="w-full mt-12 p-6 gap-2"
       >
-        {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+        {isSubmitting && (
+          <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+        )}
 
         <span>Login</span>
       </Button>

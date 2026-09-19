@@ -130,7 +130,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex gap-2 max-sm:justify-center">
-            <LuArrowDownUp />
+            <LuArrowDownUp aria-hidden="true" />
 
             <span>Add asset</span>
           </DialogTitle>
@@ -173,14 +173,12 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
           {isSubmittedSuccessfully && !!assetSymbol.length && (
             <Button
               variant="ghost"
-              className="sm:absolute sm:left-6 max-sm:mt-6"
+              className="gap-2 sm:absolute sm:left-6 max-sm:mt-6"
               onClick={handleAddTransaction}
             >
-              <div className="flex items-center gap-2">
-                <Plus size={16} />
+              <Plus size={16} aria-hidden="true" />
 
-                <span>Add a transaction?</span>
-              </div>
+              <span>Add a transaction?</span>
             </Button>
           )}
 
@@ -196,14 +194,14 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
           <Button
             type="submit"
             form="add-asset-transaction-form"
-            aria-label="Confirm"
+            className="gap-2"
             disabled={isSubmitting || !isValid}
           >
-            {isSubmitting ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <span>Confirm</span>
+            {isSubmitting && (
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
             )}
+
+            <span>Confirm</span>
           </Button>
         </DialogFooter>
       </DialogContent>
