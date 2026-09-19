@@ -9,6 +9,7 @@ import { z } from 'zod';
 
 import { Button, Input, Label } from '@/components/ui';
 import { useSignIn } from '@/hooks/use-user';
+import { withSettledRejection } from '@/lib/utils';
 
 type SignInFormValues = z.infer<typeof signInSchema>;
 
@@ -40,7 +41,7 @@ export const SignInForm: FC = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit(handleSignIn)}>
+    <form onSubmit={withSettledRejection(handleSubmit(handleSignIn))}>
       <div className="flex-col align-center space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>

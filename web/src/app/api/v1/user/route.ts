@@ -2,7 +2,8 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 import { APP_STORAGE_KEYS } from '@/common/constants';
-import api, { ApiProxyError, type ApiProxyErrorData } from '@/lib/axios';
+import { toApiProxyErrorResponse } from '@/lib/api-error-response';
+import api, { ApiProxyError } from '@/lib/axios';
 
 import type { GetCurrentUserResponseData } from './types';
 
@@ -28,8 +29,6 @@ export const GET = async () => {
       statusText
     });
   } catch (e) {
-    const { status, statusText, ...error } = e as ApiProxyError;
-
-    return NextResponse.json<ApiProxyErrorData>(error, { status, statusText });
+    return toApiProxyErrorResponse(e);
   }
 };

@@ -20,6 +20,7 @@ import {
   SelectValue
 } from '@/components/ui';
 import { useSignUp } from '@/hooks/use-user';
+import { withSettledRejection } from '@/lib/utils';
 
 type SignUpFormValues = z.infer<typeof signUpSchema>;
 
@@ -91,7 +92,7 @@ export const SignUpForm: FC = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit(handleSignUp)}>
+    <form onSubmit={withSettledRejection(handleSubmit(handleSignUp))}>
       <div className="flex-col align-center space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="name">Name</Label>
