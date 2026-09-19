@@ -213,6 +213,8 @@
     --card-foreground: var(--surface-foreground);
     --popover: var(--surface-elevated);
     --popover-foreground: var(--surface-elevated-foreground);
+    --navigation-rail: 10rem;
+    --navigation-bar: 3.75rem;
   }
 }
 

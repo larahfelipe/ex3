@@ -1,37 +1,28 @@
 'use client';
 
-import type { FC, HTMLAttributes, JSX } from 'react';
+import type { FC, ReactNode } from 'react';
 import { LuUser } from 'react-icons/lu';
 import { RxDashboard, RxExit } from 'react-icons/rx';
 
-import { usePathname, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
-import { House, Loader2 } from 'lucide-react';
+import { House } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 
 import { APP_ROUTES } from '@/common/constants';
 import { useCurrentUser, useSignOut } from '@/hooks/use-user';
 
-import {
-  Button,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-  type ButtonProps
-} from './ui';
+import { Button } from './ui';
 
-type SectionButtonProps = Pick<ButtonProps, 'variant' | 'onClick'> & {
-  text?: string;
-  path?: string;
-  left?: JSX.Element;
-  className?: {
-    button?: HTMLAttributes<HTMLButtonElement>['className'];
-    text?: HTMLAttributes<HTMLSpanElement>['className'];
-  };
-};
+type NavigationSection = Record<'name' | 'path', string> &
+  Record<'icon', ReactNode>;
 
-const mainSections = [
+type NavigationLinkProps = Omit<NavigationSection, 'name'> &
+  Record<'label', string> &
+  Record<'isActive', boolean>;
+
+const MAIN_SECTIONS: Array<NavigationSection> = [
   {
     name: 'Overview',
     path: APP_ROUTES.Protected.Overview,
@@ -42,108 +33,87 @@ const mainSections = [
     path: APP_ROUTES.Protected.Assets,
     icon: <RxDashboard size={18} />
   }
-] as const;
+];
 
-const accountSection = {
+const ACCOUNT_SECTION = {
   name: 'Account',
   path: APP_ROUTES.Protected.Account
 } as const;
+
+const NAVIGATION_ITEM_CLASS = 'w-full gap-1.5 active:scale-90';
+
+const isCurrentPath = (pathname: string, path: string) =>
+  pathname === path || pathname.startsWith(`${path}/`);
+
+const NavigationLink: FC<NavigationLinkProps> = ({
+  label,
+  path,
+  icon,
+  isActive
+}) => (
+  <Button
+    asChild
+    variant={isActive ? 'secondary' : 'ghost'}
+    className={twMerge(NAVIGATION_ITEM_CLASS, isActive && 'bg-muted/70')}
+  >
+    <Link href={path} aria-current={isActive ? 'page' : undefined}>
+      <span aria-hidden="true">{icon}</span>
+
+      <span className="max-sm:sr-only">{label}</span>
+    </Link>
+  </Button>
+);
 
 export const Sidebar: FC = () => {
   const pathname = usePathname();
 
   const { mutate: signOut } = useSignOut();
-  const { data: user, isPending: isUserPending } = useCurrentUser();
-
-  const { push } = useRouter();
-
-  const handleSignOut = () => signOut();
-
-  const SidebarBtn = ({
-    onClick,
-    left,
-    path,
-    text,
-    className,
-    variant = 'secondary'
-  }: SectionButtonProps) => {
-    const isActive =
-      path !== undefined &&
-      (pathname === path || pathname.startsWith(`${path}/`));
-
-    return (
-      <TooltipProvider>
-        <Tooltip delayDuration={500}>
-          <TooltipTrigger asChild>
-            <Button
-              variant={isActive ? variant : 'ghost'}
-              aria-label={text}
-              aria-current={isActive ? 'page' : undefined}
-              className={twMerge(
-                'transition-all duration-200 sm:w-full active:scale-90',
-                isActive && 'bg-muted/70',
-                className?.button
-              )}
-              onClick={onClick}
-            >
-              {!text && <Loader2 className="size-4 animate-spin" />}
-
-              {text && (
-                <>
-                  {left}
-
-                  <span
-                    className={twMerge('ml-1.5 max-sm:hidden', className?.text)}
-                  >
-                    {text}
-                  </span>
-                </>
-              )}
-            </Button>
-          </TooltipTrigger>
-
-          <TooltipContent>
-            <p>{text}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  };
+  const { data: user } = useCurrentUser();
 
   return (
-    <nav className="h-[60px] flex items-center relative sm:w-[160px] sm:h-screen sm:flex-col sm:fixed">
+    <nav
+      aria-label="Main"
+      className="h-(--navigation-bar) flex items-center relative sm:w-(--navigation-rail) sm:h-screen sm:flex-col sm:fixed sm:overflow-y-auto"
+    >
       <p className="max-sm:ml-4 sm:mt-3 text-lg font-bold text-center cursor-default font-display hover:animate-pulse">
         EX3
       </p>
 
-      <menu className="flex gap-2 max-sm:ml-8 sm:w-[95%] sm:mt-8 sm:flex-col">
-        {mainSections.map(({ name, path, icon }) => (
-          <SidebarBtn
-            key={path}
-            text={name}
-            path={path}
-            onClick={() => push(path)}
-            left={icon}
-          />
+      <ul className="flex gap-2 max-sm:ml-8 sm:w-[95%] sm:mt-8 sm:flex-col">
+        {MAIN_SECTIONS.map(({ name, path, icon }) => (
+          <li key={path} className="sm:w-full">
+            <NavigationLink
+              label={name}
+              path={path}
+              icon={icon}
+              isActive={isCurrentPath(pathname, path)}
+            />
+          </li>
         ))}
-      </menu>
+      </ul>
 
-      <menu className="flex gap-2 absolute max-sm:right-1 sm:w-[95%] sm:flex-col sm:items-center sm:bottom-3">
-        <SidebarBtn
-          text={isUserPending ? undefined : (user?.name ?? accountSection.name)}
-          path={accountSection.path}
-          onClick={() => push(accountSection.path)}
-          left={<LuUser size={18} />}
-        />
+      <ul className="flex gap-2 absolute max-sm:right-1 sm:w-[95%] sm:flex-col sm:items-center sm:bottom-3">
+        <li className="sm:w-full">
+          <NavigationLink
+            label={user?.name ?? ACCOUNT_SECTION.name}
+            path={ACCOUNT_SECTION.path}
+            icon={<LuUser size={18} />}
+            isActive={isCurrentPath(pathname, ACCOUNT_SECTION.path)}
+          />
+        </li>
 
-        <SidebarBtn
-          text="Logout"
-          variant="ghost"
-          onClick={handleSignOut}
-          className={{ button: 'hover:bg-negative/10', text: 'text-negative' }}
-          left={<RxExit size={18} className="text-negative" />}
-        />
-      </menu>
+        <li className="sm:w-full">
+          <Button
+            variant="ghost"
+            className={twMerge(NAVIGATION_ITEM_CLASS, 'hover:bg-negative/10')}
+            onClick={() => signOut()}
+          >
+            <RxExit size={18} aria-hidden="true" className="text-negative" />
+
+            <span className="max-sm:sr-only text-negative">Sign out</span>
+          </Button>
+        </li>
+      </ul>
     </nav>
   );
 };

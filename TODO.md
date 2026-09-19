@@ -293,6 +293,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** se o seletor de tema entrar depois, a paleta clara chega sem validação visual e sem auditoria de contraste real.
 - **Proposta:** validar junto da TASK 14.7, ou remover o bloco `:root` se o produto assumir tema escuro único — decisão ligada ao TD-046.
 
+### TD-049 — Arquitetura de navegação sem as seções de produto previstas
+
+- **Origem:** TASK 13.1 · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** a navegação desenhada prevê Portfolio, Income, Analytics, Performance, Allocation, Risk, Market, Watchlist e Settings, mas o app só expõe `/`, `/assets`, `/assets/[symbol]` e `/account`. Income e as métricas de risco dependem de tasks ainda não implementadas, e Market, Watchlist e Settings não têm rota nem endpoint em lugar nenhum.
+- **Impacto:** publicar os itens agora criaria links mortos e quebraria o critério de rotas acessíveis; manter a lista curta adia a hierarquia de dois níveis.
+- **Proposta:** promover o grupo Portfolio e os demais itens conforme cada rota nascer, reaproveitando `MAIN_SECTIONS` em `sidebar.tsx`, que já é a única fonte da estrutura.
+
 ## Resolvidos
 
 ### TD-018 — Formulário de transação do web sem taxas, impostos, corretora e notas
