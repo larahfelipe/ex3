@@ -104,6 +104,11 @@ export const INSTRUMENT_TYPES: Array<InstrumentType> = [
   'OTHER'
 ];
 
+export const ASSET_DIALOG_PARAMS = {
+  Action: 'action',
+  Symbol: 'symbol'
+} as const;
+
 export const ASSET_DIALOG_ACTIONS = {
   Add: 'add-asset',
   AddTransaction: 'add-transaction',

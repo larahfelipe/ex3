@@ -300,6 +300,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** publicar os itens agora criaria links mortos e quebraria o critério de rotas acessíveis; manter a lista curta adia a hierarquia de dois níveis.
 - **Proposta:** promover o grupo Portfolio e os demais itens conforme cada rota nascer, reaproveitando `MAIN_SECTIONS` em `sidebar.tsx`, que já é a única fonte da estrutura.
 
+### TD-050 — Período do gráfico e página das transações continuam fora da URL
+
+- **Origem:** TASK 13.3 · **Tipo:** UX · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** a listagem de posições passou a derivar busca, filtros, ordenação e paginação da query string, mas o seletor de período de `performance-chart.tsx` e a página de `asset-transactions.tsx` seguem em `useState`, então um refresh ou um link compartilhado volta para `1Y` e para a primeira página.
+- **Impacto:** é estado de visualização secundário — nenhum filtro de dados se perde —, mas quebra a expectativa de link profundo no detalhe do ativo e no overview.
+- **Proposta:** reaproveitar `updateUrlQuery` com um parâmetro `range` por rota e um `transactionsPage`, checando antes se `/` precisa de `Suspense` ao passar a ler `useSearchParams`.
+
 ## Resolvidos
 
 ### TD-018 — Formulário de transação do web sem taxas, impostos, corretora e notas

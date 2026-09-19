@@ -85,8 +85,12 @@ export const formatExecutionTime = (timestamp: string) =>
 export const formatSeriesDay = (timestamp: string) =>
   SERIES_DAY_FORMAT.format(new Date(timestamp));
 
-export const replaceUrl = (href: string) =>
-  window.history.pushState({}, '', href);
+export const updateUrlQuery = (params: URLSearchParams) =>
+  window.history.pushState(
+    {},
+    '',
+    params.size ? `?${params}` : window.location.pathname
+  );
 
 export const truncateText = (
   text: string,
