@@ -2,8 +2,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
-import { twMerge } from 'tailwind-merge';
-
 import { APP_ROUTES } from '@/common/constants';
 
 import { SignUpForm } from './_components/sign-up-form';
@@ -16,20 +14,13 @@ export default function SignUp() {
   return (
     <>
       <section className="mx-auto space-y-1.5">
-        <h2
-          className={twMerge(
-            'text-lg font-semibold text-center',
-            'font-display'
-          )}
-        >
-          EX3
-        </h2>
+        <p className="text-center text-lg font-semibold font-display">EX3</p>
 
         <div className="w-full h-px bg-border" />
 
-        <h2 className="text-md text-muted-foreground text-center">
+        <h1 className="text-base text-muted-foreground text-center">
           Create your account
-        </h2>
+        </h1>
       </section>
 
       <section className="w-full flex flex-col justify-center mx-auto px-6 sm:w-[400px] sm:px-0">

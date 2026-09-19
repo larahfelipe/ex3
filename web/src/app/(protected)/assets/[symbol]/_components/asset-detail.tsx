@@ -19,14 +19,10 @@ import {
   UnavailableValue
 } from '@/components/financial';
 import { LoadErrorAlert } from '@/components/load-error-alert';
+import { PageHeader } from '@/components/page-header';
 import { PerformanceChart } from '@/components/performance-chart';
-import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  Skeleton
-} from '@/components/ui';
+import { SectionHeader } from '@/components/section-header';
+import { Button, Card, CardContent, Skeleton } from '@/components/ui';
 import { usePosition, usePrimaryPortfolio } from '@/hooks/use-portfolio';
 import { isNotFoundError } from '@/lib/axios';
 import type { Children } from '@/types';
@@ -45,14 +41,7 @@ const DetailSection: FC<DetailSectionProps> = ({ title, children }) => {
   return (
     <section aria-labelledby={headingId} className="min-w-0">
       <Card className="h-full shadow-none">
-        <CardHeader>
-          <h2
-            id={headingId}
-            className="text-lg font-semibold leading-none tracking-tight"
-          >
-            {title}
-          </h2>
-        </CardHeader>
+        <SectionHeader id={headingId} title={title} />
 
         <CardContent>
           <dl className="grid gap-4 sm:grid-cols-2">{children}</dl>
@@ -164,33 +153,24 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
 
   return (
     <div className="space-y-6 px-3 py-8 sm:px-4">
-      <header className="space-y-3">
-        <Button
-          asChild
-          variant="link"
-          size="sm"
-          className="h-auto gap-1.5 p-0 text-muted-foreground"
-        >
-          <Link href={APP_ROUTES.Protected.Assets}>
-            <ArrowLeft aria-hidden="true" className="size-4" />
-            Back to assets
-          </Link>
-        </Button>
-
-        <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold wrap-anywhere">
-            {heldPosition?.symbol ?? symbol.toUpperCase()}
-          </h1>
-
-          {(isPending || isPositionPending) && (
-            <Skeleton className="h-5 w-48" />
-          )}
-
-          {heldPosition && (
-            <p className="text-sm text-muted-foreground">{heldPosition.name}</p>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title={heldPosition?.symbol ?? symbol.toUpperCase()}
+        isPending={isPending || isPositionPending}
+        description={heldPosition?.name}
+        navigation={
+          <Button
+            asChild
+            variant="link"
+            size="sm"
+            className="h-auto gap-1.5 p-0 text-muted-foreground"
+          >
+            <Link href={APP_ROUTES.Protected.Assets}>
+              <ArrowLeft aria-hidden="true" className="size-4" />
+              Back to assets
+            </Link>
+          </Button>
+        }
+      />
 
       {isPending && (
         <div aria-busy="true">

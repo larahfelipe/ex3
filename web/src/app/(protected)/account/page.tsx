@@ -1,13 +1,14 @@
 'use client';
 
+import { useId } from 'react';
+
+import { PageHeader } from '@/components/page-header';
+import { SectionHeader } from '@/components/section-header';
 import {
   Button,
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
-  CardHeader,
-  CardTitle,
   Input,
   Label,
   Skeleton
@@ -17,109 +18,121 @@ import { useCurrentUser } from '@/hooks/use-user';
 export default function Account() {
   const { data: user, isLoading, isError, refetch } = useCurrentUser();
 
+  const profileHeadingId = useId();
+  const securityHeadingId = useId();
+
   return (
-    <div className="space-y-8 my-2 sm:mx-4">
-      <Card className="mt-8 shadow-none">
-        <CardHeader>
-          <CardTitle>Profile</CardTitle>
+    <div className="space-y-6 px-3 py-8 sm:px-4">
+      <PageHeader
+        title="Account"
+        description="Your profile and security details"
+      />
 
-          <CardDescription>Your account details</CardDescription>
-        </CardHeader>
+      <section aria-labelledby={profileHeadingId} className="min-w-0">
+        <Card className="shadow-none">
+          <SectionHeader
+            id={profileHeadingId}
+            title="Profile"
+            description="Your account details"
+          />
 
-        <CardContent className="space-y-5" aria-busy={isLoading}>
-          {isError ? (
-            <section role="alert" className="flex flex-col items-start gap-3">
-              <p className="text-sm text-negative">
-                Your account details could not be loaded
-              </p>
+          <CardContent className="space-y-5" aria-busy={isLoading}>
+            {isError ? (
+              <div role="alert" className="flex flex-col items-start gap-3">
+                <p className="text-sm text-negative">
+                  Your account details could not be loaded
+                </p>
 
-              <Button
-                variant="secondary"
-                className="h-9 max-sm:w-full"
-                onClick={() => refetch()}
-              >
-                Try again
-              </Button>
-            </section>
-          ) : (
-            <>
-              <section className="space-y-1.5">
-                <Label htmlFor="name">Name</Label>
+                <Button
+                  variant="secondary"
+                  className="h-9 max-sm:w-full"
+                  onClick={() => refetch()}
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="name">Name</Label>
 
-                {user ? (
-                  <Input
-                    disabled
-                    id="name"
-                    value={user.name ?? ''}
-                    className="bg-surface"
-                  />
-                ) : (
-                  <Skeleton className="h-9 w-full" />
-                )}
-              </section>
+                  {user ? (
+                    <Input
+                      disabled
+                      id="name"
+                      value={user.name ?? ''}
+                      className="bg-surface"
+                    />
+                  ) : (
+                    <Skeleton className="h-9 w-full" />
+                  )}
+                </div>
 
-              <section className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">Email</Label>
 
-                {user ? (
-                  <Input
-                    disabled
-                    id="email"
-                    value={user.email}
-                    className="bg-surface"
-                  />
-                ) : (
-                  <Skeleton className="h-9 w-full" />
-                )}
-              </section>
-            </>
-          )}
-        </CardContent>
+                  {user ? (
+                    <Input
+                      disabled
+                      id="email"
+                      value={user.email}
+                      className="bg-surface"
+                    />
+                  ) : (
+                    <Skeleton className="h-9 w-full" />
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
 
-        <CardFooter className="flex justify-end">
-          <Button disabled variant="secondary" className="h-9 max-sm:w-full">
-            Update
-          </Button>
-        </CardFooter>
-      </Card>
+          <CardFooter className="flex justify-end">
+            <Button disabled variant="secondary" className="h-9 max-sm:w-full">
+              Update
+            </Button>
+          </CardFooter>
+        </Card>
+      </section>
 
-      <Card className="shadow-none">
-        <CardHeader>
-          <CardTitle>Security</CardTitle>
+      <section aria-labelledby={securityHeadingId} className="min-w-0">
+        <Card className="shadow-none">
+          <SectionHeader
+            id={securityHeadingId}
+            title="Security"
+            description="Manage your account security details"
+          />
 
-          <CardDescription>
-            Manage your account security details
-          </CardDescription>
-        </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="old-password">Old password</Label>
 
-        <CardContent className="space-y-5">
-          <section className="space-y-1.5">
-            <Label>Old password</Label>
+              <Input
+                id="old-password"
+                type="password"
+                placeholder="Enter your password"
+                className="bg-surface"
+              />
+            </div>
 
-            <Input
-              type="password"
-              placeholder="Enter your password"
-              className="bg-surface"
-            />
-          </section>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-password">New password</Label>
 
-          <section className="space-y-1.5">
-            <Label>New password</Label>
+              <Input
+                id="new-password"
+                type="password"
+                placeholder="Enter your new password"
+                className="bg-surface"
+              />
+            </div>
+          </CardContent>
 
-            <Input
-              type="password"
-              placeholder="Enter your new password"
-              className="bg-surface"
-            />
-          </section>
-        </CardContent>
-
-        <CardFooter className="flex justify-end">
-          <Button disabled variant="secondary" className="h-9 max-sm:w-full">
-            Update
-          </Button>
-        </CardFooter>
-      </Card>
+          <CardFooter className="flex justify-end">
+            <Button disabled variant="secondary" className="h-9 max-sm:w-full">
+              Update
+            </Button>
+          </CardFooter>
+        </Card>
+      </section>
     </div>
   );
 }
