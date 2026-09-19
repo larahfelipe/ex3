@@ -314,6 +314,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** em viewport estreita, parte dos dados só existe para quem usa ponteiro — o mesmo defeito já corrigido na tabela de performance da TASK 14.3.
 - **Proposta:** decidir na FASE 15 entre refluxo por breakpoint ou região rolável focável; se ficar a rolagem, aplicar `section` focável com nome, como em `performance-chart.tsx`, no próprio primitive.
 
+### TD-052 — Excluir o último item de uma lista deixa o foco no `body`
+
+- **Origem:** TASK 14.4 · **Tipo:** acessibilidade · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** ao excluir uma transação, `transactions-table.tsx` devolve o foco para a primeira linha restante. Quando era a última, o pai troca a tabela inteira pelo `EmptyState` e o componente que devolveria o foco desmonta junto — o mesmo vale para a última posição excluída, já que o `EmptyState` não tem elemento focável.
+- **Impacto:** o próximo `Tab` recomeça do topo do documento; nenhum conteúdo fica inacessível.
+- **Proposta:** dar ao `EmptyState` um destino de foco — cabeçalho da seção com `tabIndex={-1}` ou a própria ação do estado vazio — e apontar os fluxos de exclusão para ele.
+
 ## Resolvidos
 
 ### TD-018 — Formulário de transação do web sem taxas, impostos, corretora e notas
