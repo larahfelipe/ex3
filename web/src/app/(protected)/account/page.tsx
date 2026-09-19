@@ -101,6 +101,7 @@ export default function Account() {
               <Input
                 id="old-password"
                 type="password"
+                autoComplete="current-password"
                 placeholder="Enter your password"
                 className="bg-surface"
               />
@@ -112,6 +113,7 @@ export default function Account() {
               <Input
                 id="new-password"
                 type="password"
+                autoComplete="new-password"
                 placeholder="Enter your new password"
                 className="bg-surface"
               />

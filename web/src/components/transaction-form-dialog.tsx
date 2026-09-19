@@ -1,9 +1,4 @@
-import {
-  useId,
-  type FC,
-  type InputHTMLAttributes,
-  type ReactNode
-} from 'react';
+import { useId, type FC } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,6 +15,7 @@ import {
   TRANSACTION_TYPES,
   TRANSACTION_UNIT_PRICE_LABELS
 } from '@/common/constants';
+import { FormField } from '@/components/form-field';
 import {
   Button,
   Dialog,
@@ -28,11 +24,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
-  Label
+  Input
 } from '@/components/ui';
 import { ApiProxyError } from '@/lib/axios';
-import { cn } from '@/lib/utils';
 
 export type TransactionFormTarget =
   | { kind: 'create'; symbol: string; currency: string }
@@ -49,18 +43,6 @@ type TransactionFormDialogProps = {
 type TransactionFormInput = z.input<typeof TransactionFormSchema>;
 
 type TransactionFormField = keyof TransactionFormInput;
-
-type FieldControlProps = Pick<
-  InputHTMLAttributes<HTMLElement>,
-  'id' | 'aria-invalid' | 'aria-describedby'
->;
-
-type FormFieldProps = {
-  label: string;
-  error?: string;
-  className?: string;
-  children: (control: FieldControlProps) => ReactNode;
-};
 
 /** The API stores quantities and prices as DECIMAL(38,18), rejects what the column would round and bounds broker and notes to these lengths. */
 const DECIMAL_COLUMN = { PRECISION: 38, SCALE: 18 } as const;
@@ -183,35 +165,6 @@ const toTransactionFormValues = ({
   broker: broker ?? '',
   notes: notes ?? ''
 });
-
-const FormField: FC<FormFieldProps> = ({
-  label,
-  error,
-  className,
-  children
-}) => {
-  const controlId = useId();
-  const errorId = useId();
-  const hasError = error !== undefined;
-
-  return (
-    <div className={cn('space-y-1.5', className)}>
-      <Label htmlFor={controlId}>{label}</Label>
-
-      {children({
-        id: controlId,
-        'aria-invalid': hasError,
-        'aria-describedby': hasError ? errorId : undefined
-      })}
-
-      {hasError && (
-        <p id={errorId} className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-};
 
 export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
   target,
@@ -353,7 +306,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
               </div>
 
               {errors.type?.message !== undefined && (
-                <p className="mt-1.5 text-sm text-destructive">
+                <p className="mt-1.5 text-sm text-negative">
                   {errors.type.message}
                 </p>
               )}
@@ -388,6 +341,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
             </FormField>
 
             <FormField
+              isOptional
               label={`Fees (${currency})`}
               error={errors.fees?.message}
             >
@@ -405,6 +359,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
             </FormField>
 
             <FormField
+              isOptional
               label={`Taxes (${currency})`}
               error={errors.taxes?.message}
             >
@@ -432,7 +387,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
               )}
             </FormField>
 
-            <FormField label="Broker (optional)" error={errors.broker?.message}>
+            <FormField isOptional label="Broker" error={errors.broker?.message}>
               {(control) => (
                 <Input
                   {...control}
@@ -444,7 +399,8 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
             </FormField>
 
             <FormField
-              label="Notes (optional)"
+              isOptional
+              label="Notes"
               error={errors.notes?.message}
               className="sm:col-span-2"
             >
@@ -460,10 +416,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
             </FormField>
 
             {errors.root?.server?.message !== undefined && (
-              <p
-                role="alert"
-                className="text-sm text-destructive sm:col-span-2"
-              >
+              <p role="alert" className="text-sm text-negative sm:col-span-2">
                 {errors.root.server.message}
               </p>
             )}

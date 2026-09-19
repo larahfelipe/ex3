@@ -20,6 +20,7 @@ import { z } from 'zod';
 import type { CreateAssetRequestPayload } from '@/app/api/v1/assets';
 import { ASSET_DIALOG_ACTIONS, ASSET_DIALOG_PARAMS } from '@/common/constants';
 import { sanitizeInputValue, updateUrlQuery } from '@/common/utils';
+import { FormField } from '@/components/form-field';
 import {
   Button,
   Dialog,
@@ -28,8 +29,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
-  Label
+  Input
 } from '@/components/ui';
 import { withSettledRejection } from '@/lib/utils';
 
@@ -84,7 +84,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
   const searchParams = useSearchParams();
 
   const {
-    control,
+    control: formControl,
     handleSubmit,
     reset,
     formState: {
@@ -139,34 +139,33 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
         </DialogHeader>
 
         <form
+          noValidate
           onSubmit={withSettledRejection(handleSubmit(handleConfirm))}
           id="add-asset-transaction-form"
           className="flex flex-col gap-3"
         >
-          <div className="space-y-1.5">
-            <Label htmlFor="symbol">Asset</Label>
-
-            <Controller
-              name="symbol"
-              control={control}
-              render={({ field }) => (
-                <Input
-                  id="symbol"
-                  aria-label="Asset symbol"
-                  placeholder="Enter the asset symbol"
-                  {...field}
-                  disabled={isSubmitting}
-                  onChange={(e) =>
-                    field.onChange(handleChangeFormFieldValue('symbol', e))
-                  }
-                />
-              )}
-            />
-
-            {!!errors.symbol?.message && (
-              <small className="text-negative">{errors.symbol.message}</small>
+          <FormField label="Asset" error={errors.symbol?.message}>
+            {(control) => (
+              <Controller
+                name="symbol"
+                control={formControl}
+                render={({ field }) => (
+                  <Input
+                    {...control}
+                    autoComplete="off"
+                    placeholder="Enter the asset symbol"
+                    {...field}
+                    disabled={isSubmitting}
+                    onChange={(event) =>
+                      field.onChange(
+                        handleChangeFormFieldValue('symbol', event)
+                      )
+                    }
+                  />
+                )}
+              />
             )}
-          </div>
+          </FormField>
         </form>
 
         <DialogFooter className="max-sm:space-y-4">
@@ -184,7 +183,6 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
 
           <Button
             variant="outline"
-            aria-label="Cancel"
             disabled={isSubmitting}
             onClick={handleCancel}
           >

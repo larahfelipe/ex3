@@ -39,11 +39,16 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <Button
             type="button"
             variant="ghost"
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
             className="absolute right-0 *:text-muted-foreground"
             disabled={disabled}
             onClick={togglePasswordVisibility}
           >
-            {showPassword ? <PiEye size={16} /> : <PiEyeClosed size={16} />}
+            {showPassword ? (
+              <PiEye size={16} aria-hidden="true" />
+            ) : (
+              <PiEyeClosed size={16} aria-hidden="true" />
+            )}
           </Button>
         )}
       </div>

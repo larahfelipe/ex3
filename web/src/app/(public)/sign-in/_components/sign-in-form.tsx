@@ -7,7 +7,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
-import { Button, Input, Label } from '@/components/ui';
+import { FormField } from '@/components/form-field';
+import { Button, Input } from '@/components/ui';
 import { useSignIn } from '@/hooks/use-user';
 import { withSettledRejection } from '@/lib/utils';
 
@@ -41,38 +42,34 @@ export const SignInForm: FC = () => {
   };
 
   return (
-    <form onSubmit={withSettledRejection(handleSubmit(handleSignIn))}>
+    <form
+      noValidate
+      onSubmit={withSettledRejection(handleSubmit(handleSignIn))}
+    >
       <div className="flex-col align-center space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-
-          <Input
-            type="email"
-            id="email"
-            autoComplete="off"
-            disabled={isSubmitting}
-            {...register('email')}
-          />
-
-          {!!errors.email?.message && (
-            <small className="text-negative">{errors.email.message}</small>
+        <FormField label="Email" error={errors.email?.message}>
+          {(control) => (
+            <Input
+              {...control}
+              type="email"
+              autoComplete="username"
+              disabled={isSubmitting}
+              {...register('email')}
+            />
           )}
-        </div>
+        </FormField>
 
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-
-          <Input
-            type="password"
-            id="password"
-            disabled={isSubmitting}
-            {...register('password')}
-          />
-
-          {!!errors.password?.message && (
-            <small className="text-negative">{errors.password.message}</small>
+        <FormField label="Password" error={errors.password?.message}>
+          {(control) => (
+            <Input
+              {...control}
+              type="password"
+              autoComplete="current-password"
+              disabled={isSubmitting}
+              {...register('password')}
+            />
           )}
-        </div>
+        </FormField>
       </div>
 
       <Button
