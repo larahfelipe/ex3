@@ -9,6 +9,7 @@ import { ArrowLeft } from 'lucide-react';
 import type { PositionDetail } from '@/app/api/v1/portfolio';
 import { APP_ROUTES, INSTRUMENT_TYPE_LABELS } from '@/common/constants';
 import { formatQuoteTime } from '@/common/utils';
+import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
 import {
   Metric,
   Money,
@@ -18,7 +19,6 @@ import {
   Quantity,
   UnavailableValue
 } from '@/components/financial';
-import { LoadErrorAlert } from '@/components/load-error-alert';
 import { PageHeader } from '@/components/page-header';
 import { PerformanceChart } from '@/components/performance-chart';
 import { SectionHeader } from '@/components/section-header';
@@ -173,46 +173,42 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
       />
 
       {isPending && (
-        <div aria-busy="true">
-          <Skeleton className="h-64 w-full rounded-xl" />
-        </div>
+        <LoadingState label="Loading your portfolio" className="h-64" />
       )}
 
       {isError && !portfolio && (
-        <LoadErrorAlert
+        <ErrorState
           message="Your portfolio could not be loaded"
           onRetry={refetch}
         />
       )}
 
       {isSuccess && !portfolio && (
-        <p className="text-sm text-muted-foreground">
-          No portfolio found for this account
-        </p>
+        <EmptyState message="No portfolio found for this account" />
       )}
 
       {isPositionPending && (
-        <div aria-busy="true" className="grid gap-6 lg:grid-cols-2">
-          <Skeleton className="h-64 w-full rounded-xl" />
+        <LoadingState label="Loading this asset">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Skeleton aria-hidden="true" className="h-64 w-full rounded-xl" />
 
-          <Skeleton className="h-64 w-full rounded-xl" />
-        </div>
+            <Skeleton aria-hidden="true" className="h-64 w-full rounded-xl" />
+          </div>
+        </LoadingState>
       )}
 
       {isAssetMissing && (
-        <div className="flex flex-col items-start gap-3">
-          <p className="text-sm text-muted-foreground">
-            {`${symbol.toUpperCase()} is not in your portfolio`}
-          </p>
-
-          <Button asChild variant="secondary" className="h-9 max-sm:w-full">
-            <Link href={APP_ROUTES.Protected.Assets}>View your assets</Link>
-          </Button>
-        </div>
+        <EmptyState
+          message={`${symbol.toUpperCase()} is not in your portfolio`}
+          action={{
+            label: 'View your assets',
+            href: APP_ROUTES.Protected.Assets
+          }}
+        />
       )}
 
       {positionError !== null && !isAssetMissing && position === undefined && (
-        <LoadErrorAlert
+        <ErrorState
           message="This asset could not be loaded"
           onRetry={positionQuery.refetch}
         />

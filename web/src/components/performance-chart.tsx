@@ -8,6 +8,7 @@ import type {
 } from '@/app/api/v1/portfolio';
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { formatSeriesDay } from '@/common/utils';
+import { EmptyState, LoadingState } from '@/components/data-state';
 import { Money, Trend } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
 import {
@@ -150,17 +151,15 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
         </fieldset>
       }
       loading={
-        <div className="space-y-4">
-          <Skeleton className="h-8 w-56" />
+        <LoadingState label="Loading the performance">
+          <div className="space-y-4">
+            <Skeleton aria-hidden="true" className="h-8 w-56" />
 
-          <Skeleton className="h-48 w-full" />
-        </div>
+            <Skeleton aria-hidden="true" className="h-48 w-full" />
+          </div>
+        </LoadingState>
       }
-      empty={
-        <p className="text-sm text-muted-foreground">
-          No performance to display for this period
-        </p>
-      }
+      empty={<EmptyState message="No performance to display for this period" />}
       isEmpty={({ series }) => series.length === 0}
     >
       {({ series, baseCurrency }) => {

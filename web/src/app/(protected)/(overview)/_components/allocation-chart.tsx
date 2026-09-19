@@ -5,6 +5,7 @@ import { twMerge } from 'tailwind-merge';
 import type { PortfolioAllocation } from '@/app/api/v1/portfolio';
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { INSTRUMENT_TYPE_LABELS } from '@/common/constants';
+import { EmptyState, LoadingState } from '@/components/data-state';
 import { Money, Percentage } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
 import {
@@ -184,19 +185,20 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
         )
       }
       loading={
-        <div className="@container">
-          <div className={CHART_LAYOUT_CLASS_NAME}>
-            <Skeleton className="size-40 shrink-0 rounded-full" />
+        <LoadingState label="Loading the allocation">
+          <div className="@container">
+            <div className={CHART_LAYOUT_CLASS_NAME}>
+              <Skeleton
+                aria-hidden="true"
+                className="size-40 shrink-0 rounded-full"
+              />
 
-            <Skeleton className="h-40 w-full" />
+              <Skeleton aria-hidden="true" className="h-40 w-full" />
+            </div>
           </div>
-        </div>
+        </LoadingState>
       }
-      empty={
-        <p className="text-sm text-muted-foreground">
-          No allocation to display
-        </p>
-      }
+      empty={<EmptyState message="No allocation to display" />}
       isEmpty={({ byType }) => byType.length === 0}
     >
       {(portfolioAllocation) => {

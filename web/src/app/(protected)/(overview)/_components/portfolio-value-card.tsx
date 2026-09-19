@@ -1,12 +1,11 @@
 import type { FC } from 'react';
 
-import { LoaderCircle, TriangleAlert } from 'lucide-react';
-
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { formatQuoteTime } from '@/common/utils';
+import { EmptyState, LoadingState, StaleState } from '@/components/data-state';
 import { Metric, Money, ProfitLoss } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
-import { Button, Skeleton } from '@/components/ui';
+import { Skeleton } from '@/components/ui';
 import { usePortfolioOverview } from '@/hooks/use-portfolio';
 
 type PortfolioValueCardProps = Record<'portfolio', Portfolio>;
@@ -27,17 +26,15 @@ export const PortfolioValueCard: FC<PortfolioValueCardProps> = ({
       query={overviewQuery}
       errorMessage="The portfolio value could not be loaded"
       loading={
-        <div className="space-y-3">
-          <Skeleton className="h-9 w-48 max-w-full" />
+        <LoadingState label="Loading the portfolio value">
+          <div className="space-y-3">
+            <Skeleton aria-hidden="true" className="h-9 w-48 max-w-full" />
 
-          <Skeleton className="h-5 w-72 max-w-full" />
-        </div>
+            <Skeleton aria-hidden="true" className="h-5 w-72 max-w-full" />
+          </div>
+        </LoadingState>
       }
-      empty={
-        <p className="text-sm text-muted-foreground">
-          No holdings to value yet
-        </p>
-      }
+      empty={<EmptyState message="No holdings to value yet" />}
       isEmpty={({ totalValue, quotedAt }) =>
         totalValue === '0' && quotedAt === undefined
       }
@@ -54,29 +51,11 @@ export const PortfolioValueCard: FC<PortfolioValueCardProps> = ({
       }) => (
         <div className="space-y-5">
           {isRefetchError && (
-            <div
-              role="alert"
-              className="flex flex-col items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <p className="flex items-center gap-2 text-sm text-warning">
-                <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
-                The values could not be refreshed and may be out of date
-              </p>
-
-              <Button
-                variant="secondary"
-                className="h-9 gap-2 max-sm:w-full"
-                onClick={() => refetch()}
-              >
-                {isFetching && (
-                  <LoaderCircle
-                    aria-hidden="true"
-                    className="size-4 animate-spin"
-                  />
-                )}
-                Try again
-              </Button>
-            </div>
+            <StaleState
+              message="The values could not be refreshed and may be out of date"
+              isRetrying={isFetching}
+              onRetry={refetch}
+            />
           )}
 
           <dl className="flex flex-wrap items-end gap-x-10 gap-y-4">

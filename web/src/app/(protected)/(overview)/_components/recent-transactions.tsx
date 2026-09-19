@@ -2,9 +2,9 @@ import type { FC } from 'react';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import type { TransactionFilters } from '@/app/api/v1/transactions';
+import { EmptyState, LoadingState } from '@/components/data-state';
 import { QuerySection } from '@/components/query-section';
 import { TransactionsTable } from '@/components/transactions-table';
-import { Skeleton } from '@/components/ui';
 import { useTransactions } from '@/hooks/use-transactions';
 
 type RecentTransactionsProps = Record<'portfolio', Portfolio>;
@@ -24,11 +24,9 @@ export const RecentTransactions: FC<RecentTransactionsProps> = ({
       title="Recent transactions"
       query={transactionsQuery}
       errorMessage="The recent transactions could not be loaded"
-      loading={<Skeleton className="h-40 w-full" />}
+      loading={<LoadingState label="Loading recent transactions" />}
       isEmpty={({ total }) => total === 0}
-      empty={
-        <p className="text-sm text-muted-foreground">No transactions yet</p>
-      }
+      empty={<EmptyState message="No transactions yet" />}
     >
       {({ items }) => (
         <TransactionsTable

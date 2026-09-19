@@ -1,9 +1,8 @@
 'use client';
 
-import { LoadErrorAlert } from '@/components/load-error-alert';
+import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
 import { PageHeader } from '@/components/page-header';
 import { PerformanceChart } from '@/components/performance-chart';
-import { Skeleton } from '@/components/ui';
 import { usePrimaryPortfolio } from '@/hooks/use-portfolio';
 
 import { AllocationChart } from './_components/allocation-chart';
@@ -33,22 +32,21 @@ export default function Overview() {
       />
 
       {isPending && (
-        <div aria-busy="true">
-          <Skeleton className="h-64 w-full rounded-3xl" />
-        </div>
+        <LoadingState
+          label="Loading your portfolio"
+          className="h-64 rounded-3xl"
+        />
       )}
 
       {isError && !portfolio && (
-        <LoadErrorAlert
+        <ErrorState
           message="Your portfolio could not be loaded"
           onRetry={refetch}
         />
       )}
 
       {isSuccess && !portfolio && (
-        <p className="text-sm text-muted-foreground">
-          No portfolio found for this account
-        </p>
+        <EmptyState message="No portfolio found for this account" />
       )}
 
       {portfolio && (
