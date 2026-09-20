@@ -321,12 +321,19 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** o próximo `Tab` recomeça do topo do documento; nenhum conteúdo fica inacessível.
 - **Proposta:** dar ao `EmptyState` um destino de foco — cabeçalho da seção com `tabIndex={-1}` ou a própria ação do estado vazio — e apontar os fluxos de exclusão para ele.
 
-### TD-053 — Token `destructive` reprova no contraste quando vira texto
+### TD-053 — Seis pares de token reprovam no contraste exigido
 
-- **Origem:** TASK 14.5 · **Tipo:** acessibilidade · **Prioridade:** média · **Encaminhamento:** TASK 14.7
-- **Contexto:** as mensagens de erro migraram para `text-negative`, medido em 4,80:1 sobre o fundo claro e 7,31:1 sobre o escuro, mas `--destructive` continua servindo de cor de texto na ação "Delete transaction" de `transaction-details-dialog.tsx`: `hsl(0 84.2% 60.2%)` dá 3,76:1 sobre `hsl(0 0% 100%)` e `hsl(0 62.8% 30.6%)` dá 2,01:1 sobre `hsl(0 0% 2.9%)`, ambos abaixo dos 4,5:1 exigidos para texto normal.
-- **Impacto:** o rótulo da ação destrutiva é o texto menos legível da interface justamente onde o erro é irreversível; o par `bg-destructive`/`text-destructive-foreground` do botão sólido ainda não foi medido.
-- **Proposta:** medir o par inteiro na varredura de contraste da TASK 14.7 e corrigir o token em `globals.css`, em vez de trocar a classe em cada uso.
+- **Origem:** TASK 14.5 · **Tipo:** acessibilidade · **Prioridade:** alta · **Encaminhamento:** avulso
+- **Contexto:** a medição dos tokens de `globals.css` está em `docs/accessibility.md`, §Contraste medido. Na paleta escura, a única com consumidor em runtime, reprovam `--destructive` como texto (2,01:1), `--primary-foreground` sobre `--primary` (3,49:1, o rótulo de todo botão primário) e `--border`/`--input` sobre `--background` (1,33:1, única pista visual da borda do campo). Na paleta clara, latente até TD-048, reprovam ainda `--destructive-foreground` sobre `--destructive` (3,60:1), `--muted-foreground` sobre `--muted` (4,39:1) e `--warning` sobre `bg-warning/10` (4,40:1). As mensagens de erro já saíram de `--destructive` para `--negative`, medido em 4,80:1 e 7,31:1.
+- **Impacto:** 1.4.3 e 1.4.11 falham no caminho principal — o rótulo do botão que confirma cada ação e a borda que identifica cada campo —, e a ação destrutiva é o texto menos legível da interface justamente onde o engano é irreversível.
+- **Proposta:** escolher os novos valores no próprio `globals.css`, um token por par reprovado, e repetir a medição; trocar a classe em cada uso espalharia a decisão sem corrigir a origem.
+
+### TD-054 — Auditoria automatizada de acessibilidade nunca foi executada
+
+- **Origem:** TASK 14.7 · **Tipo:** acessibilidade · **Prioridade:** alta · **Encaminhamento:** avulso
+- **Contexto:** o ambiente da implementação não tem navegador nem permissão de rede para instalar Playwright, `@axe-core/playwright` ou `lighthouse`, então a varredura com axe, a medição do Lighthouse e os testes E2E de teclado da TASK 14.7 ficaram sem executar. O procedimento — páginas, estados de runtime, limiares e o que a ferramenta não decide — está em `docs/accessibility.md`, §Auditoria automatizada.
+- **Impacto:** os dois critérios numéricos da TASK 14.7, zero violação crítica e Lighthouse ≥ 95, seguem não verificados; o que garante a acessibilidade hoje é `jsx-a11y` no `lint`, a composição dos componentes de estado e o roteiro manual.
+- **Proposta:** instalar as três dependências fixadas por versão no `web`, subir a stack de `compose.yaml` com um usuário semeado para as rotas protegidas e rodar o procedimento documentado; a FASE 17 reaproveita o mesmo harness para os E2E de produto.
 
 ## Resolvidos
 
