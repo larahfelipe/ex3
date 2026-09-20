@@ -70,7 +70,7 @@ Automação cobre parte do conjunto; nenhum item abaixo é considerado atendido 
 | C4 | Nenhuma cor literal no código: tudo sai dos tokens de `globals.css` | 1.4.3 · varredura de `#`, `rgb(` e `hsl(` fora de `globals.css` |
 | C5 | Texto redimensionável até 200% e refluxo em 320 px sem perda de conteúdo | 1.4.4, 1.4.10 · unidades relativas; verificado junto da FASE 15 |
 
-A paleta clara dos tokens semânticos não tem consumidor em runtime — ver TD-048. C1 e C2 valem hoje sobre a paleta escura.
+A paleta clara dos tokens semânticos não tem consumidor em runtime — ver TD-048. C1 e C2 valem hoje sobre a paleta escura. As razões medidas estão em §Contraste medido.
 
 ## 5. Formulários
 
@@ -103,7 +103,7 @@ A paleta clara dos tokens semânticos não tem consumidor em runtime — ver TD-
 | N3 | Contagem, paginação e total mudam dentro de `aria-live="polite"` | 4.1.3 · `positions-table.tsx`, `asset-transactions.tsx`, `positions-summary.tsx` |
 | N4 | Toast nunca é o único canal de um erro que bloqueia a tarefa | 4.1.3 · o estado também aparece na região afetada |
 | N5 | Dado obsoleto exibido durante refetch é marcado com `aria-busy` no container | 4.1.3 · `isPlaceholderData` em `positions-table.tsx` |
-| N6 | Animação não essencial só roda sob `motion-safe`; spinner permanece legível sem animação | 2.3.3 · regra de conclusão da TASK 14.6 |
+| N6 | Sob `prefers-reduced-motion`, animação e transição não essenciais são neutralizadas em `globals.css`; o indicador de ocupado segue girando, mais devagar | 2.3.3 · bloco `@media (prefers-reduced-motion: reduce)`; transform de toque sob `motion-safe:` |
 | N7 | Nenhuma atualização automática de conteúdo sem controle do usuário | 2.2.2 · refetch é disparado por ação ou por invalidação de mutação |
 
 ## Lacunas conhecidas na captura
@@ -119,3 +119,45 @@ Observadas ao escrever este checklist, cada uma endereçada na task indicada:
 | `autoComplete="off"` em `sign-in-form.tsx` e `sign-up-form.tsx` impede o propósito declarado do campo e o preenchimento por gerenciador de senha | P5, K7 | 14.5 |
 | Contraste dos tokens nunca foi medido, em nenhuma das duas paletas | C1, C2 | 14.7 |
 | Nenhuma auditoria automatizada roda no repositório | — | 14.7 |
+
+Encerradas desde a captura: o link de pulo e os landmarks em `8a3ef68`; a região rolável do gráfico em `b01bf45`; o destino de foco após fechar overlay em `e8cb974`; nome acessível, associação de erro, estado obrigatório e `autocomplete` em `717ada7`; movimento reduzido em `b6bda64`. As duas últimas linhas continuam abertas e estão detalhadas nas duas seções seguintes.
+
+## Contraste medido
+
+Medição determinística dos tokens de `app/globals.css`, nas duas paletas, restrita aos pares que o código produz de fato — cada `text-*` sobre a superfície em que ele aparece em `web/src`. Método: HSL do token convertido para sRGB, luminância relativa e razão de contraste da WCAG 2.x, com 4.5:1 para texto normal (1.4.3) e 3:1 para limite de componente e indicador de estado (1.4.11); fundo com alpha, como `bg-warning/10`, composto sobre `--background` antes da medição. Nenhum navegador é necessário para repetir a medição — as entradas são os próprios tokens.
+
+Pares reprovados:
+
+| Par | Onde aparece | Claro | Escuro | Limite |
+| --- | --- | --- | --- | --- |
+| `--destructive` como texto | ação "Delete transaction" em `transaction-details-dialog.tsx` | 3.76:1 | 2.01:1 | 4.5:1 |
+| `--primary-foreground` sobre `--primary` | rótulo de todo botão primário | 16.95:1 | 3.49:1 | 4.5:1 |
+| `--border` e `--input` sobre `--background` | borda de campo, única pista visual do controle | 1.24:1 | 1.33:1 | 3:1 |
+| `--destructive-foreground` sobre `--destructive` | botão sólido de exclusão | 3.60:1 | 9.59:1 | 4.5:1 |
+| `--muted-foreground` sobre `--muted` | texto secundário em superfície de realce | 4.39:1 | 6.00:1 | 4.5:1 |
+| `--warning` sobre `bg-warning/10` | chip de alerta | 4.40:1 | 10.28:1 | 4.5:1 |
+
+Os demais pares passam nas duas paletas, com folga: texto padrão 20.14:1 e 19.24:1; `--muted-foreground` sobre `--background` 4.83:1 e 7.96:1; `--negative` 4.80:1 e 7.31:1; `--positive` 5.58:1 e 10.46:1; `--info` 5.94:1 e 9.55:1; anel de foco 20.14:1 e 5.27:1; pior série do gráfico 3.02:1 e 5.27:1.
+
+Como só a paleta escura tem consumidor em runtime (TD-048), as reprovações que hoje afetam o usuário são as três primeiras. Correção registrada em TD-053: o ajuste é no token, em `globals.css`, não na classe de cada uso.
+
+## Auditoria automatizada — pendente
+
+A varredura com axe, a medição do Lighthouse e os testes E2E de teclado da TASK 14.7 não foram executados: o ambiente da implementação não tem navegador instalado nem permissão de rede para instalar Playwright, `@axe-core/playwright` ou `lighthouse`. Sem execução real, nenhum dos dois critérios numéricos — zero violação crítica e Lighthouse ≥ 95 — pode ser declarado atendido. A execução está registrada em TD-054, com este procedimento:
+
+| Alvo | Cobertura mínima |
+| --- | --- |
+| Páginas | `/sign-in`, `/sign-up`, `/`, `/assets`, `/assets/[symbol]`, `/account` |
+| Estados que só existem em runtime | dialog de ativo, de transação e de exclusão abertos; listagem filtrada sem resultado; `ErrorState` e `StaleState`; dado obsoleto em refetch |
+| axe | uma varredura por página e por estado acima, nas duas paletas |
+| Lighthouse | categoria accessibility, uma corrida por página |
+| E2E de teclado | link de pulo; abrir e fechar cada overlay devolvendo o foco à origem; ordenação e paginação da tabela de posições; região rolável do gráfico; foco após excluir item |
+
+O que a auditoria não vai decidir sozinha, e por quê:
+
+| Item | Justificativa |
+| --- | --- |
+| Reprovações de contraste acima | axe mede o par renderizado e vai confirmá-las; a escolha do novo valor de token é decisão de design, em TD-053 |
+| Rolagem horizontal das tabelas (TD-051) | a regra `scrollable-region-focusable` acusa, mas a correção depende da decisão de refluxo da FASE 15 |
+| Foco após excluir o último item da lista (TD-052) | nenhuma regra estática ou de runtime cobre foco órfão após desmontagem; só o teste de teclado revela |
+| Ordem lógica de foco, clareza da mensagem de erro e equivalência do conteúdo alternativo | fora do alcance de qualquer ferramenta automatizada; permanecem no roteiro manual deste documento |
