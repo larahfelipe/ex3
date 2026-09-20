@@ -35,6 +35,12 @@ x-postgres-healthcheck: &postgres-healthcheck
   timeout: 3s
   retries: 20
 
+x-app-healthcheck: &app-healthcheck
+  interval: 10s
+  timeout: 5s
+  retries: 3
+  start_period: 60s
+
 services:
   postgres:
     image: postgres:17.6-alpine
@@ -67,6 +73,15 @@ services:
     environment: *backend-runtime-environment
     ports:
       - '127.0.0.1:8080:8080'
+    healthcheck:
+      <<: *app-healthcheck
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8080/ready').then(({ ok }) => process.exit(ok ? 0 : 1), () => process.exit(1))"
+        ]
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -85,11 +100,22 @@ services:
       API_URL: http://backend:8080
     ports:
       - '127.0.0.1:3000:3000'
+    healthcheck:
+      <<: *app-healthcheck
+      # O `next dev` compila a página pedida, então a sonda abre a conexão e
+      # encerra: o que se verifica é o servidor ouvindo, não uma rota.
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('node:net').connect(3000, '127.0.0.1').on('connect', () => process.exit(0)).on('error', () => process.exit(1))"
+        ]
     depends_on:
       web-deps:
         condition: service_completed_successfully
       backend:
-        condition: service_started
+        condition: service_healthy
 
   postgres-test:
     image: postgres:17.6-alpine

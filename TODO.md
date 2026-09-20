@@ -230,13 +230,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** um erro de build ou de runtime aparece só no primeiro `docker compose up` ou no próximo build do Cloud Build, que publica as imagens do `runner`.
 - **Proposta:** num ambiente com Docker, antes da próxima publicação: `docker compose config`; `docker compose up --build` com volumes vazios; cadastro e login no web; `down` e `up` preservando os dados; `run --rm backend-check` e `web-check`; `docker build` dos dois `runner` (web com `--build-arg API_URL`), conferindo usuário `node`, tamanho com `docker image ls` e `docker stop` abaixo de 10 s; um segundo `up` sem rebuild nem download.
 
-### TD-040 — Backend e web sem health check de container
-
-- **Origem:** configuração Docker Compose · **Tipo:** tooling · **Prioridade:** baixa · **Encaminhamento:** TASK 18.3
-- **Contexto:** nenhum dos dois expõe endpoint de saúde. No `compose.yaml`, o `web` espera o `backend` só iniciado, e os Dockerfiles não têm `HEALTHCHECK`.
-- **Impacto:** a primeira requisição do web pode chegar antes de o backend ouvir, e um processo travado não é distinguido de um saudável.
-- **Proposta:** com `/health` e `/ready`, declarar `healthcheck` nos serviços `backend` e `web` e trocar a dependência do `web` para `service_healthy`.
-
 ### TD-041 — Backend encerra sem drenar requisições
 
 - **Origem:** configuração Docker Compose · **Tipo:** qualidade · **Prioridade:** média · **Encaminhamento:** avulso
@@ -356,14 +349,20 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** o resultado da suíte depende do `.env` de quem executa, e qualquer comando que a suíte dispare com credencial herdada alcança um banco que não é o de teste.
 - **Proposta:** não carregar o `.env` quando `NODE_ENV=test`, nos dois pontos, e declarar no `.env.test` tudo o que a suíte precisa.
 
-### TD-060 — `/health` e `/ready` existem, e nada os sonda
+### TD-060 — Nenhuma sonda de saúde na configuração de produção
 
 - **Origem:** TASK 18.3 · **Tipo:** infraestrutura · **Prioridade:** média · **Encaminhamento:** TASK 20.7
-- **Contexto:** o `cloudbuild.yaml` constrói e publica as imagens do backend e do web, sem passo de deploy; a configuração do serviço no Cloud Run, onde o startup probe e o liveness probe são declarados, vive fora do repositório. No `compose.yaml`, o serviço `backend` não tem `healthcheck` e o `web` depende dele por `condition: service_started`.
-- **Impacto:** uma instância que sobe com o banco fora do ar recebe tráfego assim mesmo, e o `web` do ambiente local sobe antes de a API responder. A distinção entre processo vivo e dependência disponível existe no código e não é usada por ninguém.
-- **Proposta:** declarar no serviço do Cloud Run o startup probe em `/ready` e o liveness probe em `/health`, e dar ao `backend` do `compose.yaml` um `healthcheck` em `/ready` — `node -e` com `fetch`, sem depender de `curl` na imagem — com o `web` passando a `condition: service_healthy`.
+- **Contexto:** o `cloudbuild.yaml` constrói e publica as imagens do backend e do web, sem passo de deploy; a configuração do serviço no Cloud Run, onde o startup probe e o liveness probe são declarados, vive fora do repositório. No desenvolvimento, o `compose.yaml` já sonda `/ready` (TD-040).
+- **Impacto:** em produção, uma instância que sobe sem alcançar o banco recebe tráfego assim mesmo, e um processo travado não é distinguido de um saudável. A distinção entre processo vivo e dependência disponível existe no código e não chega ao ambiente onde importa.
+- **Proposta:** declarar no serviço do Cloud Run o startup probe em `/ready` e o liveness probe em `/health`, e registrar essa configuração no repositório junto do `cloudbuild.yaml`, para que o deploy deixe de ser um estado só do console.
+
 
 ## Resolvidos
+
+### TD-040 — Backend e web sem health check de container
+
+- **Tipo:** tooling · **Prioridade:** baixa
+- **Resolução:** o backend expõe `GET /health`, que não toca dependência alguma, e `GET /ready`, que consulta o banco por chamada. No `compose.yaml`, o `healthcheck` do `backend` chama `/ready` e o do `web` abre uma conexão TCP na porta 3000, ambos por `node -e` dentro do container, e o `web` passou a depender do `backend` por `condition: service_healthy`. Verificado no ambiente de desenvolvimento: com o `postgres` parado, o `backend` vira `unhealthy` em 35s e `/health` continua respondendo `200`; religado o banco, volta a `healthy` em 10s. Os `HEALTHCHECK` nos Dockerfiles continuam fora: a sonda de produção é declarada no serviço do Cloud Run (TD-060). Ver `docs/containers.md` e `docs/observability.md`.
 
 ### TD-046 — `next-themes` sem consumidor
 
