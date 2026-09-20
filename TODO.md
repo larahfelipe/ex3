@@ -364,6 +364,20 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** o cast desliga a checagem da assinatura no único ponto onde ela valeria, e um handler com a forma errada passaria despercebido. Uma resposta devolvida em vez de enviada também não é erro para o compilador.
 - **Proposta:** fazer os `handle` responderem e retornarem `void`, ajustar a interface `Controller` e remover os 29 casts.
 
+### TD-062 — Nenhuma agregação de proventos
+
+- **Origem:** TASK 19.3 · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** TASK 20.7
+- **Contexto:** `DIVIDEND`, `JCP` e `INTEREST` são gravados e entram no `netContribution` da performance, mas nenhuma rota soma a renda do mês, do ano ou de sempre, nem calcula `yield` e `yield on cost`. As TASKS 10.2 e 10.3 do plano, que definiriam essa API e a sua tela, não foram executadas.
+- **Impacto:** quem registra provento não consegue ler quanto a carteira rendeu em renda, e a única visão é a listagem de transações, uma a uma.
+- **Proposta:** somar por período a partir do razão, na moeda base, e expor os totais e os dois rendimentos, com as regras de ausência já usadas na visão geral. A definição de cada número entra em `docs/financial-rules.md` antes da implementação.
+
+### TD-063 — Drawdown e métricas de risco não calculados
+
+- **Origem:** TASK 19.3 · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** TASK 20.7
+- **Contexto:** `maxDrawdown`, `currentDrawdown`, `recovery`, volatilidade, Sharpe, beta e correlação não existem no domínio nem em rota alguma; as TASKS 11.3 e 11.4 do plano não foram executadas. A série de `GET /v1/portfolio/performance` já é o insumo que eles exigiriam.
+- **Impacto:** a carteira é descrita por retorno, sem nenhuma medida de risco, e a comparação com o benchmark fica restrita a retorno acumulado.
+- **Proposta:** derivar as métricas da série existente, com o período explícito na resposta, estado controlado quando os pontos forem insuficientes e sem exibir precisão que a série não sustenta, conforme os critérios da TASK 11.4.
+
 ## Resolvidos
 
 ### TD-040 — Backend e web sem health check de container
