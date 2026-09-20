@@ -19,7 +19,7 @@ import {
 import { registerIntegrationHooks } from './IntegrationHooks';
 import { injectWriteFailure, resetDatabase } from './TestDatabase';
 
-const ASSETS_ROUTE = '/v1/assets';
+const PORTFOLIOS_ROUTE = '/v1/portfolios';
 
 const prismaClient = PrismaClient.getInstance();
 
@@ -59,27 +59,24 @@ describe('test harness', () => {
   });
 
   it('authenticates a seeded user and reaches a protected route', async () => {
-    const { user, portfolio, asset } = await seedPortfolio();
+    const { user, portfolio } = await seedPortfolio();
 
     const accessToken = await signIn({
       email: user.email,
       password: FIXTURE_PASSWORD
     });
 
-    const res = await client
-      .get(ASSETS_ROUTE)
-      .query({ portfolioId: portfolio.id })
-      .set(bearer(accessToken));
+    const res = await client.get(PORTFOLIOS_ROUTE).set(bearer(accessToken));
 
     assert.equal(res.status, 200);
     assert.deepEqual(
-      res.body.assets.map(({ symbol }: { symbol: string }) => symbol),
-      [asset.symbol]
+      res.body.portfolios.map(({ id }: { id: string }) => id),
+      [portfolio.id]
     );
   });
 
   it('rejects a protected route without a token', async () => {
-    const res = await client.get(ASSETS_ROUTE);
+    const res = await client.get(PORTFOLIOS_ROUTE);
 
     assert.equal(res.status, 401);
   });

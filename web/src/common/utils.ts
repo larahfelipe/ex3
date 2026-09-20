@@ -44,7 +44,7 @@ const numberFormatOf = (options?: Intl.NumberFormatOptions) => {
   return format;
 };
 
-export const formatNumber = (
+const formatNumber = (
   value: number | DecimalString,
   options?: Intl.NumberFormatOptions
 ) => numberFormatOf(options).format(value);
@@ -111,22 +111,6 @@ export const updateUrlQuery = (params: URLSearchParams) =>
     '',
     params.size ? `?${params}` : window.location.pathname
   );
-
-export const truncateText = (
-  text: string,
-  maxLength: number,
-  suffix = '...'
-) => {
-  if (text.length <= maxLength) return text;
-  const charsToShow = maxLength - suffix.length;
-  const frontChars = Math.ceil(charsToShow / 2);
-  const backChars = Math.floor(charsToShow / 2);
-  return (
-    text.substring(0, frontChars) +
-    suffix +
-    text.substring(text.length - backChars)
-  );
-};
 
 export const sanitizeInputValue = (
   value: string,

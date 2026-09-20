@@ -3,6 +3,7 @@ import { before, describe, it, type TestContext } from 'node:test';
 
 import {
   AssetMessages,
+  DecimalColumn,
   Errors,
   InstrumentMessages,
   InstrumentTypes,
@@ -48,6 +49,9 @@ const FIRST_CREATION_EPOCH_MS = Date.UTC(2026, 0, 1);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const HELD_PORTFOLIO_NAMES = ['First', 'Second', 'Third'];
+
+/** The smallest positive value a quantity or monetary column holds. */
+const COLUMN_UNIT = `0.${'0'.repeat(DecimalColumn.SCALE - 1)}1`;
 
 const prismaClient = PrismaClient.getInstance();
 
@@ -1021,6 +1025,36 @@ describe('portfolios', () => {
           assert.equal(res.body.message, AssetMessages.NOT_FOUND);
         }
         assert.equal(getQuotes.mock.callCount(), 0);
+      });
+
+      it('answers small values in plain decimal notation, without an exponent', async (t) => {
+        const { user, accessToken } = await signInUser();
+        const portfolio = await createPortfolio(user.id);
+        await holdPosition(portfolio.id, PETR4, {
+          quantity: COLUMN_UNIT,
+          averageCost: COLUMN_UNIT,
+          investedValue: '0',
+          ledgerCurrency: 'BRL'
+        });
+        quoteFrom(
+          t,
+          new FakeMarketDataProvider({
+            PETR4: [
+              { price: COLUMN_UNIT, currency: 'BRL', timestamp: OBSERVED_AT }
+            ]
+          })
+        );
+
+        const res = await requestPosition(
+          accessToken,
+          PETR4.symbol,
+          portfolio.id
+        );
+
+        assert.equal(res.status, 200);
+        assert.equal(res.body.quantity, COLUMN_UNIT);
+        assert.equal(res.body.averageCost, COLUMN_UNIT);
+        assert.equal(res.body.marketPrice, COLUMN_UNIT);
       });
 
       it("answers another user's portfolio exactly like one that does not exist", async () => {

@@ -11,6 +11,8 @@ import { envs } from './Envs';
 
 const [ALLOWED_ORIGIN] = envs.corsAllowedOrigins;
 const FORBIDDEN_ORIGIN = 'https://attacker.example';
+/** Any route reaches the middleware chain; liveness needs neither auth nor database. */
+const PROBE_ROUTE = '/health';
 const REQUEST_ID_HEADER = 'x-request-id';
 const PROPAGATED_REQUEST_ID = 'b7c1d2e3-f4a5-4b6c-8d9e-0f1a2b3c4d5e';
 const GENERATED_REQUEST_ID =
@@ -28,7 +30,7 @@ describe('HTTP hardening', () => {
   describe('CORS', () => {
     it('accepts an allowed origin', async () => {
       const res = await request(app)
-        .get('/v1/assets')
+        .get(PROBE_ROUTE)
         .set('Origin', ALLOWED_ORIGIN);
 
       assert.equal(res.headers['access-control-allow-origin'], ALLOWED_ORIGIN);
@@ -36,7 +38,7 @@ describe('HTTP hardening', () => {
 
     it('rejects an origin outside the allowlist', async () => {
       const res = await request(app)
-        .get('/v1/assets')
+        .get(PROBE_ROUTE)
         .set('Origin', FORBIDDEN_ORIGIN);
 
       assert.equal(res.headers['access-control-allow-origin'], undefined);
@@ -54,7 +56,7 @@ describe('HTTP hardening', () => {
 
   describe('security headers', () => {
     it('sets the headers provided by helmet', async () => {
-      const res = await request(app).get('/v1/assets');
+      const res = await request(app).get(PROBE_ROUTE);
 
       assert.equal(res.headers['x-content-type-options'], 'nosniff');
       assert.equal(res.headers['x-frame-options'], 'SAMEORIGIN');
@@ -63,7 +65,7 @@ describe('HTTP hardening', () => {
     });
 
     it('does not advertise the server framework', async () => {
-      const res = await request(app).get('/v1/assets');
+      const res = await request(app).get(PROBE_ROUTE);
 
       assert.equal(res.headers['x-powered-by'], undefined);
     });
@@ -156,14 +158,14 @@ describe('HTTP hardening', () => {
 
   describe('request correlation', () => {
     it('answers with an id of its own when the caller sent none', async () => {
-      const res = await request(app).get('/v1/assets');
+      const res = await request(app).get(PROBE_ROUTE);
 
       assert.match(res.headers[REQUEST_ID_HEADER], GENERATED_REQUEST_ID);
     });
 
     it('echoes an id the caller propagated', async () => {
       const res = await request(app)
-        .get('/v1/assets')
+        .get(PROBE_ROUTE)
         .set(REQUEST_ID_HEADER, PROPAGATED_REQUEST_ID);
 
       assert.equal(res.headers[REQUEST_ID_HEADER], PROPAGATED_REQUEST_ID);
@@ -173,7 +175,7 @@ describe('HTTP hardening', () => {
       const forgedId = `${PROPAGATED_REQUEST_ID} "injected": true`;
 
       const res = await request(app)
-        .get('/v1/assets')
+        .get(PROBE_ROUTE)
         .set(REQUEST_ID_HEADER, forgedId);
 
       assert.match(res.headers[REQUEST_ID_HEADER], GENERATED_REQUEST_ID);

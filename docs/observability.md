@@ -51,8 +51,9 @@ nunca uma mensagem livre. A severidade de `http_request` sai do status —
 * **user id** — apenas o id de quem está autenticado. Nunca e-mail, nunca token,
   nunca corpo da requisição: um log é lido por mais gente e vive mais tempo do
   que a sessão.
-* **route** — o padrão registrado, não o caminho: `/v1/assets/:symbol` agrupa,
-  `/v1/assets/AAPL` não agruparia. Requisição que não casou rota alguma é
+* **route** — o padrão registrado, não o caminho:
+  `/v1/portfolio/positions/:symbol` agrupa, `/v1/portfolio/positions/AAPL` não
+  agruparia. Requisição que não casou rota alguma é
   registrada como `unmatched`.
 * **status** — o código com que a resposta foi finalizada.
 * **duration** — `performance.now()` na entrada e na finalização da resposta,

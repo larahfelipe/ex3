@@ -30,12 +30,11 @@ import { MAX_PAGE_LIMIT } from '@/validation/schema';
 
 const CREATE_TRANSACTION_ROUTE = '/v1/transaction';
 const TRANSACTIONS_ROUTE = '/v1/transactions';
-const ASSETS_ROUTE = '/v1/assets';
 
 const transactionRoute = (id: string) => `/v1/transaction/${id}`;
 
-/** Mirrors the default page size in `AssetRepository.getAll`. */
-const ASSET_PAGE_LIMIT = 10;
+/** Mirrors the default page size in `PageQuerySchema`. */
+const DEFAULT_PAGE_SIZE = 10;
 
 const INTRUDER_EMAIL = 'intruder@ex3.app';
 
@@ -280,7 +279,7 @@ describe('transactions', () => {
         .query({ portfolioId: holder.portfolio.id })
         .set(bearer(holderToken));
       const intruderListed = await client
-        .get(ASSETS_ROUTE)
+        .get(TRANSACTIONS_ROUTE)
         .query({ portfolioId: intruder.portfolio.id })
         .set(bearer(intruder.accessToken));
 
@@ -289,17 +288,11 @@ describe('transactions', () => {
         holderListed.body.items.map(({ id }: { id: string }) => id),
         [holder.transaction.id]
       );
-      assert.deepEqual(
-        intruderListed.body.assets.map(
-          ({
-            id,
-            transactionCount
-          }: Record<'id', string> & Record<'transactionCount', unknown>) => ({
-            id,
-            transactionCount
-          })
-        ),
-        [{ id: intruderAsset.id, transactionCount: { buy: 2, sell: 0 } }]
+      assert.equal(intruderListed.body.items.length, 2);
+      assert.ok(
+        !intruderListed.body.items.some(
+          ({ id }: { id: string }) => id === holder.transaction.id
+        )
       );
       assert.deepEqual(
         await storedPosition(holder.asset.id),
@@ -316,7 +309,7 @@ describe('transactions', () => {
       const { portfolio, accessToken } =
         await signInWithPortfolio(FIXTURE_USER_EMAIL);
       const symbols = Array.from(
-        { length: ASSET_PAGE_LIMIT + 1 },
+        { length: DEFAULT_PAGE_SIZE + 1 },
         (_, index) => `A${index}`
       );
 
@@ -1148,27 +1141,22 @@ describe('transactions', () => {
     });
 
     it('answers small values in plain decimal notation, without an exponent', async () => {
-      const { portfolio, asset, accessToken, record } =
-        await openEmptyPosition();
+      const { asset, record } = await openEmptyPosition();
 
       const created = await record({
         type: 'BUY',
         quantity: '0.00000001',
         unitPrice: COLUMN_UNIT
       });
-      const read = await client
-        .get(`/v1/asset/${asset.symbol}`)
-        .query({ portfolioId: portfolio.id })
-        .set(bearer(accessToken));
-      const { quantity, averageCost, investedValue } = read.body;
 
       assert.equal(created.status, 201);
       assert.equal(created.body.transaction.quantity, '0.00000001');
       assert.equal(created.body.transaction.unitPrice, COLUMN_UNIT);
-      assert.deepEqual(
-        { quantity, averageCost, investedValue },
-        { quantity: '0.00000001', averageCost: COLUMN_UNIT, investedValue: '0' }
-      );
+      assert.deepEqual(await storedPosition(asset.id), {
+        quantity: '0.00000001',
+        averageCost: COLUMN_UNIT,
+        investedValue: '0'
+      });
     });
 
     it('rejects an entry in a currency other than its ledger holds and records nothing', async () => {

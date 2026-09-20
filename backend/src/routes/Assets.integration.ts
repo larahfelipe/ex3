@@ -1,21 +1,14 @@
 import assert from 'node:assert/strict';
-import { before, describe, it, type TestContext } from 'node:test';
+import { before, describe, it } from 'node:test';
 
 import {
   AssetMessages,
   Errors,
   InstrumentMessages,
-  PortfolioMessages,
-  TransactionTypes
+  PortfolioMessages
 } from '@/config';
-import type { Instrument, Position } from '@/domain/models';
 import { PrismaClient } from '@/infra/database/PrismaClient';
-import { YahooFinanceProvider } from '@/infra/market-data';
 import { apiRequest, bearer, signIn } from '@/test/ApiClient';
-import {
-  FAKE_MARKET_DATA_SOURCE,
-  FakeMarketDataProvider
-} from '@/test/FakeMarketDataProvider';
 import {
   FIXTURE_ASSET_SYMBOL,
   FIXTURE_PASSWORD,
@@ -29,19 +22,12 @@ import {
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
 import { injectWriteFailure } from '@/test/TestDatabase';
 
-const ASSETS_ROUTE = '/v1/assets';
 const CREATE_ASSET_ROUTE = '/v1/asset';
-const ASSET_VALUATIONS_ROUTE = '/v1/assets/valuations';
 
 const assetRoute = (symbol: string) => `/v1/asset/${symbol}`;
 
-/**
- * Mirror `AssetSymbolSchema`, `PaginationQuerySchema` and the default page
- * size in `AssetRepository.getAll`.
- */
+/** Mirrors `AssetSymbolSchema`. */
 const SYMBOL_MAX_LENGTH = 6;
-const DEFAULT_PAGE_LIMIT = 10;
-const MAX_PAGE_LIMIT = 100;
 
 const OTHER_USER_EMAIL = 'other@ex3.app';
 const UNHELD_SYMBOL = 'ETH';
@@ -49,32 +35,7 @@ const UNHELD_SYMBOL = 'ETH';
 /** Outside the letters-and-digits allowlist, as a symbol stored before it existed. */
 const LEGACY_SYMBOL = 'BRK.B';
 
-/**
- * Distinct invested values give `sort` a total order, so paged results are
- * deterministic; without `sort` the API applies no ordering at all.
- */
-const INVESTED_VALUE_STEP = 100;
-
 const prismaClient = PrismaClient.getInstance();
-
-const heldSymbol = (index: number) => `A${index}`;
-
-const heldSymbols = (count: number) =>
-  Array.from({ length: count }, (_, index) => heldSymbol(index));
-
-const holdAssets = (portfolioId: string, count: number) =>
-  Promise.all(
-    heldSymbols(count).map((symbol, index) =>
-      createAsset({
-        portfolioId,
-        symbol,
-        investedValue: String((index + 1) * INVESTED_VALUE_STEP)
-      })
-    )
-  );
-
-const symbolsOf = (assets: ReadonlyArray<{ symbol: string }>) =>
-  assets.map(({ symbol }) => symbol);
 
 describe('assets', () => {
   let client: Awaited<ReturnType<typeof apiRequest>>;
@@ -231,370 +192,12 @@ describe('assets', () => {
     });
   });
 
-  describe('get', () => {
-    it('returns a held asset, matching the symbol case-insensitively', async () => {
-      const { portfolio, asset, accessToken } = await signInSeeded();
-
-      const res = await client
-        .get(assetRoute(asset.symbol.toLowerCase()))
-        .query({ portfolioId: portfolio.id })
-        .set(bearer(accessToken));
-
-      assert.equal(res.status, 200);
-      assert.equal(res.body.id, asset.id);
-      assert.equal(res.body.symbol, asset.symbol);
-      assert.equal(res.body.quantity, asset.quantity.toFixed());
-      assert.equal(res.body.averageCost, asset.averageCost.toFixed());
-      assert.equal(res.body.investedValue, asset.investedValue.toFixed());
-    });
-
-    it('answers not found for a symbol the portfolio does not hold', async () => {
-      const { portfolio, accessToken } = await signInSeeded();
-
-      const res = await client
-        .get(assetRoute(UNHELD_SYMBOL))
-        .query({ portfolioId: portfolio.id })
-        .set(bearer(accessToken));
-
-      assert.equal(res.status, Errors.NOT_FOUND.status);
-      assert.equal(res.body.message, AssetMessages.NOT_FOUND);
-    });
-
-    it("answers another user's asset exactly like one that does not exist", async () => {
-      await seedPortfolio();
-      const { portfolio, accessToken } =
-        await signInWithPortfolio(OTHER_USER_EMAIL);
-
-      const foreign = await client
-        .get(assetRoute(FIXTURE_ASSET_SYMBOL))
-        .query({ portfolioId: portfolio.id })
-        .set(bearer(accessToken));
-      const missing = await client
-        .get(assetRoute(UNHELD_SYMBOL))
-        .query({ portfolioId: portfolio.id })
-        .set(bearer(accessToken));
-
-      assert.equal(foreign.status, Errors.NOT_FOUND.status);
-      assert.deepEqual(foreign.body, missing.body);
-    });
-
-    it('rejects a symbol past the maximum length', async () => {
-      const { portfolio, accessToken } = await signInSeeded();
-
-      const res = await client
-        .get(assetRoute('A'.repeat(SYMBOL_MAX_LENGTH + 1)))
-        .query({ portfolioId: portfolio.id })
-        .set(bearer(accessToken));
-
-      assert.equal(res.status, Errors.VALIDATION.status);
-    });
-
-    it('still reads a stored symbol outside the allowlist for new symbols', async () => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-      await createAsset({ portfolioId: portfolio.id, symbol: LEGACY_SYMBOL });
-
-      const res = await client
-        .get(assetRoute(LEGACY_SYMBOL.toLowerCase()))
-        .query({ portfolioId: portfolio.id })
-        .set(bearer(accessToken));
-
-      assert.equal(res.status, 200);
-      assert.equal(res.body.symbol, LEGACY_SYMBOL);
-    });
-  });
-
-  describe('list', () => {
-    it('lists only the caller portfolio', async () => {
-      await seedPortfolio();
-      const { portfolio, accessToken } =
-        await signInWithPortfolio(OTHER_USER_EMAIL);
-      await createAsset({ portfolioId: portfolio.id, symbol: UNHELD_SYMBOL });
-
-      const res = await client
-        .get(ASSETS_ROUTE)
-        .query({ portfolioId: portfolio.id })
-        .set(bearer(accessToken));
-
-      assert.equal(res.status, 200);
-      assert.deepEqual(symbolsOf(res.body.assets), [UNHELD_SYMBOL]);
-      assert.equal(res.body.pagination.total, 1);
-      assert.equal(res.body.sort, undefined);
-    });
-
-    it('describes an empty portfolio', async () => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-
-      const res = await client
-        .get(ASSETS_ROUTE)
-        .query({ portfolioId: portfolio.id })
-        .set(bearer(accessToken));
-
-      assert.equal(res.status, 200);
-      assert.deepEqual(res.body, {
-        pagination: {
-          page: 1,
-          limit: DEFAULT_PAGE_LIMIT,
-          total: 0,
-          totalPages: 0
-        },
-        assets: []
-      });
-    });
-
-    const transactionCountsOf = (
-      assets: ReadonlyArray<
-        Record<'symbol', string> & Record<'transactionCount', unknown>
-      >
-    ) =>
-      Object.fromEntries(
-        assets.map(({ symbol, transactionCount }) => [symbol, transactionCount])
-      );
-
-    it('counts the buy and sell transactions of each listed asset in the caller portfolio only', async () => {
-      const { portfolio, asset, accessToken } = await signInSeeded();
-      const untraded = await createAsset({
-        portfolioId: portfolio.id,
-        symbol: UNHELD_SYMBOL
-      });
-      const other = await signInWithPortfolio(OTHER_USER_EMAIL);
-      const otherAsset = await createAsset({
-        portfolioId: other.portfolio.id,
-        symbol: asset.symbol
-      });
-      await Promise.all([
-        createTransaction(asset, { type: TransactionTypes.SELL }),
-        createTransaction(asset, { type: TransactionTypes.DIVIDEND }),
-        createTransaction(otherAsset),
-        createTransaction(otherAsset, { type: TransactionTypes.SELL })
-      ]);
-
-      const res = await client
-        .get(ASSETS_ROUTE)
-        .query({ portfolioId: portfolio.id })
-        .set(bearer(accessToken));
-
-      assert.equal(res.status, 200);
-      assert.deepEqual(transactionCountsOf(res.body.assets), {
-        [asset.symbol]: { buy: 1, sell: 1 },
-        [untraded.symbol]: { buy: 0, sell: 0 }
-      });
-    });
-
-    it('counts the transactions of the assets on a later page', async () => {
-      const heldCount = DEFAULT_PAGE_LIMIT + 1;
-      const { portfolio, accessToken } = await signInWithPortfolio();
-      const assets = await holdAssets(portfolio.id, heldCount);
-      await Promise.all(assets.map((held) => createTransaction(held)));
-
-      const res = await client
-        .get(ASSETS_ROUTE)
-        .query({ portfolioId: portfolio.id, page: 2, sort: 'asc' })
-        .set(bearer(accessToken));
-
-      assert.equal(res.status, 200);
-      assert.deepEqual(transactionCountsOf(res.body.assets), {
-        [heldSymbol(DEFAULT_PAGE_LIMIT)]: { buy: 1, sell: 0 }
-      });
-    });
-  });
-
-  describe('pagination', () => {
-    it('defaults to the first page of the default size', async () => {
-      const heldCount = DEFAULT_PAGE_LIMIT + 1;
-      const { portfolio, accessToken } = await signInWithPortfolio();
-      await holdAssets(portfolio.id, heldCount);
-
-      const res = await client
-        .get(ASSETS_ROUTE)
-        .query({ portfolioId: portfolio.id })
-        .set(bearer(accessToken));
-
-      assert.equal(res.status, 200);
-      assert.equal(res.body.assets.length, DEFAULT_PAGE_LIMIT);
-      assert.deepEqual(res.body.pagination, {
-        page: 1,
-        limit: DEFAULT_PAGE_LIMIT,
-        total: heldCount,
-        totalPages: 2
-      });
-    });
-
-    it('splits the portfolio into disjoint pages that cover all of it, the last one partial', async () => {
-      const heldCount = 5;
-      const limit = 2;
-      const totalPages = Math.ceil(heldCount / limit);
-      const { portfolio, accessToken } = await signInWithPortfolio();
-      await holdAssets(portfolio.id, heldCount);
-
-      const pagedSymbols = [];
-
-      for (let page = 1; page <= totalPages; page += 1) {
-        const res = await client
-          .get(ASSETS_ROUTE)
-          .query({ portfolioId: portfolio.id, page, limit, sort: 'asc' })
-          .set(bearer(accessToken));
-
-        assert.equal(res.status, 200);
-        assert.deepEqual(res.body.pagination, {
-          page,
-          limit,
-          total: heldCount,
-          totalPages
-        });
-        pagedSymbols.push(symbolsOf(res.body.assets));
-      }
-
-      assert.deepEqual(pagedSymbols, [
-        [heldSymbol(0), heldSymbol(1)],
-        [heldSymbol(2), heldSymbol(3)],
-        [heldSymbol(4)]
-      ]);
-    });
-
-    it('returns no assets past the last page', async () => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-      await holdAssets(portfolio.id, DEFAULT_PAGE_LIMIT);
-
-      const res = await client
-        .get(ASSETS_ROUTE)
-        .query({ portfolioId: portfolio.id, page: 2 })
-        .set(bearer(accessToken));
-
-      assert.equal(res.status, 200);
-      assert.deepEqual(res.body.assets, []);
-      assert.equal(res.body.pagination.page, 2);
-      assert.equal(res.body.pagination.totalPages, 1);
-    });
-
-    it('rejects a page or limit that is not a positive number', async () => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-
-      for (const query of [
-        { page: 0 },
-        { page: -1 },
-        { page: 'first' },
-        { limit: 0 }
-      ]) {
-        const res = await client
-          .get(ASSETS_ROUTE)
-          .query({ ...query, portfolioId: portfolio.id })
-          .set(bearer(accessToken));
-
-        assert.equal(
-          res.status,
-          Errors.VALIDATION.status,
-          JSON.stringify(query)
-        );
-      }
-    });
-
-    it('rejects a fractional page or limit', async () => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-
-      for (const query of [{ page: 1.5 }, { limit: 2.5 }]) {
-        const res = await client
-          .get(ASSETS_ROUTE)
-          .query({ ...query, portfolioId: portfolio.id })
-          .set(bearer(accessToken));
-
-        assert.equal(
-          res.status,
-          Errors.VALIDATION.status,
-          JSON.stringify(query)
-        );
-      }
-    });
-
-    it('bounds the page size', async () => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-
-      const atBound = await client
-        .get(ASSETS_ROUTE)
-        .query({ portfolioId: portfolio.id, limit: MAX_PAGE_LIMIT })
-        .set(bearer(accessToken));
-      const pastBound = await client
-        .get(ASSETS_ROUTE)
-        .query({ portfolioId: portfolio.id, limit: MAX_PAGE_LIMIT + 1 })
-        .set(bearer(accessToken));
-
-      assert.equal(atBound.status, 200);
-      assert.equal(atBound.body.pagination.limit, MAX_PAGE_LIMIT);
-      assert.equal(pastBound.status, Errors.VALIDATION.status);
-    });
-  });
-
-  describe('sort', () => {
-    it('orders by invested value in either direction, case-insensitively', async () => {
-      const heldCount = 3;
-      const { portfolio, accessToken } = await signInWithPortfolio();
-      await holdAssets(portfolio.id, heldCount);
-
-      const ascending = await client
-        .get(ASSETS_ROUTE)
-        .query({ portfolioId: portfolio.id, sort: 'asc' })
-        .set(bearer(accessToken));
-      const descending = await client
-        .get(ASSETS_ROUTE)
-        .query({ portfolioId: portfolio.id, sort: 'DESC' })
-        .set(bearer(accessToken));
-
-      assert.deepEqual(
-        symbolsOf(ascending.body.assets),
-        heldSymbols(heldCount)
-      );
-      assert.deepEqual(ascending.body.sort, {
-        field: 'investedValue',
-        order: 'asc'
-      });
-      assert.deepEqual(
-        symbolsOf(descending.body.assets),
-        heldSymbols(heldCount).reverse()
-      );
-      assert.deepEqual(descending.body.sort, {
-        field: 'investedValue',
-        order: 'desc'
-      });
-    });
-
-    it('rejects an unknown sort order', async () => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-
-      const res = await client
-        .get(ASSETS_ROUTE)
-        .query({ portfolioId: portfolio.id, sort: 'up' })
-        .set(bearer(accessToken));
-
-      assert.equal(res.status, Errors.VALIDATION.status);
-    });
-  });
-
   /**
    * The API has no search. The web filters the page it already fetched by
    * symbol substring (`assets-table.tsx`), so it never finds a match on another
    * page (baseline #25, TASK 9.1). That filter relies on the listing not being
    * narrowed by anything in the query besides paging and sorting.
    */
-  describe('search', () => {
-    it('does not narrow the listing by a symbol in the query', async () => {
-      const heldCount = 3;
-      const { portfolio, accessToken } = await signInWithPortfolio();
-      await holdAssets(portfolio.id, heldCount);
-
-      const res = await client
-        .get(ASSETS_ROUTE)
-        .query({
-          portfolioId: portfolio.id,
-          symbol: heldSymbol(0),
-          search: heldSymbol(0),
-          sort: 'asc'
-        })
-        .set(bearer(accessToken));
-
-      assert.equal(res.status, 200);
-      assert.deepEqual(symbolsOf(res.body.assets), heldSymbols(heldCount));
-    });
-  });
-
   describe('rename', () => {
     const RENAMED_SYMBOL = 'XBT';
 
@@ -855,252 +458,6 @@ describe('assets', () => {
     });
   });
 
-  describe('valuations', () => {
-    const OBSERVED_AT = new Date('2026-09-11T19:55:00.000Z');
-
-    type HeldAsset = Pick<Instrument, 'symbol' | 'market' | 'currency'> & {
-      position?: Pick<Position, 'quantity' | 'averageCost' | 'investedValue'> &
-        Record<'ledgerCurrency', string>;
-    };
-
-    const holdAsset = async (
-      portfolioId: string,
-      { position, ...instrument }: HeldAsset
-    ) => {
-      await createInstrument(instrument);
-
-      if (!position)
-        return createAsset({ portfolioId, symbol: instrument.symbol });
-
-      const { ledgerCurrency, ...stated } = position;
-      const asset = await createAsset({
-        portfolioId,
-        symbol: instrument.symbol,
-        ...stated
-      });
-      await createTransaction(asset, {
-        quantity: stated.quantity,
-        unitPrice: stated.averageCost,
-        currency: ledgerCurrency
-      });
-
-      return asset;
-    };
-
-    const observedPrice = (price: string, currency: string) => ({
-      price,
-      currency,
-      timestamp: OBSERVED_AT
-    });
-
-    const quoted = (price: string, currency: string) => ({
-      ...observedPrice(price, currency),
-      timestamp: OBSERVED_AT.toISOString(),
-      source: FAKE_MARKET_DATA_SOURCE
-    });
-
-    const quoteFrom = (
-      t: TestContext,
-      provider: Pick<YahooFinanceProvider, 'getQuotes'>
-    ) =>
-      t.mock.method(
-        YahooFinanceProvider.getInstance(),
-        'getQuotes',
-        (instruments: Parameters<YahooFinanceProvider['getQuotes']>[0]) =>
-          provider.getQuotes(instruments)
-      );
-
-    const requestValuations = (
-      accessToken: string,
-      portfolioId: string,
-      symbols?: string
-    ) =>
-      client
-        .get(ASSET_VALUATIONS_ROUTE)
-        .query({ portfolioId, symbols })
-        .set(bearer(accessToken));
-
-    const bySymbol = <Item extends { symbol: string }>(
-      items: ReadonlyArray<Item>
-    ) => items.toSorted((a, b) => a.symbol.localeCompare(b.symbol));
-
-    it('values each held asset at its quote, with a profit only against a cost in the quote currency', async (t) => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-      await holdAsset(portfolio.id, {
-        symbol: 'AAPL',
-        market: 'NASDAQ',
-        currency: 'USD',
-        position: {
-          quantity: '2',
-          averageCost: '200',
-          investedValue: '400',
-          ledgerCurrency: 'USD'
-        }
-      });
-      await holdAsset(portfolio.id, {
-        symbol: 'BTC',
-        market: 'CRYPTO',
-        currency: 'USD',
-        position: {
-          quantity: '0.5',
-          averageCost: '300000',
-          investedValue: '150000',
-          ledgerCurrency: 'BRL'
-        }
-      });
-      await holdAsset(portfolio.id, {
-        symbol: 'PETR4',
-        market: 'B3',
-        currency: 'BRL'
-      });
-      await createInstrument({
-        symbol: UNHELD_SYMBOL,
-        market: 'CRYPTO',
-        currency: 'USD'
-      });
-      const getQuotes = quoteFrom(
-        t,
-        new FakeMarketDataProvider({
-          AAPL: [observedPrice('229.5', 'USD')],
-          BTC: [observedPrice('64000.12', 'USD')],
-          PETR4: [observedPrice('47.11', 'BRL')],
-          [UNHELD_SYMBOL]: [observedPrice('3000', 'USD')]
-        })
-      );
-
-      const res = await requestValuations(
-        accessToken,
-        portfolio.id,
-        `aapl,BTC,PETR4,btc,${UNHELD_SYMBOL}`
-      );
-
-      assert.equal(res.status, 200);
-      assert.deepEqual(bySymbol(res.body.valuations), [
-        {
-          symbol: 'AAPL',
-          outcome: 'valued',
-          quote: quoted('229.5', 'USD'),
-          marketValue: '459',
-          profitLoss: '59',
-          profitLossPercent: '0.1475'
-        },
-        {
-          symbol: 'BTC',
-          outcome: 'valued',
-          quote: quoted('64000.12', 'USD'),
-          marketValue: '32000.06'
-        },
-        {
-          symbol: 'PETR4',
-          outcome: 'valued',
-          quote: quoted('47.11', 'BRL'),
-          marketValue: '0'
-        }
-      ]);
-      assert.equal(getQuotes.mock.callCount(), 1);
-      assert.deepEqual(
-        bySymbol(getQuotes.mock.calls[0].arguments[0]).map(
-          ({ symbol, market, currency }) => ({ symbol, market, currency })
-        ),
-        [
-          { symbol: 'AAPL', market: 'NASDAQ', currency: 'USD' },
-          { symbol: 'BTC', market: 'CRYPTO', currency: 'USD' },
-          { symbol: 'PETR4', market: 'B3', currency: 'BRL' }
-        ]
-      );
-    });
-
-    it('answers an asset the provider has no quote for as not found', async (t) => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-      await holdAsset(portfolio.id, {
-        symbol: 'KO',
-        market: 'NYSE',
-        currency: 'USD'
-      });
-      quoteFrom(t, new FakeMarketDataProvider({}));
-
-      const res = await requestValuations(accessToken, portfolio.id, 'KO');
-
-      assert.equal(res.status, 200);
-      assert.deepEqual(res.body, {
-        valuations: [{ symbol: 'KO', outcome: 'not-found' }]
-      });
-    });
-
-    it('answers every asset as unavailable while the provider is', async (t) => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-      await holdAsset(portfolio.id, {
-        symbol: 'KO',
-        market: 'NYSE',
-        currency: 'USD'
-      });
-      quoteFrom(
-        t,
-        new FakeMarketDataProvider(
-          { KO: [observedPrice('70.12', 'USD')] },
-          { isAvailable: false }
-        )
-      );
-
-      const res = await requestValuations(accessToken, portfolio.id, 'KO');
-
-      assert.equal(res.status, 200);
-      assert.deepEqual(res.body, {
-        valuations: [{ symbol: 'KO', outcome: 'unavailable' }]
-      });
-    });
-
-    it('answers every asset as unavailable without a provider key, sending no request', async (t) => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-      await holdAsset(portfolio.id, {
-        symbol: 'KO',
-        market: 'NYSE',
-        currency: 'USD'
-      });
-      quoteFrom(t, new YahooFinanceProvider({ apiKey: undefined }));
-      const sentRequests = t.mock.method(globalThis, 'fetch', () =>
-        Promise.reject(new TypeError('Tests send no request to a provider'))
-      );
-
-      const res = await requestValuations(accessToken, portfolio.id, 'KO');
-
-      assert.equal(res.status, 200);
-      assert.deepEqual(res.body, {
-        valuations: [{ symbol: 'KO', outcome: 'unavailable' }]
-      });
-      assert.equal(sentRequests.mock.callCount(), 0);
-    });
-
-    it('values as many symbols as the largest page holds', async () => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-
-      const res = await requestValuations(
-        accessToken,
-        portfolio.id,
-        heldSymbols(MAX_PAGE_LIMIT).join(',')
-      );
-
-      assert.equal(res.status, 200);
-      assert.deepEqual(res.body, { valuations: [] });
-    });
-
-    it('rejects a missing, empty, malformed or oversized list of symbols', async () => {
-      const { portfolio, accessToken } = await signInWithPortfolio();
-
-      for (const symbols of [
-        undefined,
-        '',
-        'KO,,AAPL',
-        'A'.repeat(SYMBOL_MAX_LENGTH + 1),
-        heldSymbols(MAX_PAGE_LIMIT + 1).join(',')
-      ]) {
-        const res = await requestValuations(accessToken, portfolio.id, symbols);
-
-        assert.equal(res.status, Errors.VALIDATION.status, String(symbols));
-      }
-    });
-  });
-
   describe('portfolio scope', () => {
     /** Well-formed, and naming no portfolio: the baseline a foreign portfolio id must be indistinguishable from. */
     const MISSING_PORTFOLIO_ID = '00000000-0000-4000-8000-000000000000';
@@ -1111,21 +468,6 @@ describe('assets', () => {
           .post(CREATE_ASSET_ROUTE)
           .set(bearer(accessToken))
           .send({ symbol: UNHELD_SYMBOL, portfolioId }),
-      'GET assets': (accessToken: string, portfolioId?: string) =>
-        client
-          .get(ASSETS_ROUTE)
-          .query({ portfolioId })
-          .set(bearer(accessToken)),
-      'GET asset': (accessToken: string, portfolioId?: string) =>
-        client
-          .get(assetRoute(FIXTURE_ASSET_SYMBOL))
-          .query({ portfolioId })
-          .set(bearer(accessToken)),
-      'GET asset valuations': (accessToken: string, portfolioId?: string) =>
-        client
-          .get(ASSET_VALUATIONS_ROUTE)
-          .query({ portfolioId, symbols: FIXTURE_ASSET_SYMBOL })
-          .set(bearer(accessToken)),
       'PATCH asset': (accessToken: string, portfolioId?: string) =>
         client
           .patch(assetRoute(FIXTURE_ASSET_SYMBOL))
@@ -1210,19 +552,18 @@ describe('assets', () => {
         .post(CREATE_ASSET_ROUTE)
         .set(bearer(accessToken))
         .send({ symbol: asset.symbol, portfolioId: secondPortfolio.id });
-      const listedIds = async (portfolioId: string) => {
-        const res = await client
-          .get(ASSETS_ROUTE)
-          .query({ portfolioId })
-          .set(bearer(accessToken));
-
-        return res.body.assets.map(({ id }: { id: string }) => id);
-      };
+      const storedIds = async (portfolioId: string) =>
+        (
+          await prismaClient.position.findMany({
+            where: { portfolioId },
+            select: { id: true }
+          })
+        ).map(({ id }) => id);
 
       assert.equal(opened.status, 201);
       assert.equal(opened.body.asset.instrumentId, asset.instrumentId);
-      assert.deepEqual(await listedIds(portfolio.id), [asset.id]);
-      assert.deepEqual(await listedIds(secondPortfolio.id), [
+      assert.deepEqual(await storedIds(portfolio.id), [asset.id]);
+      assert.deepEqual(await storedIds(secondPortfolio.id), [
         opened.body.asset.id
       ]);
 
