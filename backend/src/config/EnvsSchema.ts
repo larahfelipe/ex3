@@ -76,31 +76,45 @@ const originList = z
       .min(1, 'At least one origin is required')
   );
 
+/**
+ * `.env.example` ships every optional key blank, so a copied file carries empty
+ * strings. Without this they would be read as values — `PORT=` as the number
+ * zero — and startup would fail on an environment that set nothing at all.
+ */
+const blankAsAbsent = <Schema extends z.ZodType>(schema: Schema) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema);
+
 const EnvsSchema = z
   .object({
-    NODE_ENV: z
-      .enum(['development', 'test', 'production'])
-      .default('development'),
-    PORT: z.coerce.number().int().positive().default(DEFAULT_PORT),
+    NODE_ENV: blankAsAbsent(
+      z.enum(['development', 'test', 'production']).default('development')
+    ),
+    PORT: blankAsAbsent(
+      z.coerce.number().int().positive().default(DEFAULT_PORT)
+    ),
     DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-    DIRECT_URL: z.string().min(1).optional(),
-    BCRYPT_SALT: z.coerce
-      .number()
-      .int()
-      .min(
-        BCRYPT_SALT_MIN_ROUNDS,
-        `Must be at least ${BCRYPT_SALT_MIN_ROUNDS} rounds`
-      )
-      .default(DEFAULT_BCRYPT_SALT),
+    DIRECT_URL: blankAsAbsent(z.string().min(1).optional()),
+    BCRYPT_SALT: blankAsAbsent(
+      z.coerce
+        .number()
+        .int()
+        .min(
+          BCRYPT_SALT_MIN_ROUNDS,
+          `Must be at least ${BCRYPT_SALT_MIN_ROUNDS} rounds`
+        )
+        .default(DEFAULT_BCRYPT_SALT)
+    ),
     JWT_SECRET: z
       .string({ error: 'JWT_SECRET is required' })
       .min(
         JWT_SECRET_MIN_LENGTH,
         `Must have at least ${JWT_SECRET_MIN_LENGTH} characters`
       ),
-    JWT_EXPIRATION: tokenLifetimeSeconds.prefault(DEFAULT_JWT_EXPIRATION),
-    CORS_ALLOWED_ORIGINS: originList.optional(),
-    YAHOO_FINANCE_API_KEY: z.string().optional()
+    JWT_EXPIRATION: blankAsAbsent(
+      tokenLifetimeSeconds.prefault(DEFAULT_JWT_EXPIRATION)
+    ),
+    CORS_ALLOWED_ORIGINS: blankAsAbsent(originList.optional()),
+    YAHOO_FINANCE_API_KEY: blankAsAbsent(z.string().optional())
   })
   .superRefine((envs, ctx) => {
     if (envs.NODE_ENV === 'production' && !envs.CORS_ALLOWED_ORIGINS?.length)
@@ -120,8 +134,7 @@ const EnvsSchema = z
     jwtSecret: envs.JWT_SECRET,
     jwtExpirationSeconds: envs.JWT_EXPIRATION,
     corsAllowedOrigins: envs.CORS_ALLOWED_ORIGINS ?? [],
-    yahooFinanceApiKey:
-      envs.YAHOO_FINANCE_API_KEY === '' ? undefined : envs.YAHOO_FINANCE_API_KEY
+    yahooFinanceApiKey: envs.YAHOO_FINANCE_API_KEY
   }));
 
 export type Envs = z.infer<typeof EnvsSchema>;

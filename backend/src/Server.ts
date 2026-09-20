@@ -1,23 +1,32 @@
-/* eslint-disable no-console */
 import { app, envs } from '@/config';
 import { PrismaClient } from '@/infra/database/PrismaClient';
+import { LogSeverities, log } from '@/infra/observability';
 
 const bootstrap = async () => {
   try {
     const prismaClient = PrismaClient.getInstance();
     await prismaClient.makeConnection();
   } catch (e) {
-    console.error(`\nError while connecting to database: ${e}`);
+    log({
+      severity: LogSeverities.ERROR,
+      event: 'database_unreachable',
+      reason: e instanceof Error ? e.message : String(e)
+    });
     process.exit(1);
   }
 
   if (envs.yahooFinanceApiKey === undefined)
-    console.warn(
-      '\nYAHOO_FINANCE_API_KEY is not set: every quote is reported as unavailable'
-    );
+    log({
+      severity: LogSeverities.WARNING,
+      event: 'quote_provider_key_missing'
+    });
 
   app.listen(envs.port, () =>
-    console.log(`\nServer running on port ${envs.port}`)
+    log({
+      severity: LogSeverities.INFO,
+      event: 'server_started',
+      port: envs.port
+    })
   );
 };
 

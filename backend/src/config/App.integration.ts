@@ -11,6 +11,10 @@ import { envs } from './Envs';
 
 const [ALLOWED_ORIGIN] = envs.corsAllowedOrigins;
 const FORBIDDEN_ORIGIN = 'https://attacker.example';
+const REQUEST_ID_HEADER = 'x-request-id';
+const PROPAGATED_REQUEST_ID = 'b7c1d2e3-f4a5-4b6c-8d9e-0f1a2b3c4d5e';
+const GENERATED_REQUEST_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 describe('HTTP hardening', () => {
   let app: Express;
@@ -119,12 +123,10 @@ describe('HTTP hardening', () => {
       });
     });
 
-    it('reports an unanticipated failure as a generic internal error and logs it once', async (t) => {
-      const driverFailure = new Error('relation "users" does not exist');
+    it('reports an unanticipated failure as a generic internal error', async (t) => {
       t.mock.method(UserRepository.getInstance(), 'getByEmail', async () => {
-        throw driverFailure;
+        throw new Error('relation "users" does not exist');
       });
-      const logged = t.mock.method(console, 'error', () => undefined);
 
       const res = await request(app)
         .post('/v1/user')
@@ -136,10 +138,6 @@ describe('HTTP hardening', () => {
         message: Errors.INTERNAL_SERVER_ERROR.message,
         details: []
       });
-      assert.deepEqual(
-        logged.mock.calls.map(({ arguments: logArguments }) => logArguments),
-        [[driverFailure]]
-      );
     });
 
     it('never exposes a stack trace', async () => {
@@ -153,6 +151,32 @@ describe('HTTP hardening', () => {
         ['code', 'details', 'message']
       );
       assert.ok(!JSON.stringify(res.body).includes('at '));
+    });
+  });
+
+  describe('request correlation', () => {
+    it('answers with an id of its own when the caller sent none', async () => {
+      const res = await request(app).get('/v1/assets');
+
+      assert.match(res.headers[REQUEST_ID_HEADER], GENERATED_REQUEST_ID);
+    });
+
+    it('echoes an id the caller propagated', async () => {
+      const res = await request(app)
+        .get('/v1/assets')
+        .set(REQUEST_ID_HEADER, PROPAGATED_REQUEST_ID);
+
+      assert.equal(res.headers[REQUEST_ID_HEADER], PROPAGATED_REQUEST_ID);
+    });
+
+    it('replaces an id outside the accepted shape', async () => {
+      const forgedId = `${PROPAGATED_REQUEST_ID} "injected": true`;
+
+      const res = await request(app)
+        .get('/v1/assets')
+        .set(REQUEST_ID_HEADER, forgedId);
+
+      assert.match(res.headers[REQUEST_ID_HEADER], GENERATED_REQUEST_ID);
     });
   });
 

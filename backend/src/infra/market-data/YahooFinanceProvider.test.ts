@@ -5,6 +5,7 @@ import type {
   PricedInstrument,
   QuoteLookup
 } from '@/domain/MarketDataProvider';
+import type { LogEntry } from '@/infra/observability';
 
 import {
   YAHOO_FINANCE_SOURCE,
@@ -112,9 +113,11 @@ const stubProvider = (
 ) => {
   const clock = { now: NOW };
   const calls: ProviderCall[] = [];
+  const logEntries: LogEntry[] = [];
   const provider = new YahooFinanceProvider({
     apiKey: hasApiKey ? API_KEY : undefined,
     now: () => clock.now,
+    logEntry: (entry) => logEntries.push(entry),
     fetchResponse: async (input, init = {}) => {
       const url = new URL(String(input));
       calls.push({ url, init });
@@ -123,7 +126,7 @@ const stubProvider = (
     }
   });
 
-  return { provider, calls, clock };
+  return { provider, calls, clock, logEntries };
 };
 
 describe('YahooFinanceProvider', () => {
@@ -263,9 +266,10 @@ describe('YahooFinanceProvider', () => {
       assert.equal(calls.length, 0);
     });
 
-    it('reports a failed request as unavailable and leaves the provider alone during the cooldown', async (t) => {
-      const warn = t.mock.method(console, 'warn', () => undefined);
-      const { provider, calls, clock } = stubProvider(() => json({}, 503));
+    it('reports a failed request as unavailable and leaves the provider alone during the cooldown', async () => {
+      const { provider, calls, clock, logEntries } = stubProvider(() =>
+        json({}, 503)
+      );
 
       const unavailable = new Map([['AAPL', { outcome: 'unavailable' }]]);
 
@@ -277,15 +281,16 @@ describe('YahooFinanceProvider', () => {
       clock.now += 1;
       await provider.getQuotes([AAPL]);
       assert.equal(calls.length, 2);
+      assert.deepEqual(
+        logEntries.map(({ event }) => event),
+        ['quote_provider_unavailable', 'quote_provider_unavailable']
+      );
       assert.ok(
-        warn.mock.calls.every(
-          ({ arguments: [message] }) => !String(message).includes(API_KEY)
-        )
+        logEntries.every((entry) => !JSON.stringify(entry).includes(API_KEY))
       );
     });
 
-    it('answers the last quote received while the provider fails', async (t) => {
-      t.mock.method(console, 'warn', () => undefined);
+    it('answers the last quote received while the provider fails', async () => {
       const responses = [quoteResponse(quoteItem('AAPL')), json({}, 429)];
       const { provider, clock } = stubProvider(
         () => responses.shift() ?? json({}, 500)
@@ -300,9 +305,7 @@ describe('YahooFinanceProvider', () => {
       );
     });
 
-    it('reports a timeout or a network failure as unavailable', async (t) => {
-      t.mock.method(console, 'warn', () => undefined);
-
+    it('reports a timeout or a network failure as unavailable', async () => {
       for (const failure of [
         new DOMException('The operation timed out', 'TimeoutError'),
         new TypeError('fetch failed')

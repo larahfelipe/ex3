@@ -1,8 +1,8 @@
-/* eslint-disable no-console */
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Prisma, PrismaClient as _PrismaClient } from '@prisma/client';
 
 import { envs } from '@/config';
+import { LogSeverities, log } from '@/infra/observability';
 
 /** Prisma's code for a transaction Postgres aborted over a write conflict or a deadlock. */
 const TRANSACTION_WRITE_CONFLICT = 'P2034';
@@ -77,6 +77,6 @@ export class PrismaClient extends _PrismaClient {
     await this.$queryRaw`SELECT 1`;
 
     this._isConnected = true;
-    console.log('\nConnection to database established');
+    log({ severity: LogSeverities.INFO, event: 'database_connected' });
   }
 }

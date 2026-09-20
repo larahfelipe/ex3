@@ -21,7 +21,7 @@ export default tseslint.config(
     },
     rules: {
       'no-duplicate-imports': 'error',
-      'no-console': ['error', { allow: ['error', 'warn'] }],
+      'no-console': 'error',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-require-imports': 'off',
@@ -39,6 +39,12 @@ export default tseslint.config(
           alphabetize: { order: 'asc', ignoreCase: true }
         }
       ]
+    }
+  },
+  {
+    files: ['src/test/**/*.ts'],
+    rules: {
+      'no-console': 'off'
     }
   }
 );

@@ -5,7 +5,8 @@ import helmet from 'helmet';
 import {
   apiRateLimitMiddleware,
   errorHandlerMiddleware,
-  notFoundMiddleware
+  notFoundMiddleware,
+  requestLogMiddleware
 } from '@/middleware';
 import { router } from '@/routes';
 
@@ -40,6 +41,7 @@ app.disable('x-powered-by');
  */
 app.set('trust proxy', envs.isProduction ? 1 : false);
 
+app.use(requestLogMiddleware);
 app.use(helmet());
 app.use(cors(corsOptions));
 app.use(express.json({ limit: RequestLimits.JSON_BODY_SIZE }));

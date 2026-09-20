@@ -49,6 +49,25 @@ describe('parseEnvs', () => {
     assert.deepEqual(envs.corsAllowedOrigins, []);
   });
 
+  it('reads a key left blank, as the example file ships it, as unset', () => {
+    const envs = parseEnvs({
+      ...validEnvs,
+      NODE_ENV: '',
+      PORT: '',
+      DIRECT_URL: '',
+      BCRYPT_SALT: '',
+      JWT_EXPIRATION: '',
+      CORS_ALLOWED_ORIGINS: ''
+    });
+
+    assert.equal(envs.nodeEnv, 'development');
+    assert.equal(envs.port, 8080);
+    assert.equal(envs.dbDirectUrl, undefined);
+    assert.equal(envs.bcryptSalt, 12);
+    assert.equal(envs.jwtExpirationSeconds, SECONDS_PER_DAY);
+    assert.deepEqual(envs.corsAllowedOrigins, []);
+  });
+
   it('rejects a missing JWT_SECRET', () => {
     expectIssue({ DATABASE_URL: validEnvs.DATABASE_URL }, 'JWT_SECRET');
   });
@@ -99,7 +118,7 @@ describe('parseEnvs', () => {
   });
 
   it('rejects a JWT_EXPIRATION without a supported unit', () => {
-    for (const JWT_EXPIRATION of ['', '3600', '1w', '1.5h', ' 1h', '1h '])
+    for (const JWT_EXPIRATION of ['3600', '1w', '1.5h', ' 1h', '1h '])
       expectIssue({ ...validEnvs, JWT_EXPIRATION }, 'JWT_EXPIRATION');
   });
 

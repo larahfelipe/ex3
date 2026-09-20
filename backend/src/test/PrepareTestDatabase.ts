@@ -1,6 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 
+import { envs } from '@/config';
+
 import { assertDatabaseReachable, disconnectDatabase } from './TestDatabase';
 
 const PRISMA_CLI_ENTRY = 'prisma/build/index.js';
@@ -20,7 +22,9 @@ class TestDatabaseSetupError extends Error {
 /**
  * The CLI is spawned instead of imported because Prisma exposes migration
  * deployment only as a command. It reads the connection string through
- * `prisma.config.ts`, which picks it up from the inherited environment.
+ * `prisma.config.ts`, which prefers `DIRECT_URL` and falls back to whatever the
+ * environment holds: both are pinned to the test database here, or a developer
+ * `.env` naming a deployed database would receive these migrations.
  *
  * Output is captured and surfaced only on failure, so a successful run adds
  * nothing to the test output.
@@ -31,7 +35,14 @@ const applyMigrations = () => {
   const { status, stdout, stderr } = spawnSync(
     process.execPath,
     [cliEntry, 'migrate', 'deploy'],
-    { encoding: 'utf8' }
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        DATABASE_URL: envs.dbAccessUrl,
+        DIRECT_URL: envs.dbAccessUrl
+      }
+    }
   );
 
   if (status !== 0)
