@@ -2,18 +2,55 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-const Table = React.forwardRef<
-  HTMLTableElement,
-  React.HTMLAttributes<HTMLTableElement>
->(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-auto">
-    <table
-      ref={ref}
-      className={cn('w-full caption-bottom text-sm', className)}
-      {...props}
-    />
-  </div>
-));
+type TableProps = React.HTMLAttributes<HTMLTableElement> &
+  Record<'label', string> &
+  Partial<Record<'regionClassName', string>>;
+
+const Table = React.forwardRef<HTMLTableElement, TableProps>(
+  ({ className, label, regionClassName, ...props }, ref) => {
+    const [isScrollable, setIsScrollable] = React.useState(false);
+    const regionRef = React.useRef<HTMLElement>(null);
+
+    React.useEffect(() => {
+      const region = regionRef.current;
+      const table = region?.firstElementChild;
+
+      if (!region || !table) return;
+
+      const observer = new ResizeObserver(() => {
+        setIsScrollable(
+          region.scrollWidth > region.clientWidth ||
+            region.scrollHeight > region.clientHeight
+        );
+      });
+
+      observer.observe(region);
+      observer.observe(table);
+
+      return () => observer.disconnect();
+    }, []);
+
+    // Only a region that actually scrolls is named and focusable: otherwise every
+    // table would add a landmark and a tab stop that lead nowhere.
+    return (
+      <section
+        ref={regionRef}
+        aria-label={isScrollable ? label : undefined}
+        tabIndex={isScrollable ? 0 : undefined}
+        className={cn(
+          'relative w-full overflow-auto ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2',
+          regionClassName
+        )}
+      >
+        <table
+          ref={ref}
+          className={cn('w-full caption-bottom text-sm', className)}
+          {...props}
+        />
+      </section>
+    );
+  }
+);
 Table.displayName = 'Table';
 
 const TableHeader = React.forwardRef<

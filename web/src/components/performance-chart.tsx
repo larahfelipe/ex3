@@ -269,70 +269,67 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
               </summary>
 
               {isTableOpen && (
-                <section
-                  tabIndex={0}
-                  aria-label="Performance table"
-                  className="mt-3 max-h-72 overflow-y-auto ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
+                <Table
+                  label="Performance table"
+                  regionClassName="mt-3 max-h-72"
                 >
-                  <Table>
-                    <TableCaption className="sr-only">{caption}</TableCaption>
+                  <TableCaption className="sr-only">{caption}</TableCaption>
 
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Day</TableHead>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Day</TableHead>
 
-                        <TableHead className="text-right">Value</TableHead>
+                      <TableHead className="text-right">Value</TableHead>
 
-                        <TableHead className="text-right">Invested</TableHead>
+                      <TableHead className="text-right">Invested</TableHead>
 
-                        <TableHead className="text-right">
-                          Net contribution
-                        </TableHead>
+                      <TableHead className="text-right">
+                        Net contribution
+                      </TableHead>
 
-                        <TableHead className="text-right">Return</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                      <TableHead className="text-right">Return</TableHead>
+                    </TableRow>
+                  </TableHeader>
 
-                    <TableBody>
-                      {series.map(
-                        ({
-                          date,
-                          value,
-                          investedValue,
-                          netContribution,
-                          twr
-                        }) => (
-                          <TableRow key={date}>
-                            <TableCell>{formatSeriesDay(date)}</TableCell>
+                  <TableBody>
+                    {series.map(
+                      ({
+                        date,
+                        value,
+                        investedValue,
+                        netContribution,
+                        twr
+                      }) => (
+                        <TableRow key={date}>
+                          <TableCell>{formatSeriesDay(date)}</TableCell>
 
-                            <TableCell className="text-right font-medium">
-                              <Money value={value} currency={baseCurrency} />
-                            </TableCell>
+                          <TableCell className="text-right font-medium">
+                            <Money value={value} currency={baseCurrency} />
+                          </TableCell>
 
-                            <TableCell className="text-right">
-                              <Money
-                                value={investedValue}
-                                currency={baseCurrency}
-                              />
-                            </TableCell>
+                          <TableCell className="text-right">
+                            <Money
+                              value={investedValue}
+                              currency={baseCurrency}
+                            />
+                          </TableCell>
 
-                            <TableCell className="text-right">
-                              <Money
-                                signed
-                                value={netContribution}
-                                currency={baseCurrency}
-                              />
-                            </TableCell>
+                          <TableCell className="text-right">
+                            <Money
+                              signed
+                              value={netContribution}
+                              currency={baseCurrency}
+                            />
+                          </TableCell>
 
-                            <TableCell className="text-right">
-                              <Trend value={twr} />
-                            </TableCell>
-                          </TableRow>
-                        )
-                      )}
-                    </TableBody>
-                  </Table>
-                </section>
+                          <TableCell className="text-right">
+                            <Trend value={twr} />
+                          </TableCell>
+                        </TableRow>
+                      )
+                    )}
+                  </TableBody>
+                </Table>
               )}
             </details>
           </div>

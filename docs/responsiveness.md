@@ -28,7 +28,7 @@ O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma b
 | # | Regra | Verificação |
 | --- | --- | --- |
 | R1 | Nenhuma rolagem horizontal do documento em qualquer largura a partir de 320 px | 1.4.10 · conteúdo em unidades relativas; transbordo confinado a container próprio |
-| R2 | Transbordo permitido só dentro de região declarada, com nome e alcance por teclado | 1.4.10, 2.1.1 · `performance-chart.tsx`; pendência das tabelas em TD-051 |
+| R2 | Transbordo permitido só dentro de região declarada, com nome e alcance por teclado | 1.4.10, 2.1.1 · `components/ui/table.tsx`, região nomeada e focável enquanto transborda |
 | R3 | Alvo de toque de no mínimo 44 px em ponteiro grosseiro | 2.5.8 · `min-h-11` e `max-sm:min-w-11` em `sidebar.tsx` |
 | R4 | Texto nunca truncado sem alternativa acessível ao valor completo | 1.4.4 · `title`/`sr-only` ou célula com valor exato |
 | R5 | Ação principal da tela alcançável sem rolagem horizontal e sem sair do fluxo | 2.4.3 · `max-sm:w-full` nos botões de cabeçalho e de estado |
@@ -45,8 +45,9 @@ O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma b
 | Shell da página | `<main>` com `pb-(--navigation-bar)` para não ficar sob a barra; padding lateral de `px-3` |
 | Dashboard | Pilha única: valor da carteira, gráfico de performance, alocação, resumo de posições, transações recentes |
 | Alocação | Container abaixo de 448 px: anel acima, legenda abaixo, em coluna |
-| Posições | Filtro, busca e ações em largura cheia; tabela dentro de container com `overflow-auto`, que rola na horizontal |
+| Posições | Filtro, busca e ações em largura cheia; a tabela mostra ativo, valor e o menu de ações, com o resultado repetido sob o símbolo. Quantidade, preço médio, preço, alocação e as duas colunas de resultado saem de cena e seguem no detalhe do ativo, alcançável pelo link do símbolo |
 | Tabelas do dashboard | Só colunas primárias: resumo de posições mostra ativo, valor de mercado e resultado; transações mostram data, tipo, ativo e detalhes. Quantidade, preço unitário e alocação saem de cena e seguem disponíveis no detalhe do ativo e no dialog de detalhes |
+| Rolagem residual | O que ainda transborda fica dentro da região de `components/ui/table.tsx`, que só então é nomeada e recebe `Tab` — nunca no documento |
 | Detalhe do ativo | Uma coluna; as duas grades `lg:grid-cols-2` ficam empilhadas |
 | Formulários | Campos em coluna única; o `sm:grid-cols-2` do formulário de transação não se aplica |
 | Dialogs | `w-full` sem margem lateral, cantos retos (`sm:rounded-lg` não se aplica), padding de 24 px — sobram 272 px de conteúdo em 320 px |
@@ -60,7 +61,7 @@ O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma b
 | Largura útil | 608 px de conteúdo, com padding lateral de `px-4` |
 | Dashboard | Ainda em pilha única — a grade só divide em 1280 px |
 | Alocação | Container acima de 448 px: passa de `@md`, anel e legenda lado a lado |
-| Posições | Filtros em linha; tabela ainda pode transbordar conforme o número de colunas |
+| Posições | Filtros em linha; as oito colunas voltam e a tabela pode transbordar, dentro da região rolável nomeada |
 | Dialogs | Largura travada em `max-w-lg` (32 rem), centralizado, cantos arredondados |
 | Autenticação | Coluna de arte volta a existir, mas empilhada sob o formulário: a grade só começa em 1024 px |
 
@@ -89,8 +90,8 @@ Observadas ao escrever este documento, cada uma endereçada na task indicada:
 | Lacuna | Regra | Task |
 | --- | --- | --- |
 | ~~O dashboard só reflui em 1280 px~~ — resolvido na TASK 15.2: a grade passou a dividir em `lg` | — | 15.2 |
-| A tabela de posições resolve o excesso de colunas com rolagem horizontal indiscriminada, sem priorizar coluna nem oferecer alternativa ao dado secundário | R2, R4 | 15.3 |
-| O container de rolagem de `components/ui/table.tsx` não alcança o teclado — TD-051 | R2 | 15.3 |
+| ~~A tabela de posições resolve o excesso de colunas com rolagem horizontal indiscriminada~~ — resolvido na TASK 15.3: abaixo de `sm` só ativo, valor e ações, com o detalhe do ativo como alternativa | R2, R4 | 15.3 |
+| ~~O container de rolagem de `components/ui/table.tsx` não alcança o teclado~~ — resolvido na TASK 15.3 · TD-051 | R2 | 15.3 |
 | Entre 640 px e 1024 px a coluna de arte da autenticação aparece empilhada sob o formulário, sem função | — | 15.4 |
 | O layout público usa `h-screen`, e não `dvh`: com a barra do navegador móvel recolhendo, parte do formulário fica fora da área visível | R6 | 15.4 |
 | Nenhum dialog assume a tela inteira abaixo de `sm`, e só o de transação limita a altura; com o teclado virtual aberto, o CTA do rodapé pode ficar inalcançável | R5, R6 | 15.4 |
