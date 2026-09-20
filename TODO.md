@@ -357,6 +357,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Proposta:** declarar no serviço do Cloud Run o startup probe em `/ready` e o liveness probe em `/health`, e registrar essa configuração no repositório junto do `cloudbuild.yaml`, para que o deploy deixe de ser um estado só do console.
 
 
+### TD-061 — Rotas registram handler com `as Application`
+
+- **Origem:** TASK 19.2 · **Tipo:** tipagem · **Prioridade:** baixa · **Encaminhamento:** TASK 20.1
+- **Contexto:** os `handle` dos controllers devolvem `Promise<Response>`, e o `RequestHandler` do Express 5 espera `void`. As rotas contornam a incompatibilidade com `as Application` em 29 pontos, um cast entre tipos sem relação. `HealthRoutes.ts` não precisa dele: os seus handlers respondem e retornam `void`.
+- **Impacto:** o cast desliga a checagem da assinatura no único ponto onde ela valeria, e um handler com a forma errada passaria despercebido. Uma resposta devolvida em vez de enviada também não é erro para o compilador.
+- **Proposta:** fazer os `handle` responderem e retornarem `void`, ajustar a interface `Controller` e remover os 29 casts.
+
 ## Resolvidos
 
 ### TD-040 — Backend e web sem health check de container
