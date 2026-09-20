@@ -147,6 +147,7 @@ O runner é o `node:test`, sem framework adicional. Os testes unitários (`src/*
 
 | Documento | Assunto |
 | --- | --- |
+| [`docs/architecture.md`](docs/architecture.md) | camadas, responsabilidades e direção das dependências |
 | [`docs/domain-model.md`](docs/domain-model.md) | entidades, posse, valores, moedas e datas |
 | [`docs/api-inventory.md`](docs/api-inventory.md) | rotas, contratos e o que mudou desde a linha de base |
 | [`docs/authentication.md`](docs/authentication.md) | sessão, token, cookie e autorização |
