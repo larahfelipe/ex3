@@ -55,10 +55,10 @@ export default function Overview() {
 
           <PerformanceChart portfolio={portfolio} />
 
-          <div className="grid gap-6 xl:grid-cols-3">
+          <div className="grid gap-6 lg:grid-cols-3">
             <AllocationChart portfolio={portfolio} />
 
-            <PositionsSummary portfolio={portfolio} className="xl:col-span-2" />
+            <PositionsSummary portfolio={portfolio} className="lg:col-span-2" />
           </div>
 
           <RecentTransactions portfolio={portfolio} />

@@ -17,8 +17,8 @@ Comportamento de layout do frontend (`web/src`) em cada largura de validação, 
 | `max-sm` | até 639 px | 16 ocorrências — barra inferior, botão de largura cheia, rótulo em `sr-only` |
 | `sm` | 640 px | 66 ocorrências — é o único corte estrutural do app |
 | `md` | 768 px | nenhum uso direto; só a variante de container `@md` |
-| `lg` | 1024 px | layout público em duas colunas e as duas grades do detalhe do ativo |
-| `xl` | 1280 px | grade de três colunas do dashboard |
+| `lg` | 1024 px | layout público em duas colunas, grade de três colunas do dashboard e as duas grades do detalhe do ativo |
+| `xl` | 1280 px | nenhum uso desde a TASK 15.2 |
 | `@md` | container de 448 px | orientação do gráfico de alocação, em `allocation-chart.tsx` |
 
 O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma barra inferior e tudo empilha; acima dele a navegação é um trilho fixo de 10 rem e o conteúdo ocupa o restante. As variantes `lg` e `xl` refinam grades já empilhadas, nunca a navegação.
@@ -46,6 +46,7 @@ O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma b
 | Dashboard | Pilha única: valor da carteira, gráfico de performance, alocação, resumo de posições, transações recentes |
 | Alocação | Container abaixo de 448 px: anel acima, legenda abaixo, em coluna |
 | Posições | Filtro, busca e ações em largura cheia; tabela dentro de container com `overflow-auto`, que rola na horizontal |
+| Tabelas do dashboard | Só colunas primárias: resumo de posições mostra ativo, valor de mercado e resultado; transações mostram data, tipo, ativo e detalhes. Quantidade, preço unitário e alocação saem de cena e seguem disponíveis no detalhe do ativo e no dialog de detalhes |
 | Detalhe do ativo | Uma coluna; as duas grades `lg:grid-cols-2` ficam empilhadas |
 | Formulários | Campos em coluna única; o `sm:grid-cols-2` do formulário de transação não se aplica |
 | Dialogs | `w-full` sem margem lateral, cantos retos (`sm:rounded-lg` não se aplica), padding de 24 px — sobram 272 px de conteúdo em 320 px |
@@ -68,7 +69,7 @@ O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma b
 | Região | Comportamento |
 | --- | --- |
 | Largura útil | 864 px de conteúdo |
-| Dashboard | Sem mudança: continua em pilha única até 1280 px |
+| Dashboard | Grade de três colunas: alocação em uma, resumo de posições em duas (`lg:col-span-2`), com ~560 px para a tabela |
 | Detalhe do ativo | As duas grades passam a duas colunas |
 | Autenticação | Tela dividida em duas colunas iguais, formulário à esquerda e arte à direita |
 | Posições | Tabela normalmente cabe sem transbordo horizontal |
@@ -78,7 +79,7 @@ O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma b
 | Região | Comportamento |
 | --- | --- |
 | Largura útil | 1280 px de conteúdo |
-| Dashboard | Grade de três colunas: alocação em uma, resumo de posições em duas (`xl:col-span-2`) |
+| Dashboard | Mesma grade de 1024 px, com ~853 px para a tabela do resumo |
 | Demais regiões | Iguais a 1024 px; nenhum container cresce além do fluxo |
 
 ## Lacunas conhecidas na captura
@@ -87,7 +88,7 @@ Observadas ao escrever este documento, cada uma endereçada na task indicada:
 
 | Lacuna | Regra | Task |
 | --- | --- | --- |
-| O dashboard só reflui em 1280 px: em 1024 px, uma tela larga exibe uma coluna única com muito espaço ocioso à direita | — | 15.2 |
+| ~~O dashboard só reflui em 1280 px~~ — resolvido na TASK 15.2: a grade passou a dividir em `lg` | — | 15.2 |
 | A tabela de posições resolve o excesso de colunas com rolagem horizontal indiscriminada, sem priorizar coluna nem oferecer alternativa ao dado secundário | R2, R4 | 15.3 |
 | O container de rolagem de `components/ui/table.tsx` não alcança o teclado — TD-051 | R2 | 15.3 |
 | Entre 640 px e 1024 px a coluna de arte da autenticação aparece empilhada sob o formulário, sem função | — | 15.4 |
