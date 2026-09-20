@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import type { Controller } from '@/interfaces';
 import type { DeleteAssetService } from '@/services/asset';
 import { validate } from '@/validation';
-import { DeleteAssetSchema } from '@/validation/schema';
+import { PortfolioAssetSchema } from '@/validation/schema';
 
 export class DeleteAssetController implements Controller {
   private static INSTANCE: DeleteAssetController;
@@ -25,7 +25,7 @@ export class DeleteAssetController implements Controller {
   async handle(req: Request, res: Response) {
     const { user, params, query } = req;
 
-    const { symbol, portfolioId } = await validate(DeleteAssetSchema, {
+    const { symbol, portfolioId } = await validate(PortfolioAssetSchema, {
       symbol: params.symbol,
       portfolioId: query.portfolioId
     });

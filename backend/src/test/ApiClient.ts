@@ -6,6 +6,13 @@ import {
   authRateLimitMiddleware
 } from '@/middleware/RateLimitMiddleware';
 
+import {
+  FIXTURE_PASSWORD,
+  createPortfolio,
+  createUser,
+  seedPortfolio
+} from './Fixtures';
+
 const SIGN_IN_ROUTE = '/v1/user';
 
 /**
@@ -82,4 +89,33 @@ export const signIn = async (credentials: {
   if (res.status !== 200) throw new SignInFailedError(res.status, res.body);
 
   return res.body.accessToken as string;
+};
+
+export const signInUser = async (email?: string) => {
+  const user = await createUser(email === undefined ? {} : { email });
+  const accessToken = await signIn({
+    email: user.email,
+    password: FIXTURE_PASSWORD
+  });
+
+  return { user, accessToken };
+};
+
+export const signInWithPortfolio = async (email?: string) => {
+  const { user, accessToken } = await signInUser(email);
+  const portfolio = await createPortfolio(user.id);
+
+  return { user, portfolio, accessToken };
+};
+
+export const signInSeeded = async (
+  overrides: Parameters<typeof seedPortfolio>[0] = {}
+) => {
+  const seeded = await seedPortfolio(overrides);
+  const accessToken = await signIn({
+    email: seeded.user.email,
+    password: FIXTURE_PASSWORD
+  });
+
+  return { ...seeded, accessToken };
 };

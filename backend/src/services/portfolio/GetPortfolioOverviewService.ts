@@ -1,13 +1,11 @@
-import { PortfolioMessages } from '@/config';
 import type { MarketDataProvider } from '@/domain/MarketDataProvider';
 import {
-  foreignCurrenciesOf,
-  holdsUnits,
   type PortfolioOverview,
   summarizePortfolio
 } from '@/domain/PortfolioValuation';
-import { NotFoundError } from '@/errors';
 import type { AssetRepository, PortfolioRepository } from '@/infra/database';
+
+import { quoteHoldings, readPortfolioHoldings } from './QuotedHoldings';
 
 export class GetPortfolioOverviewService {
   private static INSTANCE: GetPortfolioOverviewService;
@@ -44,33 +42,15 @@ export class GetPortfolioOverviewService {
     userId,
     portfolioId
   }: GetPortfolioOverviewService.DTO): Promise<GetPortfolioOverviewService.Result> {
-    const portfolio = await this.portfolioRepository.getById({
-      id: portfolioId,
-      userId
-    });
+    const holdings = await readPortfolioHoldings(
+      this.assetRepository,
+      this.portfolioRepository,
+      { userId, portfolioId }
+    );
 
-    if (!portfolio) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
-
-    const { baseCurrency } = portfolio;
-    const positions = await this.assetRepository.getPricedPositions({
-      portfolioId: portfolio.id
-    });
-    const heldPositions = positions.filter(holdsUnits);
-
-    const [quotes, exchangeRates] = await Promise.all([
-      this.marketDataProvider.getQuotes(heldPositions),
-      this.marketDataProvider.getExchangeRates(
-        foreignCurrenciesOf(heldPositions, baseCurrency),
-        baseCurrency
-      )
-    ]);
-
-    return summarizePortfolio({
-      baseCurrency,
-      positions,
-      quotes,
-      exchangeRates
-    });
+    return summarizePortfolio(
+      await quoteHoldings(this.marketDataProvider, holdings)
+    );
   }
 }
 

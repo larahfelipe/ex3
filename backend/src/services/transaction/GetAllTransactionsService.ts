@@ -1,5 +1,3 @@
-import { PortfolioMessages } from '@/config';
-import { NotFoundError } from '@/errors';
 import type {
   ListedTransaction,
   PortfolioRepository,
@@ -7,6 +5,8 @@ import type {
   TransactionRepository
 } from '@/infra/database';
 import type { Page } from '@/interfaces';
+
+import { requireOwnedPortfolio } from '../PortfolioAccess';
 
 export class GetAllTransactionsService {
   private static INSTANCE: GetAllTransactionsService;
@@ -39,12 +39,10 @@ export class GetAllTransactionsService {
     portfolioId,
     ...filters
   }: GetAllTransactionsService.DTO): Promise<GetAllTransactionsService.Result> {
-    const portfolio = await this.portfolioRepository.getById({
-      id: portfolioId,
-      userId
+    const portfolio = await requireOwnedPortfolio(this.portfolioRepository, {
+      userId,
+      portfolioId
     });
-
-    if (!portfolio) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
     return this.transactionRepository.getAll({
       ...filters,

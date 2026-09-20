@@ -12,10 +12,10 @@ import {
 import type { Instrument, Position } from '@/domain/models';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 import { YahooFinanceProvider } from '@/infra/market-data';
-import { apiRequest, bearer, signIn } from '@/test/ApiClient';
+import { apiRequest, bearer, signInUser } from '@/test/ApiClient';
 import { FakeMarketDataProvider } from '@/test/FakeMarketDataProvider';
 import {
-  FIXTURE_PASSWORD,
+  MISSING_UUID,
   createAsset,
   createInstrument,
   createPortfolio,
@@ -38,8 +38,7 @@ const MAX_PAGE_LIMIT = 100;
 
 const OTHER_USER_EMAIL = 'other@ex3.app';
 
-/** Well-formed, and naming no portfolio: the baseline a foreign portfolio id must be indistinguishable from. */
-const MISSING_PORTFOLIO_ID = '00000000-0000-4000-8000-000000000000';
+const MISSING_PORTFOLIO_ID = MISSING_UUID;
 
 /**
  * Portfolios created one day apart, so the listing order by creation is total
@@ -75,16 +74,6 @@ describe('portfolios', () => {
   before(async () => {
     client = await apiRequest();
   });
-
-  const signInUser = async (email?: string) => {
-    const user = await createUser(email === undefined ? {} : { email });
-    const accessToken = await signIn({
-      email: user.email,
-      password: FIXTURE_PASSWORD
-    });
-
-    return { user, accessToken };
-  };
 
   describe('create', () => {
     const requestCreation = (accessToken: string, attributes: object) =>

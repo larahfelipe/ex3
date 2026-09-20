@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import type { Controller } from '@/interfaces';
 import type { GetPortfolioPositionService } from '@/services/portfolio';
 import { validate } from '@/validation';
-import { GetAssetSchema } from '@/validation/schema';
+import { PortfolioAssetSchema } from '@/validation/schema';
 
 export class GetPortfolioPositionController implements Controller {
   private static INSTANCE: GetPortfolioPositionController;
@@ -26,7 +26,7 @@ export class GetPortfolioPositionController implements Controller {
   async handle(req: Request, res: Response) {
     const { user, params, query } = req;
 
-    const { symbol, portfolioId } = await validate(GetAssetSchema, {
+    const { symbol, portfolioId } = await validate(PortfolioAssetSchema, {
       symbol: params.symbol,
       portfolioId: query.portfolioId
     });

@@ -1,8 +1,4 @@
-import {
-  AssetMessages,
-  PortfolioMessages,
-  TransactionMessages
-} from '@/config';
+import { AssetMessages, TransactionMessages } from '@/config';
 import type { Transaction, TransactionEntry } from '@/domain/models';
 import { NotFoundError } from '@/errors';
 import type {
@@ -10,6 +6,7 @@ import type {
   TransactionRepository
 } from '@/infra/database';
 
+import { requireOwnedPortfolio } from '../PortfolioAccess';
 import { ledgerRefusalError } from './LedgerRefusalError';
 
 export class CreateTransactionService {
@@ -44,17 +41,15 @@ export class CreateTransactionService {
     userId,
     ...entry
   }: CreateTransactionService.DTO): Promise<CreateTransactionService.Result> {
-    const portfolioExists = await this.portfolioRepository.getById({
-      id: portfolioId,
-      userId
+    const portfolio = await requireOwnedPortfolio(this.portfolioRepository, {
+      userId,
+      portfolioId
     });
-
-    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
     const ledgerWrite = await this.transactionRepository.add({
       ...entry,
       assetSymbol,
-      portfolioId: portfolioExists.id
+      portfolioId: portfolio.id
     });
 
     if (ledgerWrite.outcome === 'not-found')

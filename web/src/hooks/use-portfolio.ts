@@ -4,9 +4,11 @@ import {
   keepPreviousData,
   skipToken,
   useQuery,
-  useQueryClient
+  useQueryClient,
+  type QueryKey
 } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
+import { toast } from 'sonner';
 
 import type {
   GetPortfolioAllocationResponseData,
@@ -27,7 +29,7 @@ import type {
 } from '@/app/api/v1/portfolios';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
 import { queryKeys } from '@/lib/react-query';
-import type { Maybe } from '@/types';
+import type { Maybe, WithMessage } from '@/types';
 
 /** Portfolios are listed in creation order, so this page holds the one the account was created with. */
 const PRIMARY_PORTFOLIO_PAGE: GetPortfoliosRequestParams = {
@@ -54,6 +56,38 @@ export const useRefreshPortfolio = (portfolio: Maybe<Portfolio>) => {
   );
 };
 
+type PortfolioScopedQuery<Data> = {
+  queryKey: QueryKey;
+  portfolio: Maybe<Portfolio>;
+  request: (portfolioId: string) => Promise<AxiosResponse<Data>>;
+  keepsPreviousPage?: boolean;
+};
+
+export const usePortfolioScopedQuery = <Data>({
+  queryKey,
+  portfolio,
+  request,
+  keepsPreviousPage
+}: PortfolioScopedQuery<Data>) =>
+  useQuery<AxiosResponse<Data>, ApiProxyErrorData, Data>({
+    queryKey,
+    queryFn: portfolio ? () => request(portfolio.id) : skipToken,
+    select: ({ data }) => data,
+    ...(keepsPreviousPage && { placeholderData: keepPreviousData })
+  });
+
+export const useAnnouncePortfolioChange = (portfolio: Maybe<Portfolio>) => {
+  const refreshPortfolio = useRefreshPortfolio(portfolio);
+
+  return useCallback(
+    async ({ data }: AxiosResponse<WithMessage>) => {
+      toast.success(data.message);
+      await refreshPortfolio();
+    },
+    [refreshPortfolio]
+  );
+};
+
 export const usePrimaryPortfolio = () =>
   useQuery<
     AxiosResponse<GetPortfoliosResponseData>,
@@ -69,99 +103,67 @@ export const usePrimaryPortfolio = () =>
   });
 
 export const usePortfolioOverview = (portfolio: Maybe<Portfolio>) =>
-  useQuery<
-    AxiosResponse<GetPortfolioOverviewResponseData>,
-    ApiProxyErrorData,
-    GetPortfolioOverviewResponseData
-  >({
+  usePortfolioScopedQuery<GetPortfolioOverviewResponseData>({
     queryKey: queryKeys.portfolioOverview(portfolio?.id),
-    queryFn: portfolio
-      ? () =>
-          api.getInstance().get('/v1/portfolio/overview', {
-            params: { portfolioId: portfolio.id } satisfies PortfolioScopeParams
-          })
-      : skipToken,
-    select: ({ data }) => data
+    portfolio,
+    request: (portfolioId) =>
+      api.getInstance().get('/v1/portfolio/overview', {
+        params: { portfolioId } satisfies PortfolioScopeParams
+      })
   });
 
 export const usePositions = (
   portfolio: Maybe<Portfolio>,
   listing: PositionListingParams
 ) =>
-  useQuery<
-    AxiosResponse<GetPortfolioPositionsResponseData>,
-    ApiProxyErrorData,
-    GetPortfolioPositionsResponseData
-  >({
+  usePortfolioScopedQuery<GetPortfolioPositionsResponseData>({
     queryKey: queryKeys.positions(portfolio?.id, listing),
-    queryFn: portfolio
-      ? () =>
-          api.getInstance().get('/v1/portfolio/positions', {
-            params: {
-              ...listing,
-              portfolioId: portfolio.id
-            } satisfies GetPortfolioPositionsRequestParams
-          })
-      : skipToken,
-    select: ({ data }) => data,
-    placeholderData: keepPreviousData
+    portfolio,
+    request: (portfolioId) =>
+      api.getInstance().get('/v1/portfolio/positions', {
+        params: {
+          ...listing,
+          portfolioId
+        } satisfies GetPortfolioPositionsRequestParams
+      }),
+    keepsPreviousPage: true
   });
 
 export const usePosition = (portfolio: Maybe<Portfolio>, symbol: string) =>
-  useQuery<
-    AxiosResponse<GetPortfolioPositionResponseData>,
-    ApiProxyErrorData,
-    GetPortfolioPositionResponseData
-  >({
+  usePortfolioScopedQuery<GetPortfolioPositionResponseData>({
     queryKey: queryKeys.position(portfolio?.id, symbol),
-    queryFn: portfolio
-      ? () =>
-          api
-            .getInstance()
-            .get(`/v1/portfolio/positions/${encodeURIComponent(symbol)}`, {
-              params: {
-                portfolioId: portfolio.id
-              } satisfies PortfolioScopeParams
-            })
-      : skipToken,
-    select: ({ data }) => data
+    portfolio,
+    request: (portfolioId) =>
+      api
+        .getInstance()
+        .get(`/v1/portfolio/positions/${encodeURIComponent(symbol)}`, {
+          params: { portfolioId } satisfies PortfolioScopeParams
+        })
   });
 
 export const usePerformance = (
   portfolio: Maybe<Portfolio>,
   performance: PerformanceParams
 ) =>
-  useQuery<
-    AxiosResponse<GetPortfolioPerformanceResponseData>,
-    ApiProxyErrorData,
-    GetPortfolioPerformanceResponseData
-  >({
+  usePortfolioScopedQuery<GetPortfolioPerformanceResponseData>({
     queryKey: queryKeys.performance(portfolio?.id, performance),
-    queryFn: portfolio
-      ? () =>
-          api.getInstance().get('/v1/portfolio/performance', {
-            params: {
-              ...performance,
-              portfolioId: portfolio.id
-            } satisfies GetPortfolioPerformanceRequestParams
-          })
-      : skipToken,
-    select: ({ data }) => data,
-    placeholderData: keepPreviousData
+    portfolio,
+    request: (portfolioId) =>
+      api.getInstance().get('/v1/portfolio/performance', {
+        params: {
+          ...performance,
+          portfolioId
+        } satisfies GetPortfolioPerformanceRequestParams
+      }),
+    keepsPreviousPage: true
   });
 
 export const useAllocation = (portfolio: Maybe<Portfolio>) =>
-  useQuery<
-    AxiosResponse<GetPortfolioAllocationResponseData>,
-    ApiProxyErrorData,
-    GetPortfolioAllocationResponseData
-  >({
+  usePortfolioScopedQuery<GetPortfolioAllocationResponseData>({
     queryKey: queryKeys.allocation(portfolio?.id),
-    queryFn: portfolio
-      ? () =>
-          api.getInstance().get('/v1/portfolio/allocation', {
-            params: { portfolioId: portfolio.id } satisfies PortfolioScopeParams
-          })
-      : skipToken,
-    select: ({ data }) => data
+    portfolio,
+    request: (portfolioId) =>
+      api.getInstance().get('/v1/portfolio/allocation', {
+        params: { portfolioId } satisfies PortfolioScopeParams
+      })
   });

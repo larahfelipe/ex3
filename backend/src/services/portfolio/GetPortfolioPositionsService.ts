@@ -1,7 +1,6 @@
-import { PortfolioMessages, SortOrderTypes } from '@/config';
+import { SortOrderTypes } from '@/config';
 import type { MarketDataProvider } from '@/domain/MarketDataProvider';
 import {
-  foreignCurrenciesOf,
   holdsUnits,
   matchesPositionFilter,
   type PortfolioPosition,
@@ -12,9 +11,10 @@ import {
   sortPositionsBy,
   valuePositionsInBaseCurrency
 } from '@/domain/PortfolioValuation';
-import { NotFoundError } from '@/errors';
 import type { AssetRepository, PortfolioRepository } from '@/infra/database';
 import type { Page } from '@/interfaces';
+
+import { quoteHoldings, readPortfolioHoldings } from './QuotedHoldings';
 
 export class GetPortfolioPositionsService {
   private static INSTANCE: GetPortfolioPositionsService;
@@ -62,17 +62,12 @@ export class GetPortfolioPositionsService {
     sortOrder,
     ...filter
   }: GetPortfolioPositionsService.DTO): Promise<GetPortfolioPositionsService.Result> {
-    const portfolio = await this.portfolioRepository.getById({
-      id: portfolioId,
-      userId
-    });
-
-    if (!portfolio) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
-
-    const { baseCurrency } = portfolio;
-    const positions = await this.assetRepository.getPricedPositions({
-      portfolioId: portfolio.id
-    });
+    const holdings = await readPortfolioHoldings(
+      this.assetRepository,
+      this.portfolioRepository,
+      { userId, portfolioId }
+    );
+    const { positions } = holdings;
     const matchingPositions = positions.filter(matchesPositionFilter(filter));
     const pageOf = <Item>(items: ReadonlyArray<Item>) =>
       items.slice((page - 1) * pageSize, page * pageSize);
@@ -88,16 +83,8 @@ export class GetPortfolioPositionsService {
       (position) => holdsUnits(position) || listedPositions.includes(position)
     );
 
-    const [quotes, exchangeRates] = await Promise.all([
-      this.marketDataProvider.getQuotes(valuedPositions),
-      this.marketDataProvider.getExchangeRates(
-        foreignCurrenciesOf(valuedPositions, baseCurrency),
-        baseCurrency
-      )
-    ]);
-
     const listedValues = valuePositionsInBaseCurrency(
-      { baseCurrency, positions, quotes, exchangeRates },
+      await quoteHoldings(this.marketDataProvider, holdings, valuedPositions),
       listedPositions
     );
 

@@ -11,18 +11,21 @@ import {
   TransactionTypes
 } from '@/config';
 import { PrismaClient } from '@/infra/database/PrismaClient';
-import { apiRequest, bearer, signIn } from '@/test/ApiClient';
+import {
+  apiRequest,
+  bearer,
+  signInSeeded,
+  signInWithPortfolio
+} from '@/test/ApiClient';
 import {
   FIXTURE_ASSET_SYMBOL,
   FIXTURE_BASE_CURRENCY,
   FIXTURE_EXECUTED_AT,
-  FIXTURE_PASSWORD,
   FIXTURE_USER_EMAIL,
+  MISSING_UUID,
   createAsset,
   createPortfolio,
-  createTransaction,
-  createUser,
-  seedPortfolio
+  createTransaction
 } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
 import { injectWriteFailure } from '@/test/TestDatabase';
@@ -38,11 +41,8 @@ const DEFAULT_PAGE_SIZE = 10;
 
 const INTRUDER_EMAIL = 'intruder@ex3.app';
 
-/** Well-formed, and held by no transaction: the baseline a foreign id must be indistinguishable from. */
-const MISSING_TRANSACTION_ID = '00000000-0000-4000-8000-000000000000';
-
-/** Well-formed, and naming no portfolio: the baseline a foreign portfolio id must be indistinguishable from. */
-const MISSING_PORTFOLIO_ID = '00000000-0000-4000-8000-000000000000';
+const MISSING_TRANSACTION_ID = MISSING_UUID;
+const MISSING_PORTFOLIO_ID = MISSING_UUID;
 
 const MISSING_ASSET_SYMBOL = 'XRP';
 
@@ -78,21 +78,9 @@ describe('transactions', () => {
     client = await apiRequest();
   });
 
-  const signInWithPortfolio = async (email: string) => {
-    const user = await createUser({ email });
-    const portfolio = await createPortfolio(user.id);
-    const accessToken = await signIn({ email, password: FIXTURE_PASSWORD });
-
-    return { portfolio, accessToken };
-  };
-
   /** A holder of one BTC transaction, and another user with an empty portfolio. */
   const seedHolderAndIntruder = async () => {
-    const holder = await seedPortfolio();
-    const holderToken = await signIn({
-      email: holder.user.email,
-      password: FIXTURE_PASSWORD
-    });
+    const { accessToken: holderToken, ...holder } = await signInSeeded();
     const intruder = await signInWithPortfolio(INTRUDER_EMAIL);
 
     return { holder, holderToken, intruder };

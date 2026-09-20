@@ -1,4 +1,4 @@
-import { AssetMessages, InstrumentMessages, PortfolioMessages } from '@/config';
+import { AssetMessages, InstrumentMessages } from '@/config';
 import type { PriceRange } from '@/domain/MarketDataProvider';
 import type { Instrument, Portfolio } from '@/domain/models';
 import {
@@ -21,6 +21,8 @@ import type {
   GetExchangeRateHistoryService,
   GetPriceHistoryService
 } from '@/services/market-data';
+
+import { requireOwnedPortfolio } from '../PortfolioAccess';
 
 type TradedInstrument = Pick<Instrument, 'id' | 'symbol' | 'currency'>;
 
@@ -89,14 +91,10 @@ export class GetPortfolioPerformanceService {
     benchmark,
     symbol
   }: GetPortfolioPerformanceService.DTO): Promise<GetPortfolioPerformanceService.Result> {
-    const portfolio = await this.portfolioRepository.getById({
-      id: portfolioId,
-      userId
-    });
-
-    if (!portfolio) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
-
-    const { baseCurrency } = portfolio;
+    const { baseCurrency } = await requireOwnedPortfolio(
+      this.portfolioRepository,
+      { userId, portfolioId }
+    );
     const now = this.now();
     const ledger = await this.ledgerOf(
       portfolioId,

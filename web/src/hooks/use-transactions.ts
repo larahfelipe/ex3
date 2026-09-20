@@ -1,11 +1,5 @@
-import {
-  keepPreviousData,
-  skipToken,
-  useMutation,
-  useQuery
-} from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
-import { toast } from 'sonner';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import type {
@@ -23,33 +17,31 @@ import api, { type ApiProxyErrorData } from '@/lib/axios';
 import { queryKeys } from '@/lib/react-query';
 import type { Maybe } from '@/types';
 
-import { requirePortfolio, useRefreshPortfolio } from './use-portfolio';
+import {
+  requirePortfolio,
+  useAnnouncePortfolioChange,
+  usePortfolioScopedQuery
+} from './use-portfolio';
 
 export const useTransactions = (
   portfolio: Maybe<Portfolio>,
   filters: TransactionFilters
 ) =>
-  useQuery<
-    AxiosResponse<GetTransactionsResponseData>,
-    ApiProxyErrorData,
-    GetTransactionsResponseData
-  >({
+  usePortfolioScopedQuery<GetTransactionsResponseData>({
     queryKey: queryKeys.transactions(portfolio?.id, filters),
-    queryFn: portfolio
-      ? () =>
-          api.getInstance().get('/v1/transactions', {
-            params: {
-              ...filters,
-              portfolioId: portfolio.id
-            } satisfies GetTransactionsRequestParams
-          })
-      : skipToken,
-    select: ({ data }) => data,
-    placeholderData: keepPreviousData
+    portfolio,
+    request: (portfolioId) =>
+      api.getInstance().get('/v1/transactions', {
+        params: {
+          ...filters,
+          portfolioId
+        } satisfies GetTransactionsRequestParams
+      }),
+    keepsPreviousPage: true
   });
 
 export const useCreateTransaction = (portfolio: Maybe<Portfolio>) => {
-  const refreshPortfolio = useRefreshPortfolio(portfolio);
+  const announceChange = useAnnouncePortfolioChange(portfolio);
 
   return useMutation<
     AxiosResponse<CreateTransactionResponseData>,
@@ -65,15 +57,12 @@ export const useCreateTransaction = (portfolio: Maybe<Portfolio>) => {
         currency: baseCurrency
       } satisfies CreateTransactionRequestPayload);
     },
-    onSuccess: async ({ data }) => {
-      toast.success(data.message);
-      await refreshPortfolio();
-    }
+    onSuccess: announceChange
   });
 };
 
 export const useUpdateTransaction = (portfolio: Maybe<Portfolio>) => {
-  const refreshPortfolio = useRefreshPortfolio(portfolio);
+  const announceChange = useAnnouncePortfolioChange(portfolio);
 
   return useMutation<
     AxiosResponse<UpdateTransactionResponseData>,
@@ -87,15 +76,12 @@ export const useUpdateTransaction = (portfolio: Maybe<Portfolio>) => {
           `/v1/transactions/${encodeURIComponent(id)}`,
           payload satisfies UpdateTransactionRequestPayload
         ),
-    onSuccess: async ({ data }) => {
-      toast.success(data.message);
-      await refreshPortfolio();
-    }
+    onSuccess: announceChange
   });
 };
 
 export const useDeleteTransaction = (portfolio: Maybe<Portfolio>) => {
-  const refreshPortfolio = useRefreshPortfolio(portfolio);
+  const announceChange = useAnnouncePortfolioChange(portfolio);
 
   return useMutation<
     AxiosResponse<DeleteTransactionResponseData>,
@@ -104,9 +90,6 @@ export const useDeleteTransaction = (portfolio: Maybe<Portfolio>) => {
   >({
     mutationFn: ({ id }) =>
       api.getInstance().delete(`/v1/transactions/${encodeURIComponent(id)}`),
-    onSuccess: async ({ data }) => {
-      toast.success(data.message);
-      await refreshPortfolio();
-    }
+    onSuccess: announceChange
   });
 };

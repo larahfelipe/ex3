@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
 import { toApiProxyErrorResponse } from '@/lib/api-error-response';
+import { jsonPayload } from '@/lib/api-proxy';
 import api from '@/lib/axios';
 import { setSessionCookie } from '@/lib/session';
 
@@ -12,7 +13,7 @@ import type {
 
 export const POST = async (req: NextRequest) => {
   try {
-    const payload = (await req.json()) as SignUpRequestPayload;
+    const payload = await jsonPayload<SignUpRequestPayload>(req);
 
     const { data, status, statusText } = await api
       .getInstance()
