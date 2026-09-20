@@ -1,6 +1,6 @@
 import { UserMessages } from '@/config';
 import type { User } from '@/domain/models';
-import { BadRequestError } from '@/errors';
+import { ValidationError } from '@/errors';
 import type { Bcrypt } from '@/infra/cryptography';
 import type { UserRepository } from '@/infra/database';
 
@@ -31,7 +31,7 @@ export class DeleteUserService {
     const isPasswordValid = await this.bcrypt.compare(password, user.password);
 
     if (!isPasswordValid)
-      throw new BadRequestError(UserMessages.INVALID_PASSWORD);
+      throw new ValidationError(UserMessages.INVALID_PASSWORD);
 
     await this.userRepository.delete(user.id);
 

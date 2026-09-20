@@ -1,7 +1,7 @@
 import jwt, { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken';
 import { z } from 'zod';
 
-import { UnauthorizedError } from '@/errors';
+import { AuthenticationError } from '@/errors';
 
 /**
  * Pinned on signing and on verification (RFC 8725 §3.1): the token header must
@@ -47,7 +47,7 @@ export class Jwt {
   async decrypt(cipherText: string): Promise<AccessTokenClaims> {
     const claims = AccessTokenClaimsSchema.safeParse(this.verify(cipherText));
 
-    if (!claims.success) throw new UnauthorizedError('Invalid access token');
+    if (!claims.success) throw new AuthenticationError('Invalid access token');
 
     return claims.data;
   }
@@ -59,10 +59,10 @@ export class Jwt {
       });
     } catch (e) {
       if (e instanceof TokenExpiredError)
-        throw new UnauthorizedError('Access token expired');
+        throw new AuthenticationError('Access token expired');
 
       if (e instanceof JsonWebTokenError)
-        throw new UnauthorizedError('Invalid access token');
+        throw new AuthenticationError('Invalid access token');
 
       throw e;
     }

@@ -1,6 +1,6 @@
 import { AssetMessages, InstrumentMessages, PortfolioMessages } from '@/config';
 import type { Position } from '@/domain/models';
-import { BadRequestError, NotFoundError } from '@/errors';
+import { ConflictError, NotFoundError } from '@/errors';
 import type {
   AssetRepository,
   InstrumentRepository,
@@ -61,7 +61,7 @@ export class CreateAssetService {
       portfolioId: portfolioExists.id
     });
 
-    if (!newAsset) throw new BadRequestError(AssetMessages.ALREADY_EXISTS);
+    if (!newAsset) throw new ConflictError(AssetMessages.ALREADY_EXISTS);
 
     return {
       asset: newAsset,

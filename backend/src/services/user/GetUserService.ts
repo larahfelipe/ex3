@@ -1,6 +1,6 @@
 import { UserMessages } from '@/config';
 import type { User } from '@/domain/models';
-import { UnauthorizedError } from '@/errors';
+import { AuthenticationError } from '@/errors';
 import type { Bcrypt, Jwt } from '@/infra/cryptography';
 import type { UserRepository } from '@/infra/database';
 
@@ -47,7 +47,7 @@ export class GetUserService {
     );
 
     if (!account || !isPasswordValid)
-      throw new UnauthorizedError(UserMessages.INVALID_CREDENTIALS);
+      throw new AuthenticationError(UserMessages.INVALID_CREDENTIALS);
 
     const user = (({ password, isAdmin, sessionVersion, ...rest }) => rest)(
       account

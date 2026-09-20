@@ -89,8 +89,8 @@ describe('HTTP hardening', () => {
         .set('Content-Type', 'application/json')
         .send('{"email":');
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
-      assert.equal(res.body.code, Errors.BAD_REQUEST.code);
+      assert.equal(res.status, Errors.VALIDATION.status);
+      assert.equal(res.body.code, Errors.VALIDATION.code);
     });
 
     it('keeps the documented limit below the oversized fixture', () => {
@@ -115,9 +115,9 @@ describe('HTTP hardening', () => {
         .post('/v1/user')
         .send({ email: 'not-an-email', password: 'wrong-password' });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.VALIDATION.status);
       assert.deepEqual(res.body, {
-        code: Errors.BAD_REQUEST.code,
+        code: Errors.VALIDATION.code,
         message: 'Email must be a valid email',
         details: [{ path: 'email', message: 'Email must be a valid email' }]
       });
@@ -132,10 +132,10 @@ describe('HTTP hardening', () => {
         .post('/v1/user')
         .send({ email: 'nobody@ex3.app', password: 'wrong-password' });
 
-      assert.equal(res.status, Errors.INTERNAL_SERVER_ERROR.status);
+      assert.equal(res.status, Errors.INTERNAL.status);
       assert.deepEqual(res.body, {
-        code: Errors.INTERNAL_SERVER_ERROR.code,
-        message: Errors.INTERNAL_SERVER_ERROR.message,
+        code: Errors.INTERNAL.code,
+        message: Errors.INTERNAL.message,
         details: []
       });
     });
@@ -194,10 +194,10 @@ describe('HTTP hardening', () => {
 
       const throttled = responses.at(-1);
 
-      assert.equal(throttled?.status, Errors.TOO_MANY_REQUESTS.status);
+      assert.equal(throttled?.status, Errors.THROTTLED.status);
       assert.deepEqual(throttled?.body, {
-        code: Errors.TOO_MANY_REQUESTS.code,
-        message: Errors.TOO_MANY_REQUESTS.message,
+        code: Errors.THROTTLED.code,
+        message: Errors.THROTTLED.message,
         details: []
       });
     });

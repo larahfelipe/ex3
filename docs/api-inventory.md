@@ -128,7 +128,7 @@ Contrato de toda resposta de erro da API e de todo endpoint novo que lista.
 
 **Erro.** O corpo é `{ code, message, details }`, inclusive no `404` de rota inexistente e no `429` do rate limit.
 
-* `code` — categoria estável de `Errors` (`backend/src/config/Constants.ts`), uma por status: `BAD_REQUEST` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), `NOT_FOUND` (404), `PAYLOAD_TOO_LARGE` (413), `TOO_MANY_REQUESTS` (429), `INTERNAL_SERVER_ERROR` (500).
+* `code` — uma das oito categorias de `ErrorCategories` (`backend/src/config/Constants.ts`): `VALIDATION` (400 e 413), `AUTHENTICATION` (401), `AUTHORIZATION` (403), `NOT_FOUND` (404), `CONFLICT` (409), `DOMAIN` (422), `INFRASTRUCTURE` (429), `INTERNAL` (500). Categoria e status são eixos distintos, e o código é estável entre versões. Ver `docs/errors.md`.
 * `message` — texto para exibição; num erro de validação, as mensagens dos campos recusados separadas por vírgula.
 * `details` — sempre presente. Num erro de validação, um `{ path, message }` por campo recusado, com `path` em notação de ponto (índice de lista como segmento) e vazio quando o problema é o corpo inteiro; nos demais erros, `[]`. Não carrega stack, SQL nem outro detalhe interno.
 

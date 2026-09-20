@@ -1,5 +1,5 @@
 import type { User } from '@/domain/models';
-import { UnauthorizedError } from '@/errors';
+import { AuthenticationError } from '@/errors';
 import type { UserRepository } from '@/infra/database';
 
 export class GetCurrentUserService {
@@ -23,7 +23,7 @@ export class GetCurrentUserService {
     user
   }: GetCurrentUserService.DTO): Promise<GetCurrentUserService.Result> {
     const profile = await this.userRepository.getProfile(user.id);
-    if (!profile) throw new UnauthorizedError();
+    if (!profile) throw new AuthenticationError();
 
     return { user: profile };
   }

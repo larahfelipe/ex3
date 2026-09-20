@@ -1,13 +1,15 @@
+import type { ErrorCategory } from '@/config/Constants';
+
 export class ApplicationError {
   readonly message: string;
   readonly status: number;
-  readonly code: string;
+  readonly code: ErrorCategory;
   readonly details: ReadonlyArray<{ path: string; message: string }>;
 
   constructor(
     message: string,
     status: number,
-    code: string,
+    code: ErrorCategory,
     details: ApplicationError['details'] = []
   ) {
     this.message = message;

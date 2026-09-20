@@ -2,7 +2,7 @@ import type { RequestHandler } from 'express';
 
 import { envs } from '@/config';
 import type { User } from '@/domain/models';
-import { UnauthorizedError } from '@/errors';
+import { AuthenticationError } from '@/errors';
 import { Jwt } from '@/infra/cryptography';
 import { UserRepository } from '@/infra/database';
 
@@ -25,7 +25,9 @@ export const authMiddleware: RequestHandler = async (req, _res, next) => {
     const accessToken = extractBearerToken(req.headers.authorization);
 
     if (!accessToken)
-      throw new UnauthorizedError('Missing or malformed authorization header');
+      throw new AuthenticationError(
+        'Missing or malformed authorization header'
+      );
 
     const jwt = Jwt.getInstance(envs.jwtSecret, envs.jwtExpirationSeconds);
     const userRepository = UserRepository.getInstance();
@@ -35,7 +37,7 @@ export const authMiddleware: RequestHandler = async (req, _res, next) => {
     const activeUser = await userRepository.getById(sub);
 
     if (!activeUser || activeUser.sessionVersion !== sessionVersion)
-      throw new UnauthorizedError('Session is no longer active');
+      throw new AuthenticationError('Session is no longer active');
 
     req.user = activeUser as User;
 
