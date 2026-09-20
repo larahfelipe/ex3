@@ -32,7 +32,7 @@ O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma b
 | R3 | Alvo de toque de no mínimo 44 px em ponteiro grosseiro | 2.5.8 · `min-h-11` e `max-sm:min-w-11` em `sidebar.tsx` |
 | R4 | Texto nunca truncado sem alternativa acessível ao valor completo | 1.4.4 · `title`/`sr-only` ou célula com valor exato |
 | R5 | Ação principal da tela alcançável sem rolagem horizontal e sem sair do fluxo | 2.4.3 · `max-sm:w-full` nos botões de cabeçalho e de estado |
-| R6 | Altura viva medida em `dvh`, não em `vh`, onde a barra do navegador se move | `transaction-form-dialog.tsx`; pendência do layout público em §Lacunas |
+| R6 | Altura viva medida em `dvh`, não em `vh`, onde a barra do navegador ou o teclado virtual se movem | `dialog.tsx`, `alert-dialog.tsx`, `(public)/layout.tsx`, com `interactiveWidget: 'resizes-content'` no `viewport` da raiz |
 | R7 | Nenhuma largura fixa maior que 320 px em elemento de fluxo | varredura de `min-w-` e de largura literal |
 
 ## Comportamento por largura
@@ -50,8 +50,9 @@ O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma b
 | Rolagem residual | O que ainda transborda fica dentro da região de `components/ui/table.tsx`, que só então é nomeada e recebe `Tab` — nunca no documento |
 | Detalhe do ativo | Uma coluna; as duas grades `lg:grid-cols-2` ficam empilhadas |
 | Formulários | Campos em coluna única; o `sm:grid-cols-2` do formulário de transação não se aplica |
-| Dialogs | `w-full` sem margem lateral, cantos retos (`sm:rounded-lg` não se aplica), padding de 24 px — sobram 272 px de conteúdo em 320 px |
-| Autenticação | Só a coluna do formulário; a coluna de arte é `max-sm:hidden` |
+| Dialogs | `w-full` sem margem lateral, cantos retos (`sm:rounded-lg` não se aplica), padding de 24 px — sobram 272 px de conteúdo em 320 px. O conteúdo é limitado a `max-h-dvh` e rola por dentro: quando é mais alto que a tela, o dialog ocupa a tela integral, e o rodapé com o CTA fica no fim da rolagem |
+| Teclado virtual | `interactiveWidget: 'resizes-content'` encolhe o viewport de layout, e com ele todo `dvh`: o dialog se redimensiona sobre o teclado e o campo focado entra na área visível |
+| Autenticação | Só a coluna do formulário; a coluna de arte é `max-lg:hidden`. O `main` tem `min-h-dvh`, então cresce em vez de recortar quando o teclado reduz a tela |
 
 ### 768 px — acima de `sm`, abaixo de `lg`
 
@@ -62,8 +63,8 @@ O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma b
 | Dashboard | Ainda em pilha única — a grade só divide em 1280 px |
 | Alocação | Container acima de 448 px: passa de `@md`, anel e legenda lado a lado |
 | Posições | Filtros em linha; as oito colunas voltam e a tabela pode transbordar, dentro da região rolável nomeada |
-| Dialogs | Largura travada em `max-w-lg` (32 rem), centralizado, cantos arredondados |
-| Autenticação | Coluna de arte volta a existir, mas empilhada sob o formulário: a grade só começa em 1024 px |
+| Dialogs | Largura travada em `max-w-lg` (32 rem), centralizado, cantos arredondados, altura limitada a `calc(100dvh - 2rem)` para sobrar a moldura |
+| Autenticação | Só a coluna do formulário, centralizada: a arte entra junto com a grade, em 1024 px |
 
 ### 1024 px — `lg`
 
@@ -92,6 +93,6 @@ Observadas ao escrever este documento, cada uma endereçada na task indicada:
 | ~~O dashboard só reflui em 1280 px~~ — resolvido na TASK 15.2: a grade passou a dividir em `lg` | — | 15.2 |
 | ~~A tabela de posições resolve o excesso de colunas com rolagem horizontal indiscriminada~~ — resolvido na TASK 15.3: abaixo de `sm` só ativo, valor e ações, com o detalhe do ativo como alternativa | R2, R4 | 15.3 |
 | ~~O container de rolagem de `components/ui/table.tsx` não alcança o teclado~~ — resolvido na TASK 15.3 · TD-051 | R2 | 15.3 |
-| Entre 640 px e 1024 px a coluna de arte da autenticação aparece empilhada sob o formulário, sem função | — | 15.4 |
-| O layout público usa `h-screen`, e não `dvh`: com a barra do navegador móvel recolhendo, parte do formulário fica fora da área visível | R6 | 15.4 |
-| Nenhum dialog assume a tela inteira abaixo de `sm`, e só o de transação limita a altura; com o teclado virtual aberto, o CTA do rodapé pode ficar inalcançável | R5, R6 | 15.4 |
+| ~~Entre 640 px e 1024 px a coluna de arte da autenticação aparece empilhada sob o formulário~~ — resolvido na TASK 15.4: a arte é `max-lg:hidden`, e aparece só com a grade | — | 15.4 |
+| ~~O layout público usa `h-screen`, e não `dvh`~~ — resolvido na TASK 15.4 | R6 | 15.4 |
+| ~~Nenhum dialog assume a tela inteira abaixo de `sm`, e só o de transação limita a altura~~ — resolvido na TASK 15.4: o limite e a rolagem vivem nos dois primitives, e o viewport da raiz encolhe com o teclado | R5, R6 | 15.4 |

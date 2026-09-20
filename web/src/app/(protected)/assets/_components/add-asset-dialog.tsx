@@ -168,7 +168,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
           </FormField>
         </form>
 
-        <DialogFooter className="max-sm:space-y-4">
+        <DialogFooter>
           {isSubmittedSuccessfully && !!assetSymbol.length && (
             <Button
               variant="ghost"

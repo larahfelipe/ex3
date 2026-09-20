@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { connection } from 'next/server';
 
 import { inter, raleway } from '@/common/constants';
@@ -9,6 +9,16 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'EX3',
   description: 'EX3 - Portfolio Tracker'
+};
+
+/**
+ * `resizes-content` shrinks the layout viewport — and with it every `dvh` — when
+ * the virtual keyboard opens, so a focused field is never left behind it.
+ */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  interactiveWidget: 'resizes-content'
 };
 
 /**

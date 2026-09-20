@@ -94,7 +94,7 @@ const TransactionDetails: FC<
         </Metric>
       </dl>
 
-      <DialogFooter className="gap-2 sm:space-x-0">
+      <DialogFooter>
         <Button
           variant="outline"
           className="text-destructive hover:text-destructive sm:mr-auto"
