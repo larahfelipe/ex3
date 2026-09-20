@@ -68,3 +68,61 @@ Construir o formatador custava cerca de quarenta vezes o que formatar com ele cu
 ### Renderização por tecla
 
 Digitar na busca de posições re-renderiza a tabela, porque o texto digitado e a listagem moram no mesmo componente. Com os formatadores em cache, o que resta por tecla é a reconciliação de no máximo 50 linhas, e a requisição só sai 300 ms depois da última tecla. Isolar esse estado num componente próprio, como foi feito com o ponto ativo do gráfico, só se justifica com um profiler apontando o custo — sem navegador, não se mede, e não se refatora no escuro.
+
+## Bundle — TASK 16.5
+
+Medida usada em todo este trecho: soma dos bytes de `build/static/chunks`, o JavaScript que o navegador baixa. O Next 16 não imprime mais o tamanho por rota no `build`, e `--webpack` não gera `app-build-manifest.json`, então a comparação é do total antes e depois de cada mudança.
+
+| Momento | Bytes |
+| --- | --- |
+| Antes da auditoria (`f61b61f`) | 1.574.940 |
+| Depois | 1.558.141 |
+
+### Três bibliotecas de ícones
+
+O projeto importava ícones de `react-icons` (cinco conjuntos: `io5`, `md`, `lu`, `pi`, `rx`), de `@radix-ui/react-icons` e de `lucide-react` — 11, 9 e 13 ícones. `react-icons/lu` é o próprio Lucide reempacotado, e os outros dois conjuntos entregavam o mesmo desenho com outro traço, o que tornava o mesmo conceito visualmente diferente conforme a tela.
+
+Tudo passou para `lucide-react`, a mais usada das três. Equivalências que não são renomeações diretas:
+
+| Saiu | Entrou | Nota |
+| --- | --- | --- |
+| `CaretSortIcon` | `ChevronsUpDown` | mesmo par de setas do gatilho do select |
+| `DotFilledIcon` | `Circle` em `h-2 w-2 fill-current` | o Lucide não tem ponto cheio; o círculo reduzido é o que o shadcn usa |
+| `RxDashboard` | `LayoutGrid` | mesma grade de quatro células |
+| `PiEyeClosed` | `EyeClosed` | olho fechado, não o `EyeOff` cortado |
+
+Os ícones do Radix desenham numa caixa de 15 px e os do Lucide, de 24. Todos os usos já fixavam `h-4 w-4` ou `size={n}`; as duas exceções eram os botões de rolagem do select, que ganharam `h-4 w-4` para não crescerem.
+
+### Dependências removidas
+
+| Pacote | Importadores | Instalado |
+| --- | --- | --- |
+| `react-icons` | consolidado em `lucide-react` | 85 MB |
+| `@radix-ui/react-icons` | consolidado em `lucide-react` | 4,6 MB |
+| `next-themes` | nenhum (TD-046) | 48 KB |
+| `lodash.isequal` + `@types/lodash.isequal` | nenhum | 68 KB |
+
+São cerca de 90 MB a menos por install — o que mais pesa é o tempo de instalação e a imagem de build, não o bundle: os dois conjuntos de ícones já entravam no cliente apenas nos ícones usados, e por isso o total dos chunks cai só 16.799 bytes.
+
+### Service worker
+
+`next-pwa` vinha com o `runtimeCaching` padrão, que registrava 15 rotas no worker — entre elas uma `NetworkFirst` para `/api/`, guardando até 16 respostas por 24 horas, e uma `NetworkFirst` genérica para toda navegação. As respostas de `/api/v1/*` carregam as posições e o patrimônio do usuário autenticado: ficavam no Cache Storage do dispositivo, sobreviviam ao sign-out, que só apaga o cookie, e podiam ser servidas como números atuais quando a rede demorasse mais de 10 s.
+
+O worker passou a precachear a saída do build e nada mais: `runtimeCaching: []`, `cacheStartUrl: false` e `dynamicStartUrl: false`. Nenhuma resposta dinâmica é gravada, e a instalação continua válida porque o precache já instala um handler de `fetch`.
+
+| Item | Antes | Depois |
+| --- | --- | --- |
+| `registerRoute` no `sw.js` | 15 | 0 |
+| Entradas no precache | 73 | 66 |
+| `login-hero.jpeg` (1,93 MB) no precache | sim | não |
+
+### O que foi avaliado e mantido
+
+| Item | Razão |
+| --- | --- |
+| `@tanstack/react-query-devtools` | Importado sem condição em `providers/app-provider.tsx`, mas o pacote exporta um componente que devolve `null` fora de `development`, e o painel é eliminado na build: nenhuma referência sobrou em `build/static/chunks` nem em `build/server`. O `Dockerfile` instala tudo no estágio de build e só o runtime roda com `--prod`, então a dependência de desenvolvimento não falta em lugar nenhum |
+| `next-pwa` | Mantido porque instalabilidade é decisão de produto, não de auditoria; o risco de ser um plugin parado em 2022 está em TD-057 |
+| `axios` | Usado nos route handlers e nos hooks, com interceptadores que centralizam sessão expirada e erro de API; trocar por `fetch` reescreveria essa camada sem ganho medido |
+| `class-variance-authority`, `clsx`, `tailwind-merge` | Base do `cn` e das variantes do `Button`; somados não chegam a 10 KB |
+
+A arte do sign-in é hoje o maior arquivo servido — 1,93 MB contra 1,49 MB de todo o JavaScript do cliente — e continua sendo baixada em telefones, onde a coluna que a exibe é `hidden`. A correção mexe no `next/image` e no arquivo binário, fora do escopo desta task: está em TD-056, encaminhada para a TASK 20.5.

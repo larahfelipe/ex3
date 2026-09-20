@@ -57,7 +57,7 @@ Automação cobre parte do conjunto; nenhum item abaixo é considerado atendido 
 | S3 | Ação é `<button>`; navegação é `<a>`/`Link`. Nenhuma ação primária em `<div>` clicável | 1.3.1, 4.1.2 · regra de conclusão da TASK 14.2 |
 | S4 | Tabela usa `<th>` com escopo, `<caption>` descrevendo o conteúdo e `aria-sort` na coluna ordenada | 1.3.1 · `positions-table.tsx`, `transactions-table.tsx` |
 | S5 | Conjunto de itens irmãos é lista (`ul`/`ol`/`dl`); métricas ficam em `dt`/`dd` | 1.3.1 · `sidebar.tsx`, `Metric` em `financial.tsx` |
-| S6 | Ícone decorativo tem `aria-hidden="true"`; controle só com ícone tem `aria-label` | 1.1.1, 4.1.2 · varredura de `lucide-react` e `react-icons` |
+| S6 | Ícone decorativo tem `aria-hidden="true"`; controle só com ícone tem `aria-label` | 1.1.1, 4.1.2 · varredura dos ícones de `lucide-react` |
 | S7 | O link do item de navegação atual carrega `aria-current="page"` | 4.1.2 · `sidebar.tsx` |
 
 ## 4. Contraste

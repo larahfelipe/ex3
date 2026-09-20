@@ -1,13 +1,11 @@
 'use client';
 
 import type { FC, ReactNode } from 'react';
-import { LuUser } from 'react-icons/lu';
-import { RxDashboard, RxExit } from 'react-icons/rx';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { House } from 'lucide-react';
+import { House, LayoutGrid, LogOut, User } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 
 import { APP_ROUTES } from '@/common/constants';
@@ -31,7 +29,7 @@ const MAIN_SECTIONS: Array<NavigationSection> = [
   {
     name: 'Assets',
     path: APP_ROUTES.Protected.Assets,
-    icon: <RxDashboard size={18} />
+    icon: <LayoutGrid size={18} />
   }
 ];
 
@@ -99,7 +97,7 @@ export const Sidebar: FC = () => {
           <NavigationLink
             label={user?.name ?? ACCOUNT_SECTION.name}
             path={ACCOUNT_SECTION.path}
-            icon={<LuUser size={18} />}
+            icon={<User size={18} />}
             isActive={isCurrentPath(pathname, ACCOUNT_SECTION.path)}
           />
         </li>
@@ -110,7 +108,7 @@ export const Sidebar: FC = () => {
             className={twMerge(NAVIGATION_ITEM_CLASS, 'hover:bg-negative/10')}
             onClick={() => signOut()}
           >
-            <RxExit size={18} aria-hidden="true" className="text-negative" />
+            <LogOut size={18} aria-hidden="true" className="text-negative" />
 
             <span className="max-sm:sr-only text-negative">Sign out</span>
           </Button>

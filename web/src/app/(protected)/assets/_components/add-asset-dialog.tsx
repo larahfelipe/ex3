@@ -10,11 +10,10 @@ import {
   useFormContext,
   type SubmitHandler
 } from 'react-hook-form';
-import { LuArrowDownUp } from 'react-icons/lu';
 
 import { useSearchParams } from 'next/navigation';
 
-import { Loader2, Plus } from 'lucide-react';
+import { ArrowDownUp, Loader2, Plus } from 'lucide-react';
 import { z } from 'zod';
 
 import type { CreateAssetRequestPayload } from '@/app/api/v1/assets';
@@ -130,7 +129,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex gap-2 max-sm:justify-center">
-            <LuArrowDownUp aria-hidden="true" />
+            <ArrowDownUp aria-hidden="true" />
 
             <span>Add asset</span>
           </DialogTitle>

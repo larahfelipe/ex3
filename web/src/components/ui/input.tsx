@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { PiEye, PiEyeClosed } from 'react-icons/pi';
+
+import { Eye, EyeClosed } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
@@ -45,9 +46,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             onClick={togglePasswordVisibility}
           >
             {showPassword ? (
-              <PiEye size={16} aria-hidden="true" />
+              <Eye size={16} aria-hidden="true" />
             ) : (
-              <PiEyeClosed size={16} aria-hidden="true" />
+              <EyeClosed size={16} aria-hidden="true" />
             )}
           </Button>
         )}
