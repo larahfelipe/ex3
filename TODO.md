@@ -342,6 +342,20 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** o dia em que o build deixar de aceitar o plugin, o service worker e o `manifest.json` saem juntos, sem substituto pronto. O Serwist, sucessor mantido, também não suporta Turbopack, conforme `docs/toolchain.md`, §Web.
 - **Proposta:** decidir se o produto precisa de instalação e de precache. Se não precisar, remover o plugin e o `--webpack` que existe por causa dele; se precisar, reavaliar o Serwist quando ele passar a suportar o Turbopack.
 
+### TD-058 — FASE 17 inteira sem execução: o web não tem runner de teste
+
+- **Origem:** FASE 17 · **Tipo:** teste · **Prioridade:** média · **Encaminhamento:** TASK 20.7
+- **Contexto:** os gates do `web` são `lint`, `typecheck` e `build`; não há runner de teste nem navegador no repositório. As cinco tasks da fase — fluxo principal, múltiplas carteiras, consistência de transações, responsive e acessibilidade — exigem um, e a fase foi adiada por decisão de produto para seguir com observabilidade.
+- **Impacto:** nenhum fluxo de ponta a ponta é verificado automaticamente, e a integração entre o web e a API só é exercitada à mão. Soma-se a TD-054, que registra a auditoria automatizada de acessibilidade nunca executada.
+- **Proposta:** instalar o Playwright no `web`, escrever os specs das cinco tasks e executá-los contra o `compose.yaml`, que já sobe postgres, backend e web. O checklist da TASK 20.7 exige `e2e`, `accessibility` e `responsive`, então a dívida vence lá.
+
+### TD-059 — A suíte herda do `.env` do desenvolvedor tudo o que falta no `.env.test`
+
+- **Origem:** TASK 18.1 · **Tipo:** teste · **Prioridade:** alta · **Encaminhamento:** TASK 20.4
+- **Contexto:** `src/config/Envs.ts` e `prisma.config.ts` chamam `dotenv` sem condição. `--env-file=.env.test` preenche antes, e o `dotenv` não sobrescreve, mas toda variável ausente do `.env.test` (`DIRECT_URL`, `PORT`, `YAHOO_FINANCE_API_KEY`, ...) é preenchida a partir do `.env` local. Foi assim que `prisma migrate deploy` do `test:integration` apontou para o banco remoto de `DIRECT_URL`; o alvo agora é fixado no `spawn` de `PrepareTestDatabase.ts`, mas a herança em si continua.
+- **Impacto:** o resultado da suíte depende do `.env` de quem executa, e qualquer comando que a suíte dispare com credencial herdada alcança um banco que não é o de teste.
+- **Proposta:** não carregar o `.env` quando `NODE_ENV=test`, nos dois pontos, e declarar no `.env.test` tudo o que a suíte precisa.
+
 ## Resolvidos
 
 ### TD-046 — `next-themes` sem consumidor

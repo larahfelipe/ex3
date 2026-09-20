@@ -12,6 +12,7 @@ import type {
   PriceRange,
   QuoteLookup
 } from '@/domain/MarketDataProvider';
+import { LogSeverities, log, type LogSink } from '@/infra/observability';
 
 export const YAHOO_FINANCE_SOURCE = 'yahoo-finance';
 
@@ -181,6 +182,7 @@ export class YahooFinanceProvider implements MarketDataProvider {
   private readonly apiKey: string | undefined;
   private readonly fetchResponse: typeof fetch;
   private readonly now: () => number;
+  private readonly logEntry: LogSink;
   private readonly quoteCache = new Map<string, CachedQuote>();
   private readonly inFlightQuotes = new Map<string, Promise<QuoteLookup>>();
   private unavailableUntil = 0;
@@ -188,11 +190,13 @@ export class YahooFinanceProvider implements MarketDataProvider {
   constructor({
     apiKey,
     fetchResponse = (input, init) => fetch(input, init),
-    now = Date.now
+    now = Date.now,
+    logEntry = log
   }: YahooFinanceProvider.Options) {
     this.apiKey = apiKey;
     this.fetchResponse = fetchResponse;
     this.now = now;
+    this.logEntry = logEntry;
   }
 
   static getInstance() {
@@ -496,9 +500,12 @@ export class YahooFinanceProvider implements MarketDataProvider {
 
   private reportFailure(reason: string): typeof UNAVAILABLE {
     this.unavailableUntil = this.now() + FAILURE_COOLDOWN_MS;
-    console.warn(
-      `Yahoo Finance request failed (${reason}); retrying after ${FAILURE_COOLDOWN_MS} ms`
-    );
+    this.logEntry({
+      severity: LogSeverities.WARNING,
+      event: 'quote_provider_unavailable',
+      reason,
+      retryInMs: FAILURE_COOLDOWN_MS
+    });
 
     return UNAVAILABLE;
   }
@@ -509,5 +516,6 @@ namespace YahooFinanceProvider {
     apiKey: string | undefined;
     fetchResponse?: typeof fetch;
     now?: () => number;
+    logEntry?: LogSink;
   };
 }

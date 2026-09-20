@@ -2,6 +2,7 @@ import type { ErrorRequestHandler } from 'express';
 
 import { Errors } from '@/config/Constants';
 import { ApplicationError } from '@/errors';
+import { LogSeverities, log, type LogSink } from '@/infra/observability';
 
 type BodyParserError = Error & { type?: string; status?: number };
 
@@ -36,20 +37,29 @@ const toApplicationError = (e: unknown): ApplicationError => {
  * wire — an unrecognised throw is reported as a generic internal error so that
  * stack traces and driver-level details never reach the client.
  */
-export const errorHandlerMiddleware: ErrorRequestHandler = (
-  e,
-  _req,
-  res,
-  next
-) => {
-  if (res.headersSent) {
-    next(e);
-    return;
-  }
+export const createErrorHandlerMiddleware =
+  (logEntry: LogSink = log): ErrorRequestHandler =>
+  (e, req, res, next) => {
+    if (res.headersSent) {
+      next(e);
+      return;
+    }
 
-  const { status, code, message, details } = toApplicationError(e);
+    const { status, code, message, details } = toApplicationError(e);
 
-  if (status >= Errors.INTERNAL_SERVER_ERROR.status) console.error(e);
+    req.errorCode = code;
 
-  res.status(status).json({ code, message, details });
-};
+    if (status >= Errors.INTERNAL_SERVER_ERROR.status)
+      logEntry({
+        severity: LogSeverities.ERROR,
+        event: 'request_failed',
+        requestId: req.requestId,
+        errorName: e instanceof Error ? e.name : 'NonError',
+        errorMessage: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined
+      });
+
+    res.status(status).json({ code, message, details });
+  };
+
+export const errorHandlerMiddleware = createErrorHandlerMiddleware();
