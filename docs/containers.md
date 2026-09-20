@@ -44,7 +44,7 @@ docker compose exec postgres psql --username=ex3 --dbname=ex3 \
 
 Os serviços de desenvolvimento usam o estágio `dev`: imagem com Node e pnpm, código montado do host, processo como `node`. O `node_modules` de cada pacote fica num volume, porque os binários nativos (`bcrypt`, Prisma, SWC) do host macOS não servem ao Linux do container. O store do pnpm é um volume compartilhado entre os dois pacotes, para que uma reinstalação não baixe de novo o que já foi baixado. O `build/` do `next dev` fica num volume próprio e não disputa o diretório com um `pnpm build` feito no host.
 
-`backend` e `web` ainda não têm health check: nenhum dos dois expõe um endpoint de saúde (TD-040). Por isso o `web` espera o `backend` só ser iniciado.
+O `backend` tem health check em `GET /ready`, que responde pelo banco, e por isso o `web` espera por `service_healthy`, não pelo container iniciado. O `web` tem o seu em conexão TCP na porta 3000: o `next dev` compila a página pedida, então uma sonda por rota recompilaria a cada intervalo. As duas sondas rodam `node -e` dentro do próprio container, sem depender de `curl` na imagem, a cada 10s, com 60s de carência no start e três falhas seguidas para virar `unhealthy`. Ver `docs/observability.md`.
 
 Em Linux, o usuário `node` do container (uid 1000) grava no código montado (`dist/`, `next-env.d.ts`, `public/sw.js`). Com outro uid no host, essas escritas falham. No Docker Desktop do macOS, o mapeamento de dono é transparente.
 

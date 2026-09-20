@@ -105,10 +105,11 @@ ficam atrás do rate limit da API, como qualquer outra: a sonda cabe folgada em
 `RateLimits.API`, e uma sonda que só falha porque o IP dela estourou o
 orçamento descreve uma instância que de fato não está servindo.
 
-Nada no repositório sonda essas rotas ainda: o `cloudbuild.yaml` constrói e
-publica as imagens, e a configuração do serviço no Cloud Run — onde o startup
-probe apontaria para `/ready` e o liveness probe para `/health` — vive fora
-daqui (TD-060).
+No `compose.yaml`, o `healthcheck` do serviço `backend` chama `/ready` a cada
+10s e o `web` espera por `service_healthy`. Em produção não há sonda: o
+`cloudbuild.yaml` constrói e publica as imagens, e a configuração do serviço no
+Cloud Run — onde o startup probe apontaria para `/ready` e o liveness probe
+para `/health` — vive fora do repositório (TD-060).
 
 ## Como evitar regressão
 
