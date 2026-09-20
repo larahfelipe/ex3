@@ -328,6 +328,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** os dois critérios numéricos da TASK 14.7, zero violação crítica e Lighthouse ≥ 95, seguem não verificados; o que garante a acessibilidade hoje é `jsx-a11y` no `lint`, a composição dos componentes de estado e o roteiro manual.
 - **Proposta:** instalar as três dependências fixadas por versão no `web`, subir a stack de `compose.yaml` com um usuário semeado para as rotas protegidas e rodar o procedimento documentado; a FASE 17 reaproveita o mesmo harness para os E2E de produto.
 
+### TD-055 — Toda tela protegida espera a listagem de carteiras para começar
+
+- **Origem:** TASK 16.1 · **Tipo:** performance · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** o cliente não conhece o id da carteira — não está na URL nem no cookie de sessão —, então `usePrimaryPortfolio` busca `GET /v1/portfolios?page=1&limit=1` e só depois as demais queries saem do `skipToken`. É um nível de waterfall em toda primeira tela da sessão, detalhado em `docs/data-fetching.md`, §Waterfall.
+- **Impacto:** um round trip antes do primeiro dado da tela; as navegações seguintes são servidas do cache enquanto o `staleTime` de 60 s valer.
+- **Proposta:** entregar a carteira primária junto da sessão — em `GET /v1/user` ou no payload de sign-in — e semear o cache com ela, deixando `GET /v1/portfolios` apenas para quem tiver mais de uma carteira.
+
 ## Resolvidos
 
 ### TD-051 — Rolagem horizontal das tabelas não alcança o teclado
