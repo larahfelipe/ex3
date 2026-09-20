@@ -57,7 +57,7 @@ A única dependência de `@prisma/client` fora de `infra/database` é `Prisma.De
 
 **Regra de leitura:** todo request do browser nasce de um hook de `web/src/hooks` sobre o TanStack Query — nenhuma tela chama `fetch` por conta própria, e cada request existente está inventariado em [`data-fetching.md`](data-fetching.md). Critérios de acessibilidade, layout e performance do frontend estão em [`accessibility.md`](accessibility.md), [`responsiveness.md`](responsiveness.md) e [`performance.md`](performance.md).
 
-**Proxy.** Os Route Handlers de `web/src/app/api/v1` são a fronteira: leem o cookie `httpOnly` `ex3:token`, mandam `Authorization: Bearer` ao backend e devolvem o corpo da API. O navegador nunca recebe o token nem a URL do backend — `API_URL` só existe no servidor do Next.
+**Proxy.** Os Route Handlers de `web/src/app/api/v1` são a fronteira: leem o cookie `httpOnly` `ex3:token`, mandam `Authorization: Bearer` ao backend e devolvem o corpo da API. O navegador nunca recebe o token nem a URL do backend — `API_URL` só existe no servidor do Next. Quem só encaminha delega tudo isso a `forwardToApi`, em `web/src/lib/api-proxy.ts`: um handler declara verbo, caminho, query string e se há corpo a repassar. `sign-in`, `sign-up` e `sign-out` mantêm handler próprio porque gravam ou apagam o cookie.
 
 ## API
 
@@ -73,6 +73,8 @@ A única dependência de `@prisma/client` fora de `infra/database` é `Prisma.De
 | `errors` | as classes que nomeiam cada categoria de falha | responder |
 
 A ordem dos middlewares em `config/App.ts` é significativa: o log é o primeiro, para que toda requisição tenha id, inclusive a que morre no CORS ou no rate limit; o error boundary é o último. O envelope `{ code, message, details }` e as oito categorias estão em [`errors.md`](errors.md); o formato das linhas de log, em [`observability.md`](observability.md).
+
+A posse da carteira é verificada num único lugar, `requireOwnedPortfolio` de `services/PortfolioAccess.ts`: carteira de outro usuário responde como inexistente, e nenhum service repete a consulta. Os quatro casos de uso que avaliam posições partem de `readPortfolioHoldings` e `quoteHoldings`, em `services/portfolio/QuotedHoldings.ts`, que leem as posições da carteira e cotam num lote só as que cada um valoriza.
 
 Controllers e services são singletons com `getInstance`, compostos à mão no `index.ts` de cada pasta de controller. O handler que a rota registra monta o grafo daquele caso de uso e delega; como cada peça é singleton, montar é barato e a árvore de dependências fica explícita num só arquivo por assunto.
 

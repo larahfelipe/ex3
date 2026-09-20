@@ -195,13 +195,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** o usuário não vê no ativo os proventos recebidos nem o rendimento deles sobre o custo.
 - **Proposta:** acrescentar a seção de proventos ao detalhe do ativo quando o modelo e a API de proventos existirem, com o recorte por ativo que a API oferecer.
 
-### TD-036 — Proxy do web responde 200 a erro que não vem da API
-
-- **Origem:** gerenciador de transações · **Tipo:** API · **Prioridade:** baixa · **Encaminhamento:** backlog
-- **Contexto:** os route handlers de `web/src/app/api/v1` tratam todo erro como `ApiProxyError` e repassam `status` e `statusText` dele. Um corpo que não é JSON faz `req.json()` lançar `SyntaxError`, sem esses campos, e o proxy responde `200` com `{}` sem chamar a API, em sign-in, sign-up, criação de ativo e criação e edição de transação.
-- **Impacto:** nenhuma escrita acontece, mas quem chama o proxy fora do web recebe sucesso para uma requisição recusada. O web sempre envia JSON e não é afetado.
-- **Proposta:** responder `400` quando o corpo não é JSON e `500` genérico a qualquer erro que não seja `ApiProxyError`, no ponto único que a consolidação do `try/catch` dos proxies criar.
-
 ### TD-037 — Tela de ativos aceita `action` desconhecido na URL
 
 - **Origem:** gerenciador de transações · **Tipo:** UX · **Prioridade:** baixa · **Encaminhamento:** TASK 13.3
@@ -371,7 +364,19 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** a carteira é descrita por retorno, sem nenhuma medida de risco, e a comparação com o benchmark fica restrita a retorno acumulado.
 - **Proposta:** derivar as métricas da série existente, com o período explícito na resposta, estado controlado quando os pontos forem insuficientes e sem exibir precisão que a série não sustenta, conforme os critérios da TASK 11.4.
 
+### TD-064 — Diálogo de confirmação de exclusão montado duas vezes
+
+- **Origem:** TASK 20.2 · **Tipo:** UX · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** `web/src/app/(protected)/assets/_components/delete-asset-dialog.tsx` e `web/src/components/delete-transaction-dialog.tsx` montam o mesmo `AlertDialog` — cabeçalho, descrição, cancelar e confirmar destrutivo — e divergem no que fazem enquanto a exclusão corre: o de transação desabilita os dois botões e mostra a falha no próprio diálogo, o de ativo não tem estado de pendência e reporta a falha por toast, diferença deliberada registrada em `docs/component-inventory.md`.
+- **Impacto:** o botão de confirmar do ativo aceita um segundo clique, cuja requisição responde `404` e abre um toast de erro depois de a exclusão ter dado certo; a casca do diálogo é mantida em dois lugares.
+- **Proposta:** extrair um `ConfirmDialog` com o estado de pendência do diálogo de transação e a forma de reportar o erro como propriedade, quando as duas telas concordarem sobre toast ou erro embutido.
+
 ## Resolvidos
+
+### TD-036 — Proxy do web responde a erro que não vem da API sem envelope
+
+- **Tipo:** API · **Prioridade:** baixa
+- **Resolução:** `forwardToApi`, em `web/src/lib/api-proxy.ts`, é o `try/catch` único dos proxies encaminhadores, e `jsonPayload` lê o corpo dentro dele: corpo que não é JSON vira `400 Bad Request` com o envelope `{ message, _error }`, em vez de escapar para o 500 sem corpo do Next. `sign-in` e `sign-up`, que mantêm handler próprio pelo efeito no cookie, leem o corpo pelo mesmo `jsonPayload`. Quem não tem cookie continua recebendo `401` antes de o corpo ser lido: requisição não autenticada não aprende nada sobre o que enviou. Verificado no ambiente de desenvolvimento nas cinco escritas.
 
 ### TD-034 — Listagem e avaliação de ativos sem consumidor no web
 

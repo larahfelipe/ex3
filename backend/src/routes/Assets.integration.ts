@@ -8,15 +8,19 @@ import {
   PortfolioMessages
 } from '@/config';
 import { PrismaClient } from '@/infra/database/PrismaClient';
-import { apiRequest, bearer, signIn } from '@/test/ApiClient';
+import {
+  apiRequest,
+  bearer,
+  signInSeeded,
+  signInWithPortfolio
+} from '@/test/ApiClient';
 import {
   FIXTURE_ASSET_SYMBOL,
-  FIXTURE_PASSWORD,
+  MISSING_UUID,
   createAsset,
   createInstrument,
   createPortfolio,
   createTransaction,
-  createUser,
   seedPortfolio
 } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
@@ -45,27 +49,6 @@ describe('assets', () => {
   before(async () => {
     client = await apiRequest();
   });
-
-  const signInWithPortfolio = async (email?: string) => {
-    const user = await createUser(email === undefined ? {} : { email });
-    const portfolio = await createPortfolio(user.id);
-    const accessToken = await signIn({
-      email: user.email,
-      password: FIXTURE_PASSWORD
-    });
-
-    return { portfolio, accessToken };
-  };
-
-  const signInSeeded = async () => {
-    const seeded = await seedPortfolio();
-    const accessToken = await signIn({
-      email: seeded.user.email,
-      password: FIXTURE_PASSWORD
-    });
-
-    return { ...seeded, accessToken };
-  };
 
   describe('add', () => {
     it('opens an empty position in the caller portfolio', async () => {
@@ -460,7 +443,7 @@ describe('assets', () => {
 
   describe('portfolio scope', () => {
     /** Well-formed, and naming no portfolio: the baseline a foreign portfolio id must be indistinguishable from. */
-    const MISSING_PORTFOLIO_ID = '00000000-0000-4000-8000-000000000000';
+    const MISSING_PORTFOLIO_ID = MISSING_UUID;
 
     const scopedRequests = {
       'POST asset': (accessToken: string, portfolioId?: string) =>

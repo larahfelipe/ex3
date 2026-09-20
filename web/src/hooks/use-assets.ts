@@ -12,10 +12,10 @@ import type { Portfolio } from '@/app/api/v1/portfolios';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
 import type { Maybe } from '@/types';
 
-import { requirePortfolio, useRefreshPortfolio } from './use-portfolio';
+import { requirePortfolio, useAnnouncePortfolioChange } from './use-portfolio';
 
 export const useCreateAsset = (portfolio: Maybe<Portfolio>) => {
-  const refreshPortfolio = useRefreshPortfolio(portfolio);
+  const announceChange = useAnnouncePortfolioChange(portfolio);
 
   return useMutation<
     AxiosResponse<CreateAssetResponseData>,
@@ -27,16 +27,13 @@ export const useCreateAsset = (portfolio: Maybe<Portfolio>) => {
         ...payload,
         portfolioId: requirePortfolio(portfolio).id
       } satisfies CreateAssetRequestPayload),
-    onSuccess: async ({ data }) => {
-      toast.success(data.message);
-      await refreshPortfolio();
-    },
+    onSuccess: announceChange,
     onError: (e) => toast.error(e.message)
   });
 };
 
 export const useDeleteAsset = (portfolio: Maybe<Portfolio>) => {
-  const refreshPortfolio = useRefreshPortfolio(portfolio);
+  const announceChange = useAnnouncePortfolioChange(portfolio);
 
   return useMutation<
     AxiosResponse<DeleteAssetResponseData>,
@@ -47,10 +44,7 @@ export const useDeleteAsset = (portfolio: Maybe<Portfolio>) => {
       api.getInstance().delete(`/v1/assets/${encodeURIComponent(symbol)}`, {
         params: { portfolioId: requirePortfolio(portfolio).id }
       }),
-    onSuccess: async ({ data }) => {
-      toast.success(data.message);
-      await refreshPortfolio();
-    },
+    onSuccess: announceChange,
     onError: (e) => toast.error(e.message)
   });
 };

@@ -1,13 +1,14 @@
-import { AssetMessages, PortfolioMessages } from '@/config';
+import { AssetMessages } from '@/config';
 import type { MarketDataProvider } from '@/domain/MarketDataProvider';
 import {
   describePosition,
-  foreignCurrenciesOf,
   holdsUnits,
   type PositionDetail
 } from '@/domain/PortfolioValuation';
 import { NotFoundError } from '@/errors';
 import type { AssetRepository, PortfolioRepository } from '@/infra/database';
+
+import { quoteHoldings, readPortfolioHoldings } from './QuotedHoldings';
 
 export class GetPortfolioPositionService {
   private static INSTANCE: GetPortfolioPositionService;
@@ -49,35 +50,23 @@ export class GetPortfolioPositionService {
     portfolioId,
     symbol
   }: GetPortfolioPositionService.DTO): Promise<GetPortfolioPositionService.Result> {
-    const portfolio = await this.portfolioRepository.getById({
-      id: portfolioId,
-      userId
-    });
-
-    if (!portfolio) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
-
-    const { baseCurrency } = portfolio;
-    const positions = await this.assetRepository.getPricedPositions({
-      portfolioId: portfolio.id
-    });
-    const position = positions.find((held) => held.symbol === symbol);
+    const holdings = await readPortfolioHoldings(
+      this.assetRepository,
+      this.portfolioRepository,
+      { userId, portfolioId }
+    );
+    const position = holdings.positions.find((held) => held.symbol === symbol);
 
     if (!position) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
-    const valuedPositions = positions.filter(
-      (held) => holdsUnits(held) || held === position
-    );
-
-    const [quotes, exchangeRates] = await Promise.all([
-      this.marketDataProvider.getQuotes(valuedPositions),
-      this.marketDataProvider.getExchangeRates(
-        foreignCurrenciesOf(valuedPositions, baseCurrency),
-        baseCurrency
-      )
-    ]);
-
     return describePosition(
-      { baseCurrency, positions, quotes, exchangeRates },
+      await quoteHoldings(
+        this.marketDataProvider,
+        holdings,
+        holdings.positions.filter(
+          (held) => holdsUnits(held) || held === position
+        )
+      ),
       position
     );
   }

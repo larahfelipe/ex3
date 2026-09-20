@@ -1,4 +1,4 @@
-import { AssetMessages, InstrumentMessages, PortfolioMessages } from '@/config';
+import { AssetMessages, InstrumentMessages } from '@/config';
 import type { Position } from '@/domain/models';
 import { ConflictError, NotFoundError } from '@/errors';
 import type {
@@ -6,6 +6,8 @@ import type {
   InstrumentRepository,
   PortfolioRepository
 } from '@/infra/database';
+
+import { requireOwnedPortfolio } from '../PortfolioAccess';
 
 export class CreateAssetService {
   private static INSTANCE: CreateAssetService;
@@ -43,12 +45,10 @@ export class CreateAssetService {
     portfolioId,
     symbol
   }: CreateAssetService.DTO): Promise<CreateAssetService.Result> {
-    const portfolioExists = await this.portfolioRepository.getById({
-      id: portfolioId,
-      userId
+    const portfolio = await requireOwnedPortfolio(this.portfolioRepository, {
+      userId,
+      portfolioId
     });
-
-    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
 
     const instrumentExists =
       await this.instrumentRepository.getBySymbol(symbol);
@@ -58,7 +58,7 @@ export class CreateAssetService {
 
     const newAsset = await this.assetRepository.add({
       instrumentId: instrumentExists.id,
-      portfolioId: portfolioExists.id
+      portfolioId: portfolio.id
     });
 
     if (!newAsset) throw new ConflictError(AssetMessages.ALREADY_EXISTS);

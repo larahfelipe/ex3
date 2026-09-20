@@ -1,44 +1,20 @@
-import { cookies } from 'next/headers';
-import { NextResponse, type NextRequest } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-import { APP_STORAGE_KEYS } from '@/common/constants';
-import { toApiProxyErrorResponse } from '@/lib/api-error-response';
-import api, { ApiProxyError } from '@/lib/axios';
+import { forwardToApi } from '@/lib/api-proxy';
 
 import type { DeleteAssetResponseData } from '../types';
 
-export const DELETE = async (req: NextRequest) => {
-  try {
-    const assetSymbol = req.nextUrl.pathname.split('/').at(-1);
-    if (!assetSymbol)
-      throw new ApiProxyError('Missing asset symbol', {
-        status: 400,
-        statusText: 'Bad Request'
-      });
+type AssetRouteContext = Record<'params', Promise<Record<'symbol', string>>>;
 
-    const authToken = (await cookies()).get(APP_STORAGE_KEYS.Token);
-    if (!authToken?.value)
-      throw new ApiProxyError('Missing access token', {
-        status: 401,
-        statusText: 'Unauthorized'
-      });
+export const DELETE = async (
+  req: NextRequest,
+  { params }: AssetRouteContext
+) => {
+  const { symbol } = await params;
 
-    const headers = {
-      Authorization: `Bearer ${authToken.value}`
-    };
-
-    const { data, status, statusText } = await api
-      .getInstance()
-      .delete<DeleteAssetResponseData>(`/v1/asset/${assetSymbol}`, {
-        headers,
-        params: req.nextUrl.searchParams
-      });
-
-    return NextResponse.json<DeleteAssetResponseData>(data, {
-      status,
-      statusText
-    });
-  } catch (e) {
-    return toApiProxyErrorResponse(e);
-  }
+  return forwardToApi<DeleteAssetResponseData>({
+    method: 'delete',
+    path: `/v1/asset/${encodeURIComponent(symbol)}`,
+    searchParams: req.nextUrl.searchParams
+  });
 };

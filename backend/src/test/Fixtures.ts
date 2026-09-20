@@ -22,6 +22,9 @@ export const FIXTURE_BASE_CURRENCY = 'BRL';
 /** Shared by every fixture transaction, so ledger order among them falls to recording order. */
 export const FIXTURE_EXECUTED_AT = new Date('2026-01-05T13:00:00.000Z');
 
+/** Well-formed, and naming no row: the baseline a foreign id must be indistinguishable from. */
+export const MISSING_UUID = '00000000-0000-4000-8000-000000000000';
+
 const FIXTURE_PORTFOLIO_NAME = 'Fixture Portfolio';
 const FIXTURE_TRANSACTION_QUANTITY = 2;
 const FIXTURE_TRANSACTION_UNIT_PRICE = 50_000;
