@@ -44,8 +44,6 @@ export type GetTransactionsRequestParams = PortfolioScopeParams &
 
 export type GetTransactionsResponseData = Page<ListedTransaction>;
 
-export type GetTransactionRequestPayload = Pick<Asset, 'symbol'>;
-
 export type TransactionEntryPayload = Pick<
   TransactionProperties,
   'type' | 'currency' | 'executedAt' | 'broker' | 'notes'

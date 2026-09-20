@@ -1,6 +1,5 @@
 import type { Position as PositionRow } from '@prisma/client';
 
-import type { SortOrderTypes } from '@/config';
 import type { PricedInstrument } from '@/domain/MarketDataProvider';
 import type { Position } from '@/domain/models';
 import type { AllocatedPosition } from '@/domain/PortfolioValuation';
@@ -36,44 +35,6 @@ export class AssetRepository {
       AssetRepository.INSTANCE = new AssetRepository();
 
     return AssetRepository.INSTANCE;
-  }
-
-  async getAll(params: AssetRepository.GetAllParams) {
-    const { portfolioId, sort, limit, page = 1 } = params;
-
-    const limitPerPage = limit || limit === 0 ? limit : 10;
-
-    const [total, docs] = await Promise.all([
-      this.prismaClient.position.count({ where: { portfolioId } }),
-      this.prismaClient.position.findMany({
-        ...(sort && { orderBy: { investedValue: sort } }),
-        ...(limit !== 0 && { take: limitPerPage }),
-        where: { portfolioId },
-        include: INSTRUMENT_SYMBOL,
-        skip: (page - 1) * limitPerPage || 0
-      })
-    ]);
-
-    const totalPages = Math.ceil(total / limitPerPage);
-
-    return {
-      docs: docs.map(toPosition),
-      pagination: {
-        page,
-        total,
-        limit: limitPerPage,
-        totalPages: totalPages !== Infinity ? totalPages : 1
-      }
-    };
-  }
-
-  async getById(id: string) {
-    const position = await this.prismaClient.position.findUnique({
-      where: { id },
-      include: INSTRUMENT_SYMBOL
-    });
-
-    return position && toPosition(position);
   }
 
   async getBySymbol(params: AssetRepository.GetParams) {
@@ -222,11 +183,6 @@ export class AssetRepository {
 
 namespace AssetRepository {
   export type GetParams = Pick<Position, 'symbol' | 'portfolioId'>;
-  export type GetAllParams = Pick<Position, 'portfolioId'> & {
-    page?: number;
-    limit?: number;
-    sort?: (typeof SortOrderTypes)[keyof typeof SortOrderTypes];
-  };
   export type GetPricedPositionsParams = Pick<Position, 'portfolioId'> & {
     symbols?: Array<Position['symbol']>;
   };

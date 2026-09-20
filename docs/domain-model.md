@@ -106,7 +106,7 @@ Valuation não é entidade. É o resultado calculado de uma posição contra a c
 * `investedValue` está na moeda das transações da posição e `marketValue` na da cotação; em moedas diferentes, compará-los exigiria câmbio (ver [Valores, moedas e datas](#valores-moedas-e-datas)).
 * Instrumento sem cotação e provedor indisponível chegam como `not-found` e `unavailable` no ativo, não como erro da requisição.
 
-Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em `backend/src/domain/PositionValuation.ts`: o frontend exibe, não calcula. `GET /v1/assets/valuations` avalia os ativos pedidos de uma carteira; o web não o consulta desde que a tabela de posições passou a ler `GET /v1/portfolio/positions` (TD-034).
+Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em `backend/src/domain/PositionValuation.ts`: o frontend exibe, não calcula. `GET /v1/portfolio/positions` avalia as posições de uma carteira; o endpoint anterior, `GET /v1/assets/valuations`, foi removido (TD-034).
 
 ### Visão geral da carteira
 

@@ -75,7 +75,7 @@ Não há utilitário próprio: `node:test` já traz `mock.method`, que substitui
 
 ## Regressão do fluxo de assets — TASK 3.3
 
-`src/routes/Assets.integration.ts` fixa, pela API HTTP, o comportamento de adicionar, buscar, listar, paginar, ordenar, renomear e excluir ativos antes da remodelagem da FASE 4. Isso inclui o isolamento entre usuários: ativo de outra carteira responde exatamente como ativo inexistente, não aparece na listagem, não é renomeado e não é excluído.
+`src/routes/Assets.integration.ts` fixa, pela API HTTP, o comportamento de adicionar, renomear e excluir ativos. Isso inclui o isolamento entre usuários: ativo de outra carteira responde exatamente como ativo inexistente, não é renomeado e não é excluído. As leituras que a suíte também fixava saíram com `GET /v1/asset/:symbol`, `GET /v1/assets` e `GET /v1/assets/valuations`; o que a tela de ativos lê hoje está em [Valuation](#valuation).
 
 **O teste descreve o que existe.** Uma inconsistência que não quebra o fluxo é fixada como está e sinalizada no próprio teste, até ser corrigida.
 
@@ -83,9 +83,7 @@ Não há utilitário próprio: `node:test` já traz `mock.method`, que substitui
 
 O único `todo` da suíte, duas carteiras com o mesmo símbolo (baseline #19: `Asset.symbol` era `@unique` global e o segundo usuário recebia 500), passou com o catálogo de instrumentos e virou teste comum. Ver [Catálogo de instrumentos](#catálogo-de-instrumentos).
 
-**Ordem.** Sem `sort`, a listagem não tem `ORDER BY` e a ordem não é garantida pelo Postgres. Os testes que comparam páginas usam `sort` sobre saldos distintos, e a ordem sem `sort` não é fixada.
-
-**Busca.** `GET /v1/assets` não tem busca, e o teste fixa que a listagem não é estreitada por parâmetros de query além de paginação e ordenação. A tela de ativos não usa mais essa listagem: a busca, que antes filtrava no web a página já carregada e nunca encontrava ativo de outra página (baseline #25), é feita por `GET /v1/portfolio/positions` sobre todas as posições da carteira (ver [Valuation](#valuation)).
+**Busca.** A busca da tela de ativos, que antes filtrava no web a página já carregada e nunca encontrava ativo de outra página (baseline #25), é feita por `GET /v1/portfolio/positions` sobre todas as posições da carteira (ver [Valuation](#valuation)).
 
 ## Correções posteriores à TASK 3.3
 
@@ -185,7 +183,7 @@ A unicidade já estava coberta pela suíte de ativos: símbolo que a carteira j�
 * a edição que deixa um `SELL` posterior acima do que a posição detém naquele ponto é recusada sem alterar nada, mesmo quando a quantidade final continuaria positiva;
 * posição que chega a zero volta a custo médio zero.
 
-`investedValue` é o custo das unidades detidas, `quantity × averageCost`, e o valor recebido na venda não entra nele: `BUY 10 @ 10` e `SELL 5 @ 30` deixam `investedValue` 50. `GET /v1/assets` com `sort` ordena por ele, e o teste de ordenação de `src/routes/Assets.integration.ts` grava posições com `investedValue` distintos e confere `sort.field` igual a `investedValue`.
+`investedValue` é o custo das unidades detidas, `quantity × averageCost`, e o valor recebido na venda não entra nele: `BUY 10 @ 10` e `SELL 5 @ 30` deixam `investedValue` 50.
 
 **Recusa sem escrita.** Criação, edição e exclusão conferem em memória o razão candidato, com a linha nova no ponto da sua data de execução, a editada reordenada pela data nova ou sem a excluída, e só gravam quando ele é aceito, pelo motivo descrito em "Razão e posição na mesma transação".
 
@@ -285,14 +283,7 @@ O teste espelha no topo as constantes do adaptador de que depende.
 
 `src/domain/PositionValuation.test.ts`, na faixa unit, cobre `valuePosition`: valor de mercado com lucro e percentual; truncamento em direção a zero no produto e no quociente; valores nos limites de `DECIMAL(38,18)` sem perda de dígitos; `profitLoss` ausente com razão noutra moeda ou sem transações; percentual ausente sem valor investido; `not-found` e `unavailable` repassados.
 
-O bloco `valuations` de `src/routes/Assets.integration.ts` cobre `GET /v1/assets/valuations`. Os testes trocam `getQuotes` do singleton `YahooFinanceProvider` com `t.mock.method`, delegando a um `FakeMarketDataProvider`, e confirmam:
-
-* valuation de cada ativo detido, com o símbolo sem diferenciar caixa e repetido uma vez só, sem os símbolos que a carteira não detém, e mercado e moeda do catálogo entregues ao provedor;
-* `not-found` e `unavailable` por ativo, com resposta 200;
-* sem chave de provedor, com o `getQuotes` de um adaptador criado sem chave no lugar do singleton, `unavailable` sem nenhuma chamada a `fetch`;
-* até 100 símbolos, e 400 para lista ausente, vazia, com símbolo vazio ou longo demais, ou acima de 100.
-
-O bloco `portfolio scope` inclui o endpoint.
+`GET /v1/assets/valuations`, que avaliava os símbolos pedidos de uma carteira, foi removido com a suíte que o cobria; a tabela de posições lê `GET /v1/portfolio/positions`. A resposta `unavailable` sem chave de provedor, sem nenhuma chamada a `fetch`, é fixada no adaptador, em `src/infra/market-data/YahooFinanceProvider.test.ts`.
 
 `src/domain/PortfolioValuation.test.ts`, na faixa unit, cobre `summarizePortfolio`: soma na moeda base com resultado e variação do dia; conversão pela taxa da moeda da cotação e da moeda das transações; truncamento em direção a zero nos totais e percentuais, inclusive na variação negativa; totais nos limites de `DECIMAL(38,18)` sem perda de dígitos; indicadores ausentes sem cotação, sem taxa, sem moeda do custo ou sem fechamento anterior; posição sem unidades ignorada; carteira vazia com totais zero. Cobre também `valuePositionsInBaseCurrency`: cada posição na moeda base com a sua alocação; alocação sobre a carteira inteira quando só parte dela é listada; truncamento de preço, valor e fração; posição nos limites de `DECIMAL(38,18)` sem perda de dígitos; campos ausentes sem cotação ou sem taxa; custo sem moeda; posição sem unidades com valor e alocação zero; carteira de valor zero na escala sem alocação. Cobre ainda `allocatePortfolio`: distribuição por ativo, tipo, setor e moeda sem a posição sem unidades, com setor `null` por último; em cada grupo, a soma dos valores e frações truncados das suas posições, com toda distribuição dentro da tolerância sobre `totalValue` e sobre 1; moeda da cotação no lugar da do catálogo, e a do catálogo sem cotação; total, frações e valor do grupo ausentes sem cotação ou sem taxa; carteira sem posições com unidades de valor zero e distribuições vazias; carteira de valor zero na escala sem alocação. Cobre `matchesPositionFilter`: toda posição sem critério; busca sem diferenciar caixa em símbolo e nome; classe; situação, com a menor quantidade representável como em carteira e a quantidade zero como encerrada; e os critérios combinados. E `sortPositionsBy`: comparação decimal, não lexicográfica, nos dois sentidos, com a posição sem o valor por último em ambos, e empate na ordem recebida. E `foreignCurrenciesOf`, com cada moeda diferente da base uma vez. E `describePosition`: a posição na moeda base ao lado do catálogo e da cotação na moeda dela, com variação do dia e percentual; truncamento em direção a zero de ambos; sem fechamento anterior, sem variação nem percentual; fechamento anterior zero, sem percentual; e, sem cotação, só os campos da posição e do catálogo.
 
@@ -300,7 +291,7 @@ O bloco `overview` de `src/routes/Portfolios.integration.ts` cobre `GET /v1/port
 
 O bloco `positions` do mesmo arquivo cobre `GET /v1/portfolio/positions` com a mesma troca: posições da carteira pedida em ordem de `symbol` e na moeda base, com a posição sem unidades e sem as de outra carteira do mesmo usuário, e câmbio pedido só para a moeda estrangeira; última página e página além dela com os mesmos totais, cotando fora da página só as posições com unidades; ordem de `symbol` decrescente, com a mesma cotação; ordem por um valor nos dois sentidos antes de paginar, com a posição sem o valor por último e todas as posições filtradas cotadas; busca por símbolo e nome sem diferenciar caixa, classe e situação, sozinhas e combinadas, com `total` e `totalPages` só das posições filtradas e busca sem correspondência como página vazia; itens sem os campos que dependem de cotação com o provedor indisponível; carteira vazia como página vazia no maior `pageSize`; carteira de outro usuário igual à inexistente; `portfolioId`, `page`, `pageSize`, `sortBy`, `sortOrder`, `search`, `type` ou `status` ausente, malformado ou fora dos limites com 400.
 
-O bloco `by symbol`, dentro de `positions`, cobre `GET /v1/portfolio/positions/:symbol` com a mesma troca: a posição pelo símbolo sem diferenciar caixa, com catálogo, cotação e variação do dia, cotando também as demais posições com unidades e pedindo câmbio só para a moeda estrangeira; a posição sem unidades, cotada ao lado das com unidades; a posição sem cotação nem os campos que dependem dela com o provedor indisponível; símbolo sem posição na carteira pedida, inclusive o de outra carteira do mesmo usuário, com 404 e sem consultar o provedor; carteira de outro usuário igual à inexistente; `portfolioId` ausente ou malformado e símbolo vazio ou longo demais com 400.
+O bloco `by symbol`, dentro de `positions`, cobre `GET /v1/portfolio/positions/:symbol` com a mesma troca: a posição pelo símbolo sem diferenciar caixa, com catálogo, cotação e variação do dia, cotando também as demais posições com unidades e pedindo câmbio só para a moeda estrangeira; a posição sem unidades, cotada ao lado das com unidades; a posição sem cotação nem os campos que dependem dela com o provedor indisponível; símbolo sem posição na carteira pedida, inclusive o de outra carteira do mesmo usuário, com 404 e sem consultar o provedor; valores pequenos devolvidos em notação simples, sem expoente; carteira de outro usuário igual à inexistente; `portfolioId` ausente ou malformado e símbolo vazio ou longo demais com 400.
 
 O bloco `allocation` do mesmo arquivo cobre `GET /v1/portfolio/allocation` com a mesma troca: distribuição da carteira pedida por ativo, tipo, setor e moeda, na moeda base, sem a posição sem unidades nem as de outra carteira do mesmo usuário, cotando só as posições com unidades e pedindo câmbio só para a moeda estrangeira; grupos sem valores nem frações com o provedor indisponível; carteira vazia na sua moeda base, de valor zero e com distribuições vazias; carteira de outro usuário igual à inexistente; `portfolioId` ausente ou malformado com 400.
 
@@ -313,10 +304,6 @@ O bloco `allocation` do mesmo arquivo cobre `GET /v1/portfolio/allocation` com a
 ## Listagem de transações
 
 O bloco `listing` de `src/routes/Transactions.integration.ts` cobre `GET /v1/transactions`: transações da carteira pedida do mais recente ao mais antigo, com a ordem de gravação desempatando o mesmo `executedAt`, cada item com os campos da transação e o `symbol` do instrumento, sem as de outra carteira do mesmo usuário; filtros por `symbol` e `type` em qualquer caixa, por `broker` igual ao valor gravado, com outra caixa, `%` e `_` sem correspondência, e por `dateFrom` e `dateTo` inclusivos e em qualquer fuso, combinados, invertidos e sem correspondência; páginas sem repetir nem pular transação, e página além da última, até a maior que o schema aceita, com `items` vazio e os mesmos totais; filtro ou página malformados com 400. O bloco `portfolio scope` inclui o endpoint, e os testes que listavam por símbolo, nas suítes de transações e de ativos, passaram a filtrar por `symbol`.
-
-## Contagem de transações na listagem de ativos
-
-O bloco `list` de `src/routes/Assets.integration.ts` cobre o `transactionCount` de `GET /v1/assets`: compras e vendas de cada ativo listado, só da carteira pedida, sem o dividendo nem as transações do mesmo instrumento noutra carteira, com zero para o ativo sem transação; e a contagem dos ativos de uma página além da primeira. Em `src/routes/Transactions.integration.ts`, o teste das duas carteiras no mesmo instrumento confere pela listagem de ativos a contagem da carteira que gravou.
 
 ## Cotações gravadas
 

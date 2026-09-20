@@ -107,7 +107,7 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-021 — Listagens anteriores ao padrão de resposta
 
 - **Origem:** TASK 6.1 · **Tipo:** API · **Prioridade:** média · **Encaminhamento:** avulso
-- **Contexto:** `GET /v1/assets`, `GET /v1/portfolios` e `GET /v1/instruments` recebem `limit` e respondem a lista sob o nome da entidade, com `pagination: { page, limit, total, totalPages }`, fora do padrão de listagem paginada de `docs/api-inventory.md` (Padrão de resposta). O web consome só `GET /v1/portfolios` (ver TD-034).
+- **Contexto:** `GET /v1/portfolios` e `GET /v1/instruments` recebem `limit` e respondem a lista sob o nome da entidade, com `pagination: { page, limit, total, totalPages }`, fora do padrão de listagem paginada de `docs/api-inventory.md` (Padrão de resposta). `GET /v1/assets`, a terceira delas, foi removido com TD-034; o web consome só `GET /v1/portfolios`.
 - **Impacto:** o cliente trata dois formatos de paginação, e trocar uma listagem antiga para o padrão quebra a tela que a consome.
 - **Proposta:** migrar cada listagem ao padrão junto com a tela que a consome, ou removê-la quando a tela passar ao endpoint que a substitui; tratar TD-015 na mesma mudança.
 
@@ -187,13 +187,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** numa execução, dois testes de `Transactions.integration.ts` falharam — o sign-in do harness respondeu `404` e uma contagem de posição veio `0` em vez de `1` —, e a execução seguinte passou 231 de 231 sem nenhuma mudança no código. Noutra, o teste de valores pequenos sem expoente do mesmo arquivo recebeu a transação sem os campos; o arquivo sozinho passou 51 de 51, e a suíte inteira, 234 de 234, na execução seguinte. A suíte roda um arquivo por vez (`--test-concurrency=1`), então a causa não é concorrência entre arquivos; as três falhas são de dado que o teste acabou de gravar e não encontrou, e o harness esvazia todas as tabelas no reset.
 - **Impacto:** vermelho sem regressão, que só se distingue de defeito real reexecutando a suíte. Na CI, vira falha aleatória num merge legítimo.
 - **Proposta:** reproduzir a falha repetindo a suíte e registrando o status e o corpo da resposta no teste que falha, para saber se o dado some depois de gravado — reset ou escrita pendente de um teste anterior — ou nunca é gravado; corrigir a causa encontrada, sem novas tentativas automáticas que a escondam.
-
-### TD-034 — Listagem e avaliação de ativos sem consumidor no web
-
-- **Origem:** TASK 9.1 · **Tipo:** API · **Prioridade:** baixa · **Encaminhamento:** TASK 20.1
-- **Contexto:** a tabela de posições lê `GET /v1/portfolio/positions`, e os proxies `GET /api/v1/assets` e `/api/v1/assets/valuations` foram removidos com a tabela de ativos. `GET /v1/assets`, com a contagem de transações por ativo, e `GET /v1/assets/valuations` seguem no backend e nos testes de integração, sem consumidor no web. O detalhe do ativo também não os usa: lê `GET /v1/portfolio/positions/:symbol` e `GET /v1/transactions` com `symbol`. O mesmo vale para `GET /v1/asset/:symbol`, do qual o web só usa o `DELETE`.
-- **Impacto:** superfície de API autenticada mantida, testada e documentada sem uso pelo produto; `GET /v1/assets` segue fora do padrão de listagem (TD-021).
-- **Proposta:** remover do backend, com os testes e a documentação, os endpoints de leitura de ativo que nenhuma tela tiver passado a consumir, tratando TD-021 na mesma mudança.
 
 ### TD-035 — Detalhe do ativo sem proventos
 
@@ -359,10 +352,10 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 
 ### TD-061 — Rotas registram handler com `as Application`
 
-- **Origem:** TASK 19.2 · **Tipo:** tipagem · **Prioridade:** baixa · **Encaminhamento:** TASK 20.1
-- **Contexto:** os `handle` dos controllers devolvem `Promise<Response>`, e o `RequestHandler` do Express 5 espera `void`. As rotas contornam a incompatibilidade com `as Application` em 29 pontos, um cast entre tipos sem relação. `HealthRoutes.ts` não precisa dele: os seus handlers respondem e retornam `void`.
+- **Origem:** TASK 19.2 · **Tipo:** tipagem · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** os `handle` dos controllers devolvem `Promise<Response>`, e o `RequestHandler` do Express 5 espera `void`. As rotas contornam a incompatibilidade com `as Application` em 26 pontos, um cast entre tipos sem relação. `HealthRoutes.ts` não precisa dele: os seus handlers respondem e retornam `void`.
 - **Impacto:** o cast desliga a checagem da assinatura no único ponto onde ela valeria, e um handler com a forma errada passaria despercebido. Uma resposta devolvida em vez de enviada também não é erro para o compilador.
-- **Proposta:** fazer os `handle` responderem e retornarem `void`, ajustar a interface `Controller` e remover os 29 casts.
+- **Proposta:** fazer os `handle` responderem e retornarem `void`, ajustar a interface `Controller` e remover os 26 casts.
 
 ### TD-062 — Nenhuma agregação de proventos
 
@@ -379,6 +372,11 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Proposta:** derivar as métricas da série existente, com o período explícito na resposta, estado controlado quando os pontos forem insuficientes e sem exibir precisão que a série não sustenta, conforme os critérios da TASK 11.4.
 
 ## Resolvidos
+
+### TD-034 — Listagem e avaliação de ativos sem consumidor no web
+
+- **Tipo:** API · **Prioridade:** baixa
+- **Resolução:** `GET /v1/asset/:symbol`, `GET /v1/assets` e `GET /v1/assets/valuations` saíram do backend, com os controllers, services e schemas próprios, o `getAll` e o `getById` de `AssetRepository` e os blocos de teste que os cobriam. O que cada um respondia está em `GET /v1/portfolio/positions/:symbol` e `GET /v1/portfolio/positions`, que a tela de ativos já consome. `POST`, `PATCH` e `DELETE /v1/asset` continuam: são a escrita da carteira, e o `PATCH`, que liga o ativo ao instrumento de outro símbolo, é a única forma de corrigir um símbolo sem apagar o razão — sem tela ainda. Ver `docs/api-inventory.md`, §Superado desde o snapshot.
 
 ### TD-040 — Backend e web sem health check de container
 

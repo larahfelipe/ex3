@@ -12,7 +12,7 @@ const base64UrlToBase64 = (segment: string) =>
  * authority on whether a token is genuine — this exists so the client can tell
  * an already-expired session apart from an active one before making a request.
  */
-export const decodeAccessToken = (token: string): AccessTokenClaims | null => {
+const decodeAccessToken = (token: string): AccessTokenClaims | null => {
   const [, payload] = token.split('.');
 
   if (!payload) return null;

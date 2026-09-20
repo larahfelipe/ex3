@@ -13,7 +13,7 @@ const PROPAGATED_REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
 
 const UNMATCHED_ROUTE = 'unmatched';
 
-/** The pattern, never the path: `/v1/assets/:symbol` groups, `/v1/assets/AAPL` does not. */
+/** The pattern, never the path: `/v1/portfolio/positions/:symbol` groups, `/v1/portfolio/positions/AAPL` does not. */
 const routeOf = (req: Request) =>
   typeof req.route?.path === 'string'
     ? `${req.baseUrl}${req.route.path}`
