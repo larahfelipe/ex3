@@ -2,6 +2,8 @@
 
 Contrato conceitual do domínio de investimentos: o que cada entidade representa, quem é dono dela, de onde vêm os seus valores e o que ela não é. O schema Prisma, os services e a API seguem este documento; divergência entre eles e o documento é defeito de um dos lados e se resolve explicitamente.
 
+A definição matemática de cada métrica derivada destas entidades — preço médio, custo, P&L, alocação, performance, proventos e benchmarks — está em [`financial-rules.md`](financial-rules.md).
+
 ## Entidades
 
 ```text
