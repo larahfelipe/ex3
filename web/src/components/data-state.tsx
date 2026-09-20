@@ -108,10 +108,7 @@ export const StaleState: FC<StaleStateProps> = ({
       onClick={() => onRetry()}
     >
       {isRetrying && (
-        <LoaderCircle
-          aria-hidden="true"
-          className="size-4 motion-safe:animate-spin"
-        />
+        <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
       )}
 
       {RETRY_LABEL}

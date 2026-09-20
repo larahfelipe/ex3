@@ -42,7 +42,7 @@ const ACCOUNT_SECTION = {
 
 /** WCAG 2.5.5 asks for a 44px target, above the default button height. */
 const NAVIGATION_ITEM_CLASS =
-  'w-full min-h-11 gap-1.5 active:scale-90 max-sm:min-w-11';
+  'w-full min-h-11 gap-1.5 motion-safe:active:scale-90 max-sm:min-w-11';
 
 const isCurrentPath = (pathname: string, path: string) =>
   pathname === path || pathname.startsWith(`${path}/`);
