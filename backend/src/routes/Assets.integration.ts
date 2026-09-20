@@ -151,7 +151,7 @@ describe('assets', () => {
           .set(bearer(accessToken))
           .send({ symbol, portfolioId: portfolio.id });
 
-        assert.equal(res.status, Errors.BAD_REQUEST.status, symbol);
+        assert.equal(res.status, Errors.VALIDATION.status, symbol);
       }
 
       assert.equal(await prismaClient.position.count(), 0);
@@ -168,7 +168,7 @@ describe('assets', () => {
           portfolioId: portfolio.id
         });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.CONFLICT.status);
       assert.equal(res.body.message, AssetMessages.ALREADY_EXISTS);
     });
 
@@ -183,7 +183,7 @@ describe('assets', () => {
           portfolioId: portfolio.id
         });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.VALIDATION.status);
       assert.equal(await prismaClient.position.count(), 0);
     });
 
@@ -196,7 +196,7 @@ describe('assets', () => {
           .set(bearer(accessToken))
           .send({ symbol, portfolioId: portfolio.id });
 
-        assert.equal(res.status, Errors.BAD_REQUEST.status, symbol);
+        assert.equal(res.status, Errors.VALIDATION.status, symbol);
       }
 
       assert.equal(await prismaClient.position.count(), 0);
@@ -286,7 +286,7 @@ describe('assets', () => {
         .query({ portfolioId: portfolio.id })
         .set(bearer(accessToken));
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.VALIDATION.status);
     });
 
     it('still reads a stored symbol outside the allowlist for new symbols', async () => {
@@ -482,7 +482,7 @@ describe('assets', () => {
 
         assert.equal(
           res.status,
-          Errors.BAD_REQUEST.status,
+          Errors.VALIDATION.status,
           JSON.stringify(query)
         );
       }
@@ -499,7 +499,7 @@ describe('assets', () => {
 
         assert.equal(
           res.status,
-          Errors.BAD_REQUEST.status,
+          Errors.VALIDATION.status,
           JSON.stringify(query)
         );
       }
@@ -519,7 +519,7 @@ describe('assets', () => {
 
       assert.equal(atBound.status, 200);
       assert.equal(atBound.body.pagination.limit, MAX_PAGE_LIMIT);
-      assert.equal(pastBound.status, Errors.BAD_REQUEST.status);
+      assert.equal(pastBound.status, Errors.VALIDATION.status);
     });
   });
 
@@ -564,7 +564,7 @@ describe('assets', () => {
         .query({ portfolioId: portfolio.id, sort: 'up' })
         .set(bearer(accessToken));
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.VALIDATION.status);
     });
   });
 
@@ -680,7 +680,7 @@ describe('assets', () => {
 
       const res = await renameAsset(caller, asset.symbol, LEGACY_SYMBOL);
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.VALIDATION.status);
       assert.equal(await storedSymbolOf(asset.id), asset.symbol);
     });
 
@@ -723,7 +723,7 @@ describe('assets', () => {
       for (const newSymbol of [held.symbol, asset.symbol]) {
         const res = await renameAsset(caller, asset.symbol, newSymbol);
 
-        assert.equal(res.status, Errors.BAD_REQUEST.status, newSymbol);
+        assert.equal(res.status, Errors.CONFLICT.status, newSymbol);
         assert.equal(res.body.message, AssetMessages.ALREADY_EXISTS, newSymbol);
       }
 
@@ -844,7 +844,7 @@ describe('assets', () => {
         .query({ portfolioId: portfolio.id })
         .set(bearer(accessToken));
 
-      assert.equal(res.status, Errors.INTERNAL_SERVER_ERROR.status);
+      assert.equal(res.status, Errors.INTERNAL.status);
       assert.equal(
         await prismaClient.position.count({ where: { id: asset.id } }),
         1
@@ -1096,7 +1096,7 @@ describe('assets', () => {
       ]) {
         const res = await requestValuations(accessToken, portfolio.id, symbols);
 
-        assert.equal(res.status, Errors.BAD_REQUEST.status, String(symbols));
+        assert.equal(res.status, Errors.VALIDATION.status, String(symbols));
       }
     });
   });
@@ -1188,7 +1188,7 @@ describe('assets', () => {
 
           assert.equal(
             res.status,
-            Errors.BAD_REQUEST.status,
+            Errors.VALIDATION.status,
             `${request} ${portfolioId}`
           );
         }

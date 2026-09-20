@@ -168,7 +168,7 @@ describe('authentication', () => {
         .post(SIGN_UP_ROUTE)
         .send({ ...NEW_USER, email: existing.email.toUpperCase() });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.CONFLICT.status);
       assert.equal(res.body.message, UserMessages.ALREADY_EXISTS);
     });
 
@@ -185,7 +185,7 @@ describe('authentication', () => {
 
       assert.equal(created?.status, 201);
       for (const res of rejected) {
-        assert.equal(res.status, Errors.BAD_REQUEST.status);
+        assert.equal(res.status, Errors.CONFLICT.status);
         assert.equal(res.body.message, UserMessages.ALREADY_EXISTS);
       }
       assert.equal(await prismaClient.user.count(), 1);
@@ -197,7 +197,7 @@ describe('authentication', () => {
         .post(SIGN_UP_ROUTE)
         .send({ ...NEW_USER, email: 'not-an-email' });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.VALIDATION.status);
     });
 
     it('rejects a missing or unknown base currency and creates nothing', async () => {
@@ -206,11 +206,7 @@ describe('authentication', () => {
           .post(SIGN_UP_ROUTE)
           .send({ ...NEW_USER, baseCurrency });
 
-        assert.equal(
-          res.status,
-          Errors.BAD_REQUEST.status,
-          `"${baseCurrency}"`
-        );
+        assert.equal(res.status, Errors.VALIDATION.status, `"${baseCurrency}"`);
       }
 
       assert.equal(await prismaClient.user.count(), 0);
@@ -222,7 +218,7 @@ describe('authentication', () => {
         'a'.repeat(PASSWORD_MIN_CODE_POINTS - 1)
       );
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.VALIDATION.status);
     });
 
     it('accepts a password at exactly the minimum length', async () => {
@@ -238,7 +234,7 @@ describe('authentication', () => {
         ASTRAL_CHARACTER.repeat(PASSWORD_MIN_CODE_POINTS - 1)
       );
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.VALIDATION.status);
     });
 
     it('accepts a password of exactly 72 bytes', async () => {
@@ -257,8 +253,8 @@ describe('authentication', () => {
       );
       const astral = await signUpWithPassword(astralOverLimit);
 
-      assert.equal(ascii.status, Errors.BAD_REQUEST.status);
-      assert.equal(astral.status, Errors.BAD_REQUEST.status);
+      assert.equal(ascii.status, Errors.VALIDATION.status);
+      assert.equal(astral.status, Errors.VALIDATION.status);
     });
 
     it('rejects a blank password of valid length', async () => {
@@ -266,7 +262,7 @@ describe('authentication', () => {
         ' '.repeat(PASSWORD_MIN_CODE_POINTS)
       );
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.VALIDATION.status);
     });
 
     it('keeps surrounding whitespace as part of the password', async () => {
@@ -277,7 +273,7 @@ describe('authentication', () => {
         .post(SIGN_IN_ROUTE)
         .send({ email: NEW_USER.email, password: NEW_USER.password });
 
-      assert.equal(trimmed.status, Errors.UNAUTHORIZED.status);
+      assert.equal(trimmed.status, Errors.AUTHENTICATION.status);
       await signIn({ email: NEW_USER.email, password: padded });
     });
   });
@@ -321,7 +317,7 @@ describe('authentication', () => {
         .post(SIGN_IN_ROUTE)
         .send({ email: user.email, password: `${FIXTURE_PASSWORD}-wrong` });
 
-      assert.equal(res.status, Errors.UNAUTHORIZED.status);
+      assert.equal(res.status, Errors.AUTHENTICATION.status);
       assert.equal(res.body.message, UserMessages.INVALID_CREDENTIALS);
       assert.equal(res.body.accessToken, undefined);
     });
@@ -354,7 +350,7 @@ describe('authentication', () => {
         .post(SIGN_IN_ROUTE)
         .send({ email: 'nobody@ex3.app', password: FIXTURE_PASSWORD });
 
-      assert.equal(res.status, Errors.UNAUTHORIZED.status);
+      assert.equal(res.status, Errors.AUTHENTICATION.status);
       assert.equal(compare.mock.callCount(), 1);
     });
 
@@ -389,7 +385,7 @@ describe('authentication', () => {
       const revoked = await client.get(AUTHENTICATED_ROUTE).set(bearer(first));
       const active = await client.get(AUTHENTICATED_ROUTE).set(bearer(second));
 
-      assert.equal(revoked.status, Errors.UNAUTHORIZED.status);
+      assert.equal(revoked.status, Errors.AUTHENTICATION.status);
       assert.match(revoked.body.message, /no longer active/i);
       assert.equal(active.status, 200);
     });
@@ -405,7 +401,7 @@ describe('authentication', () => {
 
       const res = await client.get(AUTHENTICATED_ROUTE).set(bearer(forged));
 
-      assert.equal(res.status, Errors.UNAUTHORIZED.status);
+      assert.equal(res.status, Errors.AUTHENTICATION.status);
       assert.match(res.body.message, /invalid/i);
     });
 
@@ -415,7 +411,7 @@ describe('authentication', () => {
 
       const res = await client.get(AUTHENTICATED_ROUTE).set(bearer(forged));
 
-      assert.equal(res.status, Errors.UNAUTHORIZED.status);
+      assert.equal(res.status, Errors.AUTHENTICATION.status);
     });
 
     it('rejects a genuine token issued before session versions', async () => {
@@ -424,7 +420,7 @@ describe('authentication', () => {
 
       const res = await client.get(AUTHENTICATED_ROUTE).set(bearer(legacy));
 
-      assert.equal(res.status, Errors.UNAUTHORIZED.status);
+      assert.equal(res.status, Errors.AUTHENTICATION.status);
       assert.match(res.body.message, /invalid/i);
     });
 
@@ -433,7 +429,7 @@ describe('authentication', () => {
         .get(AUTHENTICATED_ROUTE)
         .set(bearer('not-a-jwt'));
 
-      assert.equal(res.status, Errors.UNAUTHORIZED.status);
+      assert.equal(res.status, Errors.AUTHENTICATION.status);
     });
   });
 
@@ -447,7 +443,7 @@ describe('authentication', () => {
 
       const res = await client.get(AUTHENTICATED_ROUTE).set(bearer(expired));
 
-      assert.equal(res.status, Errors.UNAUTHORIZED.status);
+      assert.equal(res.status, Errors.AUTHENTICATION.status);
       assert.match(res.body.message, /expired/i);
     });
   });
@@ -469,7 +465,7 @@ describe('authentication', () => {
         .get(AUTHENTICATED_ROUTE)
         .set(bearer(accessToken));
 
-      assert.equal(revoked.status, Errors.UNAUTHORIZED.status);
+      assert.equal(revoked.status, Errors.AUTHENTICATION.status);
       assert.match(revoked.body.message, /no longer active/i);
     });
   });
@@ -507,8 +503,8 @@ describe('authentication', () => {
         .post(SIGN_IN_ROUTE)
         .send({ email: user.email, password: FIXTURE_PASSWORD });
 
-      assert.equal(revoked.status, Errors.UNAUTHORIZED.status);
-      assert.equal(previousPassword.status, Errors.UNAUTHORIZED.status);
+      assert.equal(revoked.status, Errors.AUTHENTICATION.status);
+      assert.equal(previousPassword.status, Errors.AUTHENTICATION.status);
       await signIn({ email: user.email, password: REPLACEMENT_PASSWORD });
     });
 
@@ -520,7 +516,7 @@ describe('authentication', () => {
         .set(bearer(accessToken))
         .send({ newPassword: REPLACEMENT_PASSWORD });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.VALIDATION.status);
       await signIn({ email: user.email, password: FIXTURE_PASSWORD });
     });
 
@@ -535,7 +531,7 @@ describe('authentication', () => {
           newPassword: REPLACEMENT_PASSWORD
         });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.VALIDATION.status);
       assert.equal(res.body.message, UserMessages.INVALID_PASSWORD);
 
       const scoped = await client
@@ -556,7 +552,7 @@ describe('authentication', () => {
           newPassword: 'a'.repeat(PASSWORD_MIN_CODE_POINTS - 1)
         });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.VALIDATION.status);
     });
 
     it('throttles password-verifying requests at the sign-in limit', async () => {
@@ -568,9 +564,9 @@ describe('authentication', () => {
       assert.ok(
         statuses
           .slice(0, RateLimits.AUTH.limit)
-          .every((status) => status === Errors.UNAUTHORIZED.status)
+          .every((status) => status === Errors.AUTHENTICATION.status)
       );
-      assert.equal(statuses.at(-1), Errors.TOO_MANY_REQUESTS.status);
+      assert.equal(statuses.at(-1), Errors.THROTTLED.status);
     });
   });
 
@@ -614,7 +610,7 @@ describe('authentication', () => {
         .get(AUTHENTICATED_ROUTE)
         .set(bearer(accessToken));
 
-      assert.equal(afterDeletion.status, Errors.UNAUTHORIZED.status);
+      assert.equal(afterDeletion.status, Errors.AUTHENTICATION.status);
     });
 
     it('keeps the account and everything it holds when the password is wrong', async () => {
@@ -629,7 +625,7 @@ describe('authentication', () => {
         .set(bearer(accessToken))
         .send({ password: `${FIXTURE_PASSWORD}-wrong` });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.VALIDATION.status);
       assert.equal(res.body.message, UserMessages.INVALID_PASSWORD);
       assert.deepEqual(await storedRowCounts(), [1, 1, 1, 1]);
     });
@@ -648,7 +644,7 @@ describe('authentication', () => {
         .set(bearer(accessToken))
         .send({ password: FIXTURE_PASSWORD });
 
-      assert.equal(res.status, Errors.INTERNAL_SERVER_ERROR.status);
+      assert.equal(res.status, Errors.INTERNAL.status);
       assert.deepEqual(await storedRowCounts(), [1, 1, 1, 1]);
     });
   });
@@ -709,7 +705,7 @@ describe('authentication', () => {
 
       const res = await client.get(USERS_ROUTE).set(bearer(accessToken));
 
-      assert.equal(res.status, Errors.FORBIDDEN.status);
+      assert.equal(res.status, Errors.AUTHORIZATION.status);
     });
   });
 
@@ -718,7 +714,7 @@ describe('authentication', () => {
       it(`rejects anonymous ${method.toUpperCase()} ${path}`, async () => {
         const res = await client[method](path);
 
-        assert.equal(res.status, Errors.UNAUTHORIZED.status);
+        assert.equal(res.status, Errors.AUTHENTICATION.status);
       });
 
     it('rejects a valid token presented in another scheme', async () => {
@@ -732,7 +728,7 @@ describe('authentication', () => {
         .get(AUTHENTICATED_ROUTE)
         .set('Authorization', `Basic ${accessToken}`);
 
-      assert.equal(res.status, Errors.UNAUTHORIZED.status);
+      assert.equal(res.status, Errors.AUTHENTICATION.status);
     });
   });
 });

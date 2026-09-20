@@ -5,7 +5,7 @@ import { after, before, beforeEach, describe, it, mock } from 'node:test';
 
 import { envs } from '@/config';
 import type { User } from '@/domain/models';
-import { UnauthorizedError } from '@/errors';
+import { AuthenticationError } from '@/errors';
 
 const SECRET = envs.jwtSecret;
 const USER_ID = '0f2f5a3c-2c1c-4f2a-9a1a-7c6f5d4e3b2a';
@@ -81,13 +81,13 @@ describe('authMiddleware', () => {
   it('rejects a request without an authorization header', async () => {
     const { calls } = await run();
 
-    assert.ok(calls[0] instanceof UnauthorizedError);
+    assert.ok(calls[0] instanceof AuthenticationError);
   });
 
   it('rejects a malformed authorization header', async () => {
     const { calls } = await run(signSession());
 
-    assert.ok(calls[0] instanceof UnauthorizedError);
+    assert.ok(calls[0] instanceof AuthenticationError);
   });
 
   it('rejects an expired token', async () => {
@@ -95,7 +95,7 @@ describe('authMiddleware', () => {
 
     const [error] = (await run(`Bearer ${token}`)).calls;
 
-    assert.ok(error instanceof UnauthorizedError);
+    assert.ok(error instanceof AuthenticationError);
     assert.match(error.message, /expired/i);
   });
 
@@ -104,7 +104,7 @@ describe('authMiddleware', () => {
 
     const { calls } = await run(`Bearer ${token}`);
 
-    assert.ok(calls[0] instanceof UnauthorizedError);
+    assert.ok(calls[0] instanceof AuthenticationError);
   });
 
   it('rejects a token whose session version was superseded', async () => {
@@ -112,7 +112,7 @@ describe('authMiddleware', () => {
 
     const [error] = (await run(`Bearer ${signSession()}`)).calls;
 
-    assert.ok(error instanceof UnauthorizedError);
+    assert.ok(error instanceof AuthenticationError);
     assert.match(error.message, /no longer active/i);
   });
 
@@ -121,7 +121,7 @@ describe('authMiddleware', () => {
 
     const [error] = (await run(`Bearer ${signSession()}`)).calls;
 
-    assert.ok(error instanceof UnauthorizedError);
+    assert.ok(error instanceof AuthenticationError);
     assert.match(error.message, /no longer active/i);
   });
 });

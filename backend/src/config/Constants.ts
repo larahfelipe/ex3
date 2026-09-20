@@ -1,42 +1,82 @@
 import type { InstrumentType, TransactionType } from '@/domain/models';
 
+/**
+ * The categories an API failure is classified into. The category name is the
+ * `code` on the wire: stable across releases, so a client branches on it and a
+ * log groups by it.
+ */
+export const ErrorCategories = {
+  VALIDATION: 'VALIDATION',
+  AUTHENTICATION: 'AUTHENTICATION',
+  AUTHORIZATION: 'AUTHORIZATION',
+  NOT_FOUND: 'NOT_FOUND',
+  CONFLICT: 'CONFLICT',
+  DOMAIN: 'DOMAIN',
+  INFRASTRUCTURE: 'INFRASTRUCTURE',
+  INTERNAL: 'INTERNAL'
+} as const;
+
+export type ErrorCategory =
+  (typeof ErrorCategories)[keyof typeof ErrorCategories];
+
+type ErrorDefinition = {
+  code: ErrorCategory;
+  status: number;
+  message: string;
+};
+
+/**
+ * Status and category are different axes, so two entries can share a category:
+ * a payload past the limit is a validation failure answered with 413, and a
+ * throttled caller is an infrastructure limit answered with 429.
+ */
 export const Errors = {
-  BAD_REQUEST: {
-    code: 'BAD_REQUEST',
+  VALIDATION: {
+    code: ErrorCategories.VALIDATION,
     status: 400,
     message: 'Invalid or corrupted request'
   },
-  FORBIDDEN: {
-    code: 'FORBIDDEN',
+  AUTHENTICATION: {
+    code: ErrorCategories.AUTHENTICATION,
+    status: 401,
+    message: 'Authentication required'
+  },
+  AUTHORIZATION: {
+    code: ErrorCategories.AUTHORIZATION,
     status: 403,
     message: 'Resource access denied'
   },
   NOT_FOUND: {
-    code: 'NOT_FOUND',
+    code: ErrorCategories.NOT_FOUND,
     status: 404,
     message: 'Resource not found'
   },
-  UNAUTHORIZED: {
-    code: 'UNAUTHORIZED',
-    status: 401,
-    message: 'Authentication required'
+  CONFLICT: {
+    code: ErrorCategories.CONFLICT,
+    status: 409,
+    message: 'Resource already exists'
   },
   PAYLOAD_TOO_LARGE: {
-    code: 'PAYLOAD_TOO_LARGE',
+    code: ErrorCategories.VALIDATION,
     status: 413,
     message: 'Request payload exceeds the maximum allowed size'
   },
-  TOO_MANY_REQUESTS: {
-    code: 'TOO_MANY_REQUESTS',
+  DOMAIN: {
+    code: ErrorCategories.DOMAIN,
+    status: 422,
+    message: 'Request breaks a rule of the domain'
+  },
+  THROTTLED: {
+    code: ErrorCategories.INFRASTRUCTURE,
     status: 429,
     message: 'Too many requests, please try again later'
   },
-  INTERNAL_SERVER_ERROR: {
-    code: 'INTERNAL_SERVER_ERROR',
+  INTERNAL: {
+    code: ErrorCategories.INTERNAL,
     status: 500,
     message: 'An unexpected error occurred'
   }
-};
+} as const satisfies Record<string, ErrorDefinition>;
 
 const ONE_MINUTE_IN_MS = 60_000;
 

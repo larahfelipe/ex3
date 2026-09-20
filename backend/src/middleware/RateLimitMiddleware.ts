@@ -1,6 +1,23 @@
-import { rateLimit } from 'express-rate-limit';
+import {
+  rateLimit,
+  type RateLimitExceededEventHandler
+} from 'express-rate-limit';
 
 import { Errors, RateLimits } from '@/config/Constants';
+
+/**
+ * The limiter answers on its own, without reaching the error boundary, so the
+ * envelope and the code the request log reports are written here.
+ */
+const rejectThrottledRequest: RateLimitExceededEventHandler = (req, res) => {
+  req.errorCode = Errors.THROTTLED.code;
+
+  res.status(Errors.THROTTLED.status).json({
+    code: Errors.THROTTLED.code,
+    message: Errors.THROTTLED.message,
+    details: []
+  });
+};
 
 /**
  * Credential endpoints are the cheapest target for online guessing, so they get
@@ -11,11 +28,7 @@ export const authRateLimitMiddleware = rateLimit({
   limit: RateLimits.AUTH.limit,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  message: {
-    code: Errors.TOO_MANY_REQUESTS.code,
-    message: Errors.TOO_MANY_REQUESTS.message,
-    details: []
-  }
+  handler: rejectThrottledRequest
 });
 
 export const apiRateLimitMiddleware = rateLimit({
@@ -23,9 +36,5 @@ export const apiRateLimitMiddleware = rateLimit({
   limit: RateLimits.API.limit,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  message: {
-    code: Errors.TOO_MANY_REQUESTS.code,
-    message: Errors.TOO_MANY_REQUESTS.message,
-    details: []
-  }
+  handler: rejectThrottledRequest
 });

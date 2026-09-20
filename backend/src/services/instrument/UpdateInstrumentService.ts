@@ -1,6 +1,6 @@
 import { InstrumentMessages } from '@/config';
 import type { Instrument, User } from '@/domain/models';
-import { ForbiddenError, NotFoundError } from '@/errors';
+import { AuthorizationError, NotFoundError } from '@/errors';
 import type { InstrumentRepository } from '@/infra/database';
 
 export class UpdateInstrumentService {
@@ -25,7 +25,7 @@ export class UpdateInstrumentService {
     symbol,
     attributes
   }: UpdateInstrumentService.DTO): Promise<UpdateInstrumentService.Result> {
-    if (!isAdmin) throw new ForbiddenError();
+    if (!isAdmin) throw new AuthorizationError();
 
     const instrumentExists =
       await this.instrumentRepository.getBySymbol(symbol);

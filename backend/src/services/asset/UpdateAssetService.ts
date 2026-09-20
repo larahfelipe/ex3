@@ -1,5 +1,5 @@
 import { AssetMessages, InstrumentMessages, PortfolioMessages } from '@/config';
-import { BadRequestError, NotFoundError } from '@/errors';
+import { ConflictError, NotFoundError } from '@/errors';
 import type {
   AssetRepository,
   InstrumentRepository,
@@ -71,7 +71,7 @@ export class UpdateAssetService {
         portfolioId: portfolioExists.id
       }));
 
-    if (!isMoved) throw new BadRequestError(AssetMessages.ALREADY_EXISTS);
+    if (!isMoved) throw new ConflictError(AssetMessages.ALREADY_EXISTS);
 
     return {
       message: AssetMessages.UPDATED

@@ -105,7 +105,7 @@ describe('instruments', () => {
       });
 
       assert.equal(first.status, 201);
-      assert.equal(again.status, Errors.BAD_REQUEST.status);
+      assert.equal(again.status, Errors.CONFLICT.status);
       assert.equal(again.body.message, InstrumentMessages.ALREADY_EXISTS);
       assert.deepEqual(
         await prismaClient.instrument.findMany({ select: CATALOG_ATTRIBUTES }),
@@ -131,7 +131,7 @@ describe('instruments', () => {
 
         assert.equal(
           res.status,
-          Errors.BAD_REQUEST.status,
+          Errors.VALIDATION.status,
           JSON.stringify(instrument)
         );
       }
@@ -172,7 +172,7 @@ describe('instruments', () => {
 
         assert.equal(
           res.status,
-          Errors.BAD_REQUEST.status,
+          Errors.VALIDATION.status,
           JSON.stringify(attributes)
         );
       }
@@ -206,8 +206,8 @@ describe('instruments', () => {
         .set(bearer(accessToken))
         .send({ name: PETR4.name });
 
-      assert.equal(registered.status, Errors.FORBIDDEN.status);
-      assert.equal(updated.status, Errors.FORBIDDEN.status);
+      assert.equal(registered.status, Errors.AUTHORIZATION.status);
+      assert.equal(updated.status, Errors.AUTHORIZATION.status);
       assert.deepEqual(await prismaClient.instrument.findMany(), [stored]);
     });
   });

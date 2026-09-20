@@ -1,5 +1,5 @@
 import type { User } from '@/domain/models';
-import { ForbiddenError } from '@/errors';
+import { AuthorizationError } from '@/errors';
 import type { UserRepository } from '@/infra/database';
 
 export class GetAllUsersService {
@@ -20,7 +20,7 @@ export class GetAllUsersService {
   async execute({
     isAdmin
   }: GetAllUsersService.DTO): Promise<GetAllUsersService.Result> {
-    if (!isAdmin) throw new ForbiddenError();
+    if (!isAdmin) throw new AuthorizationError();
 
     return {
       users: await this.userRepository.getAll()

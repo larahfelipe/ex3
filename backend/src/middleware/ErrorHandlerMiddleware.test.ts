@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { Errors } from '@/config/Constants';
-import { BadRequestError } from '@/errors';
+import { ValidationError } from '@/errors';
 import type { LogEntry } from '@/infra/observability';
 
 import { createErrorHandlerMiddleware } from './ErrorHandlerMiddleware';
@@ -52,22 +52,22 @@ const run = (e: unknown, response = makeResponse()) => {
 describe('errorHandlerMiddleware', () => {
   it('answers an application error with its own status and records the code on the request', () => {
     const { sent, req, entries } = run(
-      new BadRequestError('Email must be a valid email', [
+      new ValidationError('Email must be a valid email', [
         { path: 'email', message: 'Email must be a valid email' }
       ])
     );
 
     assert.deepEqual(sent, [
       {
-        status: Errors.BAD_REQUEST.status,
+        status: Errors.VALIDATION.status,
         body: {
-          code: Errors.BAD_REQUEST.code,
+          code: Errors.VALIDATION.code,
           message: 'Email must be a valid email',
           details: [{ path: 'email', message: 'Email must be a valid email' }]
         }
       }
     ]);
-    assert.equal(req.errorCode, Errors.BAD_REQUEST.code);
+    assert.equal(req.errorCode, Errors.VALIDATION.code);
     assert.deepEqual(entries, []);
   });
 
@@ -78,10 +78,10 @@ describe('errorHandlerMiddleware', () => {
 
     assert.deepEqual(sent, [
       {
-        status: Errors.INTERNAL_SERVER_ERROR.status,
+        status: Errors.INTERNAL.status,
         body: {
-          code: Errors.INTERNAL_SERVER_ERROR.code,
-          message: Errors.INTERNAL_SERVER_ERROR.message,
+          code: Errors.INTERNAL.code,
+          message: Errors.INTERNAL.message,
           details: []
         }
       }

@@ -577,7 +577,7 @@ describe('transactions', () => {
 
         assert.equal(
           res.status,
-          Errors.BAD_REQUEST.status,
+          Errors.VALIDATION.status,
           JSON.stringify(query)
         );
       }
@@ -640,7 +640,7 @@ describe('transactions', () => {
 
           assert.equal(
             res.status,
-            Errors.BAD_REQUEST.status,
+            Errors.VALIDATION.status,
             `${request} ${portfolioId}`
           );
         }
@@ -816,7 +816,7 @@ describe('transactions', () => {
         unitPrice: '10'
       });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.DOMAIN.status);
       assert.equal(res.body.message, TransactionMessages.ACC_NEGATIVE_AMOUNT);
       assert.equal(await prismaClient.transaction.count(), 1);
       assert.deepEqual(await storedPosition(asset.id), {
@@ -869,7 +869,7 @@ describe('transactions', () => {
           unitPrice: '10'
         });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.DOMAIN.status);
       assert.equal(res.body.message, TransactionMessages.ACC_NEGATIVE_AMOUNT);
       assert.deepEqual(await storedEntry(bought.body.transaction.id), {
         type: 'BUY',
@@ -896,7 +896,7 @@ describe('transactions', () => {
         .delete(transactionRoute(bought.body.transaction.id))
         .set(bearer(accessToken));
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.DOMAIN.status);
       assert.equal(res.body.message, TransactionMessages.ACC_NEGATIVE_AMOUNT);
       assert.equal(await prismaClient.transaction.count(), 2);
       assert.deepEqual(await storedPosition(asset.id), {
@@ -926,7 +926,7 @@ describe('transactions', () => {
           unitPrice: '10'
         });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.DOMAIN.status);
       assert.equal(res.body.message, TransactionMessages.ACC_NEGATIVE_AMOUNT);
       assert.deepEqual(await storedEntry(bought.body.transaction.id), {
         type: 'BUY',
@@ -955,7 +955,7 @@ describe('transactions', () => {
         201,
         ...Array.from(
           { length: CONCURRENT_SELLS - 1 },
-          () => Errors.BAD_REQUEST.status
+          () => Errors.DOMAIN.status
         )
       ]);
       assert.equal(await prismaClient.transaction.count(), 2);
@@ -1182,7 +1182,7 @@ describe('transactions', () => {
         currency: 'USD'
       });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.DOMAIN.status);
       assert.equal(res.body.message, TransactionMessages.CURRENCY_MISMATCH);
       assert.equal(await prismaClient.transaction.count(), 1);
       assert.deepEqual(await storedPosition(asset.id), {
@@ -1258,7 +1258,7 @@ describe('transactions', () => {
         executedAt: EXECUTED_BEFORE_CONTEXT
       });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.DOMAIN.status);
       assert.equal(res.body.message, TransactionMessages.ACC_NEGATIVE_AMOUNT);
       assert.equal(await prismaClient.transaction.count(), 1);
       assert.deepEqual(await storedPosition(asset.id), {
@@ -1289,7 +1289,7 @@ describe('transactions', () => {
           executedAt: EXECUTED_BEFORE_CONTEXT
         });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.DOMAIN.status);
       assert.equal(res.body.message, TransactionMessages.ACC_NEGATIVE_AMOUNT);
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '0',
@@ -1313,7 +1313,7 @@ describe('transactions', () => {
       });
 
       assert.equal(atLimit.status, 201);
-      assert.equal(pastLimit.status, Errors.BAD_REQUEST.status);
+      assert.equal(pastLimit.status, Errors.DOMAIN.status);
       assert.equal(
         pastLimit.body.message,
         TransactionMessages.POSITION_OUT_OF_RANGE
@@ -1335,7 +1335,7 @@ describe('transactions', () => {
         unitPrice: COLUMN_MAX
       });
 
-      assert.equal(res.status, Errors.BAD_REQUEST.status);
+      assert.equal(res.status, Errors.DOMAIN.status);
       assert.equal(res.body.message, TransactionMessages.POSITION_OUT_OF_RANGE);
       assert.equal(await prismaClient.transaction.count(), 0);
       assert.deepEqual(await storedPosition(asset.id), {
@@ -1421,7 +1421,7 @@ describe('transactions', () => {
         .delete(transactionRoute(recorded.body.transaction.id))
         .set(bearer(accessToken));
 
-      assert.equal(res.status, Errors.INTERNAL_SERVER_ERROR.status);
+      assert.equal(res.status, Errors.INTERNAL.status);
       assert.deepEqual(await storedEntry(recorded.body.transaction.id), bought);
     });
 
@@ -1433,7 +1433,7 @@ describe('transactions', () => {
 
       const res = await record({ type: 'BUY', quantity: '5', unitPrice: '40' });
 
-      assert.equal(res.status, Errors.INTERNAL_SERVER_ERROR.status);
+      assert.equal(res.status, Errors.INTERNAL.status);
       assert.equal(await prismaClient.transaction.count(), 1);
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '10',
@@ -1459,7 +1459,7 @@ describe('transactions', () => {
           unitPrice: '40'
         });
 
-      assert.equal(res.status, Errors.INTERNAL_SERVER_ERROR.status);
+      assert.equal(res.status, Errors.INTERNAL.status);
       assert.deepEqual(await storedEntry(recorded.body.transaction.id), bought);
       assert.deepEqual(await storedPosition(asset.id), {
         quantity: '10',
@@ -1509,7 +1509,7 @@ describe('transactions', () => {
             portfolioId: portfolio.id
           });
 
-        assert.equal(res.status, Errors.BAD_REQUEST.status, `"${type}"`);
+        assert.equal(res.status, Errors.VALIDATION.status, `"${type}"`);
       }
 
       assert.equal(await prismaClient.transaction.count(), 0);
@@ -1532,7 +1532,7 @@ describe('transactions', () => {
       ]);
 
       for (const [method, res] of responses)
-        assert.equal(res.status, Errors.BAD_REQUEST.status, method);
+        assert.equal(res.status, Errors.VALIDATION.status, method);
     });
 
     /** Mirror `TransactionEntrySchema`. */
@@ -1567,16 +1567,8 @@ describe('transactions', () => {
           .set(bearer(holderToken))
           .send(entry);
 
-        assert.equal(
-          created.status,
-          Errors.BAD_REQUEST.status,
-          `POST ${label}`
-        );
-        assert.equal(
-          edited.status,
-          Errors.BAD_REQUEST.status,
-          `PATCH ${label}`
-        );
+        assert.equal(created.status, Errors.VALIDATION.status, `POST ${label}`);
+        assert.equal(edited.status, Errors.VALIDATION.status, `PATCH ${label}`);
       }
 
       assert.deepEqual(await prismaClient.transaction.findMany(), [

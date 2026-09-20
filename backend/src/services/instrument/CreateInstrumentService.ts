@@ -1,6 +1,6 @@
 import { InstrumentMessages } from '@/config';
 import type { Instrument, User } from '@/domain/models';
-import { BadRequestError, ForbiddenError } from '@/errors';
+import { AuthorizationError, ConflictError } from '@/errors';
 import type { InstrumentRepository } from '@/infra/database';
 
 /**
@@ -28,12 +28,11 @@ export class CreateInstrumentService {
     isAdmin,
     ...attributes
   }: CreateInstrumentService.DTO): Promise<CreateInstrumentService.Result> {
-    if (!isAdmin) throw new ForbiddenError();
+    if (!isAdmin) throw new AuthorizationError();
 
     const instrument = await this.instrumentRepository.add(attributes);
 
-    if (!instrument)
-      throw new BadRequestError(InstrumentMessages.ALREADY_EXISTS);
+    if (!instrument) throw new ConflictError(InstrumentMessages.ALREADY_EXISTS);
 
     return {
       instrument,

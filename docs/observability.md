@@ -72,9 +72,9 @@ quando qualquer camada responde.
 
 ## Limites conhecidos
 
-* `express-rate-limit` responde 429 sozinho, sem passar pelo error boundary, e
-  por isso a linha de uma requisição barrada sai com `status: 429` e sem
-  `errorCode`. Fechar essa lacuna depende da taxonomia da TASK 18.2.
+* O rate limit responde sem passar pelo error boundary, então o `errorCode` da
+  linha é escrito pelo `handler` do próprio limitador: uma requisição barrada
+  sai com `status: 429` e `errorCode: INFRASTRUCTURE`. Ver `docs/errors.md`.
 * Sob `NODE_ENV=test` nada é escrito: a saída de uma suíte é do runner de teste,
   e uma linha de servidor no meio dela não reporta nada. O que se verifica nos
   testes é a entrada entregue ao `LogSink`, não o que foi para o descritor.

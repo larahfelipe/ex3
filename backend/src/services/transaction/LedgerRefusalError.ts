@@ -1,6 +1,6 @@
 import { TransactionMessages } from '@/config/Constants';
 import type { LedgerRefusal } from '@/domain/PositionLedger';
-import { BadRequestError } from '@/errors';
+import { DomainError } from '@/errors';
 
 const REFUSAL_MESSAGES = {
   'negative-amount': TransactionMessages.ACC_NEGATIVE_AMOUNT,
@@ -9,4 +9,4 @@ const REFUSAL_MESSAGES = {
 } satisfies Record<LedgerRefusal['outcome'], string>;
 
 export const ledgerRefusalError = ({ outcome }: LedgerRefusal) =>
-  new BadRequestError(REFUSAL_MESSAGES[outcome]);
+  new DomainError(REFUSAL_MESSAGES[outcome]);

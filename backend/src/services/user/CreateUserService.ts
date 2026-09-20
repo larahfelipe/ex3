@@ -1,6 +1,6 @@
 import { UserMessages } from '@/config';
 import type { Portfolio, User } from '@/domain/models';
-import { BadRequestError } from '@/errors';
+import { ConflictError } from '@/errors';
 import type { Jwt } from '@/infra/cryptography';
 import type { UserRepository } from '@/infra/database';
 
@@ -40,7 +40,7 @@ export class CreateUserService {
       portfolio: { name: FIRST_PORTFOLIO_NAME, baseCurrency }
     });
 
-    if (!account) throw new BadRequestError(UserMessages.ALREADY_EXISTS);
+    if (!account) throw new ConflictError(UserMessages.ALREADY_EXISTS);
 
     const { sessionVersion, ...newUser } = account;
 

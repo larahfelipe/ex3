@@ -134,7 +134,7 @@ describe('portfolios', () => {
 
         assert.equal(
           res.status,
-          Errors.BAD_REQUEST.status,
+          Errors.VALIDATION.status,
           JSON.stringify(attributes)
         );
       }
@@ -217,7 +217,7 @@ describe('portfolios', () => {
           .query({ limit })
           .set(bearer(accessToken));
 
-        assert.equal(res.status, Errors.BAD_REQUEST.status, `${limit}`);
+        assert.equal(res.status, Errors.VALIDATION.status, `${limit}`);
       }
     });
   });
@@ -263,7 +263,7 @@ describe('portfolios', () => {
       for (const portfolioId of [undefined, 'not-a-uuid']) {
         const res = await requestPortfolio(accessToken, portfolioId);
 
-        assert.equal(res.status, Errors.BAD_REQUEST.status, `${portfolioId}`);
+        assert.equal(res.status, Errors.VALIDATION.status, `${portfolioId}`);
       }
     });
   });
@@ -488,7 +488,7 @@ describe('portfolios', () => {
       for (const portfolioId of [undefined, 'not-a-uuid']) {
         const res = await requestOverview(accessToken, portfolioId);
 
-        assert.equal(res.status, Errors.BAD_REQUEST.status, `${portfolioId}`);
+        assert.equal(res.status, Errors.VALIDATION.status, `${portfolioId}`);
       }
     });
   });
@@ -887,7 +887,7 @@ describe('portfolios', () => {
 
         assert.equal(
           res.status,
-          Errors.BAD_REQUEST.status,
+          Errors.VALIDATION.status,
           JSON.stringify(query)
         );
       }
@@ -1058,7 +1058,7 @@ describe('portfolios', () => {
 
           assert.equal(
             res.status,
-            Errors.BAD_REQUEST.status,
+            Errors.VALIDATION.status,
             JSON.stringify({ symbol, portfolioId })
           );
         }
@@ -1273,7 +1273,7 @@ describe('portfolios', () => {
       for (const portfolioId of [undefined, 'not-a-uuid']) {
         const res = await requestAllocation(accessToken, portfolioId);
 
-        assert.equal(res.status, Errors.BAD_REQUEST.status, `${portfolioId}`);
+        assert.equal(res.status, Errors.VALIDATION.status, `${portfolioId}`);
       }
     });
   });
@@ -1578,7 +1578,7 @@ describe('portfolios', () => {
 
         assert.equal(
           res.status,
-          Errors.BAD_REQUEST.status,
+          Errors.VALIDATION.status,
           JSON.stringify(query)
         );
       }

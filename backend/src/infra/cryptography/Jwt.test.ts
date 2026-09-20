@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { UnauthorizedError } from '@/errors';
+import { AuthenticationError } from '@/errors';
 
 import { Jwt } from './Jwt';
 
@@ -18,7 +18,7 @@ const sut = Jwt.getInstance(SECRET, EXPIRATION_SECONDS);
 
 const assertRejectedWith = (token: string, message: RegExp) =>
   assert.rejects(sut.decrypt(token), (e: unknown) => {
-    assert.ok(e instanceof UnauthorizedError);
+    assert.ok(e instanceof AuthenticationError);
     assert.match(e.message, message);
     return true;
   });

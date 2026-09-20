@@ -18,17 +18,17 @@ const toApplicationError = (e: unknown): ApplicationError => {
       Errors.PAYLOAD_TOO_LARGE.code
     );
 
-  if (type === 'entity.parse.failed' || status === Errors.BAD_REQUEST.status)
+  if (type === 'entity.parse.failed' || status === Errors.VALIDATION.status)
     return new ApplicationError(
-      Errors.BAD_REQUEST.message,
-      Errors.BAD_REQUEST.status,
-      Errors.BAD_REQUEST.code
+      Errors.VALIDATION.message,
+      Errors.VALIDATION.status,
+      Errors.VALIDATION.code
     );
 
   return new ApplicationError(
-    Errors.INTERNAL_SERVER_ERROR.message,
-    Errors.INTERNAL_SERVER_ERROR.status,
-    Errors.INTERNAL_SERVER_ERROR.code
+    Errors.INTERNAL.message,
+    Errors.INTERNAL.status,
+    Errors.INTERNAL.code
   );
 };
 
@@ -49,7 +49,7 @@ export const createErrorHandlerMiddleware =
 
     req.errorCode = code;
 
-    if (status >= Errors.INTERNAL_SERVER_ERROR.status)
+    if (status >= Errors.INTERNAL.status)
       logEntry({
         severity: LogSeverities.ERROR,
         event: 'request_failed',
