@@ -231,3 +231,20 @@
     margin: 0;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Near-zero rather than zero so Radix still gets the `animationend` that unmounts exiting overlays. */
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /* The busy indicator is the one animation that carries state, so it keeps turning, slower. */
+  .animate-spin {
+    animation-duration: 1.5s !important;
+    animation-iteration-count: infinite !important;
+  }
+}

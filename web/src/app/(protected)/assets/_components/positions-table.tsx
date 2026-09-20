@@ -322,10 +322,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
             >
               <RefreshCw
                 aria-hidden="true"
-                className={twMerge(
-                  'size-4',
-                  isFetching && 'motion-safe:animate-spin'
-                )}
+                className={twMerge('size-4', isFetching && 'animate-spin')}
               />
               Refresh
             </Button>
