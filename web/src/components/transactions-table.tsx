@@ -65,9 +65,11 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
 
             {hasAssetColumn && <TableHead>Asset</TableHead>}
 
-            <TableHead className="text-right">Quantity</TableHead>
+            <TableHead className="text-right max-sm:hidden">Quantity</TableHead>
 
-            <TableHead className="text-right">Unit price</TableHead>
+            <TableHead className="text-right max-sm:hidden">
+              Unit price
+            </TableHead>
 
             <TableHead>
               <span className="sr-only">Details</span>
@@ -78,7 +80,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
         <TableBody>
           {transactions.map((transaction, index) => (
             <TableRow key={transaction.id}>
-              <TableCell className="whitespace-nowrap">
+              <TableCell className="sm:whitespace-nowrap">
                 <time dateTime={transaction.executedAt}>
                   {formatExecutionTime(transaction.executedAt)}
                 </time>
@@ -94,11 +96,11 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                 </TableCell>
               )}
 
-              <TableCell className="text-right">
+              <TableCell className="text-right max-sm:hidden">
                 <Quantity value={transaction.quantity} />
               </TableCell>
 
-              <TableCell className="text-right">
+              <TableCell className="text-right max-sm:hidden">
                 <Price
                   exact
                   value={transaction.unitPrice}

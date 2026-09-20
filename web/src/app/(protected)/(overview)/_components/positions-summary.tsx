@@ -72,11 +72,15 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
               <TableRow>
                 <TableHead>Asset</TableHead>
 
-                <TableHead className="text-right">Quantity</TableHead>
+                <TableHead className="text-right max-sm:hidden">
+                  Quantity
+                </TableHead>
 
                 <TableHead className="text-right">Market value</TableHead>
 
-                <TableHead className="text-right">Allocation</TableHead>
+                <TableHead className="text-right max-sm:hidden">
+                  Allocation
+                </TableHead>
 
                 <TableHead className="text-right">Profit/Loss</TableHead>
               </TableRow>
@@ -103,7 +107,7 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
                     </div>
                   </TableCell>
 
-                  <TableCell className="text-right">
+                  <TableCell className="text-right max-sm:hidden">
                     <Quantity value={position.quantity} />
                   </TableCell>
 
@@ -114,7 +118,7 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
                     />
                   </TableCell>
 
-                  <TableCell className="text-right">
+                  <TableCell className="text-right max-sm:hidden">
                     <Percentage value={position.allocation} />
                   </TableCell>
 
