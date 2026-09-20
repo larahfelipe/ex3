@@ -67,7 +67,7 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
     >
       {({ items, page, totalPages }) => (
         <div className="space-y-4">
-          <Table>
+          <Table label="Positions summary">
             <TableHeader>
               <TableRow>
                 <TableHead>Asset</TableHead>

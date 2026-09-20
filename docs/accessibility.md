@@ -158,6 +158,6 @@ O que a auditoria não vai decidir sozinha, e por quê:
 | Item | Justificativa |
 | --- | --- |
 | Reprovações de contraste acima | axe mede o par renderizado e vai confirmá-las; a escolha do novo valor de token é decisão de design, em TD-053 |
-| Rolagem horizontal das tabelas (TD-051) | a regra `scrollable-region-focusable` acusa, mas a correção depende da decisão de refluxo da FASE 15 |
+| Rolagem horizontal das tabelas (TD-051, resolvido na TASK 15.3) | a regra `scrollable-region-focusable` só passa a olhar o `section` de `components/ui/table.tsx` quando ele de fato transborda; a varredura precisa incluir uma viewport estreita para exercitar esse estado |
 | Foco após excluir o último item da lista (TD-052) | nenhuma regra estática ou de runtime cobre foco órfão após desmontagem; só o teste de teclado revela |
 | Ordem lógica de foco, clareza da mensagem de erro e equivalência do conteúdo alternativo | fora do alcance de qualquer ferramenta automatizada; permanecem no roteiro manual deste documento |

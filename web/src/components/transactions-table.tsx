@@ -56,7 +56,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
 
   return (
     <>
-      <Table>
+      <Table label="Transactions">
         <TableHeader>
           <TableRow>
             <TableHead>Date</TableHead>

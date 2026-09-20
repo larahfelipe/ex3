@@ -85,7 +85,8 @@ type PositionListing = Required<
   Pick<PositionListingParams, 'search' | 'type' | 'status'>;
 
 type PositionColumn = Record<'field', PositionSortField> &
-  Record<'label', string>;
+  Record<'label', string> &
+  Partial<Record<'isSecondary', boolean>>;
 
 const FIRST_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 10;
@@ -117,15 +118,19 @@ const POSITION_STATUS_LABELS: Record<PositionStatus, string> = {
   closed: 'Closed'
 };
 
+/**
+ * A secondary column leaves the table below `sm`, where only the asset, its
+ * value and its result fit; the asset detail page keeps every hidden number.
+ */
 const POSITION_COLUMNS: Array<PositionColumn> = [
   { field: 'symbol', label: 'Asset' },
-  { field: 'quantity', label: 'Quantity' },
-  { field: 'averageCost', label: 'Average price' },
-  { field: 'marketPrice', label: 'Price' },
+  { field: 'quantity', label: 'Quantity', isSecondary: true },
+  { field: 'averageCost', label: 'Average price', isSecondary: true },
+  { field: 'marketPrice', label: 'Price', isSecondary: true },
   { field: 'marketValue', label: 'Value' },
-  { field: 'allocation', label: 'Allocation' },
-  { field: 'profitLoss', label: 'P&L' },
-  { field: 'profitLossPercent', label: 'P&L %' }
+  { field: 'allocation', label: 'Allocation', isSecondary: true },
+  { field: 'profitLoss', label: 'P&L', isSecondary: true },
+  { field: 'profitLossPercent', label: 'P&L %', isSecondary: true }
 ];
 
 const REVERSED_ORDER: Record<SortOrder, SortOrder> = {
@@ -455,6 +460,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
 
             {data !== undefined && data.items.length > 0 && (
               <Table
+                label="Positions"
                 className={twMerge(
                   'transition-opacity',
                   isPlaceholderData && 'opacity-60'
@@ -466,7 +472,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
 
                 <TableHeader>
                   <TableRow>
-                    {POSITION_COLUMNS.map(({ field, label }) => {
+                    {POSITION_COLUMNS.map(({ field, label, isSecondary }) => {
                       const isSorted = field === listing.sortBy;
                       const SortIcon = isSorted
                         ? SORT_ICONS[listing.sortOrder]
@@ -480,7 +486,8 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                           }
                           className={twMerge(
                             'whitespace-nowrap',
-                            field !== 'symbol' && 'text-right'
+                            field !== 'symbol' && 'text-right',
+                            isSecondary && 'max-sm:hidden'
                           )}
                         >
                           <button
@@ -529,21 +536,29 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                           <span className="text-xs text-muted-foreground">
                             {position.name}
                           </span>
+
+                          <span className="sm:hidden">
+                            <ProfitLoss
+                              value={position.profitLoss}
+                              percent={position.profitLossPercent}
+                              currency={position.baseCurrency}
+                            />
+                          </span>
                         </div>
                       </TableCell>
 
-                      <TableCell className="text-right">
+                      <TableCell className="text-right max-sm:hidden">
                         <Quantity value={position.quantity} />
                       </TableCell>
 
-                      <TableCell className="whitespace-nowrap text-right">
+                      <TableCell className="whitespace-nowrap text-right max-sm:hidden">
                         <Price
                           value={position.averageCost}
                           currency={position.baseCurrency}
                         />
                       </TableCell>
 
-                      <TableCell className="whitespace-nowrap text-right">
+                      <TableCell className="whitespace-nowrap text-right max-sm:hidden">
                         <Price
                           value={position.marketPrice}
                           currency={position.baseCurrency}
@@ -557,18 +572,18 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                         />
                       </TableCell>
 
-                      <TableCell className="text-right">
+                      <TableCell className="text-right max-sm:hidden">
                         <Percentage value={position.allocation} />
                       </TableCell>
 
-                      <TableCell className="whitespace-nowrap text-right">
+                      <TableCell className="whitespace-nowrap text-right max-sm:hidden">
                         <ProfitLoss
                           value={position.profitLoss}
                           currency={position.baseCurrency}
                         />
                       </TableCell>
 
-                      <TableCell className="text-right">
+                      <TableCell className="text-right max-sm:hidden">
                         <Trend value={position.profitLossPercent} />
                       </TableCell>
 
