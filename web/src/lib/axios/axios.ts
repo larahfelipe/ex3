@@ -68,8 +68,15 @@ proxyApi.interceptors.response.use(
 
       await pendingSignOut;
     }
-    const error = err.response?.data ?? { message: UNEXPECTED_ERROR_MESSAGE };
-    return Promise.reject(new ApiProxyError(error.message, error));
+    const data = err.response?.data ?? { message: UNEXPECTED_ERROR_MESSAGE };
+
+    return Promise.reject(
+      new ApiProxyError(data.message, {
+        ...data,
+        status: err.response?.status,
+        statusText: err.response?.statusText
+      })
+    );
   }
 );
 

@@ -25,11 +25,9 @@ import type {
   GetPortfoliosResponseData,
   Portfolio
 } from '@/app/api/v1/portfolios';
-import api, { isNotFoundError, type ApiProxyErrorData } from '@/lib/axios';
-import { QUERY_RETRY_LIMIT, queryKeys } from '@/lib/react-query';
+import api, { type ApiProxyErrorData } from '@/lib/axios';
+import { queryKeys } from '@/lib/react-query';
 import type { Maybe } from '@/types';
-
-const PORTFOLIOS_STALE_TIME_MS = 60_000;
 
 /** Portfolios are listed in creation order, so this page holds the one the account was created with. */
 const PRIMARY_PORTFOLIO_PAGE: GetPortfoliosRequestParams = {
@@ -67,8 +65,7 @@ export const usePrimaryPortfolio = () =>
       api
         .getInstance()
         .get('/v1/portfolios', { params: PRIMARY_PORTFOLIO_PAGE }),
-    select: ({ data }) => data.portfolios.at(0),
-    staleTime: PORTFOLIOS_STALE_TIME_MS
+    select: ({ data }) => data.portfolios.at(0)
   });
 
 export const usePortfolioOverview = (portfolio: Maybe<Portfolio>) =>
@@ -127,9 +124,7 @@ export const usePosition = (portfolio: Maybe<Portfolio>, symbol: string) =>
               } satisfies PortfolioScopeParams
             })
       : skipToken,
-    select: ({ data }) => data,
-    retry: (failureCount, error) =>
-      !isNotFoundError(error) && failureCount < QUERY_RETRY_LIMIT
+    select: ({ data }) => data
   });
 
 export const usePerformance = (
