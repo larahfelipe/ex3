@@ -41,3 +41,30 @@ Nenhum dos gráficos escuta `resize`. O de performance usa `viewBox` com `preser
 | Lazy loading dos gráficos | Os dois estão na primeira dobra do dashboard e não carregam biblioteca alguma: adiá-los trocaria bytes que não existem por um salto de layout |
 | Memoização em `allocation-chart.tsx` | O componente não faz trabalho por evento de ponteiro: `selectAllocationGroups` e os arcos do anel só recalculam quando a resposta muda ou quando o usuário troca de visão, uma vez por clique |
 | `React.memo` nos componentes financeiros | `Money`, `Percentage` e `Trend` formatam um valor e devolvem texto; o custo da comparação de props não se paga contra o da formatação |
+
+## Tabelas — TASK 16.4
+
+### Formatadores de número
+
+`common/utils.ts` guardava as três instâncias de `Intl.DateTimeFormat` em constantes de módulo, mas `formatNumber` construía um `Intl.NumberFormat` **por chamada** — e `formatPrice` dois, porque `currencyFractionDigits` construía outro só para ler `resolvedOptions()`. Uma página de 50 posições chama os formatadores cerca de 450 vezes por renderização.
+
+Medição com Node 24, o mesmo V8 do Chrome, em 450 formatações por rodada e 200 rodadas:
+
+| Estratégia | Tempo por renderização |
+| --- | --- |
+| `new Intl.NumberFormat` por chamada | 12,6 ms |
+| Formatador em cache | 0,32 ms |
+
+Construir o formatador custava cerca de quarenta vezes o que formatar com ele custa, e sozinho consumia três quartos de um quadro de 16 ms a cada renderização da tabela. `numberFormatOf` passou a guardar as instâncias num `Map` chaveado pelas opções; as chaves distintas são limitadas pelos estilos, pelas moedas e pelas contagens de casas que os formatadores pedem, então o mapa não cresce com o volume de dados. A saída é idêntica: mesma locale, mesmas opções, só a instância é reaproveitada.
+
+### Volume
+
+| Item | Decisão |
+| --- | --- |
+| Paginação | Server-side em toda listagem: posições em 10, 25 ou 50 linhas, transações em 10 no detalhe do ativo e 5 na Overview. O número de linhas renderizadas não cresce com o tamanho da carteira |
+| Virtualização | Não introduzida. Ela resolve listas cuja altura é imprevisível; aqui o teto é 50 linhas por página, e virtualizar custaria a semântica de `<table>`, a rolagem nativa da região e a busca do navegador dentro da página |
+| `keepPreviousData` | Paginar, ordenar ou filtrar mantém a página anterior visível e esmaecida, sem desmontar e remontar o corpo da tabela a cada mudança |
+
+### Renderização por tecla
+
+Digitar na busca de posições re-renderiza a tabela, porque o texto digitado e a listagem moram no mesmo componente. Com os formatadores em cache, o que resta por tecla é a reconciliação de no máximo 50 linhas, e a requisição só sai 300 ms depois da última tecla. Isolar esse estado num componente próprio, como foi feito com o ponto ativo do gráfico, só se justifica com um profiler apontando o custo — sem navegador, não se mede, e não se refatora no escuro.

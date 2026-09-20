@@ -1,40 +1,60 @@
 import type { DecimalString } from '@/types';
 
+const LOCALE = 'en-US';
+
 const PERCENT_FRACTION_DIGITS = 2;
 
 const UNIT_AMOUNT_SIGNIFICANT_DIGITS = 4;
 
-const QUOTE_TIME_FORMAT = new Intl.DateTimeFormat('en-US', {
+const QUOTE_TIME_FORMAT = new Intl.DateTimeFormat(LOCALE, {
   month: 'short',
   day: 'numeric',
   hour: '2-digit',
   minute: '2-digit'
 });
 
-const EXECUTION_TIME_FORMAT = new Intl.DateTimeFormat('en-US', {
+const EXECUTION_TIME_FORMAT = new Intl.DateTimeFormat(LOCALE, {
   dateStyle: 'medium',
   timeStyle: 'short'
 });
 
 /** A series day is a calendar day at midnight UTC, and a local zone would name the day before it. */
-const SERIES_DAY_FORMAT = new Intl.DateTimeFormat('en-US', {
+const SERIES_DAY_FORMAT = new Intl.DateTimeFormat(LOCALE, {
   dateStyle: 'medium',
   timeZone: 'UTC'
 });
 
+/**
+ * Building a number formatter costs about forty times more than formatting with
+ * one, and a table row builds several. The options are the cache key, and the
+ * distinct keys are bounded by the styles, the currencies and the digit counts
+ * the formatters below ask for.
+ */
+const numberFormats = new Map<string, Intl.NumberFormat>();
+
+const numberFormatOf = (options?: Intl.NumberFormatOptions) => {
+  const key = JSON.stringify(options ?? null);
+  const cached = numberFormats.get(key);
+
+  if (cached !== undefined) return cached;
+
+  const format = new Intl.NumberFormat(LOCALE, options);
+  numberFormats.set(key, format);
+
+  return format;
+};
+
 export const formatNumber = (
   value: number | DecimalString,
   options?: Intl.NumberFormatOptions
-) => new Intl.NumberFormat('en-US', options).format(value);
+) => numberFormatOf(options).format(value);
 
 const decimalPlacesOf = (value: DecimalString) =>
   value.split('.').at(1)?.length ?? 0;
 
 const currencyFractionDigits = (currency: string) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency
-  }).resolvedOptions().maximumFractionDigits ?? 0;
+  numberFormatOf({ style: 'currency', currency }).resolvedOptions()
+    .maximumFractionDigits ?? 0;
 
 export const formatMoney = (
   value: DecimalString,
