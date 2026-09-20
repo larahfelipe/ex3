@@ -2,13 +2,6 @@
 
 import { Suspense, type CSSProperties, type FC } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import {
-  IoCheckmarkCircleOutline,
-  IoInformationCircleOutline,
-  IoRefresh,
-  IoWarningOutline
-} from 'react-icons/io5';
-import { MdOutlineErrorOutline } from 'react-icons/md';
 
 import { AppProgressBar } from 'next-nprogress-bar';
 
@@ -17,7 +10,14 @@ import {
   QueryErrorResetBoundary
 } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { Loader2 } from 'lucide-react';
+import {
+  CircleAlert,
+  CircleCheck,
+  Info,
+  Loader2,
+  RefreshCw,
+  TriangleAlert
+} from 'lucide-react';
 import { Toaster } from 'sonner';
 
 import { Button } from '@/components/ui';
@@ -54,7 +54,7 @@ const FallbackContent: FC<FallbackContentProps> = ({
           className="gap-2"
           onClick={() => resetErrorBoundary!()}
         >
-          <IoRefresh size={16} aria-hidden="true" />
+          <RefreshCw size={16} aria-hidden="true" />
 
           <span>Try again</span>
         </Button>
@@ -79,33 +79,19 @@ export const AppProvider: FC<Children> = ({ children }) => (
       theme="dark"
       icons={{
         error: (
-          <MdOutlineErrorOutline
-            aria-hidden="true"
-            size={22}
-            className="text-negative"
-          />
+          <CircleAlert aria-hidden="true" size={22} className="text-negative" />
         ),
         success: (
-          <IoCheckmarkCircleOutline
-            aria-hidden="true"
-            size={22}
-            className="text-positive"
-          />
+          <CircleCheck aria-hidden="true" size={22} className="text-positive" />
         ),
         warning: (
-          <IoWarningOutline
+          <TriangleAlert
             aria-hidden="true"
             size={22}
             className="text-warning"
           />
         ),
-        info: (
-          <IoInformationCircleOutline
-            aria-hidden="true"
-            size={22}
-            className="text-info"
-          />
-        )
+        info: <Info aria-hidden="true" size={22} className="text-info" />
       }}
       style={
         {

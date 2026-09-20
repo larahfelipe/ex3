@@ -272,13 +272,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** cada `router.push` e cada prefetch custa uma viagem a mais ao servidor. Não quebra navegação, porque o browser segue o redirect.
 - **Proposta:** avaliar passar o nonce por um header próprio já presente na resposta, ou restringir a reescrita de request às navegações de documento, medindo antes o ganho real.
 
-### TD-046 — `next-themes` sem consumidor
-
-- **Origem:** correção do contraste dos toasts · **Tipo:** qualidade · **Prioridade:** baixa · **Encaminhamento:** avulso
-- **Contexto:** o único importador era `web/src/components/ui/sonner.tsx`, um segundo `Toaster` que nunca foi montado e chamava `useTheme()` sem `ThemeProvider` na árvore. O arquivo saiu junto com a correção do contraste.
-- **Impacto:** dependência paga no install e no lockfile sem nada que a use.
-- **Proposta:** remover de `web/package.json` se o tema continuar fixo em `dark` pela classe do `<html>`.
-
 ### TD-047 — `POST /v1/user/create` envelopa o usuário e `POST /v1/user` devolve flat
 
 - **Origem:** causa raiz do redirecionamento pós-cadastro · **Tipo:** API · **Prioridade:** média · **Encaminhamento:** avulso
@@ -335,7 +328,26 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** um round trip antes do primeiro dado da tela; as navegações seguintes são servidas do cache enquanto o `staleTime` de 60 s valer.
 - **Proposta:** entregar a carteira primária junto da sessão — em `GET /v1/user` ou no payload de sign-in — e semear o cache com ela, deixando `GET /v1/portfolios` apenas para quem tiver mais de uma carteira.
 
+### TD-056 — Arte do sign-in pesa mais que todo o JavaScript da aplicação
+
+- **Origem:** TASK 16.5 · **Tipo:** performance · **Prioridade:** média · **Encaminhamento:** TASK 20.5
+- **Contexto:** `web/public/login-hero.jpeg` tem 1,93 MB, contra 1,49 MB de todos os chunks do cliente somados. `next.config.js` desliga a otimização de imagem, então o `next/image` da arte entrega o arquivo original, e o `priority` gera um `preload` que baixa a imagem em qualquer largura — inclusive abaixo de `lg`, onde a coluna da arte é `hidden`.
+- **Impacto:** o sign-in num telefone gasta quase dois megabytes numa imagem que ninguém vê, antes de qualquer campo ficar utilizável.
+- **Proposta:** reencodar em WebP na resolução que a coluna usa, e trocar o `priority` pelo carregamento preguiçoso padrão, que não baixa imagem dentro de container `display:none`.
+
+### TD-057 — `next-pwa` parado em 2022 sobre o Next 16
+
+- **Origem:** TASK 16.5 · **Tipo:** qualidade · **Prioridade:** baixa · **Encaminhamento:** TASK 20.3
+- **Contexto:** `next-pwa@5.6.0` foi publicado para o Next 12, injeta o `workbox-webpack-plugin` no config e arrasta seis subdependências já marcadas como deprecated. Funciona com `next build --webpack`, mas nada garante isso quando o Turbopack passar a ser obrigatório.
+- **Impacto:** o dia em que o build deixar de aceitar o plugin, o service worker e o `manifest.json` saem juntos, sem substituto pronto. O Serwist, sucessor mantido, também não suporta Turbopack, conforme `docs/toolchain.md`, §Web.
+- **Proposta:** decidir se o produto precisa de instalação e de precache. Se não precisar, remover o plugin e o `--webpack` que existe por causa dele; se precisar, reavaliar o Serwist quando ele passar a suportar o Turbopack.
+
 ## Resolvidos
+
+### TD-046 — `next-themes` sem consumidor
+
+- **Tipo:** qualidade · **Prioridade:** baixa
+- **Resolução:** o pacote saiu de `web/package.json` junto de `react-icons`, `@radix-ui/react-icons`, `lodash.isequal` e `@types/lodash.isequal` na auditoria de bundle, todos sem nenhum importador no código. O tema segue fixo em `dark` pela classe do `<html>`. Ver `docs/performance.md`, §Bundle.
 
 ### TD-051 — Rolagem horizontal das tabelas não alcança o teclado
 
