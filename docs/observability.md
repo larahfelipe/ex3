@@ -34,6 +34,7 @@ deixa o conteúdo testável sem capturar `stdout`.
 | `database_unreachable` | ERROR | `reason` | `Server.ts`, antes de `exit(1)` |
 | `quote_provider_key_missing` | WARNING | — | `Server.ts` |
 | `quote_provider_unavailable` | WARNING | `reason`, `retryInMs` | `YahooFinanceProvider.ts` |
+| `dependency_unavailable` | WARNING | `dependency`, `reason` | readiness, em `HealthControllerHandlers.ts` |
 | `http_request` | conforme o status | `requestId`, `method`, `route`, `status`, `durationMs`, `userId?`, `errorCode?` | `RequestLogMiddleware.ts` |
 | `request_failed` | ERROR | `requestId?`, `errorName`, `errorMessage`, `stack?` | `ErrorHandlerMiddleware.ts` |
 
@@ -81,6 +82,33 @@ quando qualquer camada responde.
 * Não há tracing distribuído: o serviço é um processo só, e o `requestId` já
   costura as linhas de uma mesma requisição. Métricas nomeadas ficam por conta
   das do Cloud Run (latência, contagem, instâncias), sem instrumentação própria.
+
+## Health e readiness
+
+Duas rotas sem autenticação, fora de `/v1`, respondem ao orquestrador:
+
+| Rota | Responde | Toca o banco | Significa |
+| --- | --- | --- | --- |
+| `GET /health` | `200 {"status":"alive"}` | não | o processo está de pé e o event loop responde |
+| `GET /ready` | `200 {"status":"ready","database":"up"}` | uma query `SELECT 1` por chamada | a instância consegue servir uma requisição que lê |
+
+São coisas distintas de propósito. Liveness não consulta dependência alguma
+porque reiniciar o processo não conserta um banco fora do ar: quem lesse a
+indisponibilidade do banco como falha de liveness reiniciaria uma instância
+saudável. Readiness consulta a cada chamada — um flag em memória reportaria o
+estado que a última requisição por acaso observou.
+
+Quando o banco não responde, `/ready` sai com 503 e o envelope de erro
+`INFRASTRUCTURE` (`docs/errors.md`), sem dizer ao chamador o que falhou; o
+motivo vai só para o log, no evento `dependency_unavailable`. As duas rotas
+ficam atrás do rate limit da API, como qualquer outra: a sonda cabe folgada em
+`RateLimits.API`, e uma sonda que só falha porque o IP dela estourou o
+orçamento descreve uma instância que de fato não está servindo.
+
+Nada no repositório sonda essas rotas ainda: o `cloudbuild.yaml` constrói e
+publica as imagens, e a configuração do serviço no Cloud Run — onde o startup
+probe apontaria para `/ready` e o liveness probe para `/health` — vive fora
+daqui (TD-060).
 
 ## Como evitar regressão
 

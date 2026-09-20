@@ -71,6 +71,11 @@ export const Errors = {
     status: 429,
     message: 'Too many requests, please try again later'
   },
+  UNAVAILABLE: {
+    code: ErrorCategories.INFRASTRUCTURE,
+    status: 503,
+    message: 'Service dependencies are unavailable'
+  },
   INTERNAL: {
     code: ErrorCategories.INTERNAL,
     status: 500,

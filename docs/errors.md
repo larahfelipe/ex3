@@ -16,6 +16,7 @@ o que fazer e um log agrupa o que aconteceu.
 | `CONFLICT` | 409 | a requisição é válida e colide com o que já está gravado | `ConflictError` |
 | `DOMAIN` | 422 | todos os campos são válidos e uma regra do domínio recusa a operação | `DomainError` |
 | `INFRASTRUCTURE` | 429 | limite de capacidade: o chamador excedeu o orçamento da janela | — (`RateLimitMiddleware`) |
+| `INFRASTRUCTURE` | 503 | uma dependência não responde: readiness recusando a instância | — (`/ready`) |
 | `INTERNAL` | 500 | falha não prevista, reportada sem detalhe interno | — (error boundary) |
 
 Categoria e status são eixos independentes. É por isso que duas entradas do
