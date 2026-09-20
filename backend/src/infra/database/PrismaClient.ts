@@ -1,7 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Prisma, PrismaClient as _PrismaClient } from '@prisma/client';
 
-import { envs } from '@/config';
+import { envs } from '@/config/Envs';
 import { LogSeverities, log } from '@/infra/observability';
 
 /** Prisma's code for a transaction Postgres aborted over a write conflict or a deadlock. */

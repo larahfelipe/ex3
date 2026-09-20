@@ -356,6 +356,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** o resultado da suíte depende do `.env` de quem executa, e qualquer comando que a suíte dispare com credencial herdada alcança um banco que não é o de teste.
 - **Proposta:** não carregar o `.env` quando `NODE_ENV=test`, nos dois pontos, e declarar no `.env.test` tudo o que a suíte precisa.
 
+### TD-060 — `/health` e `/ready` existem, e nada os sonda
+
+- **Origem:** TASK 18.3 · **Tipo:** infraestrutura · **Prioridade:** média · **Encaminhamento:** TASK 20.7
+- **Contexto:** o `cloudbuild.yaml` constrói e publica as imagens do backend e do web, sem passo de deploy; a configuração do serviço no Cloud Run, onde o startup probe e o liveness probe são declarados, vive fora do repositório. No `compose.yaml`, o serviço `backend` não tem `healthcheck` e o `web` depende dele por `condition: service_started`.
+- **Impacto:** uma instância que sobe com o banco fora do ar recebe tráfego assim mesmo, e o `web` do ambiente local sobe antes de a API responder. A distinção entre processo vivo e dependência disponível existe no código e não é usada por ninguém.
+- **Proposta:** declarar no serviço do Cloud Run o startup probe em `/ready` e o liveness probe em `/health`, e dar ao `backend` do `compose.yaml` um `healthcheck` em `/ready` — `node -e` com `fetch`, sem depender de `curl` na imagem — com o `web` passando a `condition: service_healthy`.
+
 ## Resolvidos
 
 ### TD-046 — `next-themes` sem consumidor
