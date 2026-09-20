@@ -10,7 +10,7 @@ shadcn/ui sobre Radix, com `cn()` (`clsx` + `tailwind-merge`) e `class-variance-
 | --- | --- | --- |
 | `button` | Radix Slot + CVA | **Preservar.** Variantes já cobrem o novo produto |
 | `card` | — | **Preservar.** Base dos KPI cards da FASE 8 |
-| `dialog`, `alert-dialog` | Radix | **Preservar.** Focus trap e `aria` vêm do Radix |
+| `dialog`, `alert-dialog` | Radix | **Preservar.** Focus trap e `aria` vêm do Radix. Desde a TASK 15.4 o conteúdo é limitado a `max-h-dvh` e rola por dentro — abaixo de `sm` isso equivale à tela integral —, e o rodapé separa os botões empilhados com `gap-2` |
 | `dropdown-menu`, `select` | Radix | **Preservar** |
 | `input`, `label`, `checkbox` | Radix | **Preservar.** `checkbox` está sem consumidor desde que a tabela de ativos deixou de selecionar linhas |
 | `table` | HTML semântico | **Preservar como primitive**, mas não cobre ordenação, seleção ou estado vazio — o consumidor implementa tudo. Desde a TASK 15.3 o wrapper é um `section` que exige a prop `label`: enquanto transborda, vira região nomeada e focável; `regionClassName` ajusta a caixa que rola |

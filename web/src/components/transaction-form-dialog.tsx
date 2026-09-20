@@ -265,7 +265,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
         if (!isSubmitting) onCancel();
       }}
     >
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>
             {target.kind === 'create'
@@ -423,7 +423,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
           </fieldset>
         </form>
 
-        <DialogFooter className="gap-2 sm:space-x-0">
+        <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
             Cancel
           </Button>
