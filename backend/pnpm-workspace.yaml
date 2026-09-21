@@ -6,3 +6,9 @@ allowBuilds:
   prisma: true
 minimumReleaseAgeExclude:
   - zod@4.6.2
+overrides:
+  braces: ^3.0.3
+  deepmerge-ts: ^8.0.2
+  micromatch: ^4.0.8
+  mysql2: ^3.23.1
+  picomatch: ^2.3.2

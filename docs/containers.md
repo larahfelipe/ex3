@@ -46,7 +46,7 @@ Os serviços de desenvolvimento usam o estágio `dev`: imagem com Node e pnpm, c
 
 O `backend` tem health check em `GET /ready`, que responde pelo banco, e por isso o `web` espera por `service_healthy`, não pelo container iniciado. O `web` tem o seu em conexão TCP na porta 3000: o `next dev` compila a página pedida, então uma sonda por rota recompilaria a cada intervalo. As duas sondas rodam `node -e` dentro do próprio container, sem depender de `curl` na imagem, a cada 10s, com 60s de carência no start e três falhas seguidas para virar `unhealthy`. Ver `docs/observability.md`.
 
-Em Linux, o usuário `node` do container (uid 1000) grava no código montado (`dist/`, `next-env.d.ts`, `public/sw.js`). Com outro uid no host, essas escritas falham. No Docker Desktop do macOS, o mapeamento de dono é transparente.
+Em Linux, o usuário `node` do container (uid 1000) grava no código montado (`dist/`, `next-env.d.ts`, `build/`). Com outro uid no host, essas escritas falham. No Docker Desktop do macOS, o mapeamento de dono é transparente.
 
 ## Variáveis de ambiente
 

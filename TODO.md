@@ -235,7 +235,7 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Origem:** configuração Docker Compose · **Tipo:** desempenho · **Prioridade:** baixa · **Encaminhamento:** avulso
 - **Contexto:** o `runner` do web copia todas as dependências de produção e roda `next start`. O `output: 'standalone'` do Next copia só os arquivos rastreados pelo build e dispensa o resto, mas muda o comando de start e o que o script `start` do pacote executa.
 - **Impacto:** imagem maior, com push, pull e cold start mais lentos no Cloud Run.
-- **Proposta:** adotar `output: 'standalone'` junto com a validação do TD-039, conferindo o service worker do `next-pwa` e o `distDir: 'build'`.
+- **Proposta:** adotar `output: 'standalone'` junto com a validação do TD-039, conferindo o `distDir: 'build'`.
 
 ### TD-044 — `backend/.env.test` sem `PORT`, `DIRECT_URL` e `YAHOO_FINANCE_API_KEY`
 
@@ -314,13 +314,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** o sign-in num telefone gasta quase dois megabytes numa imagem que ninguém vê, antes de qualquer campo ficar utilizável.
 - **Proposta:** reencodar em WebP na resolução que a coluna usa, e trocar o `priority` pelo carregamento preguiçoso padrão, que não baixa imagem dentro de container `display:none`.
 
-### TD-057 — `next-pwa` parado em 2022 sobre o Next 16
-
-- **Origem:** TASK 16.5 · **Tipo:** qualidade · **Prioridade:** baixa · **Encaminhamento:** TASK 20.3
-- **Contexto:** `next-pwa@5.6.0` foi publicado para o Next 12, injeta o `workbox-webpack-plugin` no config e arrasta seis subdependências já marcadas como deprecated. Funciona com `next build --webpack`, mas nada garante isso quando o Turbopack passar a ser obrigatório.
-- **Impacto:** o dia em que o build deixar de aceitar o plugin, o service worker e o `manifest.json` saem juntos, sem substituto pronto. O Serwist, sucessor mantido, também não suporta Turbopack, conforme `docs/toolchain.md`, §Web.
-- **Proposta:** decidir se o produto precisa de instalação e de precache. Se não precisar, remover o plugin e o `--webpack` que existe por causa dele; se precisar, reavaliar o Serwist quando ele passar a suportar o Turbopack.
-
 ### TD-058 — FASE 17 inteira sem execução: o web não tem runner de teste
 
 - **Origem:** FASE 17 · **Tipo:** teste · **Prioridade:** média · **Encaminhamento:** TASK 20.7
@@ -372,6 +365,11 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Proposta:** extrair um `ConfirmDialog` com o estado de pendência do diálogo de transação e a forma de reportar o erro como propriedade, quando as duas telas concordarem sobre toast ou erro embutido.
 
 ## Resolvidos
+
+### TD-057 — `next-pwa` parado em 2022 sobre o Next 16
+
+- **Tipo:** qualidade · **Prioridade:** baixa
+- **Resolução:** o produto decidiu não precisar de instalação nem de precache, e o PWA saiu por inteiro na TASK 20.3: `next-pwa`, `public/manifest.json`, o `<link rel="manifest">` do layout, o `withPWA` do `next.config.js` e as linhas de `.gitignore` do worker gerado. `dev` e `build` perderam o `--webpack` e rodam sob Turbopack, com o build verificado. Some junto a cadeia de 2022 que o plugin arrastava: os 46 avisos do `pnpm audit` do `web` vinham dela, e o pacote passou a auditar limpo sem um `overrides` sequer.
 
 ### TD-036 — Proxy do web responde a erro que não vem da API sem envelope
 

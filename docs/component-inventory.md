@@ -12,11 +12,11 @@ shadcn/ui sobre Radix, com `cn()` (`clsx` + `tailwind-merge`) e `class-variance-
 | `card` | — | **Preservar.** Base dos KPI cards da FASE 8 |
 | `dialog`, `alert-dialog` | Radix | **Preservar.** Focus trap e `aria` vêm do Radix. Desde a TASK 15.4 o conteúdo é limitado a `max-h-dvh` e rola por dentro — abaixo de `sm` isso equivale à tela integral —, e o rodapé separa os botões empilhados com `gap-2` |
 | `dropdown-menu`, `select` | Radix | **Preservar** |
-| `input`, `label`, `checkbox` | Radix | **Preservar.** `checkbox` está sem consumidor desde que a tabela de ativos deixou de selecionar linhas |
+| `input`, `label` | Radix | **Preservar.** `checkbox` foi removido com `@radix-ui/react-checkbox` na auditoria de dependências (TASK 20.3): estava sem consumidor desde que a tabela de ativos deixou de selecionar linhas |
 | `table` | HTML semântico | **Preservar como primitive**, mas não cobre ordenação, seleção ou estado vazio — o consumidor implementa tudo. Desde a TASK 15.3 o wrapper é um `section` que exige a prop `label`: enquanto transborda, vira região nomeada e focável; `regionClassName` ajusta a caixa que rola |
 | `pagination` | — | **Preservar.** Sem consumidor: a tabela de posições pagina com botões num `nav` próprio |
 | `skeleton` | — | **Preservar.** Vira base do `LoadingState` (TASK 12.4) |
-| `separator`, `tooltip` | Radix | **Preservar** |
+| `separator`, `tooltip` | Radix | **Removidos** na TASK 20.3, com `@radix-ui/react-separator` e `@radix-ui/react-tooltip`: nenhuma tela os renderizava |
 | `sonner` | Sonner | **Preservar** |
 
 **Ausentes e necessários:** `tabs`, `sheet` (nav mobile, TASK 13.2), `badge`, `chart`. Nenhuma biblioteca de gráficos está instalada — decisão pendente para a TASK 8.3.
@@ -146,7 +146,7 @@ Lacunas: nos demais formulários, erro de servidor não é mapeado de volta para
 
 ## Resumo
 
-**Preservar sem alteração relevante:** todos os primitives de `components/ui`, camada axios, providers de app, `use-disclosure`, padrão de formulários, padrão de tipos por rota.
+**Preservar sem alteração relevante:** os primitives de `components/ui` que sobraram à TASK 20.3, camada axios, providers de app, `use-disclosure`, padrão de formulários, padrão de tipos por rota.
 
 **Refatorar:** `sidebar`, `common/utils`.
 
