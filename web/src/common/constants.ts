@@ -26,6 +26,10 @@ export const APP_STORAGE_KEYS = {
   Token: 'ex3:token'
 };
 
+export const APP_TITLE = 'EX3';
+
+export const APP_TITLE_TEMPLATE = `${APP_TITLE} | %s`;
+
 export const CURRENCIES = {
   BRL: {
     id: 'BRL',

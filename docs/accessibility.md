@@ -120,7 +120,7 @@ Observadas ao escrever este checklist, cada uma endereçada na task indicada:
 | Contraste dos tokens nunca foi medido, em nenhuma das duas paletas | C1, C2 | 14.7 |
 | Nenhuma auditoria automatizada roda no repositório | — | 14.7 |
 
-Encerradas desde a captura: o link de pulo e os landmarks em `8a3ef68`; a região rolável do gráfico em `b01bf45`; o destino de foco após fechar overlay em `e8cb974`; nome acessível, associação de erro, estado obrigatório e `autocomplete` em `717ada7`; movimento reduzido em `b6bda64`. As duas últimas linhas continuam abertas e estão detalhadas nas duas seções seguintes.
+Encerradas desde a captura: o link de pulo e os landmarks em `8a3ef68`; a região rolável do gráfico em `b01bf45`; o destino de foco após fechar overlay em `e8cb974`; nome acessível, associação de erro, estado obrigatório e `autocomplete` em `717ada7`; movimento reduzido em `b6bda64`; a auditoria automatizada na TASK 20.6, medida em §Auditoria automatizada. A linha do contraste continua aberta, com a medição na seção seguinte e a decisão em TD-053.
 
 ## Contraste medido
 
@@ -141,23 +141,67 @@ Os demais pares passam nas duas paletas, com folga: texto padrão 20.14:1 e 19.2
 
 Como só a paleta escura tem consumidor em runtime (TD-048), as reprovações que hoje afetam o usuário são as três primeiras. Correção registrada em TD-053: o ajuste é no token, em `globals.css`, não na classe de cada uso.
 
-## Auditoria automatizada — pendente
+## Auditoria automatizada — TASK 20.6
 
-A varredura com axe, a medição do Lighthouse e os testes E2E de teclado da TASK 14.7 não foram executados: o ambiente da implementação não tem navegador instalado nem permissão de rede para instalar Playwright, `@axe-core/playwright` ou `lighthouse`. Sem execução real, nenhum dos dois critérios numéricos — zero violação crítica e Lighthouse ≥ 95 — pode ser declarado atendido. A execução está registrada em TD-054, com este procedimento:
+Executada em 2026-09-20 contra o build de produção servido por `next start`, com a API e o banco de desenvolvimento e uma conta semeada com uma posição (`PETR4`) e duas compras, para que tabela com linhas, gráfico com série e diálogo de exclusão existissem de fato.
 
-| Alvo | Cobertura mínima |
+| Item | Valor |
 | --- | --- |
-| Páginas | `/sign-in`, `/sign-up`, `/`, `/assets`, `/assets/[symbol]`, `/account` |
-| Estados que só existem em runtime | dialog de ativo, de transação e de exclusão abertos; listagem filtrada sem resultado; `ErrorState` e `StaleState`; dado obsoleto em refetch |
-| axe | uma varredura por página e por estado acima, nas duas paletas |
-| Lighthouse | categoria accessibility, uma corrida por página |
-| E2E de teclado | link de pulo; abrir e fechar cada overlay devolvendo o foco à origem; ordenação e paginação da tabela de posições; região rolável do gráfico; foco após excluir item |
+| Ferramenta | axe-core 4.10.3, injetado na página |
+| Navegador | Firefox headless dirigido por WebDriver BiDi sobre o `WebSocket` global do Node 24, sem Playwright nem Selenium |
+| Alvo | `http://localhost:3010`, build do commit `801839c` |
+| Viewports | 1280×800 e 390×844 |
+| Regras | conjunto padrão do axe: WCAG 2.0/2.1/2.2 A e AA mais best-practices |
 
-O que a auditoria não vai decidir sozinha, e por quê:
+### Resultado
 
-| Item | Justificativa |
+Violações por estado, com o número de nós:
+
+| Estado | 1280×800 | 390×844 |
+| --- | --- | --- |
+| `/sign-in` sem sessão | — | `color-contrast` ×2 |
+| `/sign-up` sem sessão | — | `color-contrast` ×2 |
+| `/` | — | `color-contrast` ×2 |
+| `/assets` | — | `color-contrast` ×1 |
+| `/assets/PETR4` | — | `color-contrast` ×2 |
+| `/account` | — | — |
+| `/assets` com o dialog de ativo aberto | — | `color-contrast` ×1 |
+| `/assets` com busca sem resultado | — | `color-contrast` ×1 |
+
+Nenhuma violação de impacto `critical` em nenhum estado, nos dois viewports, e nenhuma regra além de `color-contrast` reprovada — o critério "axe sem violação crítica" está atendido.
+
+### Contraste medido pelo axe
+
+Todo nó reprovado é o mesmo par: `#fef2f2` sobre `#e65000`, 3,48:1 contra o mínimo de 4,5:1 — `--primary-foreground` sobre `--primary`, que §Contraste medido calcula em 3,49:1 a partir do token. Os nós são o rótulo do botão primário e o chip selecionado dos grupos de rádio de período e de agrupamento do gráfico. A renderização confirma TD-053; a escolha do novo valor continua sendo decisão de design sobre o token, não sobre a classe de cada uso.
+
+Em 1280×800 a regra `color-contrast` volta como **incompleta com zero nós** em toda página: nessa largura ela não avaliou nada neste arnês, enquanto numa página de controle trivial avalia normalmente em qualquer largura. O traço em desktop na tabela acima é ausência de medição, não ausência de defeito — em telas largas o contraste segue coberto pela medição estática da seção anterior, que parte dos mesmos tokens.
+
+### Incompleto que exige revisão manual
+
+`aria-hidden-focus` ×3, nos dois viewports, enquanto um dialog está aberto: o Radix marca os irmãos do conteúdo modal com `aria-hidden="true"` e eles continuam tabuláveis no DOM. Para o leitor de tela o conteúdo está corretamente oculto; quem contém o teclado é o focus trap do Radix, que este arnês não consegue exercitar — ver Limites do arnês.
+
+### Teclado e foco
+
+| Verificação | Resultado |
 | --- | --- |
-| Reprovações de contraste acima | axe mede o par renderizado e vai confirmá-las; a escolha do novo valor de token é decisão de design, em TD-053 |
-| Rolagem horizontal das tabelas (TD-051, resolvido na TASK 15.3) | a regra `scrollable-region-focusable` só passa a olhar o `section` de `components/ui/table.tsx` quando ele de fato transborda; a varredura precisa incluir uma viewport estreita para exercitar esse estado |
-| Foco após excluir o último item da lista (TD-052) | nenhuma regra estática ou de runtime cobre foco órfão após desmontagem; só o teste de teclado revela |
-| Ordem lógica de foco, clareza da mensagem de erro e equivalência do conteúdo alternativo | fora do alcance de qualquer ferramenta automatizada; permanecem no roteiro manual deste documento |
+| Ordem de tabulação em `/assets` com dados | pular para o conteúdo → navegação → conta → sair → adicionar ativo → atualizar → busca → dois filtros → oito cabeçalhos ordenáveis → link do símbolo → ações da linha → paginação; nenhum `tabIndex` positivo e nenhuma armadilha (K1, K5) |
+| Menu de ações da linha | `Enter` abre, `aria-expanded` acompanha, `Arrow` percorre os itens, `Enter` seleciona (K4) |
+| `AlertDialog` de exclusão | rotulado e descrito por id, irmãos ocultos, `Tab` cicla entre `Cancel` e `Confirm` sem sair, `Esc` fecha sem excluir (D2, D3, D4) |
+| Alternativa textual do gráfico | `summary` "Performance as a table" é focável e abre uma tabela de 247 linhas com `caption` em `sr-only`; axe segue limpo com ela aberta (1.1.1) |
+| Estrutura anunciada | um `h1` por rota, `h2` por seção com `aria-labelledby`, nenhum controle sem nome acessível, `lang="en"` (S1, S2, S6) |
+
+### Corrigido nesta task
+
+| Achado | Correção |
+| --- | --- |
+| `link-in-text-block`: o link dentro do parágrafo de `sign-in` e `sign-up` se distinguia só pela cor (1.4.1) | sublinhado permanente no link inline |
+| Toda rota servia o mesmo `<title>`, sem identificar a página (2.4.2) | `title.template` na raiz e título por segmento, incluindo `generateMetadata` no detalhe do ativo |
+| Fechar overlay deixava o foco no `body` (F3): o Radix devolve o foco ao `DialogTrigger`, e nenhum dialog daqui usa gatilho — todos abrem por estado, então `triggerRef` é sempre nulo | `hooks/use-focus-return.ts`, aplicado em `components/ui/dialog.tsx` e `alert-dialog.tsx` |
+
+O fluxo que abre o dialog pelo menu da linha continua perdendo o foco ao fechar, por um motivo distinto do corrigido acima: está em TD-066.
+
+### Limites do arnês
+
+- A janela headless nunca recebe ativação: `document.hasFocus()` é sempre `false` e o Firefox não dispara `focus`, `focusin` nem `blur`, embora `document.activeElement` mude. Duas consequências: `:focus-visible` nunca casa, então o anel de foco não pode ser observado renderizado e F1 segue verificado pelo par de classes no código; e o focus trap do Radix, que depende de `focusin`, não roda, então nem a contenção do teclado no modal nem a recuperação de um foco roubado podem ser medidas aqui.
+- O Lighthouse não foi executado: o pacote não está instalado. O critério "accessibility ≥ 95" da TASK 14.7 continua não verificado, em TD-054.
+- Leitor de tela real (NVDA, VoiceOver), clareza da mensagem de erro e equivalência do conteúdo alternativo permanecem no roteiro manual deste documento — nenhuma ferramenta decide por eles.
