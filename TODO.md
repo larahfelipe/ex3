@@ -309,10 +309,10 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 
 ### TD-056 — Arte do sign-in pesa mais que todo o JavaScript da aplicação
 
-- **Origem:** TASK 16.5 · **Tipo:** performance · **Prioridade:** média · **Encaminhamento:** TASK 20.5
-- **Contexto:** `web/public/login-hero.jpeg` tem 1,93 MB, contra 1,49 MB de todos os chunks do cliente somados. `next.config.js` desliga a otimização de imagem, então o `next/image` da arte entrega o arquivo original, e o `priority` gera um `preload` que baixa a imagem em qualquer largura — inclusive abaixo de `lg`, onde a coluna da arte é `hidden`.
-- **Impacto:** o sign-in num telefone gasta quase dois megabytes numa imagem que ninguém vê, antes de qualquer campo ficar utilizável.
-- **Proposta:** reencodar em WebP na resolução que a coluna usa, e trocar o `priority` pelo carregamento preguiçoso padrão, que não baixa imagem dentro de container `display:none`.
+- **Origem:** TASK 16.5 · **Tipo:** performance · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** `web/public/login-hero.jpeg` tem 1,93 MB, contra 1,46 MB de todos os chunks do cliente somados. A TASK 20.5 resolveu a metade do desperdício: a arte virou `background-image` da coluna, que é `max-lg:hidden`, e o browser não busca o fundo de um elemento que não gera caixa — abaixo de `lg` não há mais requisição. O arquivo em si continua como está.
+- **Impacto:** em telas `≥ lg`, quase dois megabytes de decoração num sign-in que de resto tem um formulário. Não bloqueia o campo, mas ocupa a banda que o primeiro dado da sessão vai querer.
+- **Proposta:** reencodar em WebP na largura que a coluna usa, o que deve render cerca de um décimo do tamanho. Exige codificador — `sharp`, `cwebp`, `magick` e PIL não existem no ambiente onde a task rodou.
 
 ### TD-058 — FASE 17 inteira sem execução: o web não tem runner de teste
 

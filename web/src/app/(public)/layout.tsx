@@ -1,5 +1,4 @@
 /* eslint-disable react/jsx-newline */
-import Image from 'next/image';
 import Link from 'next/link';
 
 import type { Children } from '@/types';
@@ -23,16 +22,7 @@ export default function Layout({ children }: Children) {
         </footer>
       </main>
 
-      <div className="relative max-lg:hidden">
-        <Image
-          priority
-          fill
-          src="/login-hero.jpeg"
-          alt=""
-          className="w-full h-full absolute"
-          style={{ objectFit: 'cover' }}
-        />
-      </div>
+      <div className="max-lg:hidden bg-[url('/login-hero.jpeg')] bg-cover bg-center" />
     </div>
   );
 }
