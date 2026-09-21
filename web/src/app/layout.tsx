@@ -35,8 +35,6 @@ export default async function RootLayout({ children }: Children) {
         <meta name="theme-color" content="#070707" />
 
         <link rel="shortcut icon" href="favicon.png" type="image/png" />
-
-        <link rel="manifest" href="/manifest.json" />
       </head>
 
       <body className="font-sans">

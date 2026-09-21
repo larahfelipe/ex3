@@ -101,8 +101,9 @@ Todas as dependências de runtime dos dois workspaces foram levadas à última e
 
 * **Next 16.**
   * `middleware.ts` foi renomeado para `proxy.ts` e o export `middleware` para `proxy` (`ProxyConfig` no lugar de `MiddlewareConfig`). O arquivo antigo ainda funciona com aviso de depreciação; o novo nome foi adotado. `docs/authentication.md` acompanha;
-  * Turbopack é o bundler padrão, e `next-pwa@5.6.0` (último estável) é um plugin de webpack: injeta `config.plugins` via `webpack()`, que o Turbopack ignora, e o service worker nunca é gerado. `dev` e `build` fixam `--webpack`. A alternativa moderna (`@serwist/next`) tem a mesma limitação — não suporta Turbopack —, então trocar de plugin não resolveria; remover o PWA está fora de escopo. Isso fecha a falha 28 do baseline: a incompatibilidade permanece, contida pela flag;
-  * `cookies()` é assíncrona desde o Next 15 — os route handlers que a usam passaram a `await`.
+  * Turbopack é o bundler padrão, e `next-pwa@5.6.0` (último estável) é um plugin de webpack: injeta `config.plugins` via `webpack()`, que o Turbopack ignora, e o service worker nunca é gerado. A alternativa mantida (`@serwist/next`) tem a mesma limitação, então trocar de plugin não resolveria. O PWA foi removido na TASK 20.3 por decisão de produto: `dev` e `build` voltaram a rodar sob Turbopack, sem `--webpack`. Isso fecha a falha 28 do baseline — não há mais plugin incompatível a conter;
+  * `cookies()` é assíncrona desde o Next 15 — os route handlers que a usam passaram a `await`;
+  * o `dev` do Next 16 escreve `AGENTS.md` e `CLAUDE.md` na raiz do pacote a cada execução, com regras geradas pelo próprio framework. São arquivos não versionados, que competem com a documentação do repositório: desligados por `agentRules: false` em `next.config.js`.
 * **React 19.** `@types/react@19` move `JSX` para dentro do namespace `React` e remove o global: referências a `JSX.Element` passaram a importar `type JSX` de `react` ou a qualificar como `React.JSX.Element`. A transformação de `ref` em prop comum não exigiu mudança — as primitivas já usam `React.forwardRef`, que continua suportado.
 * **Tailwind 4.** Configuração em CSS, não em JS:
   * `tailwind.config.ts` foi removido. Tema, container e keyframes vivem em `src/app/globals.css` via `@theme`, `@utility` e `@custom-variant`;
@@ -119,3 +120,46 @@ Todas as dependências de runtime dos dois workspaces foram levadas à última e
 ### Defeito corrigido de passagem
 
 `web/src/app/api/v1/assets/route.ts` montava a URL do backend descartando os query params recebidos: paginação e filtros nunca chegavam à API. A requisição agora repassa `req.nextUrl.searchParams`.
+
+## Auditoria de dependências — TASK 20.3
+
+`pnpm audit` responde **"No known vulnerabilities found"** nos dois pacotes. Antes desta task eram 7 avisos no `backend` (4 high, 3 moderate) e 46 no `web` (31 high, 10 moderate, 5 low), todos transitivos: nenhuma dependência direta estava vulnerável.
+
+### Versões principais de runtime
+
+| backend | | web | |
+| --- | --- | --- | --- |
+| `express` | 5.2.1 | `next` | 16.3.4 |
+| `prisma`, `@prisma/client`, `@prisma/adapter-pg` | 7.10.0 | `react`, `react-dom` | 19.3.0 |
+| `zod` | 4.6.2 | `@tanstack/react-query` | 5.102.8 |
+| `bcrypt` | 6.0.0 | `react-hook-form` | 7.87.0 |
+| `jsonwebtoken` | 9.0.3 | `@hookform/resolvers` | 5.9.1 |
+| `helmet` | 8.3.0 | `zod` | 4.6.2 |
+| `express-rate-limit` | 8.7.0 | `axios` | 1.20.0 |
+| `cors` | 2.8.6 | `tailwindcss` | 4.3.3 |
+| `dotenv` | 17.4.2 | `lucide-react` | 1.44.0 |
+
+### `overrides` como correção de transitiva
+
+O aviso transitivo não se corrige atualizando o pacote direto: quem o traz está desatualizado, e às vezes sem manutenção. O pnpm 11 lê `overrides` de `pnpm-workspace.yaml`, não mais do `package.json`, e o `Dockerfile` do backend já copia esse arquivo antes do `install` — a imagem recebe os mesmos pins. Só o `backend` precisa de pins; o `web` zerou os avisos removendo o `next-pwa`, e o que sobrou da árvore já resolve em versões corrigidas dentro das faixas que os pais declaram.
+
+| Pacote | Fixado em | Chega por | Falha corrigida |
+| --- | --- | --- | --- |
+| `braces`, `micromatch`, `picomatch` | `^3.0.3`, `^4.0.8`, `^2.3.2` | `tsc-alias` → `chokidar`/`globby` | ReDoS |
+| `deepmerge-ts` | `^8.0.2` | `prisma` → `@prisma/config` | poluição de protótipo |
+| `mysql2` | `^3.23.1` | `prisma` (driver que este projeto não usa) | bomba de descompressão |
+| `postcss` | `^8.5.28` (dependência direta, atualizada) | — | leitura de arquivo arbitrária e travessia de caminho no source map |
+
+Os 46 avisos do `web` vinham todos de `next-pwa@5.6.0`, sem manutenção desde 2022, que arrasta uma cadeia de build inteira (`workbox-build`, `babel-loader`, `clean-webpack-plugin`) e prende `webpack`, `lodash`, `rollup@2` e `@babel/core` em versões de 2022. Eram avisos de build, não de runtime: nada dessa cadeia era servido ao navegador. Com o plugin removido, o `web` passou a auditar limpo sem um `overrides` sequer — `ajv@6`/`ajv@8`, `minimatch@3` e `brace-expansion@1`, que sobram sob o `eslint` e o `@hookform/resolvers`, já resolvem em versões corrigidas.
+
+### Dependências removidas
+
+`next-pwa` saiu com o PWA inteiro — `public/manifest.json`, o `<link rel="manifest">` do layout, o `withPWA` do `next.config.js` e as duas linhas de `.gitignore` que escondiam o worker gerado. O aplicativo deixa de ser instalável e não precacheia mais nada; o que se ganha é uma cadeia de build de 2022 fora da árvore e o Turbopack de volta no `dev` e no `build`. Reintroduzir instalabilidade depende de um plugin que suporte Turbopack.
+
+`@radix-ui/react-checkbox`, `@radix-ui/react-separator` e `@radix-ui/react-tooltip` saíram com as três primitivas que eram suas únicas consumidoras (`components/ui/checkbox.tsx`, `separator.tsx` e `tooltip.tsx`), nenhuma renderizada por tela alguma. Tree shaking já as mantinha fora do bundle; o que some é confiança em três publicadores a cada `install`. Reintroduzi-las é um `pnpm add` e o arquivo do shadcn.
+
+O restante do manifesto tem consumidor verificado, inclusive os casos que uma busca por `import` não alcança: `@types/*` (tipos ambientes), `tsc-alias` (script de `build`), `eslint-config-prettier` (peer de `eslint-plugin-prettier/recommended`), e `dotenv` (`config/Envs.ts` e `prisma.config.ts`).
+
+### Divergência de peer conhecida
+
+`pnpm peers check` acusa `eslint-plugin-jsx-a11y@6.10.2` e `eslint-plugin-react@7.37.5` declarando `eslint` até a 9, com a 10.10.0 instalada. As regras carregam e `pnpm lint` passa com `--max-warnings=0` nos dois pacotes; é defasagem de declaração dos plugins, não incompatibilidade observada.

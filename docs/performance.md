@@ -71,7 +71,7 @@ Digitar na busca de posições re-renderiza a tabela, porque o texto digitado e 
 
 ## Bundle — TASK 16.5
 
-Medida usada em todo este trecho: soma dos bytes de `build/static/chunks`, o JavaScript que o navegador baixa. O Next 16 não imprime mais o tamanho por rota no `build`, e `--webpack` não gera `app-build-manifest.json`, então a comparação é do total antes e depois de cada mudança.
+Medida usada em todo este trecho: soma dos bytes de `build/static/chunks`, o JavaScript que o navegador baixa. O Next 16 não imprime mais o tamanho por rota no `build`, e o `--webpack` então em uso não gerava `app-build-manifest.json`, então a comparação é do total antes e depois de cada mudança.
 
 | Momento | Bytes |
 | --- | --- |
@@ -116,12 +116,14 @@ O worker passou a precachear a saída do build e nada mais: `runtimeCaching: []`
 | Entradas no precache | 73 | 66 |
 | `login-hero.jpeg` (1,93 MB) no precache | sim | não |
 
+Na TASK 20.3 o PWA saiu inteiro: sem `next-pwa` não há worker nem precache, e a superfície descrita acima deixa de existir. O que este trecho registra é por que ela nunca deveria ter existido com o padrão do plugin.
+
 ### O que foi avaliado e mantido
 
 | Item | Razão |
 | --- | --- |
 | `@tanstack/react-query-devtools` | Importado sem condição em `providers/app-provider.tsx`, mas o pacote exporta um componente que devolve `null` fora de `development`, e o painel é eliminado na build: nenhuma referência sobrou em `build/static/chunks` nem em `build/server`. O `Dockerfile` instala tudo no estágio de build e só o runtime roda com `--prod`, então a dependência de desenvolvimento não falta em lugar nenhum |
-| `next-pwa` | Mantido porque instalabilidade é decisão de produto, não de auditoria; o risco de ser um plugin parado em 2022 está em TD-057 |
+| `next-pwa` | Mantido aqui porque instalabilidade é decisão de produto, não de auditoria; o risco de ser um plugin parado em 2022 ficou em TD-057, e a decisão veio na TASK 20.3 — o PWA foi removido |
 | `axios` | Usado nos route handlers e nos hooks, com interceptadores que centralizam sessão expirada e erro de API; trocar por `fetch` reescreveria essa camada sem ganho medido |
 | `class-variance-authority`, `clsx`, `tailwind-merge` | Base do `cn` e das variantes do `Button`; somados não chegam a 10 KB |
 
