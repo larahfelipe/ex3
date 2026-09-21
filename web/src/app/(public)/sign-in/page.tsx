@@ -7,7 +7,7 @@ import { APP_ROUTES } from '@/common/constants';
 import { SignInForm } from './_components/sign-in-form';
 
 export const metadata: Metadata = {
-  title: 'EX3 | Sign In'
+  title: 'Sign In'
 };
 
 export default function SignIn() {
@@ -30,7 +30,7 @@ export default function SignIn() {
           Not registered?{' '}
           <Link
             href={APP_ROUTES.Public.SignUp}
-            className="leading-6 text-foreground hover:text-foreground/90"
+            className="leading-6 text-foreground underline underline-offset-4 hover:text-foreground/90"
           >
             Create account
           </Link>

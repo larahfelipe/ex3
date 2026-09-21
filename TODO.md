@@ -289,16 +289,16 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-053 — Seis pares de token reprovam no contraste exigido
 
 - **Origem:** TASK 14.5 · **Tipo:** acessibilidade · **Prioridade:** alta · **Encaminhamento:** avulso
-- **Contexto:** a medição dos tokens de `globals.css` está em `docs/accessibility.md`, §Contraste medido. Na paleta escura, a única com consumidor em runtime, reprovam `--destructive` como texto (2,01:1), `--primary-foreground` sobre `--primary` (3,49:1, o rótulo de todo botão primário) e `--border`/`--input` sobre `--background` (1,33:1, única pista visual da borda do campo). Na paleta clara, latente até TD-048, reprovam ainda `--destructive-foreground` sobre `--destructive` (3,60:1), `--muted-foreground` sobre `--muted` (4,39:1) e `--warning` sobre `bg-warning/10` (4,40:1). As mensagens de erro já saíram de `--destructive` para `--negative`, medido em 4,80:1 e 7,31:1.
+- **Contexto:** a medição dos tokens de `globals.css` está em `docs/accessibility.md`, §Contraste medido. Na paleta escura, a única com consumidor em runtime, reprovam `--destructive` como texto (2,01:1), `--primary-foreground` sobre `--primary` (3,49:1, o rótulo de todo botão primário) e `--border`/`--input` sobre `--background` (1,33:1, única pista visual da borda do campo). A auditoria da TASK 20.6 confirmou o segundo par na renderização, em 3,48:1, e ele é a única violação que o axe encontra em qualquer página ou estado. Na paleta clara, latente até TD-048, reprovam ainda `--destructive-foreground` sobre `--destructive` (3,60:1), `--muted-foreground` sobre `--muted` (4,39:1) e `--warning` sobre `bg-warning/10` (4,40:1). As mensagens de erro já saíram de `--destructive` para `--negative`, medido em 4,80:1 e 7,31:1.
 - **Impacto:** 1.4.3 e 1.4.11 falham no caminho principal — o rótulo do botão que confirma cada ação e a borda que identifica cada campo —, e a ação destrutiva é o texto menos legível da interface justamente onde o engano é irreversível.
 - **Proposta:** escolher os novos valores no próprio `globals.css`, um token por par reprovado, e repetir a medição; trocar a classe em cada uso espalharia a decisão sem corrigir a origem.
 
-### TD-054 — Auditoria automatizada de acessibilidade nunca foi executada
+### TD-054 — Lighthouse e acessibilidade não têm execução repetível
 
-- **Origem:** TASK 14.7 · **Tipo:** acessibilidade · **Prioridade:** alta · **Encaminhamento:** avulso
-- **Contexto:** o ambiente da implementação não tem navegador nem permissão de rede para instalar Playwright, `@axe-core/playwright` ou `lighthouse`, então a varredura com axe, a medição do Lighthouse e os testes E2E de teclado da TASK 14.7 ficaram sem executar. O procedimento — páginas, estados de runtime, limiares e o que a ferramenta não decide — está em `docs/accessibility.md`, §Auditoria automatizada.
-- **Impacto:** os dois critérios numéricos da TASK 14.7, zero violação crítica e Lighthouse ≥ 95, seguem não verificados; o que garante a acessibilidade hoje é `jsx-a11y` no `lint`, a composição dos componentes de estado e o roteiro manual.
-- **Proposta:** instalar as três dependências fixadas por versão no `web`, subir a stack de `compose.yaml` com um usuário semeado para as rotas protegidas e rodar o procedimento documentado; a FASE 17 reaproveita o mesmo harness para os E2E de produto.
+- **Origem:** TASK 14.7 · **Tipo:** acessibilidade · **Prioridade:** média · **Encaminhamento:** avulso (reduzido na TASK 20.6)
+- **Contexto:** a varredura com axe foi executada na TASK 20.6 — seis páginas, dois viewports, dialog e busca sem resultado, com dados semeados — e o resultado está em `docs/accessibility.md`, §Auditoria automatizada. Ela rodou num arnês descartável, WebDriver BiDi direto sobre o `WebSocket` do Node, que não sobreviveu à task nem cobre o que depende de eventos de foco. Continuam sem execução o Lighthouse, cujo pacote não está instalado, e qualquer verificação de teclado que exija focus trap ou `:focus-visible` renderizado.
+- **Impacto:** o critério "accessibility ≥ 95" da TASK 14.7 segue não verificado, e nada impede que uma regressão de acessibilidade entre sem ser notada — a varredura não roda em CI nem localmente por comando.
+- **Proposta:** com o runner que TD-058 pede, fixar `@axe-core/playwright` e `lighthouse` por versão no `web` e transformar o procedimento documentado num comando; um navegador com janela ativa também fecha os limites do arnês registrados na mesma seção.
 
 ### TD-055 — Toda tela protegida espera a listagem de carteiras para começar
 
@@ -363,6 +363,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** os dois limitadores vivem no backend. O servidor do Next atende página, proxy e redirecionamento de sessão sem budget próprio; o que chega à API é limitado, o que morre no proxy não.
 - **Impacto:** uma inundação de requisições sem sessão consome CPU e conexões do web sem esbarrar em limite nenhum, e o custo do Cloud Run acompanha.
 - **Proposta:** decidir entre limite na plataforma (Cloud Armor à frente do serviço) e um budget por endereço no próprio `proxy.ts`, lembrando que o contador seria por instância.
+
+### TD-066 — Dialog aberto pelo menu da linha devolve o foco ao `body`
+
+- **Origem:** TASK 20.6 · **Tipo:** acessibilidade · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** `use-focus-return.ts` guarda o elemento ativo quando o overlay monta e o refoca ao fechar, o que cobre todo dialog aberto a partir de um botão. Nos dois itens do menu de ações da linha — "New transaction" e "Delete" — o elemento ativo nesse instante é o próprio item de menu, que o Radix já está desmontando: ao fechar, `focus()` cai num nó desconectado. O `DropdownMenu` devolve o foco ao seu gatilho num `setTimeout` posterior ao autofoco do dialog, então nem o gatilho está em foco no momento do registro.
+- **Impacto:** fechar um desses dois diálogos joga o próximo `Tab` para o topo do documento; nenhum conteúdo fica inacessível. Soma-se a TD-052, que é a mesma perda por outro caminho.
+- **Proposta:** enquanto o overlay estiver montado, seguir o último foco ocorrido fora do conteúdo por `focusin` e usá-lo como destino — o roubo do menu passa a ser justamente o registro certo. Verificar num navegador com janela ativa, já que o arnês da TASK 20.6 não dispara evento de foco.
 
 ## Resolvidos
 

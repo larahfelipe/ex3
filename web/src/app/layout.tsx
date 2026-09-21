@@ -1,13 +1,18 @@
 import type { Metadata, Viewport } from 'next';
 import { connection } from 'next/server';
 
-import { inter, raleway } from '@/common/constants';
+import {
+  APP_TITLE,
+  APP_TITLE_TEMPLATE,
+  inter,
+  raleway
+} from '@/common/constants';
 import { AppProvider } from '@/providers/app-provider';
 import type { Children } from '@/types';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'EX3',
+  title: { default: APP_TITLE, template: APP_TITLE_TEMPLATE },
   description: 'EX3 - Portfolio Tracker'
 };
 
