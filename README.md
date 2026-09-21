@@ -160,6 +160,7 @@ O runner é o `node:test`, sem framework adicional. Os testes unitários (`src/*
 | [`docs/data-fetching.md`](docs/data-fetching.md) | todo request do browser, hook a hook |
 | [`docs/accessibility.md`](docs/accessibility.md), [`docs/responsiveness.md`](docs/responsiveness.md), [`docs/performance.md`](docs/performance.md) | critérios normativos do frontend |
 | [`docs/toolchain.md`](docs/toolchain.md) | versões fixadas e por quê |
+| [`docs/release.md`](docs/release.md) | checklist da versão candidata, evidência por check e exceções |
 | [`TODO.md`](TODO.md) | dívidas técnicas abertas (`TD-NNN`) e resolvidas |
 
 ## Licença

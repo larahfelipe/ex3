@@ -66,7 +66,7 @@ browser é aceita, e a exceção só relaxa o desenvolvimento local.
 | Onde | Cabeçalhos |
 | --- | --- |
 | API | `helmet()` com os defaults, mais `x-powered-by` desligado |
-| Web, toda resposta | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` e `Strict-Transport-Security`, por `headers()` do `next.config.js` |
+| Web, toda resposta | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` e `Strict-Transport-Security`, por `headers()` do `next.config.js`, mais `x-powered-by` desligado por `poweredByHeader: false` |
 | Web, resposta de página | CSP com nonce por resposta e `strict-dynamic`, montada em `src/proxy.ts` |
 
 A CSP não alcança `/api` — o matcher do proxy exclui essas rotas —, e é por isso
