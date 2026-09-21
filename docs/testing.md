@@ -29,7 +29,7 @@ Todo arquivo de integração chama `registerIntegrationHooks()` uma vez, dentro 
 
 ## Banco de teste
 
-`.env.test` é a **única** fonte da string de conexão, lida via `node --env-file`. O serviço `postgres-test` do `compose.yaml` e o service container do CI usam as mesmas credenciais (`ex3`/`ex3`/`ex3_test`), então nenhum dos dois ambientes redefine configuração de banco. Como o `node --env-file` não sobrescreve variável já presente no ambiente, um `NODE_ENV` ou `DATABASE_URL` exportado vence o `.env.test`; por isso `resetDatabase()` recusa truncar fora de `NODE_ENV=test` (`NonTestDatabaseResetError`).
+`.env.test` é a **única** fonte da string de conexão, lida via `node --env-file`. Sob `NODE_ENV=test`, nem `config/Envs.ts` nem `prisma.config.ts` carregam o `.env` do desenvolvedor: o que a suíte não declarar fica ausente, em vez de ser preenchido por uma credencial que alcança outro banco. O serviço `postgres-test` do `compose.yaml` e o service container do CI usam as mesmas credenciais (`ex3`/`ex3`/`ex3_test`), então nenhum dos dois ambientes redefine configuração de banco. Como o `node --env-file` não sobrescreve variável já presente no ambiente, um `NODE_ENV` ou `DATABASE_URL` exportado vence o `.env.test`; por isso `resetDatabase()` recusa truncar fora de `NODE_ENV=test` (`NonTestDatabaseResetError`).
 
 O armazenamento do container local é `tmpfs`: cada `up` começa com um cluster vazio. A suíte depende de o banco ser descartável, não de limpar o que deixou para trás.
 
@@ -63,7 +63,7 @@ A exceção é a senha, que passa pelo mesmo `Bcrypt` da aplicação — é o qu
 
 `signIn()` autentica pelo endpoint real em vez de assinar um token localmente. A sessão é stateful (a `sessionVersion` do token precisa ser a da linha do usuário) e é o endpoint que incrementa essa versão, então o token obtido é o mesmo que um cliente real receberia. Assinar localmente fica restrito aos testes de token inválido, que precisam de claims forjadas.
 
-Os rate limiters guardam contadores em memória de processo, que sobrevivem a um teste. Os budgets são apertados de propósito (10 tentativas de autenticação por 15 min), então `resetRateLimits()` é chamado em `beforeEach`. Ele depende de acertar a chave que o `express-rate-limit` deriva para o cliente loopback do `supertest`; `Harness.integration.ts` afirma que a chave está de fato sendo contada antes de resetar, para que um reset que não limpa nada falhe em vez de passar silenciosamente.
+Os rate limiters guardam contadores em memória de processo, que sobrevivem a um teste. Os budgets são apertados de propósito (10 tentativas de autenticação por 15 min), então `resetRateLimits()` é chamado em `beforeEach`. Desde a TASK 20.4 a chave é a identidade, não o endereço — uma por conta e uma por sessão —, e o reset limpa os dois `MemoryStore` inteiros em vez de listar chaves. `Harness.integration.ts` afirma que a conta autenticada está de fato sendo contada antes de resetar, para que um reset que não limpa nada falhe em vez de passar silenciosamente.
 
 ## Mocks
 

@@ -1,6 +1,8 @@
-import 'dotenv/config';
-
+import { config } from 'dotenv';
 import { defineConfig } from 'prisma/config';
+
+/** The suite declares its own environment; see `src/config/Envs.ts`. */
+if (process.env.NODE_ENV !== 'test') config({ quiet: true });
 
 /**
  * Prisma 7 no longer reads connection URLs from the schema: the CLI takes them

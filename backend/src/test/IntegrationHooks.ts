@@ -12,7 +12,7 @@ import { disconnectDatabase, resetDatabase } from './TestDatabase';
  */
 export const registerIntegrationHooks = () => {
   beforeEach(async () => {
-    resetRateLimits();
+    await resetRateLimits();
     await resetDatabase();
   });
 

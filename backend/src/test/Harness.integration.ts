@@ -7,9 +7,9 @@ import { PrismaClient } from '@/infra/database/PrismaClient';
 import {
   apiRequest,
   bearer,
+  isAccountRateLimited,
   resetRateLimits,
-  signIn,
-  trackedRateLimitKeys
+  signIn
 } from './ApiClient';
 import {
   FIXTURE_ASSET_SYMBOL,
@@ -87,13 +87,13 @@ describe('test harness', () => {
     await signIn({ email: user.email, password: FIXTURE_PASSWORD });
 
     assert.ok(
-      (await trackedRateLimitKeys()).length > 0,
-      'no loopback key was tracked, so resetRateLimits clears nothing'
+      await isAccountRateLimited(user.email),
+      'the signed-in account was not counted, so resetRateLimits clears nothing'
     );
 
-    resetRateLimits();
+    await resetRateLimits();
 
-    assert.deepEqual(await trackedRateLimitKeys(), []);
+    assert.equal(await isAccountRateLimited(user.email), false);
   });
 
   it('fails only the injected write of a serializable transaction and undoes the writes before it', async (t) => {

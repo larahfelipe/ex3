@@ -23,7 +23,7 @@ O navegador nunca fala com o backend. Toda requisição passa pelos Route Handle
 
 No backend, cada camada só depende da de baixo: `routes` declara o contrato HTTP, `services` orquestra caso de uso e transação de banco, `domain` é cálculo puro e testável sem I/O (razão, valuation, performance, histórico de preços), e `infra` isola Prisma, provedor de cotações, criptografia e log estruturado. Erro nasce tipado em qualquer camada e vira envelope HTTP num único error boundary.
 
-Ponto de entrada de cada assunto: [`docs/domain-model.md`](docs/domain-model.md) para o significado das entidades, [`docs/api-inventory.md`](docs/api-inventory.md) para as rotas e o formato das respostas, [`docs/authentication.md`](docs/authentication.md) para sessão e autorização.
+Ponto de entrada de cada assunto: [`docs/domain-model.md`](docs/domain-model.md) para o significado das entidades, [`docs/api-inventory.md`](docs/api-inventory.md) para as rotas e o formato das respostas, [`docs/authentication.md`](docs/authentication.md) para sessão e autorização, [`docs/security.md`](docs/security.md) para o checklist de segurança.
 
 ## Requisitos
 
@@ -153,6 +153,7 @@ O runner é o `node:test`, sem framework adicional. Os testes unitários (`src/*
 | [`docs/api-inventory.md`](docs/api-inventory.md) | rotas, contratos e o que mudou desde a linha de base |
 | [`docs/authentication.md`](docs/authentication.md) | sessão, token, cookie e autorização |
 | [`docs/errors.md`](docs/errors.md) | as oito categorias de erro e o envelope da API |
+| [`docs/security.md`](docs/security.md) | checklist de segurança: entradas, segredos, cabeçalhos, rate limiting e riscos aceitos |
 | [`docs/observability.md`](docs/observability.md) | log estruturado, correlação de requisição, health e readiness |
 | [`docs/testing.md`](docs/testing.md) | infraestrutura e convenções de teste |
 | [`docs/containers.md`](docs/containers.md) | Compose, volumes e imagens de produção |
