@@ -25,7 +25,7 @@ const contentSecurityPolicyWith = (nonce: string) =>
     "img-src 'self' data: blob:",
     "font-src 'self'",
     "connect-src 'self'",
-    "worker-src 'self'",
+    "worker-src 'none'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

@@ -94,4 +94,4 @@ O alvo padrão, e o único que o `cloudbuild.yaml` constrói, é o último está
 
 O corepack baixa a versão do `packageManager` durante o build, em `COREPACK_HOME`, legível pelo usuário `node` do estágio `dev`. Os Dockerfiles não usam sintaxe exclusiva do BuildKit, como `RUN --mount`, porque o builder `gcr.io/cloud-builders/docker` do Cloud Build não a garante.
 
-`API_URL` continua fixada no build do web por build-arg, como o `cloudbuild.yaml` já faz.
+`API_URL` chega ao web por build-arg, como o `cloudbuild.yaml` já faz, e o estágio `runner` a declara como variável de ambiente do container. Ela é lida pelo servidor em tempo de execução, não mais inlinada no bundle pelo `next.config.js` — ver `security.md`, §Segredos.

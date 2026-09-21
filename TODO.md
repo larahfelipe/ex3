@@ -15,24 +15,24 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 
 ### TD-004 — Enumeração de e-mails no sign-up (risco aceito)
 
-- **Origem:** revisão de segurança posterior à TASK 3.3 · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** TASK 20.4
+- **Origem:** revisão de segurança posterior à TASK 3.3 · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** avulso (risco reafirmado na TASK 20.4)
 - **Contexto:** `POST /v1/user/create` responde `User already exists` para e-mail cadastrado. Mantido como risco aceito em 2026-09-11; detalhes em `docs/authentication.md`, limitação 2.
-- **Impacto:** permite descobrir se um e-mail tem conta, na vazão que o rate limit por IP deixa passar.
+- **Impacto:** permite descobrir se um e-mail tem conta. Desde a TASK 20.4 o limite de autenticação é por conta, então cada e-mail sondado estreia o próprio balde e quem limita a vazão é o teto da API para tráfego sem sessão.
 - **Proposta:** reavaliar quando o produto tiver confirmação de e-mail, que permite responder igual para e-mail novo e existente.
 
 ### TD-005 — Senha nova não é comparada a senhas vazadas nem normalizada
 
-- **Origem:** `docs/authentication.md`, limitações 3 e 4 · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** TASK 20.4
+- **Origem:** `docs/authentication.md`, limitações 3 e 4 · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** avulso (auditado na TASK 20.4, mantido aberto)
 - **Contexto:** o NIST SP 800-63B-4 pede recusar senhas presentes em listas de senhas comprometidas e normalizar Unicode antes do hash. Nenhum dos dois é feito.
 - **Impacto:** senhas conhecidas de vazamentos são aceitas, e a mesma senha digitada com outra composição Unicode não confere.
 - **Proposta:** tratar os dois juntos. Normalizar muda o valor verificado de contas existentes, então exige migração no login bem-sucedido (verificar com o valor bruto e regravar o hash normalizado). A checagem de vazamento depende de fonte externa, como a API de k-anonymity do Have I Been Pwned, ou de lista local.
 
-### TD-006 — Rate limit em memória de processo e só por IP
+### TD-006 — Contadores de rate limit na memória de cada processo
 
-- **Origem:** `docs/authentication.md`, limitação 5 · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** TASK 20.4
-- **Contexto:** os contadores do `express-rate-limit` ficam na memória de cada processo (`docs/testing.md`), e a chave é o IP do cliente.
-- **Impacto:** com mais de uma instância do backend, cada uma aplica o budget inteiro; um ataque distribuído entre IPs não esbarra no limite.
-- **Proposta:** store compartilhado entre instâncias e limite adicional por conta no sign-in.
+- **Origem:** `docs/authentication.md`, limitação 5 · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** avulso (metade resolvida na TASK 20.4)
+- **Contexto:** os contadores do `express-rate-limit` ficam na memória de cada processo (`docs/testing.md`). A chave deixou de ser o endereço do chamador na TASK 20.4 — é a sessão na API e a conta nos endpoints de credencial (`docs/security.md`, §Rate limiting) —, mas o store continua local.
+- **Impacto:** com mais de uma instância do backend, cada uma aplica o budget inteiro, e o limite efetivo é o budget vezes o número de instâncias.
+- **Proposta:** store compartilhado entre instâncias, com o mesmo chaveamento por identidade.
 
 ### TD-007 — `style-src 'unsafe-inline'` na CSP do web
 
@@ -321,13 +321,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** nenhum fluxo de ponta a ponta é verificado automaticamente, e a integração entre o web e a API só é exercitada à mão. Soma-se a TD-054, que registra a auditoria automatizada de acessibilidade nunca executada.
 - **Proposta:** instalar o Playwright no `web`, escrever os specs das cinco tasks e executá-los contra o `compose.yaml`, que já sobe postgres, backend e web. O checklist da TASK 20.7 exige `e2e`, `accessibility` e `responsive`, então a dívida vence lá.
 
-### TD-059 — A suíte herda do `.env` do desenvolvedor tudo o que falta no `.env.test`
-
-- **Origem:** TASK 18.1 · **Tipo:** teste · **Prioridade:** alta · **Encaminhamento:** TASK 20.4
-- **Contexto:** `src/config/Envs.ts` e `prisma.config.ts` chamam `dotenv` sem condição. `--env-file=.env.test` preenche antes, e o `dotenv` não sobrescreve, mas toda variável ausente do `.env.test` (`DIRECT_URL`, `PORT`, `YAHOO_FINANCE_API_KEY`, ...) é preenchida a partir do `.env` local. Foi assim que `prisma migrate deploy` do `test:integration` apontou para o banco remoto de `DIRECT_URL`; o alvo agora é fixado no `spawn` de `PrepareTestDatabase.ts`, mas a herança em si continua.
-- **Impacto:** o resultado da suíte depende do `.env` de quem executa, e qualquer comando que a suíte dispare com credencial herdada alcança um banco que não é o de teste.
-- **Proposta:** não carregar o `.env` quando `NODE_ENV=test`, nos dois pontos, e declarar no `.env.test` tudo o que a suíte precisa.
-
 ### TD-060 — Nenhuma sonda de saúde na configuração de produção
 
 - **Origem:** TASK 18.3 · **Tipo:** infraestrutura · **Prioridade:** média · **Encaminhamento:** TASK 20.7
@@ -364,7 +357,20 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** o botão de confirmar do ativo aceita um segundo clique, cuja requisição responde `404` e abre um toast de erro depois de a exclusão ter dado certo; a casca do diálogo é mantida em dois lugares.
 - **Proposta:** extrair um `ConfirmDialog` com o estado de pendência do diálogo de transação e a forma de reportar o erro como propriedade, quando as duas telas concordarem sobre toast ou erro embutido.
 
+### TD-065 — Tráfego não autenticado contra o web não tem limite
+
+- **Origem:** TASK 20.4 · **Tipo:** segurança · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** os dois limitadores vivem no backend. O servidor do Next atende página, proxy e redirecionamento de sessão sem budget próprio; o que chega à API é limitado, o que morre no proxy não.
+- **Impacto:** uma inundação de requisições sem sessão consome CPU e conexões do web sem esbarrar em limite nenhum, e o custo do Cloud Run acompanha.
+- **Proposta:** decidir entre limite na plataforma (Cloud Armor à frente do serviço) e um budget por endereço no próprio `proxy.ts`, lembrando que o contador seria por instância.
+
 ## Resolvidos
+
+### TD-059 — A suíte herda do `.env` do desenvolvedor tudo o que falta no `.env.test`
+
+- **Tipo:** teste · **Prioridade:** alta
+- **Resolução:** `src/config/Envs.ts` e `prisma.config.ts` só chamam `dotenv` fora de `NODE_ENV=test`, então a suíte enxerga exatamente o que `--env-file=.env.test` declara. As 230 asserções passam sem nenhuma variável herdada, o que também prova que o `.env.test` versionado basta: nada do ambiente do desenvolvedor alcança o banco, o provedor de cotação ou o segredo do token durante um teste.
+
 
 ### TD-057 — `next-pwa` parado em 2022 sobre o Next 16
 

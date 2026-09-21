@@ -48,8 +48,11 @@ FROM node:24.15-alpine AS runner
 
 RUN apk add --no-cache tini
 
+ARG API_URL
+
 ENV NODE_ENV=production \
-    NEXT_TELEMETRY_DISABLED=1
+    NEXT_TELEMETRY_DISABLED=1 \
+    API_URL=${API_URL}
 
 WORKDIR /usr/src/app/web
 

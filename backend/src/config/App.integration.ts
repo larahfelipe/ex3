@@ -14,6 +14,16 @@ const FORBIDDEN_ORIGIN = 'https://attacker.example';
 /** Any route reaches the middleware chain; liveness needs neither auth nor database. */
 const PROBE_ROUTE = '/health';
 const REQUEST_ID_HEADER = 'x-request-id';
+const THROTTLED_ACCOUNT = 'throttled@ex3.app';
+const OTHER_ACCOUNT = 'other@ex3.app';
+const PROBE_SESSION = 'probe-session-token';
+const OTHER_SESSION = 'other-session-token';
+
+/** `RateLimit: "<name>"; r=<remaining>; t=<seconds>`, the draft-8 budget line. */
+const REMAINING_BUDGET = /r=(?<remaining>\d+)/;
+
+const remainingBudgetOf = (res: request.Response) =>
+  Number(REMAINING_BUDGET.exec(res.headers['ratelimit'])?.groups?.remaining);
 const PROPAGATED_REQUEST_ID = 'b7c1d2e3-f4a5-4b6c-8d9e-0f1a2b3c4d5e';
 const GENERATED_REQUEST_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -206,6 +216,39 @@ describe('HTTP hardening', () => {
 
     it('budgets authentication more tightly than the rest of the API', () => {
       assert.ok(RateLimits.AUTH.limit < RateLimits.API.limit);
+    });
+
+    /**
+     * Every browser request arrives from the same web server, so a budget keyed
+     * by client address would be one budget for the whole product.
+     */
+    it('counts sign-in attempts against the account, not across accounts', async () => {
+      const attempts = RateLimits.AUTH.limit + 1;
+      const signInAs = (email: string) =>
+        request(app)
+          .post('/v1/user')
+          .send({ email, password: 'wrong-password' });
+
+      for (let attempt = 0; attempt < attempts; attempt += 1)
+        await signInAs(THROTTLED_ACCOUNT);
+
+      const throttled = await signInAs(THROTTLED_ACCOUNT);
+      const other = await signInAs(OTHER_ACCOUNT);
+
+      assert.equal(throttled.status, Errors.THROTTLED.status);
+      assert.equal(other.status, Errors.AUTHENTICATION.status);
+    });
+
+    it('counts API requests against the session, not across sessions', async () => {
+      const probeAs = (session: string) =>
+        request(app).get(PROBE_ROUTE).set('Authorization', `Bearer ${session}`);
+
+      await probeAs(PROBE_SESSION);
+      const repeated = await probeAs(PROBE_SESSION);
+      const other = await probeAs(OTHER_SESSION);
+
+      assert.equal(remainingBudgetOf(repeated), RateLimits.API.limit - 2);
+      assert.equal(remainingBudgetOf(other), RateLimits.API.limit - 1);
     });
   });
 });

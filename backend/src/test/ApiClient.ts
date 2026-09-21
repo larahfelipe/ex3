@@ -2,8 +2,9 @@ import type { Express } from 'express';
 import request from 'supertest';
 
 import {
-  apiRateLimitMiddleware,
-  authRateLimitMiddleware
+  accountRateLimitKey,
+  authRateLimitMiddleware,
+  rateLimitStores
 } from '@/middleware/RateLimitMiddleware';
 
 import {
@@ -14,14 +15,6 @@ import {
 } from './Fixtures';
 
 const SIGN_IN_ROUTE = '/v1/user';
-
-/**
- * Keys that `express-rate-limit` derives for the client supertest connects
- * from: IPv4 loopback, or its IPv6-mapped form when the ephemeral server binds
- * a dual-stack socket. Covered by the harness test, which asserts one of them
- * is tracked after a request.
- */
-const LOOPBACK_KEYS = ['127.0.0.1', '::ffff:127.0.0.1'];
 
 let application: Express | null = null;
 
@@ -42,27 +35,18 @@ export const apiRequest = async () => request(await app());
  * single test. Budgets are tight by design, so a suite that authenticates
  * repeatedly has to clear them between tests.
  */
-export const resetRateLimits = () => {
-  for (const key of LOOPBACK_KEYS) {
-    authRateLimitMiddleware.resetKey(key);
-    apiRateLimitMiddleware.resetKey(key);
-  }
+export const resetRateLimits = async () => {
+  await Promise.all(rateLimitStores.map((store) => store.resetAll()));
 };
 
 /**
- * Which of the loopback keys the auth limiter is currently counting. The
- * harness test reads it to prove `resetRateLimits` targets the key the limiter
+ * Whether the auth limiter is counting the account the credentials name. The
+ * harness test reads it to prove `resetRateLimits` clears the key the limiter
  * actually derives, instead of silently clearing nothing.
  */
-export const trackedRateLimitKeys = async () => {
-  const tracked = await Promise.all(
-    LOOPBACK_KEYS.map(async (key) =>
-      (await authRateLimitMiddleware.getKey(key)) ? key : null
-    )
-  );
-
-  return tracked.filter((key): key is string => key !== null);
-};
+export const isAccountRateLimited = async (email: string) =>
+  (await authRateLimitMiddleware.getKey(accountRateLimitKey(email))) !==
+  undefined;
 
 export const bearer = (accessToken: string) => ({
   Authorization: `Bearer ${accessToken}`
