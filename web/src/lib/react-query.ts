@@ -1,5 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
 
+import type { GetInstrumentsRequestParams } from '@/app/api/v1/instruments';
 import type {
   PerformanceParams,
   PositionListingParams
@@ -43,13 +44,20 @@ export const queryClient = new QueryClient({
 
 type PortfolioId = Maybe<Portfolio['id']>;
 
+const accountPortfolios = () => ['portfolios'] as const;
+
 const portfolioScope = (portfolioId: PortfolioId) =>
   ['portfolio', portfolioId] as const;
 
 export const queryKeys = {
   currentUser: () => ['user'] as const,
-  portfolios: (requestedPage: GetPortfoliosRequestParams) =>
-    ['portfolios', requestedPage] as const,
+  instruments: (params: GetInstrumentsRequestParams) =>
+    ['instruments', params] as const,
+  portfolios: accountPortfolios,
+  portfolioPage: (requestedPage: GetPortfoliosRequestParams) =>
+    [...accountPortfolios(), 'page', requestedPage] as const,
+  portfolioDetails: (portfolioId: PortfolioId) =>
+    [...accountPortfolios(), 'details', portfolioId] as const,
   portfolio: portfolioScope,
   portfolioOverview: (portfolioId: PortfolioId) =>
     [...portfolioScope(portfolioId), 'overview'] as const,

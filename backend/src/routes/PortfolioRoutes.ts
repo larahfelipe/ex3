@@ -2,13 +2,15 @@ import { Router, type Application } from 'express';
 
 import {
   createPortfolioControllerHandler,
+  deletePortfolioControllerHandler,
   getAllPortfoliosControllerHandler,
   getPortfolioAllocationControllerHandler,
   getPortfolioControllerHandler,
   getPortfolioOverviewControllerHandler,
   getPortfolioPerformanceControllerHandler,
   getPortfolioPositionControllerHandler,
-  getPortfolioPositionsControllerHandler
+  getPortfolioPositionsControllerHandler,
+  updatePortfolioControllerHandler
 } from '@/controllers/portfolio';
 import { authMiddleware } from '@/middleware';
 
@@ -60,6 +62,18 @@ portfolioRouter.post(
   '/v1/portfolio',
   authMiddleware,
   createPortfolioControllerHandler as Application
+);
+
+portfolioRouter.patch(
+  '/v1/portfolio',
+  authMiddleware,
+  updatePortfolioControllerHandler as Application
+);
+
+portfolioRouter.delete(
+  '/v1/portfolio',
+  authMiddleware,
+  deletePortfolioControllerHandler as Application
 );
 
 export { portfolioRouter };

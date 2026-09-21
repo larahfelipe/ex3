@@ -1,0 +1,261 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+
+import { toast } from 'sonner';
+
+import type { Portfolio } from '@/app/api/v1/portfolios';
+import { EmptyState, LoadingState } from '@/components/data-state';
+import { PageHeader } from '@/components/page-header';
+import { QuerySection } from '@/components/query-section';
+import { Button } from '@/components/ui';
+import {
+  selectActivePortfolio,
+  useActivePortfolio,
+  useCreatePortfolio,
+  useDeletePortfolio,
+  usePortfolios,
+  useUpdatePortfolio
+} from '@/hooks/use-portfolio';
+import type { Maybe } from '@/types';
+
+import { DeletePortfolioDialog } from './_components/delete-portfolio-dialog';
+import { PortfolioFormDialog } from './_components/portfolio-form-dialog';
+
+type PortfolioDialog =
+  | { kind: 'create' }
+  | { kind: 'edit'; portfolio: Portfolio }
+  | { kind: 'delete'; portfolio: Portfolio };
+
+const FIRST_PAGE = 1;
+const PORTFOLIOS_PAGE_SIZE = 10;
+
+const STORAGE_BLOCKED_MESSAGE =
+  'Your browser blocked saving the active portfolio. Allow site data for this app and try again.';
+
+export default function Portfolios() {
+  const [requestedPage, setRequestedPage] = useState(FIRST_PAGE);
+  const [dialog, setDialog] = useState<Maybe<PortfolioDialog>>(null);
+  const [deletedId, setDeletedId] = useState<Maybe<string>>(null);
+
+  const newPortfolioButtonRef = useRef<HTMLButtonElement>(null);
+
+  const portfoliosQuery = usePortfolios({
+    page: requestedPage,
+    limit: PORTFOLIOS_PAGE_SIZE
+  });
+  const { data: activePortfolio } = useActivePortfolio();
+
+  const { mutateAsync: createPortfolio } = useCreatePortfolio();
+  const { mutateAsync: updatePortfolio } = useUpdatePortfolio();
+  const { mutateAsync: deletePortfolio } = useDeletePortfolio();
+
+  const listedPortfolios = portfoliosQuery.data?.portfolios;
+
+  useEffect(() => {
+    if (!deletedId || !listedPortfolios) return;
+    if (listedPortfolios.some(({ id }) => id === deletedId)) return;
+
+    setDeletedId(null);
+    newPortfolioButtonRef.current?.focus();
+  }, [deletedId, listedPortfolios]);
+
+  const closeDialog = () => setDialog(null);
+
+  const openCreateDialog = () => setDialog({ kind: 'create' });
+
+  const activatePortfolio = ({ id, name }: Portfolio) => {
+    if (selectActivePortfolio(id))
+      toast.success(`${name} is now the active portfolio`);
+    else toast.error(STORAGE_BLOCKED_MESSAGE);
+  };
+
+  return (
+    <div className="space-y-6 px-3 py-8 sm:px-4">
+      <PageHeader
+        title="Portfolios"
+        description="The active portfolio is the one the overview and the assets show"
+        action={
+          <Button
+            ref={newPortfolioButtonRef}
+            className="h-9 max-sm:w-full"
+            onClick={openCreateDialog}
+          >
+            New portfolio
+          </Button>
+        }
+      />
+
+      <QuerySection
+        title="Your portfolios"
+        query={portfoliosQuery}
+        errorMessage="Your portfolios could not be loaded"
+        loading={<LoadingState label="Loading your portfolios" />}
+        isEmpty={({ pagination }) => pagination.total === 0}
+        empty={
+          <EmptyState
+            message="This account has no portfolio yet"
+            action={{ label: 'Create a portfolio', onSelect: openCreateDialog }}
+          />
+        }
+      >
+        {({ portfolios, pagination: { page, total, totalPages } }) =>
+          portfolios.length === 0 ? (
+            <EmptyState
+              message={`No portfolios on page ${page}`}
+              action={{
+                label: `Go to page ${totalPages}`,
+                onSelect: () => setRequestedPage(totalPages)
+              }}
+            />
+          ) : (
+            <div className="space-y-4">
+              <ul
+                aria-busy={portfoliosQuery.isPlaceholderData}
+                className="divide-y rounded-md border"
+              >
+                {portfolios.map((portfolio) => {
+                  const isActive = portfolio.id === activePortfolio?.id;
+
+                  return (
+                    <li
+                      key={portfolio.id}
+                      className="flex flex-wrap items-center gap-3 px-3 py-3"
+                    >
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <p className="flex flex-wrap items-center gap-2 font-medium wrap-anywhere">
+                          {portfolio.name}
+
+                          {isActive && (
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                              Active
+                            </span>
+                          )}
+                        </p>
+
+                        <p className="text-sm text-muted-foreground">
+                          {`Base currency ${portfolio.baseCurrency}`}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 max-sm:w-full">
+                        {!isActive && (
+                          <Button
+                            variant="secondary"
+                            className="h-9 max-sm:flex-1"
+                            aria-label={`Use ${portfolio.name}`}
+                            onClick={() => activatePortfolio(portfolio)}
+                          >
+                            Use
+                          </Button>
+                        )}
+
+                        <Button
+                          variant="outline"
+                          className="h-9 max-sm:flex-1"
+                          aria-label={`Edit ${portfolio.name}`}
+                          onClick={() => setDialog({ kind: 'edit', portfolio })}
+                        >
+                          Edit
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          className="h-9 text-negative max-sm:flex-1"
+                          disabled={total === 1}
+                          aria-label={`Delete ${portfolio.name}`}
+                          onClick={() =>
+                            setDialog({ kind: 'delete', portfolio })
+                          }
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {total === 1 && (
+                <p className="text-sm text-muted-foreground">
+                  An account keeps at least one portfolio, so the only one
+                  cannot be deleted.
+                </p>
+              )}
+
+              {totalPages > FIRST_PAGE && (
+                <nav
+                  aria-label="Portfolio pages"
+                  className="flex items-center justify-between gap-3"
+                >
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={page <= FIRST_PAGE}
+                    onClick={() => setRequestedPage(page - 1)}
+                  >
+                    Previous
+                  </Button>
+
+                  <span
+                    aria-live="polite"
+                    className="text-sm text-muted-foreground"
+                  >
+                    {`Page ${page} of ${totalPages}`}
+                  </span>
+
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setRequestedPage(page + 1)}
+                  >
+                    Next
+                  </Button>
+                </nav>
+              )}
+            </div>
+          )
+        }
+      </QuerySection>
+
+      {dialog?.kind === 'create' && (
+        <PortfolioFormDialog
+          target={dialog}
+          onCancel={closeDialog}
+          onSubmit={async (draft) => {
+            await createPortfolio(draft);
+            closeDialog();
+          }}
+        />
+      )}
+
+      {dialog?.kind === 'edit' && (
+        <PortfolioFormDialog
+          target={dialog}
+          onCancel={closeDialog}
+          onSubmit={async (draft) => {
+            await updatePortfolio({
+              ...draft,
+              portfolioId: dialog.portfolio.id
+            });
+            closeDialog();
+          }}
+        />
+      )}
+
+      {dialog?.kind === 'delete' && (
+        <DeletePortfolioDialog
+          portfolio={dialog.portfolio}
+          isActive={dialog.portfolio.id === activePortfolio?.id}
+          onCancel={closeDialog}
+          onConfirm={async () => {
+            await deletePortfolio({ portfolioId: dialog.portfolio.id });
+            setDeletedId(dialog.portfolio.id);
+            closeDialog();
+          }}
+        />
+      )}
+    </div>
+  );
+}

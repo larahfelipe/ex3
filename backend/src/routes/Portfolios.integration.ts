@@ -12,7 +12,13 @@ import {
 import type { Instrument, Position } from '@/domain/models';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 import { YahooFinanceProvider } from '@/infra/market-data';
-import { apiRequest, bearer, signInUser } from '@/test/ApiClient';
+import {
+  apiRequest,
+  bearer,
+  signInSeeded,
+  signInUser,
+  signInWithPortfolio
+} from '@/test/ApiClient';
 import { FakeMarketDataProvider } from '@/test/FakeMarketDataProvider';
 import {
   MISSING_UUID,
@@ -258,6 +264,224 @@ describe('portfolios', () => {
 
         assert.equal(res.status, Errors.VALIDATION.status, `${portfolioId}`);
       }
+    });
+  });
+
+  describe('update', () => {
+    const requestUpdate = (accessToken: string, attributes: object) =>
+      client.patch(PORTFOLIO_ROUTE).set(bearer(accessToken)).send(attributes);
+
+    const storedPortfolio = (id: string) =>
+      prismaClient.portfolio.findUniqueOrThrow({
+        where: { id },
+        select: { name: true, baseCurrency: true }
+      });
+
+    it('renames a portfolio of the caller and changes the base currency of one without transactions', async () => {
+      const { portfolio, accessToken } = await signInWithPortfolio();
+
+      const res = await requestUpdate(accessToken, {
+        portfolioId: portfolio.id,
+        name: '  Brokerage  ',
+        baseCurrency: ' usd '
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.message, PortfolioMessages.UPDATED);
+      assert.equal(res.body.portfolio.id, portfolio.id);
+      assert.deepEqual(await storedPortfolio(portfolio.id), {
+        name: 'Brokerage',
+        baseCurrency: 'USD'
+      });
+    });
+
+    it('keeps the base currency of a portfolio with transactions, while a rename that restates it goes through', async () => {
+      const { portfolio, accessToken } = await signInSeeded();
+
+      const locked = await requestUpdate(accessToken, {
+        portfolioId: portfolio.id,
+        name: 'Renamed',
+        baseCurrency: 'USD'
+      });
+
+      assert.equal(locked.status, Errors.DOMAIN.status);
+      assert.equal(locked.body.code, Errors.DOMAIN.code);
+      assert.equal(locked.body.message, PortfolioMessages.BASE_CURRENCY_LOCKED);
+      assert.deepEqual(await storedPortfolio(portfolio.id), {
+        name: portfolio.name,
+        baseCurrency: portfolio.baseCurrency
+      });
+
+      const renamed = await requestUpdate(accessToken, {
+        portfolioId: portfolio.id,
+        name: 'Renamed',
+        baseCurrency: portfolio.baseCurrency.toLowerCase()
+      });
+
+      assert.equal(renamed.status, 200);
+      assert.deepEqual(await storedPortfolio(portfolio.id), {
+        name: 'Renamed',
+        baseCurrency: portfolio.baseCurrency
+      });
+    });
+
+    it("answers another user's portfolio exactly like one that does not exist, changing nothing", async () => {
+      const holder = await createUser();
+      const foreignPortfolio = await createPortfolio(holder.id);
+      const { accessToken } = await signInUser(OTHER_USER_EMAIL);
+
+      const foreign = await requestUpdate(accessToken, {
+        portfolioId: foreignPortfolio.id,
+        name: 'Taken'
+      });
+      const missing = await requestUpdate(accessToken, {
+        portfolioId: MISSING_PORTFOLIO_ID,
+        name: 'Taken'
+      });
+
+      assert.equal(foreign.status, Errors.NOT_FOUND.status);
+      assert.equal(foreign.body.message, PortfolioMessages.NOT_FOUND);
+      assert.deepEqual(foreign.body, missing.body);
+      assert.deepEqual(await storedPortfolio(foreignPortfolio.id), {
+        name: foreignPortfolio.name,
+        baseCurrency: foreignPortfolio.baseCurrency
+      });
+    });
+
+    it('rejects an update without attributes, with an invalid one or without a valid portfolio id, changing nothing', async () => {
+      const { portfolio, accessToken } = await signInWithPortfolio();
+      const portfolioId = portfolio.id;
+
+      for (const attributes of [
+        { portfolioId },
+        { portfolioId, name: ' '.repeat(NAME_MAX_LENGTH) },
+        { portfolioId, name: 'P'.repeat(NAME_MAX_LENGTH + 1) },
+        { portfolioId, baseCurrency: 'ZZZ' },
+        { portfolioId, baseCurrency: 986 },
+        { name: 'Renamed' },
+        { portfolioId: 'not-a-uuid', name: 'Renamed' }
+      ]) {
+        const res = await requestUpdate(accessToken, attributes);
+
+        assert.equal(
+          res.status,
+          Errors.VALIDATION.status,
+          JSON.stringify(attributes)
+        );
+      }
+
+      assert.deepEqual(await storedPortfolio(portfolioId), {
+        name: portfolio.name,
+        baseCurrency: portfolio.baseCurrency
+      });
+    });
+  });
+
+  describe('delete', () => {
+    const requestDeletion = (accessToken: string, portfolioId?: string) =>
+      client
+        .delete(PORTFOLIO_ROUTE)
+        .query({ portfolioId })
+        .set(bearer(accessToken));
+
+    const storedLedger = async () => ({
+      portfolios: await prismaClient.portfolio.findMany({
+        select: { id: true },
+        orderBy: { id: 'asc' }
+      }),
+      positions: await prismaClient.position.findMany({
+        select: { portfolioId: true },
+        orderBy: { id: 'asc' }
+      }),
+      transactions: await prismaClient.transaction.findMany({
+        select: { portfolioId: true },
+        orderBy: { id: 'asc' }
+      })
+    });
+
+    it('deletes a portfolio of the caller with its positions and transactions, keeping the other portfolios and the catalog', async () => {
+      const { user, portfolio, asset, accessToken } = await signInSeeded();
+      const kept = await createPortfolio(user.id, { name: 'Kept' });
+      const keptAsset = await createAsset({
+        portfolioId: kept.id,
+        symbol: asset.symbol
+      });
+
+      await createTransaction(keptAsset);
+
+      const res = await requestDeletion(accessToken, portfolio.id);
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.message, PortfolioMessages.DELETED);
+      assert.deepEqual(await storedLedger(), {
+        portfolios: [{ id: kept.id }],
+        positions: [{ portfolioId: kept.id }],
+        transactions: [{ portfolioId: kept.id }]
+      });
+      assert.equal(
+        await prismaClient.instrument.count({
+          where: { symbol: asset.symbol }
+        }),
+        1
+      );
+    });
+
+    it('refuses to delete the last portfolio of the caller, keeping its positions and transactions', async () => {
+      const { portfolio, accessToken } = await signInSeeded();
+      const before = await storedLedger();
+
+      const res = await requestDeletion(accessToken, portfolio.id);
+
+      assert.equal(res.status, Errors.DOMAIN.status);
+      assert.equal(res.body.code, Errors.DOMAIN.code);
+      assert.equal(res.body.message, PortfolioMessages.LAST_PORTFOLIO);
+      assert.deepEqual(await storedLedger(), before);
+    });
+
+    it('keeps one portfolio when the last two are deleted at once', async () => {
+      const { user, portfolio, accessToken } = await signInWithPortfolio();
+      const second = await createPortfolio(user.id, { name: 'Second' });
+
+      const responses = await Promise.all([
+        requestDeletion(accessToken, portfolio.id),
+        requestDeletion(accessToken, second.id)
+      ]);
+
+      assert.deepEqual(responses.map(({ status }) => status).toSorted(), [
+        200,
+        Errors.DOMAIN.status
+      ]);
+      assert.equal(await prismaClient.portfolio.count(), 1);
+    });
+
+    it("answers another user's portfolio exactly like one that does not exist, deleting nothing", async () => {
+      const { portfolio: foreignPortfolio } = await signInSeeded();
+      const { user, accessToken } = await signInUser(OTHER_USER_EMAIL);
+
+      await createPortfolio(user.id);
+      await createPortfolio(user.id, { name: 'Second' });
+
+      const before = await storedLedger();
+
+      const foreign = await requestDeletion(accessToken, foreignPortfolio.id);
+      const missing = await requestDeletion(accessToken, MISSING_PORTFOLIO_ID);
+
+      assert.equal(foreign.status, Errors.NOT_FOUND.status);
+      assert.equal(foreign.body.message, PortfolioMessages.NOT_FOUND);
+      assert.deepEqual(foreign.body, missing.body);
+      assert.deepEqual(await storedLedger(), before);
+    });
+
+    it('rejects a missing or malformed portfolio id', async () => {
+      const { accessToken } = await signInWithPortfolio();
+
+      for (const portfolioId of [undefined, 'not-a-uuid']) {
+        const res = await requestDeletion(accessToken, portfolioId);
+
+        assert.equal(res.status, Errors.VALIDATION.status, `${portfolioId}`);
+      }
+
+      assert.equal(await prismaClient.portfolio.count(), 1);
     });
   });
 

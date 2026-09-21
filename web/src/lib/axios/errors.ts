@@ -21,11 +21,23 @@ export interface IApiProxyError extends WithStatusHeader, ApiProxyErrorData {}
 export const UNEXPECTED_ERROR_MESSAGE =
   'Something went wrong. Please try again later';
 
+const VALIDATION_ERROR_CODE = 'VALIDATION';
+
 const NOT_FOUND_ERROR_CODE = 'NOT_FOUND';
+
+const CONFLICT_ERROR_CODE = 'CONFLICT';
+
+export const isValidationError = ({
+  _error
+}: Pick<ApiProxyErrorData, '_error'>) => _error?.code === VALIDATION_ERROR_CODE;
 
 export const isNotFoundError = ({
   _error
 }: Pick<ApiProxyErrorData, '_error'>) => _error?.code === NOT_FOUND_ERROR_CODE;
+
+export const isConflictError = ({
+  _error
+}: Pick<ApiProxyErrorData, '_error'>) => _error?.code === CONFLICT_ERROR_CODE;
 
 export class ApiProxyError extends AxiosError implements IApiProxyError {
   _error: ApiServerErrorData | null = null;

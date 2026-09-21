@@ -1,4 +1,4 @@
-import type { Pagination, WithId, WithTimestamps } from '@/types';
+import type { Pagination, WithId, WithMessage, WithTimestamps } from '@/types';
 
 export type PortfolioProperties = {
   name: string;
@@ -17,3 +17,23 @@ export type GetPortfoliosResponseData = {
   portfolios: Array<Portfolio>;
   pagination: Pagination;
 };
+
+export type CreatePortfolioRequestPayload = PortfolioProperties;
+
+export interface CreatePortfolioResponseData extends WithMessage {
+  portfolio: Portfolio;
+}
+
+export type UpdatePortfolioRequestPayload = Record<
+  'portfolioId',
+  Portfolio['id']
+> &
+  Partial<PortfolioProperties>;
+
+export interface UpdatePortfolioResponseData extends WithMessage {
+  portfolio: Portfolio;
+}
+
+export type GetPortfolioResponseData = Portfolio;
+
+export type DeletePortfolioResponseData = WithMessage;

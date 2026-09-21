@@ -23,7 +23,7 @@ import { PageHeader } from '@/components/page-header';
 import { PerformanceChart } from '@/components/performance-chart';
 import { SectionHeader } from '@/components/section-header';
 import { Button, Card, CardContent, Skeleton } from '@/components/ui';
-import { usePosition, usePrimaryPortfolio } from '@/hooks/use-portfolio';
+import { usePosition, useActivePortfolio } from '@/hooks/use-portfolio';
 import { isNotFoundError } from '@/lib/axios';
 import type { Children } from '@/types';
 
@@ -141,7 +141,7 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
     isError,
     isSuccess,
     refetch
-  } = usePrimaryPortfolio();
+  } = useActivePortfolio();
   const positionQuery = usePosition(portfolio, symbol);
   const { data: position, error: positionError } = positionQuery;
 
@@ -184,7 +184,13 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
       )}
 
       {isSuccess && !portfolio && (
-        <EmptyState message="No portfolio found for this account" />
+        <EmptyState
+          message="No portfolio found for this account"
+          action={{
+            label: 'Create a portfolio',
+            href: APP_ROUTES.Protected.Portfolios
+          }}
+        />
       )}
 
       {isPositionPending && (

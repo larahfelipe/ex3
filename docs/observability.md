@@ -35,7 +35,7 @@ deixa o conteúdo testável sem capturar `stdout`.
 | `quote_provider_key_missing` | WARNING | — | `Server.ts` |
 | `quote_provider_unavailable` | WARNING | `reason`, `retryInMs` | `YahooFinanceProvider.ts` |
 | `dependency_unavailable` | WARNING | `dependency`, `reason` | readiness, em `HealthControllerHandlers.ts` |
-| `http_request` | conforme o status | `requestId`, `method`, `route`, `status`, `durationMs`, `userId?`, `errorCode?` | `RequestLogMiddleware.ts` |
+| `http_request` | conforme o status; sonda atendida não gera linha | `requestId`, `method`, `route`, `status`, `durationMs`, `userId?`, `errorCode?` | `RequestLogMiddleware.ts` |
 | `request_failed` | ERROR | `requestId?`, `errorName`, `errorMessage`, `stack?` | `ErrorHandlerMiddleware.ts` |
 
 `LogEvent` é uma união discriminada: uma linha nova é um membro novo do tipo,
@@ -105,6 +105,13 @@ motivo vai só para o log, no evento `dependency_unavailable`. As duas rotas
 ficam atrás do rate limit da API, como qualquer outra: a sonda cabe folgada em
 `RateLimits.API`, e uma sonda que só falha porque o IP dela estourou o
 orçamento descreve uma instância que de fato não está servindo.
+
+Uma sonda atendida (`/health` ou `/ready` com status `< 400`) não gera linha
+de `http_request`: o orquestrador repete a chamada a intervalo fixo, e cada
+linha dizia só que a instância seguia de pé, o que o próprio orquestrador já
+registra. A sonda que falha continua registrada, com a severidade do status
+(`/ready` fora do ar sai como `ERROR`, ao lado do `dependency_unavailable`). As
+rotas vêm de `ProbeRoutes`, em `Constants.ts`, a mesma constante que as monta.
 
 No `compose.yaml`, o `healthcheck` do serviço `backend` chama `/ready` a cada
 10s e o `web` espera por `service_healthy`. Em produção não há sonda: o

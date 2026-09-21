@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
 
 import { useSearchParams } from 'next/navigation';
 
-import { zodResolver } from '@hookform/resolvers/zod';
-
-import { ASSET_DIALOG_ACTIONS, ASSET_DIALOG_PARAMS } from '@/common/constants';
+import {
+  APP_ROUTES,
+  ASSET_DIALOG_ACTIONS,
+  ASSET_DIALOG_PARAMS
+} from '@/common/constants';
 import { updateUrlQuery } from '@/common/utils';
 import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
 import { PageHeader } from '@/components/page-header';
@@ -15,15 +16,11 @@ import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import { Button } from '@/components/ui';
 import { useCreateAsset, useDeleteAsset } from '@/hooks/use-assets';
 import { useDisclosure } from '@/hooks/use-disclosure';
-import { usePrimaryPortfolio } from '@/hooks/use-portfolio';
+import { useActivePortfolio } from '@/hooks/use-portfolio';
 import { useCreateTransaction } from '@/hooks/use-transactions';
 import type { Maybe } from '@/types';
 
-import {
-  AddAssetDialog,
-  AddAssetSchema,
-  type AddAssetSchemaType
-} from './_components/add-asset-dialog';
+import { AddAssetDialog } from './_components/add-asset-dialog';
 import { DeleteAssetDialog } from './_components/delete-asset-dialog';
 import { PositionsTable } from './_components/positions-table';
 
@@ -43,14 +40,6 @@ export default function Assets() {
   const addAssetButtonRef = useRef<HTMLButtonElement>(null);
 
   const searchParams = useSearchParams();
-
-  const addAssetFormMethods = useForm<AddAssetSchemaType>({
-    mode: 'onChange',
-    resolver: zodResolver(AddAssetSchema),
-    defaultValues: {
-      symbol: ''
-    }
-  });
 
   const handleToggleDialog = useCallback(
     (action?: AssetDialogActions) => {
@@ -76,7 +65,7 @@ export default function Assets() {
     isError,
     isSuccess,
     refetch
-  } = usePrimaryPortfolio();
+  } = useActivePortfolio();
 
   const { mutateAsync: createAssetMutation } = useCreateAsset(portfolio);
 
@@ -139,7 +128,13 @@ export default function Assets() {
       )}
 
       {isSuccess && !portfolio && (
-        <EmptyState message="No portfolio found for this account" />
+        <EmptyState
+          message="No portfolio found for this account"
+          action={{
+            label: 'Create a portfolio',
+            href: APP_ROUTES.Protected.Portfolios
+          }}
+        />
       )}
 
       {portfolio && (
@@ -151,13 +146,12 @@ export default function Assets() {
         />
       )}
 
-      <FormProvider {...addAssetFormMethods}>
+      {portfolio && opened && dialogAction === ASSET_DIALOG_ACTIONS.Add && (
         <AddAssetDialog
-          open={opened && dialogAction === ASSET_DIALOG_ACTIONS.Add}
-          onCancel={handleToggleDialog}
+          onCancel={() => handleToggleDialog()}
           onConfirm={createAssetMutation}
         />
-      </FormProvider>
+      )}
 
       {portfolio &&
         opened &&

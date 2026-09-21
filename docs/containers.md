@@ -26,7 +26,7 @@ O web fica em http://localhost:3000, e a API, em http://localhost:8080. As duas 
 
 Sem `POSTGRES_PASSWORD`, o Postgres recusa inicializar o cluster; sem `JWT_SECRET`, o `EnvsSchema` recusa o boot do backend. As variáveis não usam `${VAR:?}` porque o Compose interpola o arquivo inteiro a cada comando, e isso exigiria o `.env` até para `pnpm test:db:up`.
 
-Um banco novo não tem instrumentos no catálogo, e só um administrador os cadastra (`POST /v1/instrument`). O primeiro administrador é promovido por SQL:
+O serviço `migrate` carrega um catálogo de desenvolvimento, com ações, ETFs, FII e criptos de B3, NYSE, NASDAQ e CRYPTO, para que um banco novo já permita adicionar ativo e transação. A carga só insere símbolos ausentes, então rodar de novo não duplica nem sobrescreve o que um admin corrigiu. Outros instrumentos continuam exigindo um administrador (`POST /v1/instrument`), e o primeiro é promovido por SQL:
 
 ```sh
 docker compose exec postgres psql --username=ex3 --dbname=ex3 \
@@ -38,7 +38,7 @@ docker compose exec postgres psql --username=ex3 --dbname=ex3 \
 `docker compose up` sobe, nesta ordem:
 
 1. `postgres` e `backend-deps` / `web-deps` em paralelo. Os `*-deps` rodam `pnpm install --frozen-lockfile` e terminam; num `node_modules` já em dia, é uma verificação de segundos.
-2. `migrate`, quando o `postgres` está saudável e o `backend-deps` terminou: `prisma migrate deploy`, o mesmo caminho da produção e da suíte de testes.
+2. `migrate`, quando o `postgres` está saudável e o `backend-deps` terminou: `prisma migrate deploy`, o mesmo caminho da produção e da suíte de testes, seguido de `prisma db seed`, que roda `src/infra/database/SeedDevelopmentCatalog.ts`. O seed fica fora do build e do workflow de produção.
 3. `backend` (`pnpm dev`), quando o `migrate` terminou com sucesso.
 4. `web` (`pnpm dev`), quando o `web-deps` terminou e o `backend` foi iniciado.
 

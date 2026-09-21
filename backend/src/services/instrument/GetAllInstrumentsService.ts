@@ -20,10 +20,11 @@ export class GetAllInstrumentsService {
 
   async execute({
     page,
-    limit
+    limit,
+    search
   }: GetAllInstrumentsService.DTO): Promise<GetAllInstrumentsService.Result> {
     const { pagination, docs: instruments } =
-      await this.instrumentRepository.getAll({ page, limit });
+      await this.instrumentRepository.getAll({ page, limit, search });
 
     return { pagination, instruments };
   }
@@ -33,6 +34,7 @@ namespace GetAllInstrumentsService {
   export type DTO = {
     page?: number;
     limit?: number;
+    search?: string;
   };
   export type Result = {
     instruments: Array<Instrument>;

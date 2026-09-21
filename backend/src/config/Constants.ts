@@ -94,6 +94,11 @@ export const RequestLimits = {
   JSON_BODY_SIZE: '100kb'
 } as const;
 
+export const ProbeRoutes = {
+  LIVENESS: '/health',
+  READINESS: '/ready'
+} as const;
+
 export const AssetMessages = {
   NOT_FOUND: 'Asset not found in portfolio',
   ALREADY_EXISTS: 'Asset already exists in portfolio',
@@ -112,7 +117,12 @@ export const InstrumentMessages = {
 
 export const PortfolioMessages = {
   NOT_FOUND: 'Portfolio not found for this user',
-  CREATED: 'Portfolio created successfully'
+  LAST_PORTFOLIO: 'The last portfolio of an account cannot be deleted',
+  BASE_CURRENCY_LOCKED:
+    'The base currency cannot change once the portfolio has transactions',
+  CREATED: 'Portfolio created successfully',
+  UPDATED: 'Portfolio updated successfully',
+  DELETED: 'Portfolio deleted successfully'
 };
 
 export const TransactionMessages = {

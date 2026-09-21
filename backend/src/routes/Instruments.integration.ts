@@ -242,6 +242,65 @@ describe('instruments', () => {
 
       assert.deepEqual(pages.flat(), symbols.toSorted());
     });
+
+    it('finds instruments by symbol prefix or by name, ignoring case, and pages only the matches', async () => {
+      const accessToken = await signInAs({ isAdmin: false });
+
+      await createInstrument({ symbol: PETR4.symbol, name: PETR4.name });
+      await createInstrument({ symbol: 'PETR3', name: 'Petrobras ON' });
+      await createInstrument({ symbol: UNLISTED_SYMBOL, name: 'Vale ON' });
+      await createInstrument({ symbol: 'ITUB4', name: 'Itaú Unibanco PN' });
+
+      const searchCatalog = async (search: string) => {
+        const res = await client
+          .get(INSTRUMENTS_ROUTE)
+          .query({ search })
+          .set(bearer(accessToken));
+
+        assert.equal(res.status, 200);
+
+        return {
+          total: res.body.pagination.total,
+          symbols: res.body.instruments.map(
+            ({ symbol }: { symbol: string }) => symbol
+          )
+        };
+      };
+
+      assert.deepEqual(await searchCatalog('petr'), {
+        total: 2,
+        symbols: ['PETR3', 'PETR4']
+      });
+      assert.deepEqual(await searchCatalog('  vale on '), {
+        total: 1,
+        symbols: [UNLISTED_SYMBOL]
+      });
+      assert.deepEqual(await searchCatalog('ITAÚ'), {
+        total: 1,
+        symbols: ['ITUB4']
+      });
+      assert.deepEqual(await searchCatalog('bitcoin'), {
+        total: 0,
+        symbols: []
+      });
+    });
+
+    it('rejects a search carrying a pattern wildcard instead of matching the whole catalog', async () => {
+      const accessToken = await signInAs({ isAdmin: false });
+
+      await createInstrument({ symbol: PETR4.symbol, name: PETR4.name });
+
+      for (const search of ['%', '_', 'petr%', '\\']) {
+        const res = await client
+          .get(INSTRUMENTS_ROUTE)
+          .query({ search })
+          .set(bearer(accessToken));
+
+        assert.equal(res.status, Errors.VALIDATION.status, search);
+        assert.equal(res.body.code, Errors.VALIDATION.code);
+        assert.equal(res.body.instruments, undefined);
+      }
+    });
   });
 
   describe('ownership', () => {

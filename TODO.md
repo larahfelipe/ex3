@@ -51,9 +51,9 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-010 — Catálogo de instrumentos sem cadastro pelo web
 
 - **Origem:** catálogo de instrumentos, `docs/domain-model.md` · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
-- **Contexto:** só admin escreve no catálogo, e só pela API (`POST /v1/instrument`, `PATCH /v1/instrument/:symbol`). O web não tem tela de administração nem seleção de instrumento, `GET /v1/instruments` não busca por símbolo ou nome, e não há carga de instrumentos além da migração, que criou os dos ativos existentes com `name` igual ao símbolo, tipo `OTHER` e sem `market` e `currency`.
-- **Impacto:** adicionar ativo de símbolo que ainda não está no catálogo responde `404 Instrument not found in catalog`, e o usuário depende de um admin chamar a API. Os instrumentos migrados não têm moeda de cotação, que valuation e consolidação por moeda exigem.
-- **Proposta:** busca no catálogo pela API, seleção do instrumento no cadastro de ativo e tela de administração no web, com a permissão de admin verificada pela API; completar os instrumentos migrados antes de qualquer cálculo que dependa de `currency`.
+- **Contexto:** só admin escreve no catálogo, e só pela API (`POST /v1/instrument`, `PATCH /v1/instrument/:symbol`). A busca por símbolo ou nome em `GET /v1/instruments` e a escolha do instrumento no cadastro de ativo já existem (`docs/domain-model.md`, §Catálogo); o web segue sem tela de administração. A migração criou os instrumentos dos ativos existentes com `name` igual ao símbolo, tipo `OTHER` e sem `market` e `currency`.
+- **Impacto:** instrumento fora do catálogo não aparece na escolha do cadastro de ativo, e o usuário depende de um admin chamar a API. Os instrumentos migrados não têm moeda de cotação, que valuation e consolidação por moeda exigem.
+- **Proposta:** tela de administração do catálogo no web, com a permissão de admin verificada pela API; completar os instrumentos migrados antes de qualquer cálculo que dependa de `currency`.
 
 ### TD-011 — Criação de carteiras sem limite por usuário
 
@@ -61,20 +61,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** `POST /v1/portfolio` exige só autenticação: não há teto de carteiras por usuário nem rate limit na rota. A listagem é paginada com `limit` até 100, então o custo de cada leitura não cresce com o total. A criação de transações tem a mesma ausência de teto, anterior às várias carteiras, e cada escrita de transação relê e percorre todas as transações da posição.
 - **Impacto:** um usuário autenticado cria carteiras sem limite e faz a tabela `portfolios` crescer na vazão que a API aceitar (OWASP API4:2023). O custo de cada escrita de transação cresce linearmente com o razão da posição, sem alcançar posições de outras carteiras. O teto é decisão de produto e não foi fixado por conveniência da implementação.
 - **Proposta:** definir com o produto o número máximo de carteiras por usuário, recusar a criação acima dele sem gravar e aplicar um rate limit às rotas de escrita.
-
-### TD-012 — Carteira não pode ser renomeada nem excluída
-
-- **Origem:** várias carteiras por usuário · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
-- **Contexto:** a API cria, lista e busca carteiras (`POST /v1/portfolio`, `GET /v1/portfolios`, `GET /v1/portfolio`), sem rota de edição nem de exclusão. Uma carteira só sai do banco com a exclusão da conta.
-- **Impacto:** carteira criada por engano, com nome errado ou na moeda errada fica na conta, e a criação sem limite (TD-011) agrava o acúmulo.
-- **Proposta:** edição de `name` e exclusão que remove ativos e transações da carteira numa transação serializável, como a exclusão de ativo. Decidir com o produto se `baseCurrency` pode mudar depois que a carteira tem transações e se a última carteira do usuário pode ser excluída.
-
-### TD-013 — Web opera só a carteira mais antiga
-
-- **Origem:** várias carteiras por usuário · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
-- **Contexto:** a Overview e a tela de ativos pedem `GET /v1/portfolios` com `page=1&limit=1` (`usePrimaryPortfolio`) e usam essa carteira, a mais antiga, em todas as chamadas; o web não tem seletor nem criação de carteira. O diálogo de transação, a tabela de ativos e a Overview usam a `baseCurrency` dessa carteira; na tabela de ativos, só as colunas de preço, valor de mercado e lucro usam a moeda da cotação, e nas transações recentes da Overview o preço unitário usa a moeda da transação.
-- **Impacto:** carteiras criadas pela API não aparecem no web, e quem tem mais de uma não vê o resumo nem registra ou consulta transações das demais pela interface.
-- **Proposta:** seletor e criação de carteira no web, com a Overview, a tela de ativos e o diálogo de transação escopados pela carteira selecionada e rotulados na `baseCurrency` dela. `usePositions` mantém a página anterior enquanto a pedida carrega (`keepPreviousData`); com seletor, a troca de carteira exibiria por instantes as posições da anterior, então o placeholder deve valer só dentro da mesma carteira.
 
 ### TD-014 — Nome do usuário sem limite de tamanho
 
@@ -226,9 +212,9 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-042 — Ambiente novo sem catálogo nem forma de criar o primeiro administrador
 
 - **Origem:** configuração Docker Compose · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
-- **Contexto:** o catálogo de instrumentos começa vazio, só administrador cadastra instrumento, e nenhum endpoint ou script promove um usuário. Hoje o caminho é SQL manual (`docs/containers.md`, §Primeiro uso).
-- **Impacto:** num banco novo não dá para adicionar ativo nem transação sem acessar o banco.
-- **Proposta:** decidir entre um seed idempotente de desenvolvimento, com instrumentos de exemplo, e um comando administrativo que promova o primeiro usuário, e automatizar a escolha no `compose.yaml`.
+- **Contexto:** o serviço `migrate` do `compose.yaml` roda `prisma db seed`, que grava de forma idempotente um catálogo de exemplo no banco de desenvolvimento (`docs/containers.md`, §Primeiro uso). Só administrador cadastra instrumento, e nenhum endpoint ou script promove um usuário: o caminho segue sendo SQL manual.
+- **Impacto:** fora do catálogo de exemplo, e em qualquer banco sem o seed, cadastrar instrumento exige acessar o banco para promover o primeiro administrador.
+- **Proposta:** comando administrativo que promova o primeiro usuário, sem rota HTTP, chamado a partir do `compose.yaml` em desenvolvimento.
 
 ### TD-043 — Imagem do web leva o `node_modules` de produção inteiro
 
@@ -303,9 +289,9 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-055 — Toda tela protegida espera a listagem de carteiras para começar
 
 - **Origem:** TASK 16.1 · **Tipo:** performance · **Prioridade:** baixa · **Encaminhamento:** avulso
-- **Contexto:** o cliente não conhece o id da carteira — não está na URL nem no cookie de sessão —, então `usePrimaryPortfolio` busca `GET /v1/portfolios?page=1&limit=1` e só depois as demais queries saem do `skipToken`. É um nível de waterfall em toda primeira tela da sessão, detalhado em `docs/data-fetching.md`, §Waterfall.
+- **Contexto:** o cliente não conhece o id da carteira — não está na URL nem no cookie de sessão —, então `useActivePortfolio` busca `GET /v1/portfolio` da carteira escolhida no navegador, ou, sem escolha, `GET /v1/portfolios?page=1&limit=1`, e só depois as demais queries saem do `skipToken`. É um nível de waterfall em toda primeira tela da sessão, detalhado em `docs/data-fetching.md`, §Waterfall.
 - **Impacto:** um round trip antes do primeiro dado da tela; as navegações seguintes são servidas do cache enquanto o `staleTime` de 60 s valer.
-- **Proposta:** entregar a carteira primária junto da sessão — em `GET /v1/user` ou no payload de sign-in — e semear o cache com ela, deixando `GET /v1/portfolios` apenas para quem tiver mais de uma carteira.
+- **Proposta:** entregar a carteira mais antiga junto da sessão — em `GET /v1/user` ou no payload de sign-in — e semear o cache com ela, deixando a busca apenas para quem escolheu outra carteira.
 
 ### TD-056 — Arte do sign-in pesa mais que todo o JavaScript da aplicação
 
@@ -372,6 +358,16 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Proposta:** enquanto o overlay estiver montado, seguir o último foco ocorrido fora do conteúdo por `focusin` e usá-lo como destino — o roubo do menu passa a ser justamente o registro certo. Verificar num navegador com janela ativa, já que o arnês da TASK 20.6 não dispara evento de foco.
 
 ## Resolvidos
+
+### TD-013 — Web opera só a carteira mais antiga
+
+- **Tipo:** produto · **Prioridade:** média
+- **Resolução:** a tela `/portfolios` escolhe a carteira ativa, guardada no `localStorage` do navegador e lida por `useActivePortfolio`, que escopa a Overview, a tela de ativos e o detalhe do ativo e cai para a mais antiga quando não há escolha ou a escolhida deixou de existir. O placeholder de página anterior de `usePortfolioScopedQuery` vale só dentro da mesma carteira. Ver `docs/domain-model.md`, §Carteira, e `docs/data-fetching.md`.
+
+### TD-012 — Carteira não pode ser renomeada nem excluída
+
+- **Tipo:** produto · **Prioridade:** média
+- **Resolução:** `PATCH /v1/portfolio` edita `name` e `baseCurrency`, e `DELETE /v1/portfolio` exclui a carteira com ativos e transações, ambos em `runSerializable` e resolvidos pela carteira do usuário autenticado. As duas decisões pendentes foram fixadas: a moeda base só muda sem transações, e a última carteira da conta não é excluída, as duas com 422. O web cria, edita e exclui pela tela `/portfolios`. Ver `docs/domain-model.md`, §Carteira, e `docs/api-inventory.md`.
 
 ### TD-059 — A suíte herda do `.env` do desenvolvedor tudo o que falta no `.env.test`
 

@@ -5,7 +5,7 @@ import type { FC, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { House, LayoutGrid, LogOut, User } from 'lucide-react';
+import { House, LayoutGrid, LogOut, User, Wallet } from 'lucide-react';
 import { twMerge } from 'tailwind-merge';
 
 import { APP_ROUTES } from '@/common/constants';
@@ -30,6 +30,11 @@ const MAIN_SECTIONS: Array<NavigationSection> = [
     name: 'Assets',
     path: APP_ROUTES.Protected.Assets,
     icon: <LayoutGrid size={18} />
+  },
+  {
+    name: 'Portfolios',
+    path: APP_ROUTES.Protected.Portfolios,
+    icon: <Wallet size={18} />
   }
 ];
 
