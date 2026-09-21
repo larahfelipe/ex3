@@ -1,6 +1,8 @@
-# Performance do frontend — FASE 16
+# Performance do frontend
 
-O que foi medido, o que foi mudado e o que foi deliberadamente deixado como está. A auditoria de requests tem documento próprio, em [`data-fetching.md`](data-fetching.md).
+O que foi medido, o que foi mudado e o que foi deliberadamente deixado como está. A FASE 16 mediu e corrigiu; a TASK 20.5 fechou a auditoria, na última seção. Cada uma declara seu commit de captura. A auditoria de requests tem documento próprio, em [`data-fetching.md`](data-fetching.md).
+
+## Captura da FASE 16
 
 | Item | Valor |
 | --- | --- |
@@ -128,3 +130,94 @@ Na TASK 20.3 o PWA saiu inteiro: sem `next-pwa` não há worker nem precache, e 
 | `class-variance-authority`, `clsx`, `tailwind-merge` | Base do `cn` e das variantes do `Button`; somados não chegam a 10 KB |
 
 A arte do sign-in é hoje o maior arquivo servido — 1,93 MB contra 1,49 MB de todo o JavaScript do cliente — e continua sendo baixada em telefones, onde a coluna que a exibe é `hidden`. A correção mexe no `next/image` e no arquivo binário, fora do escopo desta task: está em TD-056, encaminhada para a TASK 20.5.
+
+## Auditoria final — TASK 20.5
+
+| Item | Valor |
+| --- | --- |
+| Commit de captura | `c426c5c` |
+| Data | 2026-09-20 |
+| Método | `build` e `next start` de produção locais, backend em `:8080`, conta recém-criada e carteira vazia; mediana de 8 amostras por rota. Sem navegador, pelo motivo em `accessibility.md`, §Auditoria automatizada |
+
+| Métrica | Baseline | Atual | Gap |
+| --- | --- | --- | --- |
+| Bundle do cliente | 1.558.141 B (TASK 16.5, webpack) | 1.580.679 B (Turbopack) | nenhum: bundlers diferentes, comparação abaixo |
+| Requests por página | inventário da TASK 16.1 | inalterado: 7 na Overview, 3 em `/assets`, 4 no detalhe, 1 em `/account` | duas ondas, pelo `portfolios` que abre as demais |
+| TTFB | não medido antes | 7–8 ms nas páginas, 6–8 ms nas rotas de dados | nenhum |
+| Maior arquivo servido | 2.020.657 B, baixado em todo viewport | 2.020.657 B, baixado só em `≥ lg` | o arquivo segue sem reencodificar (TD-056) |
+| LCP, CLS e INP | nunca medidos | nunca medidos | sem navegador no ambiente (TD-054, TD-058) |
+
+### Bundle
+
+Mesma medida da TASK 16.5: soma dos bytes de `build/static/chunks`.
+
+| Momento | Bundler | Bytes |
+| --- | --- | --- |
+| Baseline da TASK 16.5 (`d359afd`) | webpack | 1.558.141 |
+| Entrada desta task | Turbopack | 1.594.975 |
+| Entrada desta task, mesmo código sob `--webpack` | webpack | 1.538.621 |
+| Saída desta task | Turbopack | 1.580.679 |
+
+Contra o baseline direto, o número acusaria 36.834 bytes de regressão que não existem: a TASK 20.3 devolveu o `build` ao Turbopack ao remover o PWA, e o baseline é uma build webpack. Comparando bundler com bundler, o código escrito desde a FASE 16 tirou 19.520 bytes do cliente; o Turbopack, sobre esse mesmo código, emite 56.354 bytes a mais (+3,7 %) — preço de um `Compiled successfully` em 241 ms contra 3,8 s. O maior chunk isolado tem 427.816 bytes.
+
+### A arte do sign-in — TD-056
+
+`priority` está **deprecado no Next 16**, substituído por `preload`, e não emite mais o `<link rel="preload">` que o nome sugere: o HTML servido não tinha preload algum. O que o prop fazia era manter a busca ansiosa de um `<img>` que o browser baixa mesmo sob `display:none` — e a coluna é `max-lg:hidden`. Todo telefone baixava 1,93 MB de decoração que nunca aparece.
+
+A arte passou a ser `background-image` da própria coluna. O fundo de um elemento que não gera caixa não é buscado, então abaixo de `lg` a requisição deixa de existir; em `≥ lg` os bytes são os mesmos, buscados depois do CSS em vez de durante o parse do HTML. Como era o único uso de `next/image` no projeto, o runtime do componente também saiu do cliente.
+
+| Item | Antes | Depois |
+| --- | --- | --- |
+| Requisição em viewport `< lg` | 2.020.657 B | nenhuma |
+| Requisição em viewport `≥ lg` | 2.020.657 B | 2.020.657 B |
+| Runtime do `next/image` no bundle | 14.296 B | 0 |
+| HTML de `/sign-in` | 19.928 B | 19.392 B |
+
+Resta o arquivo: 1,93 MB de JPEG onde um WebP na largura que a coluna usa resolveria em torno de um décimo. Não há codificador neste ambiente — `sharp`, `cwebp`, `magick` e PIL ausentes —, e a reencodificação segue aberta em TD-056, agora como item único.
+
+### Requests
+
+O inventário da TASK 16.1 ([`data-fetching.md`](data-fetching.md)) continua valendo: nenhuma query nova entrou nas fases 17 a 20, e a TASK 20.2 passou todas as de carteira por `usePortfolioScopedQuery`, que as suspende até o id existir.
+
+| Página | Primeira onda | Segunda onda | Total |
+| --- | --- | --- | --- |
+| `/` | `currentUser`, `portfolios` | `overview`, `performance`, `allocation`, `positions`, `transactions` | 7 |
+| `/assets` | `currentUser`, `portfolios` | `positions` | 3 |
+| `/assets/[symbol]` | `currentUser`, `portfolios` | `position`, `transactions` | 4 |
+| `/account` | `currentUser` | — | 1 |
+
+A segunda onda é paralela; o que a atrasa é a dependência do id da carteira, o limite já registrado em `data-fetching.md`, §Waterfall.
+
+### TTFB
+
+| Página | TTFB |
+| --- | --- |
+| `/sign-in` | 8 ms |
+| `/` | 8 ms |
+| `/assets` | 7 ms |
+| `/account` | 8 ms |
+
+| Rota de dados | Pelo proxy do web | Direto na API | Custo do proxy |
+| --- | --- | --- | --- |
+| `/v1/user` | 6 ms | 3 ms | 3 ms |
+| `/v1/portfolios` | 7 ms | 3 ms | 4 ms |
+| `/v1/portfolio/overview` | 8 ms | 4 ms | 4 ms |
+| `/v1/portfolio/positions` | 8 ms | 4 ms | 4 ms |
+
+O salto pelo proxy custa de 3 a 4 ms: uma requisição HTTP a mais no mesmo host, mais a leitura do cookie e a montagem do `Authorization`. É o preço do token fora do navegador, descrito em `security.md`, §Cookie de sessão.
+
+Os números são de `localhost`, processo quente e carteira vazia: medem o caminho, não o banco. O custo de consulta cresce com o livro, e é o backend que o paga — a FASE 15 instrumentou essas rotas. Como a FASE 16 não mediu TTFB, o que está aqui é o próprio baseline.
+
+### LCP, CLS e INP
+
+Não medidos, e não mensuráveis aqui: as três métricas exigem um navegador real, que o ambiente não tem (TD-054, TD-058). O que a leitura do código sustenta:
+
+| Métrica | O que se sabe |
+| --- | --- |
+| LCP | Em `≥ lg` o candidato no sign-in é a arte, e a mudança acima troca o momento da busca sem mudar os bytes; abaixo de `lg` o maior elemento passa a ser o cartão de sign-in, que é texto e campo. No dashboard não há imagem alguma: o maior elemento é o cartão de patrimônio |
+| CLS | Todo estado de carregamento reserva altura explícita — `LoadingState` com `h-40` por padrão, `h-96` na listagem de posições, e esqueletos com a forma do conteúdo nos cartões e nos gráficos. Nenhuma imagem entra no fluxo. O que nenhuma leitura decide é se a altura reservada é a do conteúdo que chega, e é exatamente essa diferença que o CLS mede |
+| INP | O trabalho por interação foi o alvo das TASKs 16.3 e 16.4: projeção do gráfico memoizada, formatadores em cache, busca com 300 ms de debounce. Sem medição, segue sendo argumento, não número |
+
+### Gráficos e tabelas
+
+Reverificados depois das refatorações das fases 17 a 20, sem regressão: `MAX_PLOTTED_POINTS` continua igual a `CHART_WIDTH`, com a amostragem por passo que preserva o último ponto; os quatro `useMemo` de `performance-chart.tsx` seguem na série plotada, nos pontos e nos dois `path`; o `Map` de `Intl.NumberFormat` segue em `common/utils.ts`; e a paginação continua server-side em 10, 25 ou 50 posições, 10 transações no detalhe do ativo, 10 no resumo de posições e 5 na Overview.
