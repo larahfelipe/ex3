@@ -1,5 +1,6 @@
 import { Router } from 'express';
 
+import { ProbeRoutes } from '@/config/Constants';
 import {
   livenessControllerHandler,
   readinessControllerHandler
@@ -7,7 +8,7 @@ import {
 
 const healthRouter = Router();
 
-healthRouter.get('/health', livenessControllerHandler);
-healthRouter.get('/ready', readinessControllerHandler);
+healthRouter.get(ProbeRoutes.LIVENESS, livenessControllerHandler);
+healthRouter.get(ProbeRoutes.READINESS, readinessControllerHandler);
 
 export { healthRouter };

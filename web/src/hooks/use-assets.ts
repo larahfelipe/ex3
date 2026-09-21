@@ -27,8 +27,7 @@ export const useCreateAsset = (portfolio: Maybe<Portfolio>) => {
         ...payload,
         portfolioId: requirePortfolio(portfolio).id
       } satisfies CreateAssetRequestPayload),
-    onSuccess: announceChange,
-    onError: (e) => toast.error(e.message)
+    onSuccess: announceChange
   });
 };
 

@@ -15,16 +15,19 @@ import {
 } from '@/services/market-data';
 import {
   CreatePortfolioService,
+  DeletePortfolioService,
   GetAllPortfoliosService,
   GetPortfolioAllocationService,
   GetPortfolioOverviewService,
   GetPortfolioPerformanceService,
   GetPortfolioPositionService,
   GetPortfolioPositionsService,
-  GetPortfolioService
+  GetPortfolioService,
+  UpdatePortfolioService
 } from '@/services/portfolio';
 
 import { CreatePortfolioController } from './CreatePortfolioController';
+import { DeletePortfolioController } from './DeletePortfolioController';
 import { GetAllPortfoliosController } from './GetAllPortfoliosController';
 import { GetPortfolioAllocationController } from './GetPortfolioAllocationController';
 import { GetPortfolioController } from './GetPortfolioController';
@@ -32,6 +35,7 @@ import { GetPortfolioOverviewController } from './GetPortfolioOverviewController
 import { GetPortfolioPerformanceController } from './GetPortfolioPerformanceController';
 import { GetPortfolioPositionController } from './GetPortfolioPositionController';
 import { GetPortfolioPositionsController } from './GetPortfolioPositionsController';
+import { UpdatePortfolioController } from './UpdatePortfolioController';
 
 export const createPortfolioControllerHandler = (
   req: Request,
@@ -47,6 +51,38 @@ export const createPortfolioControllerHandler = (
   );
 
   return createPortfolioController.handle(req, res);
+};
+
+export const updatePortfolioControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const portfolioRepository = PortfolioRepository.getInstance();
+
+  const updatePortfolioService =
+    UpdatePortfolioService.getInstance(portfolioRepository);
+
+  const updatePortfolioController = UpdatePortfolioController.getInstance(
+    updatePortfolioService
+  );
+
+  return updatePortfolioController.handle(req, res);
+};
+
+export const deletePortfolioControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const portfolioRepository = PortfolioRepository.getInstance();
+
+  const deletePortfolioService =
+    DeletePortfolioService.getInstance(portfolioRepository);
+
+  const deletePortfolioController = DeletePortfolioController.getInstance(
+    deletePortfolioService
+  );
+
+  return deletePortfolioController.handle(req, res);
 };
 
 export const getAllPortfoliosControllerHandler = (

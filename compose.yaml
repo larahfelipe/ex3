@@ -60,7 +60,8 @@ services:
 
   migrate:
     <<: *backend-workspace
-    command: ['pnpm', 'exec', 'prisma', 'migrate', 'deploy']
+    command:
+      ['sh', '-c', 'pnpm exec prisma migrate deploy && pnpm exec prisma db seed']
     environment: *backend-runtime-environment
     depends_on:
       postgres:

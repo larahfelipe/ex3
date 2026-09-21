@@ -21,6 +21,9 @@ importers:
       '@prisma/client':
         specifier: ^7.10.0
         version: 7.10.0(prisma@7.10.0(@types/node@24.13.4)(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@5.9.3))(typescript@5.9.3)
+      '@prisma/driver-adapter-utils':
+        specifier: ^7.10.0
+        version: 7.10.0
       bcrypt:
         specifier: ^6.0.0
         version: 6.0.0

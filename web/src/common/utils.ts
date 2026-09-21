@@ -111,37 +111,3 @@ export const updateUrlQuery = (params: URLSearchParams) =>
     '',
     params.size ? `?${params}` : window.location.pathname
   );
-
-export const sanitizeInputValue = (
-  value: string,
-  inputType: 'text' | 'number' | 'alphanumeric',
-  options?: {
-    allowSpaces?: boolean;
-    allowHyphens?: boolean;
-    allowSpecialChars?: boolean;
-  }
-) => {
-  if (!value?.length) return value;
-  const sanitizeWithRegex = (regex: RegExp) => value.replace(regex, '');
-  switch (inputType) {
-    case 'text':
-      return sanitizeWithRegex(
-        new RegExp(
-          `[^a-zA-ZÀ-ž${options?.allowSpaces ? '\\s' : ''}${options?.allowHyphens ? '-' : ''}${options?.allowSpecialChars ? '!@#\\$%&\\*\\(\\)_\\+\\.,' : ''}]`,
-          'g'
-        )
-      );
-    case 'number':
-      return sanitizeWithRegex(/\D/g);
-    case 'alphanumeric':
-      return sanitizeWithRegex(
-        new RegExp(
-          `[^a-zA-ZÀ-ž0-9${options?.allowSpaces ? '\\s' : ''}${options?.allowHyphens ? '-' : ''}${options?.allowSpecialChars ? '!@#\\$%&\\*\\(\\)_\\+\\.,' : ''}]`,
-          'g'
-        )
-      );
-    default:
-      console.warn(`Unknown inputType: ${inputType}`);
-      return value;
-  }
-};

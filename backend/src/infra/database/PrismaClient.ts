@@ -1,11 +1,17 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Prisma, PrismaClient as _PrismaClient } from '@prisma/client';
+import { isDriverAdapterError } from '@prisma/driver-adapter-utils';
 
 import { envs } from '@/config/Envs';
 import { LogSeverities, log } from '@/infra/observability';
 
-/** Prisma's code for a transaction Postgres aborted over a write conflict or a deadlock. */
+/**
+ * Prisma's code, and the driver adapter's error kind, for a transaction Postgres
+ * aborted over a write conflict or a deadlock. Which of the two surfaces depends
+ * on the statement the abort interrupts.
+ */
 const TRANSACTION_WRITE_CONFLICT = 'P2034';
+const ADAPTER_WRITE_CONFLICT = 'TransactionWriteConflict';
 
 /** Prisma's code for a write rejected by a unique index. */
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
@@ -38,6 +44,17 @@ export class PrismaClient extends _PrismaClient {
     );
   }
 
+  private static isWriteConflict(error: unknown) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError)
+      return error.code === TRANSACTION_WRITE_CONFLICT;
+
+    return (
+      error instanceof Error &&
+      isDriverAdapterError(error) &&
+      error.cause.kind === ADAPTER_WRITE_CONFLICT
+    );
+  }
+
   isConnected() {
     return this._isConnected;
   }
@@ -58,8 +75,7 @@ export class PrismaClient extends _PrismaClient {
         });
       } catch (error) {
         const isRetryableConflict =
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === TRANSACTION_WRITE_CONFLICT &&
+          PrismaClient.isWriteConflict(error) &&
           attempt < SERIALIZABLE_MAX_ATTEMPTS;
 
         if (!isRetryableConflict) throw error;

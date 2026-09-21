@@ -1,9 +1,10 @@
 'use client';
 
+import { APP_ROUTES } from '@/common/constants';
 import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
 import { PageHeader } from '@/components/page-header';
 import { PerformanceChart } from '@/components/performance-chart';
-import { usePrimaryPortfolio } from '@/hooks/use-portfolio';
+import { useActivePortfolio } from '@/hooks/use-portfolio';
 
 import { AllocationChart } from './_components/allocation-chart';
 import { PortfolioValueCard } from './_components/portfolio-value-card';
@@ -17,7 +18,7 @@ export default function Overview() {
     isError,
     isSuccess,
     refetch
-  } = usePrimaryPortfolio();
+  } = useActivePortfolio();
 
   return (
     <div className="space-y-6 px-3 py-8 sm:px-4">
@@ -46,7 +47,13 @@ export default function Overview() {
       )}
 
       {isSuccess && !portfolio && (
-        <EmptyState message="No portfolio found for this account" />
+        <EmptyState
+          message="No portfolio found for this account"
+          action={{
+            label: 'Create a portfolio',
+            href: APP_ROUTES.Protected.Portfolios
+          }}
+        />
       )}
 
       {portfolio && (

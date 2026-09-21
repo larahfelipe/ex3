@@ -21,6 +21,12 @@ User
 | `Position` | Quanto uma carteira detém de um instrumento e a que custo. Projeção derivada das transações, nunca editada diretamente. | um `Portfolio` | `(portfolioId, instrumentId)` |
 | `MarketQuote` | O fechamento de um dia de negociação de um instrumento, com moeda e fonte. | — | `(instrumentId, timestamp, source)`, com `timestamp` no início do dia em UTC |
 
+## Carteira
+
+Toda conta tem ao menos uma carteira: o sign-up cria `Main`, e a exclusão da última responde `422`. Excluir uma carteira remove as posições e as transações dela na mesma transação serializável; os instrumentos continuam no catálogo. `name` muda a qualquer momento, e `baseCurrency` só enquanto a carteira não tem transação (`422`), porque o web registra transação nova na moeda base e uma posição já aberta em outra moeda recusaria a escrita (`CURRENCY_MISMATCH`). Não há teto de carteiras por conta (TD-011).
+
+**Carteira ativa.** O web opera uma carteira por vez: a escolhida na tela de carteiras, guardada no `localStorage` do navegador (`ex3:active-portfolio`), ou a mais antiga enquanto não há escolha. Escolha que a API não resolve mais, porque a carteira foi excluída ou é de outra conta, é descartada, e o sign-out a apaga. A escolha é só preferência de exibição: a API resolve cada carteira pelo usuário autenticado.
+
 ## Catálogo de instrumentos
 
 `Instrument` é compartilhado por todas as carteiras e não pertence a nenhum usuário: excluir a conta de quem detém um instrumento mantém o instrumento.
@@ -35,7 +41,7 @@ User
 | `sector` | opcional, até 60 caracteres |
 | `country` | opcional, código de duas letras |
 
-**Quem escreve.** Só admin cadastra e corrige instrumentos; os demais usuários escolhem do catálogo, e a escrita deles recebe 403. Qualquer usuário autenticado lista o catálogo. Abrir ou renomear um ativo para símbolo fora do catálogo responde 404 até um admin cadastrá-lo.
+**Quem escreve.** Só admin cadastra e corrige instrumentos; os demais usuários escolhem do catálogo, e a escrita deles recebe 403. Qualquer usuário autenticado lista e busca o catálogo, e o web adiciona ativo escolhendo o instrumento numa lista buscável por símbolo ou nome, sem símbolo digitado livremente. Abrir ou renomear um ativo para símbolo fora do catálogo responde 404 até um admin cadastrá-lo.
 
 **Posição por instrumento.** Uma carteira tem no máximo uma posição por instrumento, e várias carteiras podem ter posição no mesmo instrumento. Transações referenciam a carteira e o instrumento.
 

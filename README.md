@@ -70,7 +70,7 @@ pnpm dev
 
 ### Primeiro uso da aplicação
 
-O sign-up cria o usuário e a sua carteira. Um banco novo, porém, não tem instrumentos no catálogo, e só um administrador os cadastra (`POST /v1/instrument`); sem instrumento não há ativo nem transação. O primeiro administrador é promovido por SQL:
+O sign-up cria o usuário e a sua primeira carteira; outras são criadas, renomeadas e excluídas na tela de carteiras, onde também se escolhe a carteira ativa. No Compose, o `migrate` carrega um catálogo de desenvolvimento com instrumentos de exemplo, e o cadastro de ativo escolhe o instrumento desse catálogo. Sem containers, a mesma carga é `pnpm exec prisma db seed`, depois do `migrate deploy`. Outros instrumentos só um administrador cadastra (`POST /v1/instrument`), e o primeiro administrador é promovido por SQL:
 
 ```sh
 docker compose exec postgres psql --username=ex3 --dbname=ex3 \
@@ -101,6 +101,7 @@ O Prisma 7 não lê connection string do `schema.prisma`: o runtime a recebe pel
 | `pnpm exec prisma migrate dev --name <nome>` | criar uma migration a partir de uma mudança no schema |
 | `pnpm exec prisma migrate deploy` | aplicar as pendentes; é o que o Compose, o CI e a produção rodam |
 | `pnpm exec prisma generate` | regenerar o client; o `postinstall` já roda |
+| `pnpm exec prisma db seed` | carregar o catálogo de desenvolvimento; idempotente, só insere símbolos ausentes |
 | `docker compose exec postgres psql --username=ex3 --dbname=ex3` | abrir o banco de desenvolvimento, que não publica porta |
 
 As migrations ficam em `backend/prisma/migrations` e são aplicadas em produção pelo workflow `.github/workflows/migrate.yaml`, a cada push em `master`.

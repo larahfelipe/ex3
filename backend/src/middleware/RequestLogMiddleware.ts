@@ -1,9 +1,17 @@
 import type { Request, RequestHandler } from 'express';
 import { randomUUID } from 'node:crypto';
 
-import { log, severityOfStatus, type LogSink } from '@/infra/observability';
+import { ProbeRoutes } from '@/config/Constants';
+import {
+  LogSeverities,
+  log,
+  severityOfStatus,
+  type LogSink
+} from '@/infra/observability';
 
 const REQUEST_ID_HEADER = 'x-request-id';
+
+const PROBE_ROUTES: ReadonlySet<string> = new Set(Object.values(ProbeRoutes));
 
 /**
  * An id that arrives with the request is echoed back and written to every line
@@ -41,19 +49,24 @@ export const createRequestLogMiddleware =
     req.requestId = requestId;
     res.setHeader(REQUEST_ID_HEADER, requestId);
 
-    res.on('finish', () =>
+    res.on('finish', () => {
+      const severity = severityOfStatus(res.statusCode);
+      const route = routeOf(req);
+
+      if (PROBE_ROUTES.has(route) && severity === LogSeverities.INFO) return;
+
       logEntry({
-        severity: severityOfStatus(res.statusCode),
+        severity,
         event: 'http_request',
         requestId,
         method: req.method,
-        route: routeOf(req),
+        route,
         status: res.statusCode,
         durationMs: Math.round(performance.now() - startedAt),
         userId: req.user?.id,
         errorCode: req.errorCode
-      })
-    );
+      });
+    });
 
     next();
   };

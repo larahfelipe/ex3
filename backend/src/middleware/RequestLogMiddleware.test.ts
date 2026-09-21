@@ -139,6 +139,45 @@ describe('requestLogMiddleware', () => {
     });
   });
 
+  it('writes nothing for a probe the instance answered', () => {
+    const entries: LogEntry[] = [];
+
+    run(makeRequest({ route: { path: '/health' } }), makeResponse(), entries);
+    run(makeRequest({ route: { path: '/ready' } }), makeResponse(), entries);
+
+    assert.deepStrictEqual(entries, []);
+  });
+
+  it('reports a probe the instance failed', () => {
+    const entries: LogEntry[] = [];
+    const req = makeRequest({ route: { path: '/ready' } });
+
+    req.errorCode = 'INFRASTRUCTURE';
+
+    run(req, makeResponse(503), entries);
+
+    assert.equal(entries.length, 1);
+    assert.partialDeepStrictEqual(entries[0], {
+      severity: 'ERROR',
+      event: 'http_request',
+      route: '/ready',
+      status: 503,
+      errorCode: 'INFRASTRUCTURE'
+    });
+  });
+
+  it('keeps logging a route that only ends like a probe', () => {
+    const entries: LogEntry[] = [];
+
+    run(
+      makeRequest({ baseUrl: '/v1', route: { path: '/ready' } }),
+      makeResponse(),
+      entries
+    );
+
+    assert.partialDeepStrictEqual(entries[0], { route: '/v1/ready' });
+  });
+
   it('leaves the user out of a request that was never authenticated', () => {
     const entries: LogEntry[] = [];
 

@@ -26,7 +26,9 @@ Para o `retry` distinguir 4xx de 5xx, o interceptor de `web/src/lib/axios/axios.
 
 | Hook | Endpoint | Chave | Disparo | Justificativa |
 | --- | --- | --- | --- | --- |
-| `usePrimaryPortfolio` | `GET /v1/portfolios?page=1&limit=1` | `['portfolios', {page,limit}]` | Toda tela protegida | O cliente não conhece o id da carteira: não está na URL nem no cookie de sessão. Uma única entrada de cache serve as três telas |
+| `useActivePortfolio` | `GET /v1/portfolio?portfolioId=` com carteira escolhida; senão `GET /v1/portfolios?page=1&limit=1` | `['portfolios', 'details', id]` ou `['portfolios', 'page', {page,limit}]` | Toda tela protegida | O id da carteira escolhida vem do `localStorage` (`useSyncExternalStore`, com `undefined` no servidor para nada ser pedido antes da leitura); sem escolha, a mais antiga. Uma única entrada de cache serve as telas |
+| `usePortfolios` | `GET /v1/portfolios` | `['portfolios', 'page', {page,limit}]` | `/portfolios` | Lista paginada da tela de carteiras |
+| `useInstruments` | `GET /v1/instruments` | `['instruments', params]` | Diálogo de adicionar ativo | Busca no catálogo com debounce de 300 ms; cada termo é uma chave |
 | `useCurrentUser` | `GET /v1/user` | `['user']` | `sidebar.tsx` e `/account` | Nome e e-mail do cabeçalho de navegação; os dois consumidores compartilham a mesma chave, então é um request, não dois |
 | `usePortfolioOverview` | `GET /v1/portfolio/overview` | `[...portfolio, 'overview']` | `PortfolioValueCard` | Totais agregados que a listagem de posições não traz |
 | `useAllocation` | `GET /v1/portfolio/allocation` | `[...portfolio, 'allocation']` | `AllocationChart` | Agrupamento por classe e por ativo, com percentuais calculados no servidor |
@@ -37,7 +39,9 @@ Para o `retry` distinguir 4xx de 5xx, o interceptor de `web/src/lib/axios/axios.
 
 Toda query com escopo de carteira usa `skipToken` enquanto a carteira não chegou: nenhuma delas dispara com `portfolioId` indefinido.
 
-`usePositions`, `usePerformance` e `useTransactions` usam `placeholderData: keepPreviousData`: paginar, ordenar ou trocar o período mantém a página anterior visível e continua sendo **um** request por mudança de parâmetro, não dois.
+`usePositions`, `usePerformance` e `useTransactions` mantêm a página anterior visível enquanto a pedida carrega: paginar, ordenar ou trocar o período continua sendo **um** request por mudança de parâmetro, não dois. O placeholder só vale dentro da mesma carteira (`partialMatchKey` contra `['portfolio', id]`), então trocar a carteira ativa mostra o carregamento, nunca os números da anterior.
+
+Criar, editar ou excluir carteira invalida `['portfolios']`; a edição invalida também o escopo da carteira, porque a moeda base muda os valores, e a exclusão remove o escopo do cache e descarta a escolha que apontava para ela.
 
 ## Waterfall
 
@@ -56,7 +60,7 @@ Nenhuma tela encadeia um segundo nível: `usePosition`, `usePerformance` e `useT
 
 | Suspeita | Resultado |
 | --- | --- |
-| Duplicidade | Nenhuma. Chamadas repetidas do mesmo hook — `usePrimaryPortfolio` em três telas, `useCurrentUser` em duas — compartilham chave e são atendidas por uma requisição só |
+| Duplicidade | Nenhuma. Chamadas repetidas do mesmo hook — `useActivePortfolio` em quatro telas, `useCurrentUser` em duas — compartilham chave e são atendidas por uma requisição só |
 | N+1 no proxy | Nenhum. Cada Route Handler de `app/api/v1` faz exatamente uma chamada ao backend |
 | N+1 no backend | Nenhum. `GetPortfolioPositionsService`, `GetPortfolioOverviewService`, `GetPortfolioAllocationService` e `GetPortfolioPositionService` buscam cotações e câmbio em lote, num `Promise.all` por request |
 | Refetch excessivo | Era o achado real: sem `staleTime`, cada montagem refazia tudo — voltar de `/assets` para a Overview custava cinco requests que nada mudariam. Resolvido pelo default de 60 s |

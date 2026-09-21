@@ -18,6 +18,8 @@ import { APP_ROUTES } from '@/common/constants';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
 import { queryKeys } from '@/lib/react-query';
 
+import { selectActivePortfolio } from './use-portfolio';
+
 export const useCurrentUser = () =>
   useQuery<
     AxiosResponse<GetCurrentUserResponseData>,
@@ -76,6 +78,7 @@ export const useSignOut = () => {
   return useMutation<AxiosResponse<SignOutResponseData>>({
     mutationFn: () => api.getInstance().post('/v1/sign-out'),
     onSuccess: () => {
+      selectActivePortfolio(null);
       queryClient.removeQueries();
       toast.success('Logged out successfully');
       push(APP_ROUTES.Public.SignIn);

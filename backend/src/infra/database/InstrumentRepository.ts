@@ -1,3 +1,5 @@
+import type { Prisma } from '@prisma/client';
+
 import type { Instrument } from '@/domain/models';
 
 import { PrismaClient } from './PrismaClient';
@@ -20,11 +22,22 @@ export class InstrumentRepository {
   }
 
   async getAll(params: InstrumentRepository.GetAllParams) {
-    const { page = 1, limit = DEFAULT_PAGE_LIMIT } = params;
+    const { page = 1, limit = DEFAULT_PAGE_LIMIT, search } = params;
+
+    const where: Prisma.InstrumentWhereInput | undefined =
+      search === undefined
+        ? undefined
+        : {
+            OR: [
+              { symbol: { startsWith: search.toUpperCase() } },
+              { name: { contains: search, mode: 'insensitive' } }
+            ]
+          };
 
     const [total, docs] = await Promise.all([
-      this.prismaClient.instrument.count(),
+      this.prismaClient.instrument.count({ where }),
       this.prismaClient.instrument.findMany({
+        where,
         orderBy: { symbol: 'asc' },
         take: limit,
         skip: (page - 1) * limit
@@ -74,7 +87,7 @@ export class InstrumentRepository {
 }
 
 namespace InstrumentRepository {
-  export type GetAllParams = { page?: number; limit?: number };
+  export type GetAllParams = { page?: number; limit?: number; search?: string };
   export type AddParams = Pick<Instrument, 'symbol' | 'name' | 'type'> &
     Record<'market' | 'currency', string> &
     Partial<Record<'sector' | 'country', string>>;

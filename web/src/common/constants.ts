@@ -23,7 +23,8 @@ export const COOKIE_OPTIONS: Partial<ResponseCookie> = {
 };
 
 export const APP_STORAGE_KEYS = {
-  Token: 'ex3:token'
+  Token: 'ex3:token',
+  ActivePortfolio: 'ex3:active-portfolio'
 };
 
 export const APP_TITLE = 'EX3';
@@ -127,7 +128,8 @@ export const APP_ROUTES = {
   Protected: {
     Account: '/account',
     Assets: '/assets',
-    Overview: '/'
+    Overview: '/',
+    Portfolios: '/portfolios'
   }
 } as const;
 
