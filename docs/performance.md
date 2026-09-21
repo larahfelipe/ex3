@@ -1,6 +1,6 @@
 # Performance do frontend
 
-O que foi medido, o que foi mudado e o que foi deliberadamente deixado como está. A FASE 16 mediu e corrigiu; a TASK 20.5 fechou a auditoria, na última seção. Cada uma declara seu commit de captura. A auditoria de requests tem documento próprio, em [`data-fetching.md`](data-fetching.md).
+O que foi medido, o que foi mudado e o que foi deliberadamente deixado como está. A FASE 16 mediu e corrigiu; a TASK 20.5 fechou a auditoria; a TASK 20.7 mediu no navegador, na última seção. Cada uma declara seu commit de captura. A auditoria de requests tem documento próprio, em [`data-fetching.md`](data-fetching.md).
 
 ## Captura da FASE 16
 
@@ -8,7 +8,7 @@ O que foi medido, o que foi mudado e o que foi deliberadamente deixado como est�
 | --- | --- |
 | Commit de captura | `d359afd` |
 | Data | 2026-09-19 |
-| Método | Análise estática do código e contagem de trabalho por evento; sem profiler de navegador, pelo motivo em `accessibility.md`, §Auditoria automatizada |
+| Método | Análise estática do código e contagem de trabalho por evento; sem profiler de navegador — a medição em navegador só apareceu na TASK 20.7, na última seção |
 
 ## Gráficos — TASK 16.3
 
@@ -210,7 +210,7 @@ Os números são de `localhost`, processo quente e carteira vazia: medem o camin
 
 ### LCP, CLS e INP
 
-Não medidos, e não mensuráveis aqui: as três métricas exigem um navegador real, que o ambiente não tem (TD-054, TD-058). O que a leitura do código sustenta:
+Não medidos nesta captura. O LCP foi medido depois, na TASK 20.7, na última seção deste documento; CLS e INP continuam sem número. O que a leitura do código sustenta:
 
 | Métrica | O que se sabe |
 | --- | --- |
@@ -218,6 +218,29 @@ Não medidos, e não mensuráveis aqui: as três métricas exigem um navegador r
 | CLS | Todo estado de carregamento reserva altura explícita — `LoadingState` com `h-40` por padrão, `h-96` na listagem de posições, e esqueletos com a forma do conteúdo nos cartões e nos gráficos. Nenhuma imagem entra no fluxo. O que nenhuma leitura decide é se a altura reservada é a do conteúdo que chega, e é exatamente essa diferença que o CLS mede |
 | INP | O trabalho por interação foi o alvo das TASKs 16.3 e 16.4: projeção do gráfico memoizada, formatadores em cache, busca com 300 ms de debounce. Sem medição, segue sendo argumento, não número |
 
-### Gráficos e tabelas
+### Gráficos e tabelas — TASK 20.5
 
 Reverificados depois das refatorações das fases 17 a 20, sem regressão: `MAX_PLOTTED_POINTS` continua igual a `CHART_WIDTH`, com a amostragem por passo que preserva o último ponto; os quatro `useMemo` de `performance-chart.tsx` seguem na série plotada, nos pontos e nos dois `path`; o `Map` de `Intl.NumberFormat` segue em `common/utils.ts`; e a paginação continua server-side em 10, 25 ou 50 posições, 10 transações no detalhe do ativo, 10 no resumo de posições e 5 na Overview.
+
+## Medição em navegador — TASK 20.7
+
+A TASK 20.5 deixou LCP, CLS e INP como lacuna por falta de navegador. Um Firefox 155 headless, dirigido por WebDriver BiDi, fechou metade dela em 2026-09-20, contra o build de produção servido por `next start` em `localhost:3010`, com uma conta semeada com uma posição e duas compras.
+
+| Item | Valor |
+| --- | --- |
+| Commit de captura | `69ca10c` |
+| Método | `PerformanceObserver` com `buffered: true` para o LCP, `first-contentful-paint` da Paint Timing e `responseStart - requestStart` da Navigation Timing |
+| Ressalva | Tudo em `localhost`, sem latência de rede e sem throttling: os tempos são o piso do que o código consegue, não a experiência de campo |
+
+| Rota | LCP 1280×800 | LCP 390×844 | FCP | TTFB |
+| --- | --- | --- | --- | --- |
+| `/sign-in` sem sessão | 47 ms | 65 ms | 47–65 ms | 7 ms |
+| `/sign-up` sem sessão | 50 ms | 51 ms | 50–51 ms | 9–14 ms |
+| `/` | 255 ms | 225 ms | 51 ms | 9–12 ms |
+| `/assets` | 216 ms | 194 ms | 51–52 ms | 9–14 ms |
+| `/assets/PETR4` | 220 ms | 188 ms | 51–52 ms | 9–13 ms |
+| `/account` | 39 ms | 86 ms | 39–86 ms | 9 ms |
+
+O orçamento do LCP é 2,5 s; a pior rota fica em um décimo disso. A distância entre FCP e LCP nas rotas protegidas — cerca de 170 ms — é o intervalo entre o esqueleto e o dado da API, exatamente o waterfall de TD-055. O elemento de LCP é a lista de métricas do cartão de patrimônio nas telas com dado e o parágrafo do formulário nas demais; a arte do sign-in não é candidata em nenhuma largura desde a TASK 20.5.
+
+O que continua sem número: o **CLS**, porque o Firefox não implementa o tipo de entrada `layout-shift` — só Chromium expõe —, e o **INP**, que exige interação real numa janela ativa, que o arnês headless nunca tem. Ambos seguem em TD-054, junto do Lighthouse.

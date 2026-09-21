@@ -2,6 +2,7 @@
 const nextConfig = {
   agentRules: false,
   distDir: 'build',
+  poweredByHeader: false,
   images: {
     unoptimized: true
   },
