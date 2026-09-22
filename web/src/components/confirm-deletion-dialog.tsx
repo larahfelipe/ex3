@@ -2,9 +2,6 @@ import { useState, type FC } from 'react';
 
 import { Loader2 } from 'lucide-react';
 
-import type { ListedTransaction } from '@/app/api/v1/transactions';
-import { TRANSACTION_TYPE_LABELS } from '@/common/constants';
-import { formatExecutionTime, formatQuantity } from '@/common/utils';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -15,22 +12,31 @@ import {
   AlertDialogTitle,
   Button
 } from '@/components/ui';
+import type { Maybe } from '@/types';
 
-type DeleteTransactionDialogProps = {
-  transaction: ListedTransaction;
+type ConfirmDeletionDialogProps = Record<
+  'title' | 'description' | 'confirmLabel' | 'failureMessage',
+  string
+> & {
   onCancel: VoidFunction;
   onConfirm: () => Promise<unknown>;
 };
 
-const DELETE_FAILURE_MESSAGE = 'The transaction could not be deleted';
-
-export const DeleteTransactionDialog: FC<DeleteTransactionDialogProps> = ({
-  transaction: { type, quantity, symbol, executedAt },
+/**
+ * Stays open until `onConfirm` settles, so the consumer closes it after a
+ * deletion and a refusal is shown in place. The confirm button keeps focus
+ * while pending through `aria-disabled`, as `SubmitButton` does.
+ */
+export const ConfirmDeletionDialog: FC<ConfirmDeletionDialogProps> = ({
+  title,
+  description,
+  confirmLabel,
+  failureMessage,
   onCancel,
   onConfirm
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<Maybe<string>>(null);
 
   const confirmDeletion = async () => {
     setIsDeleting(true);
@@ -39,9 +45,7 @@ export const DeleteTransactionDialog: FC<DeleteTransactionDialogProps> = ({
     try {
       await onConfirm();
     } catch (error) {
-      setDeleteError(
-        error instanceof Error ? error.message : DELETE_FAILURE_MESSAGE
-      );
+      setDeleteError(error instanceof Error ? error.message : failureMessage);
       setIsDeleting(false);
     }
   };
@@ -55,11 +59,9 @@ export const DeleteTransactionDialog: FC<DeleteTransactionDialogProps> = ({
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete this transaction?</AlertDialogTitle>
+          <AlertDialogTitle className="wrap-anywhere">{title}</AlertDialogTitle>
 
-          <AlertDialogDescription>
-            {`${TRANSACTION_TYPE_LABELS[type]} of ${formatQuantity(quantity)} ${symbol} on ${formatExecutionTime(executedAt)}. The position is recalculated without it, and this cannot be undone.`}
-          </AlertDialogDescription>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
 
         {deleteError !== null && (
@@ -73,14 +75,17 @@ export const DeleteTransactionDialog: FC<DeleteTransactionDialogProps> = ({
 
           <Button
             variant="destructive"
-            disabled={isDeleting}
+            aria-disabled={isDeleting}
             className="gap-2"
-            onClick={confirmDeletion}
+            onClick={() => {
+              if (!isDeleting) void confirmDeletion();
+            }}
           >
             {isDeleting && (
-              <Loader2 aria-hidden className="size-4 animate-spin" />
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
             )}
-            Delete transaction
+
+            {confirmLabel}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

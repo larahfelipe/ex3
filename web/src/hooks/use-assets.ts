@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
-import { toast } from 'sonner';
 
 import type {
   CreateAssetRequestPayload,
@@ -53,7 +52,6 @@ export const useDeleteAsset = (portfolio: Maybe<Portfolio>) => {
       api.getInstance().delete(`/v1/assets/${encodeURIComponent(symbol)}`, {
         params: { portfolioId: requirePortfolio(portfolio).id }
       }),
-    onSuccess: announceChange,
-    onError: (e) => toast.error(e.message)
+    onSuccess: announceChange
   });
 };

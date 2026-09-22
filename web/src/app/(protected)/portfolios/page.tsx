@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { toast } from 'sonner';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
+import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
 import { EmptyState, LoadingState } from '@/components/data-state';
 import { PageHeader } from '@/components/page-header';
 import { PageNavigation } from '@/components/page-navigation';
@@ -20,7 +21,6 @@ import {
 } from '@/hooks/use-portfolio';
 import type { Maybe } from '@/types';
 
-import { DeletePortfolioDialog } from './_components/delete-portfolio-dialog';
 import { PortfolioFormDialog } from './_components/portfolio-form-dialog';
 
 type PortfolioDialog =
@@ -40,6 +40,7 @@ export default function Portfolios() {
   const [deletedId, setDeletedId] = useState<Maybe<string>>(null);
 
   const newPortfolioButtonRef = useRef<HTMLButtonElement>(null);
+  const solePortfolioNoteId = useId();
 
   const portfoliosQuery = usePortfolios({
     page: requestedPage,
@@ -167,11 +168,15 @@ export default function Portfolios() {
                           variant="outline"
                           size="sm"
                           className="text-destructive hover:text-destructive max-sm:flex-1"
-                          disabled={total === 1}
-                          aria-label={`Delete ${portfolio.name}`}
-                          onClick={() =>
-                            setDialog({ kind: 'delete', portfolio })
+                          aria-disabled={total === 1}
+                          aria-describedby={
+                            total === 1 ? solePortfolioNoteId : undefined
                           }
+                          aria-label={`Delete ${portfolio.name}`}
+                          onClick={() => {
+                            if (total > 1)
+                              setDialog({ kind: 'delete', portfolio });
+                          }}
                         >
                           Delete
                         </Button>
@@ -182,7 +187,10 @@ export default function Portfolios() {
               </ul>
 
               {total === 1 && (
-                <p className="text-sm text-muted-foreground">
+                <p
+                  id={solePortfolioNoteId}
+                  className="text-sm text-muted-foreground"
+                >
                   An account keeps at least one portfolio, so the only one
                   cannot be deleted.
                 </p>
@@ -227,9 +235,11 @@ export default function Portfolios() {
       )}
 
       {dialog?.kind === 'delete' && (
-        <DeletePortfolioDialog
-          portfolio={dialog.portfolio}
-          isActive={dialog.portfolio.id === activePortfolio?.id}
+        <ConfirmDeletionDialog
+          title={`Delete ${dialog.portfolio.name}?`}
+          description={`Every asset and transaction in ${dialog.portfolio.name} is deleted with it, and this cannot be undone.${dialog.portfolio.id === activePortfolio?.id ? ' The app then shows your oldest portfolio.' : ''}`}
+          confirmLabel="Delete portfolio"
+          failureMessage="The portfolio could not be deleted"
           onCancel={closeDialog}
           onConfirm={async () => {
             await deletePortfolio({ portfolioId: dialog.portfolio.id });

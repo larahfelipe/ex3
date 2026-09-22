@@ -270,3 +270,14 @@ Revisão por leitura de todo `web/src`, organizada em etapas, cada uma com os ga
 | "Login", "Register", "Login instead", "Logged in as", "Logged out successfully" e dois toasts no sign-up, ao lado de "Sign out" no menu | "Sign in", "Create account", "Sign in instead", "Signed in as", "Signed out" e um toast só; conta sem nome é saudada pelo e-mail |
 
 O contrato do proxy foi exercitado por `curl` contra o `compose` local: nome salvo com o cookie mantido, senha atual errada em `400` `VALIDATION` sem `details`, nova senha curta em `400` com `path` `newPassword`, corpo inválido em `400` do proxy, troca aceita com `Set-Cookie` apagando `ex3:token`, `GET /api/v1/user` seguinte em `401`, sign-in com a senha antiga recusado e com a nova aceito.
+
+### Exclusões
+
+| Achado | Correção |
+| --- | --- |
+| A exclusão de ativo fechava o diálogo no clique, sem estado de pendência: um segundo clique reenviava o `DELETE`, que respondia `404`, e a falha só aparecia em toast (TD-064, N4, 3.3.1) | `ConfirmDeletionDialog`, o diálogo das três exclusões: fica aberto até a exclusão terminar, sem fechar por "Cancel", `Esc` ou clique fora enquanto ela corre, e mostra a recusa num alerta no próprio diálogo; o toast de erro saiu de `useDeleteAsset` |
+| O confirmar das exclusões de transação e carteira ficava `disabled` durante a exclusão e soltava o foco no `body`, onde ele continuava depois de uma recusa (F4, 2.4.3) | confirmar `aria-disabled` com o clique ignorado enquanto exclui, como o `SubmitButton` |
+| Depois de excluir um ativo, o foco em "Add asset" era pedido com o diálogo ainda aberto, e o `FocusScope` o devolvia ao diálogo; a volta ao gatilho do menu da linha excluída caía no `body` (F4) | a página espera o diálogo desmontar para focar "Add asset", como a de carteiras faz com "New portfolio" |
+| "Confirm" e "Are you sure you want to delete…" no ativo, diante de "Delete transaction" e "Delete portfolio" nos outros dois | "Delete asset" e "Delete {symbol}?", com a consequência na descrição |
+| Com uma carteira só, "Delete" ficava `disabled`, fora da ordem de `Tab`, e a explicação abaixo da lista não estava ligada a ele (1.3.1, 4.1.2) | `aria-disabled`, focável e com `aria-describedby` apontando para a explicação |
+| `?action=delete` sem `symbol` abria a confirmação de "Unknown", com o confirmar desabilitado | ignorado, como `add-transaction` sem `symbol` |

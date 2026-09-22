@@ -10,6 +10,7 @@ import {
   ASSET_DIALOG_PARAMS
 } from '@/common/constants';
 import { updateUrlQuery } from '@/common/utils';
+import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
 import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
 import { PageHeader } from '@/components/page-header';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
@@ -21,7 +22,6 @@ import { useCreateTransaction } from '@/hooks/use-transactions';
 import type { Maybe } from '@/types';
 
 import { AddAssetDialog } from './_components/add-asset-dialog';
-import { DeleteAssetDialog } from './_components/delete-asset-dialog';
 import { PositionsTable } from './_components/positions-table';
 
 type AssetDialogActions =
@@ -34,6 +34,7 @@ export default function Assets() {
   const [dialogAction, setDialogAction] =
     useState<Maybe<AssetDialogActions>>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<Maybe<string>>(null);
+  const [hasDeletedAsset, setHasDeletedAsset] = useState(false);
 
   const [opened, { toggle }] = useDisclosure(false);
 
@@ -88,10 +89,17 @@ export default function Assets() {
     const requestedSymbol = searchParams.get(ASSET_DIALOG_PARAMS.Symbol);
 
     if (requestedSymbol) setSelectedSymbol(requestedSymbol.toUpperCase());
-    else if (requestedAction === ASSET_DIALOG_ACTIONS.AddTransaction) return;
+    else if (requestedAction !== ASSET_DIALOG_ACTIONS.Add) return;
 
     if (!opened) handleToggleDialog(requestedAction);
   }, [searchParams, opened, handleToggleDialog]);
+
+  useEffect(() => {
+    if (!hasDeletedAsset || opened) return;
+
+    setHasDeletedAsset(false);
+    addAssetButtonRef.current?.focus();
+  }, [hasDeletedAsset, opened]);
 
   return (
     <div className="space-y-6 px-3 py-8 sm:px-4">
@@ -175,15 +183,23 @@ export default function Assets() {
           />
         )}
 
-      <DeleteAssetDialog
-        open={opened && dialogAction === ASSET_DIALOG_ACTIONS.Delete}
-        symbol={selectedSymbol}
-        onCancel={handleToggleDialog}
-        onConfirm={async (payload) => {
-          await deleteAssetMutation(payload);
-          addAssetButtonRef.current?.focus();
-        }}
-      />
+      {portfolio &&
+        opened &&
+        dialogAction === ASSET_DIALOG_ACTIONS.Delete &&
+        typeof selectedSymbol === 'string' && (
+          <ConfirmDeletionDialog
+            title={`Delete ${selectedSymbol}?`}
+            description={`Every transaction of ${selectedSymbol} in ${portfolio.name} is deleted with it, and this cannot be undone.`}
+            confirmLabel="Delete asset"
+            failureMessage="The asset could not be deleted"
+            onCancel={() => handleToggleDialog()}
+            onConfirm={async () => {
+              await deleteAssetMutation({ symbol: selectedSymbol });
+              setHasDeletedAsset(true);
+              handleToggleDialog();
+            }}
+          />
+        )}
     </div>
   );
 }
