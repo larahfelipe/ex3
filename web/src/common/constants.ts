@@ -139,5 +139,33 @@ export const APP_ROUTES = {
   }
 } as const;
 
+export const SIGN_IN_PARAMS = {
+  Reason: 'reason',
+  ReturnPath: 'next'
+} as const;
+
+export const SIGN_IN_REASONS = {
+  SessionExpired: 'session-expired'
+} as const;
+
+export const signInRouteFor = ({
+  returnPath,
+  hasSessionExpired
+}: {
+  returnPath: string;
+  hasSessionExpired: boolean;
+}) => {
+  const params = new URLSearchParams();
+
+  if (hasSessionExpired)
+    params.set(SIGN_IN_PARAMS.Reason, SIGN_IN_REASONS.SessionExpired);
+  if (returnPath !== APP_ROUTES.Protected.Overview)
+    params.set(SIGN_IN_PARAMS.ReturnPath, returnPath);
+
+  return params.size
+    ? `${APP_ROUTES.Public.SignIn}?${params}`
+    : APP_ROUTES.Public.SignIn;
+};
+
 export const assetDetailRoute = (symbol: string) =>
   `${APP_ROUTES.Protected.Assets}/${encodeURIComponent(symbol)}`;

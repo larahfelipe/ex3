@@ -24,8 +24,10 @@ const SIGN_IN_FIELDS = signInSchema.keyof().options;
 const isSignInField = (path: string): path is keyof SignInFormValues =>
   SIGN_IN_FIELDS.some((field) => field === path);
 
-export const SignInForm: FC = () => {
-  const { mutateAsync: signIn } = useSignIn();
+type SignInFormProps = Record<'destination', string>;
+
+export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
+  const { mutateAsync: signIn } = useSignIn(destination);
 
   const {
     register,
