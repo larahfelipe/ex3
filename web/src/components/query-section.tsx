@@ -3,7 +3,11 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { twMerge } from 'tailwind-merge';
 
-import { ErrorState } from '@/components/data-state';
+import {
+  ErrorState,
+  STALE_DATA_MESSAGE,
+  StaleState
+} from '@/components/data-state';
 import { SectionHeader } from '@/components/section-header';
 import { Card, CardContent } from '@/components/ui';
 import type { ApiProxyErrorData } from '@/lib/axios';
@@ -14,7 +18,7 @@ type QuerySectionProps<Content> = {
   className?: string;
   query: Pick<
     UseQueryResult<Content, ApiProxyErrorData>,
-    'data' | 'isError' | 'refetch'
+    'data' | 'isError' | 'isRefetchError' | 'isFetching' | 'refetch'
   >;
   errorMessage: string;
   loading: ReactNode;
@@ -37,7 +41,7 @@ export const QuerySection = <Content,>({
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const hasFocusWithin = useRef(false);
-  const { data, isError, refetch } = query;
+  const { data, isError, isRefetchError, isFetching, refetch } = query;
 
   const isLoading = data === undefined && !isError;
   const shownContent = data !== undefined && !isEmpty(data) ? data : undefined;
@@ -84,6 +88,16 @@ export const QuerySection = <Content,>({
         />
 
         <CardContent aria-busy={isLoading}>
+          {isRefetchError && (
+            <div className="mb-4">
+              <StaleState
+                message={STALE_DATA_MESSAGE}
+                isRetrying={isFetching}
+                onRetry={refetch}
+              />
+            </div>
+          )}
+
           {isLoading && loading}
 
           {data === undefined && isError && (

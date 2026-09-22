@@ -2,7 +2,7 @@ import type { FC } from 'react';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { formatQuoteTime } from '@/common/utils';
-import { EmptyState, LoadingState, StaleState } from '@/components/data-state';
+import { EmptyState, LoadingState } from '@/components/data-state';
 import { Metric, Money, ProfitLoss } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
 import { Skeleton } from '@/components/ui';
@@ -18,7 +18,6 @@ export const PortfolioValueCard: FC<PortfolioValueCardProps> = ({
   portfolio
 }) => {
   const overviewQuery = usePortfolioOverview(portfolio);
-  const { isRefetchError, isFetching, refetch } = overviewQuery;
 
   return (
     <QuerySection
@@ -50,14 +49,6 @@ export const PortfolioValueCard: FC<PortfolioValueCardProps> = ({
         quotedAt
       }) => (
         <div className="space-y-5">
-          {isRefetchError && (
-            <StaleState
-              message="The values could not be refreshed and may be out of date"
-              isRetrying={isFetching}
-              onRetry={refetch}
-            />
-          )}
-
           <dl className="flex flex-wrap items-end gap-x-10 gap-y-4">
             <Metric label="Total value" valueClassName={TOTAL_VALUE_CLASS}>
               <Money value={totalValue} currency={baseCurrency} />

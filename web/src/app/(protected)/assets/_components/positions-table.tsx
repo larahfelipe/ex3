@@ -39,7 +39,9 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
-  NoResultsState
+  NoResultsState,
+  STALE_DATA_MESSAGE,
+  StaleState
 } from '@/components/data-state';
 import {
   Money,
@@ -250,8 +252,14 @@ export const PositionsTable: FC<PositionsTableProps> = ({
   const committedSearch = useRef(listing.search);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const { data, isError, isFetching, isPlaceholderData, refetch } =
-    usePositions(portfolio, listing);
+  const {
+    data,
+    isError,
+    isRefetchError,
+    isFetching,
+    isPlaceholderData,
+    refetch
+  } = usePositions(portfolio, listing);
   const refreshPortfolio = useRefreshPortfolio(portfolio);
 
   const headingId = useId();
@@ -325,8 +333,10 @@ export const PositionsTable: FC<PositionsTableProps> = ({
               variant="outline"
               size="sm"
               className="gap-2 max-sm:w-full"
-              disabled={isFetching}
-              onClick={() => refreshPortfolio()}
+              aria-disabled={isFetching}
+              onClick={() => {
+                if (!isFetching) void refreshPortfolio();
+              }}
             >
               <RefreshCw
                 aria-hidden="true"
@@ -431,6 +441,14 @@ export const PositionsTable: FC<PositionsTableProps> = ({
             {data === undefined && isError && (
               <ErrorState
                 message="The positions could not be loaded"
+                onRetry={refetch}
+              />
+            )}
+
+            {isRefetchError && (
+              <StaleState
+                message={STALE_DATA_MESSAGE}
+                isRetrying={isFetching}
                 onRetry={refetch}
               />
             )}

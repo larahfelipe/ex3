@@ -66,7 +66,7 @@ const NAVIGATION_STATE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 /** WCAG 2.5.5 asks for a 44px target, above the default button height. */
 const NAVIGATION_ITEM_CLASS =
-  'group/item relative flex min-h-11 w-full min-w-11 flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 text-[0.6875rem] font-medium text-muted-foreground outline-hidden ring-offset-background transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-safe:active:scale-95 aria-[current=page]:text-foreground sm:py-2 navigation-expanded:flex-row navigation-expanded:justify-start navigation-expanded:gap-3 navigation-expanded:px-3 navigation-expanded:text-sm navigation-expanded:hover:bg-accent navigation-expanded:aria-[current=page]:bg-accent';
+  'group/item relative flex min-h-11 w-full min-w-11 flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 text-[0.6875rem] font-medium text-muted-foreground outline-hidden ring-offset-background transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 aria-disabled:pointer-events-none aria-disabled:opacity-50 motion-safe:active:scale-95 aria-[current=page]:text-foreground sm:py-2 navigation-expanded:flex-row navigation-expanded:justify-start navigation-expanded:gap-3 navigation-expanded:px-3 navigation-expanded:text-sm navigation-expanded:hover:bg-accent navigation-expanded:aria-[current=page]:bg-accent';
 
 const NAVIGATION_ICON_CLASS =
   'flex h-7 w-12 shrink-0 items-center justify-center rounded-full transition-colors group-hover/item:bg-accent group-aria-[current=page]/item:bg-primary/15 group-aria-[current=page]/item:text-primary navigation-expanded:h-auto navigation-expanded:w-auto navigation-expanded:bg-transparent navigation-expanded:group-hover/item:bg-transparent navigation-expanded:group-aria-[current=page]/item:bg-transparent';
@@ -190,12 +190,14 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
         <li className="flex flex-1 max-sm:hidden">
           <button
             type="button"
-            disabled={isSigningOut}
+            aria-disabled={isSigningOut}
             className={cn(
               NAVIGATION_ITEM_CLASS,
               'hover:text-negative navigation-expanded:hover:bg-negative/10'
             )}
-            onClick={() => signOut()}
+            onClick={() => {
+              if (!isSigningOut) signOut();
+            }}
           >
             <span
               aria-hidden="true"
