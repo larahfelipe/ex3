@@ -10,7 +10,8 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle
+  AlertDialogTitle,
+  buttonVariants
 } from '@/components/ui';
 import { withSettledRejection } from '@/lib/utils';
 import type { Maybe } from '@/types';
@@ -54,7 +55,7 @@ export const DeleteAssetDialog: FC<DeleteAssetDialogProps> = ({
           <AlertDialogAction
             disabled={!symbol}
             onClick={withSettledRejection(handleConfirm)}
-            className="bg-destructive hover:bg-destructive/90"
+            className={buttonVariants({ variant: 'destructive' })}
           >
             Confirm
           </AlertDialogAction>

@@ -4,7 +4,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { useSearchParams } from 'next/navigation';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowDownUp, Loader2, Plus, Search } from 'lucide-react';
+import { ArrowDownUp, Plus, Search } from 'lucide-react';
 import { z } from 'zod';
 
 import type { CreateAssetRequestPayload } from '@/app/api/v1/assets';
@@ -16,7 +16,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   Input,
@@ -30,11 +29,23 @@ import {
 } from '@/lib/axios';
 import type { Maybe } from '@/types';
 
+import { AddAssetFooter, type AddAssetDialogActions } from './add-asset-footer';
+import { InstrumentRegistration } from './instrument-registration';
+
+type AssetAddition = Omit<CreateAssetRequestPayload, 'portfolioId'>;
+
 type AddAssetDialogProps = {
   onCancel: VoidFunction;
-  onConfirm: (
-    payload: Omit<CreateAssetRequestPayload, 'portfolioId'>
-  ) => Promise<unknown>;
+  onConfirm: (payload: AssetAddition) => Promise<unknown>;
+};
+
+type AddAssetView = Record<'kind', 'catalog' | 'registration'> &
+  Record<'search', string>;
+
+type CatalogPickerProps = AddAssetDialogActions & {
+  initialSearch: string;
+  onConfirm: (payload: AssetAddition) => Promise<unknown>;
+  onRegister: (search: string) => void;
 };
 
 type AddAssetFormValues = z.infer<typeof AddAssetSchema>;
@@ -55,7 +66,14 @@ const SEARCH_PATTERN_MESSAGE =
   "Search accepts only letters, digits, spaces and . & ' -";
 
 const EMPTY_CATALOG_MESSAGE =
-  'The instrument catalog is empty. An administrator has to register an instrument before it can be added as an asset.';
+  'The catalog has no instruments yet. Register the one you want to track.';
+
+const VIEW_DESCRIPTIONS: Record<AddAssetView['kind'], string> = {
+  catalog:
+    'Choose an instrument to track it in this portfolio, or register one the catalog lacks.',
+  registration:
+    'Register an instrument the catalog lacks. Only you can see the instruments you register.'
+};
 
 const CATALOG_LOAD_FAILURE_MESSAGE =
   'The instrument catalog could not be loaded';
@@ -71,9 +89,11 @@ const submitFailureMessageOf = (error: unknown, symbol: string) => {
 const foundInstrumentsLabel = (count: number) =>
   count === 1 ? '1 instrument found' : `${count} instruments found`;
 
-export const AddAssetDialog: FC<AddAssetDialogProps> = ({
-  onCancel,
-  onConfirm
+const CatalogPicker: FC<CatalogPickerProps> = ({
+  initialSearch,
+  onConfirm,
+  onRegister,
+  ...dialogActions
 }) => {
   const formId = useId();
   const searchId = useId();
@@ -82,11 +102,8 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState<string>();
-  const [addedSymbol, setAddedSymbol] = useState<Maybe<string>>(null);
-
-  const searchParams = useSearchParams();
+  const [searchInput, setSearchInput] = useState(initialSearch);
+  const [search, setSearch] = useState(initialSearch.trim() || undefined);
 
   const {
     control,
@@ -132,6 +149,13 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
     return () => clearTimeout(timeout);
   }, [searchTerm, search, isSearchAccepted, resetField]);
 
+  useEffect(() => {
+    searchInputRef.current?.focus();
+  }, []);
+
+  const hasNoMatch =
+    catalog !== undefined && matchCount === 0 && !isPlaceholderData;
+
   const catalogStatus = (() => {
     if (isPending) return 'Loading the instrument catalog…';
     if (catalog === undefined) return '';
@@ -155,8 +179,8 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
   const submitSelection = async ({ symbol }: AddAssetFormValues) => {
     try {
       await onConfirm({ symbol });
-      setAddedSymbol(symbol);
       reset();
+      searchInputRef.current?.focus();
     } catch (error) {
       setError('root.server', {
         type: 'server',
@@ -165,124 +189,110 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
     }
   };
 
-  const handleAddTransaction = () => {
-    if (!addedSymbol) return;
-
-    onCancel();
-
-    const params = new URLSearchParams(searchParams);
-
-    params.set(ASSET_DIALOG_PARAMS.Symbol, addedSymbol);
-    params.set(ASSET_DIALOG_PARAMS.Action, ASSET_DIALOG_ACTIONS.AddTransaction);
-
-    updateUrlQuery(params);
-  };
-
   return (
-    <Dialog
-      open
-      onOpenChange={() => {
-        if (!isSubmitting) onCancel();
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex gap-2 max-sm:justify-center">
-            <ArrowDownUp aria-hidden="true" />
+    <>
+      <div
+        role="search"
+        aria-label="Instrument catalog"
+        className="space-y-1.5"
+      >
+        <Label htmlFor={searchId}>Search the catalog</Label>
 
-            <span>Add asset</span>
-          </DialogTitle>
+        <Input
+          ref={searchInputRef}
+          id={searchId}
+          type="search"
+          autoComplete="off"
+          placeholder="Symbol or name"
+          maxLength={SEARCH_MAX_LENGTH}
+          value={searchInput}
+          aria-invalid={!isSearchAccepted}
+          aria-describedby={
+            isSearchAccepted
+              ? catalogStatusId
+              : `${searchIssueId} ${catalogStatusId}`
+          }
+          onChange={({ target }) => setSearchInput(target.value)}
+          leftElement={
+            <Search
+              aria-hidden="true"
+              size={16}
+              className="text-muted-foreground"
+            />
+          }
+        />
 
-          <DialogDescription>
-            Choose an instrument from the catalog to track it in this portfolio.
-          </DialogDescription>
-        </DialogHeader>
+        {!isSearchAccepted && (
+          <p id={searchIssueId} className="text-sm text-negative">
+            {SEARCH_PATTERN_MESSAGE}
+          </p>
+        )}
+      </div>
 
-        <div
-          role="search"
-          aria-label="Instrument catalog"
-          className="space-y-1.5"
+      <form id={formId} noValidate onSubmit={handleSubmit(submitSelection)}>
+        <fieldset
+          aria-busy={isPending || isPlaceholderData}
+          className="min-w-0 space-y-2"
         >
-          <Label htmlFor={searchId}>Search the catalog</Label>
+          <legend className="mb-1.5 text-sm font-medium leading-none">
+            Instrument
+          </legend>
 
-          <Input
-            ref={searchInputRef}
-            id={searchId}
-            type="search"
-            autoComplete="off"
-            placeholder="Symbol or name"
-            maxLength={SEARCH_MAX_LENGTH}
-            value={searchInput}
-            disabled={isSubmitting}
-            aria-invalid={!isSearchAccepted}
-            aria-describedby={
-              isSearchAccepted
-                ? catalogStatusId
-                : `${searchIssueId} ${catalogStatusId}`
-            }
-            onChange={({ target }) => setSearchInput(target.value)}
-            leftElement={
-              <Search
-                aria-hidden="true"
-                size={16}
-                className="text-muted-foreground"
-              />
-            }
-          />
-
-          {!isSearchAccepted && (
-            <p id={searchIssueId} className="text-sm text-negative">
-              {SEARCH_PATTERN_MESSAGE}
-            </p>
-          )}
-        </div>
-
-        <form id={formId} noValidate onSubmit={handleSubmit(submitSelection)}>
-          <fieldset
-            disabled={isSubmitting}
-            aria-busy={isPending || isPlaceholderData}
-            className="min-w-0 space-y-2"
+          <p
+            id={catalogStatusId}
+            role="status"
+            className="text-sm text-muted-foreground"
           >
-            <legend className="mb-1.5 text-sm font-medium leading-none">
-              Instrument
-            </legend>
+            {catalogStatus}
+          </p>
 
-            <p
-              id={catalogStatusId}
-              role="status"
-              className="text-sm text-muted-foreground"
-            >
-              {catalogStatus}
-            </p>
+          {isPending && (
+            <LoadingState
+              label="Loading the instrument catalog"
+              className="h-48"
+            />
+          )}
 
-            {isPending && (
-              <LoadingState
-                label="Loading the instrument catalog"
-                className="h-48"
-              />
-            )}
+          {isError && catalog === undefined && (
+            <ErrorState
+              message={CATALOG_LOAD_FAILURE_MESSAGE}
+              onRetry={refetch}
+            />
+          )}
 
-            {isError && catalog === undefined && (
-              <ErrorState
-                message={CATALOG_LOAD_FAILURE_MESSAGE}
-                onRetry={refetch}
-              />
-            )}
-
-            {matchCount === 0 && search !== undefined && !isPlaceholderData && (
+          {hasNoMatch && (
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
-                variant="secondary"
-                className="h-9 max-sm:w-full"
-                onClick={clearSearch}
+                className="h-9 gap-2 max-sm:w-full"
+                onClick={() => onRegister(search ?? '')}
               >
-                Clear search
-              </Button>
-            )}
+                <Plus size={16} aria-hidden="true" />
 
-            {instruments.length > 0 && (
-              <ul className="max-h-64 divide-y overflow-y-auto rounded-md border">
-                {instruments.map(({ id, symbol, name, market, currency }) => (
+                <span>
+                  {search === undefined
+                    ? 'Register an instrument'
+                    : `Register “${search}”`}
+                </span>
+              </Button>
+
+              {search !== undefined && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-9 max-sm:w-full"
+                  onClick={clearSearch}
+                >
+                  Clear search
+                </Button>
+              )}
+            </div>
+          )}
+
+          {instruments.length > 0 && (
+            <ul className="max-h-64 divide-y overflow-y-auto rounded-md border">
+              {instruments.map(
+                ({ id, symbol, name, market, currency, scope }) => (
                   <li key={id}>
                     <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/50 has-checked:bg-muted/70">
                       <input
@@ -300,6 +310,12 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
                         {name}
                       </span>
 
+                      {scope === 'PRIVATE' && (
+                        <span className="shrink-0 rounded-sm border px-1.5 text-xs text-muted-foreground">
+                          Private
+                        </span>
+                      )}
+
                       {market !== null && currency !== null && (
                         <span className="shrink-0 text-xs text-muted-foreground">
                           {`${market} · ${currency}`}
@@ -307,52 +323,126 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
                       )}
                     </label>
                   </li>
-                ))}
-              </ul>
-            )}
-
-            {errors.symbol?.message !== undefined && (
-              <p className="text-sm text-negative">{errors.symbol.message}</p>
-            )}
-
-            {errors.root?.server?.message !== undefined && (
-              <p role="alert" className="text-sm text-negative">
-                {errors.root.server.message}
-              </p>
-            )}
-          </fieldset>
-        </form>
-
-        <DialogFooter>
-          {addedSymbol && (
-            <Button
-              variant="ghost"
-              className="gap-2 sm:absolute sm:left-6 max-sm:mt-6"
-              onClick={handleAddTransaction}
-            >
-              <Plus size={16} aria-hidden="true" />
-
-              <span>{`Add a ${addedSymbol} transaction?`}</span>
-            </Button>
+                )
+              )}
+            </ul>
           )}
 
-          <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
-            Cancel
-          </Button>
+          {instruments.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              {'Not listed? '}
 
-          <Button
-            type="submit"
-            form={formId}
-            className="gap-2"
-            disabled={isSubmitting || selectedSymbol === ''}
-          >
-            {isSubmitting && (
-              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-            )}
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0"
+                disabled={isSubmitting}
+                onClick={() => onRegister(search ?? '')}
+              >
+                Register a new instrument
+              </Button>
+            </p>
+          )}
 
-            <span>Confirm</span>
-          </Button>
-        </DialogFooter>
+          {errors.symbol?.message !== undefined && (
+            <p className="text-sm text-negative">{errors.symbol.message}</p>
+          )}
+
+          {errors.root?.server?.message !== undefined && (
+            <p role="alert" className="text-sm text-negative">
+              {errors.root.server.message}
+            </p>
+          )}
+        </fieldset>
+      </form>
+
+      <AddAssetFooter
+        formId={formId}
+        submitLabel="Confirm"
+        isSubmitting={isSubmitting}
+        canSubmit={selectedSymbol !== ''}
+        {...dialogActions}
+      />
+    </>
+  );
+};
+
+export const AddAssetDialog: FC<AddAssetDialogProps> = ({
+  onCancel,
+  onConfirm
+}) => {
+  const [view, setView] = useState<AddAssetView>({
+    kind: 'catalog',
+    search: ''
+  });
+  const [addedSymbol, setAddedSymbol] = useState<Maybe<string>>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const searchParams = useSearchParams();
+
+  const confirmAddition = async (payload: AssetAddition) => {
+    setIsSubmitting(true);
+
+    try {
+      await onConfirm(payload);
+      setAddedSymbol(payload.symbol);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAddTransaction = () => {
+    if (!addedSymbol) return;
+
+    onCancel();
+
+    const params = new URLSearchParams(searchParams);
+
+    params.set(ASSET_DIALOG_PARAMS.Symbol, addedSymbol);
+    params.set(ASSET_DIALOG_PARAMS.Action, ASSET_DIALOG_ACTIONS.AddTransaction);
+
+    updateUrlQuery(params);
+  };
+
+  const dialogActions: AddAssetDialogActions = {
+    addedSymbol,
+    onAddTransaction: handleAddTransaction,
+    onCancel
+  };
+
+  return (
+    <Dialog
+      open
+      onOpenChange={() => {
+        if (!isSubmitting) onCancel();
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex gap-2 max-sm:justify-center">
+            <ArrowDownUp aria-hidden="true" />
+
+            <span>Add asset</span>
+          </DialogTitle>
+
+          <DialogDescription>{VIEW_DESCRIPTIONS[view.kind]}</DialogDescription>
+        </DialogHeader>
+
+        {view.kind === 'catalog' ? (
+          <CatalogPicker
+            initialSearch={view.search}
+            onConfirm={confirmAddition}
+            onRegister={(search) => setView({ kind: 'registration', search })}
+            {...dialogActions}
+          />
+        ) : (
+          <InstrumentRegistration
+            initialSearch={view.search}
+            onConfirm={confirmAddition}
+            onSearchCatalog={(search) => setView({ kind: 'catalog', search })}
+            {...dialogActions}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

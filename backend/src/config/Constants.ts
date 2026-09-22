@@ -111,6 +111,10 @@ export const AssetMessages = {
 export const InstrumentMessages = {
   NOT_FOUND: 'Instrument not found in catalog',
   ALREADY_EXISTS: 'Instrument already exists in catalog',
+  PRIVATE_ALREADY_EXISTS:
+    'Instrument already exists among your private instruments',
+  CURRENCY_MISMATCH:
+    'Invalid instrument: the currency must be the one its market quotes in',
   CREATED: 'Instrument created successfully',
   UPDATED: 'Instrument updated successfully'
 };
@@ -216,6 +220,27 @@ export const Markets = {
 } as const;
 
 export type Market = (typeof Markets)[keyof typeof Markets];
+
+/**
+ * The currency the quote provider prices each market in, so an instrument
+ * declared in another one would be valued in the wrong currency. Null where the
+ * pair asked for names the currency, as in crypto.
+ */
+export const MarketQuoteCurrencies: Record<Market, string | null> = {
+  B3: 'BRL',
+  NYSE: 'USD',
+  NASDAQ: 'USD',
+  CRYPTO: null
+};
+
+/** Whether an instrument belongs to the shared catalog or to the caller alone. */
+export const InstrumentScopes = {
+  CATALOG: 'CATALOG',
+  PRIVATE: 'PRIVATE'
+} as const;
+
+export type InstrumentScope =
+  (typeof InstrumentScopes)[keyof typeof InstrumentScopes];
 
 export const SortOrderTypes = {
   ASCENDENT: 'asc',

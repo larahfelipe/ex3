@@ -13,7 +13,7 @@ import {
   FAKE_MARKET_DATA_SOURCE,
   FakeMarketDataProvider
 } from '@/test/FakeMarketDataProvider';
-import { createInstrument } from '@/test/Fixtures';
+import { MISSING_UUID, createInstrument } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
 
 import { GetPriceHistoryService } from './GetPriceHistoryService';
@@ -68,7 +68,10 @@ describe('price history', () => {
   registerIntegrationHooks();
 
   it('asks the provider for the whole range but the current day, and answers what it recorded', async (t) => {
-    await createInstrument({ symbol: SYMBOL, currency: CURRENCY });
+    const { id: instrumentId } = await createInstrument({
+      symbol: SYMBOL,
+      currency: CURRENCY
+    });
 
     const historicalPrices = t.mock.method(
       marketDataProvider,
@@ -83,7 +86,7 @@ describe('price history', () => {
     );
 
     const history = await getPriceHistoryService.execute({
-      symbol: SYMBOL,
+      instrumentId,
       ...RANGE
     });
 
@@ -126,7 +129,7 @@ describe('price history', () => {
     );
 
     const history = await getPriceHistoryService.execute({
-      symbol: SYMBOL,
+      instrumentId,
       ...RANGE
     });
 
@@ -152,7 +155,7 @@ describe('price history', () => {
     );
 
     const history = await getPriceHistoryService.execute({
-      symbol: SYMBOL,
+      instrumentId,
       ...RANGE
     });
 
@@ -182,7 +185,7 @@ describe('price history', () => {
     );
 
     const history = await getPriceHistoryService.execute({
-      symbol: SYMBOL,
+      instrumentId,
       ...RANGE
     });
 
@@ -192,9 +195,9 @@ describe('price history', () => {
     );
   });
 
-  it('refuses a symbol outside the catalog', async () => {
+  it('refuses an instrument that does not exist', async () => {
     await assert.rejects(
-      getPriceHistoryService.execute({ symbol: 'NONE', ...RANGE }),
+      getPriceHistoryService.execute({ instrumentId: MISSING_UUID, ...RANGE }),
       new NotFoundError(InstrumentMessages.NOT_FOUND)
     );
   });

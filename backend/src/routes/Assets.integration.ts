@@ -175,6 +175,204 @@ describe('assets', () => {
     });
   });
 
+  describe('add with a private instrument', () => {
+    const PRIVATE_SYMBOL = 'XPML11';
+
+    const XPML11 = {
+      name: 'XP Malls FII',
+      type: 'REIT',
+      market: 'B3',
+      currency: 'BRL',
+      sector: 'Shopping malls'
+    };
+
+    const registerAsset = (
+      {
+        accessToken,
+        portfolio
+      }: Awaited<ReturnType<typeof signInWithPortfolio>>,
+      symbol: string,
+      instrument: Record<string, unknown> = XPML11
+    ) =>
+      client
+        .post(CREATE_ASSET_ROUTE)
+        .set(bearer(accessToken))
+        .send({ symbol, portfolioId: portfolio.id, instrument });
+
+    it('registers the instrument for the caller alone and opens the position in one step', async () => {
+      const caller = await signInWithPortfolio();
+
+      const res = await registerAsset(caller, PRIVATE_SYMBOL.toLowerCase(), {
+        ...XPML11,
+        type: 'reit',
+        market: 'b3',
+        currency: 'brl'
+      });
+
+      assert.equal(res.status, 201);
+      assert.equal(res.body.message, AssetMessages.CREATED);
+      assert.equal(res.body.asset.symbol, PRIVATE_SYMBOL);
+      assert.equal(res.body.asset.portfolioId, caller.portfolio.id);
+      assert.deepEqual(
+        await prismaClient.instrument.findUniqueOrThrow({
+          where: { id: res.body.asset.instrumentId },
+          select: {
+            symbol: true,
+            name: true,
+            type: true,
+            market: true,
+            currency: true,
+            sector: true,
+            ownerId: true
+          }
+        }),
+        { ...XPML11, symbol: PRIVATE_SYMBOL, ownerId: caller.user.id }
+      );
+    });
+
+    it('refuses a symbol the catalog holds, pointing to the catalog instrument instead of duplicating it', async () => {
+      const caller = await signInWithPortfolio();
+      await createInstrument({ symbol: PRIVATE_SYMBOL });
+
+      const res = await registerAsset(caller, PRIVATE_SYMBOL);
+
+      assert.equal(res.status, Errors.CONFLICT.status);
+      assert.equal(res.body.message, InstrumentMessages.ALREADY_EXISTS);
+      assert.equal(await prismaClient.instrument.count(), 1);
+      assert.equal(await prismaClient.position.count(), 0);
+    });
+
+    it('refuses a symbol the caller already registered, even from another portfolio', async () => {
+      const caller = await signInWithPortfolio();
+      const otherPortfolio = await createPortfolio(caller.user.id, {
+        name: 'Other'
+      });
+
+      const first = await registerAsset(caller, PRIVATE_SYMBOL);
+      const again = await registerAsset(
+        { ...caller, portfolio: otherPortfolio },
+        PRIVATE_SYMBOL
+      );
+
+      assert.equal(first.status, 201);
+      assert.equal(again.status, Errors.CONFLICT.status);
+      assert.equal(
+        again.body.message,
+        InstrumentMessages.PRIVATE_ALREADY_EXISTS
+      );
+      assert.equal(await prismaClient.instrument.count(), 1);
+      assert.equal(await prismaClient.position.count(), 1);
+    });
+
+    it('lets the caller add a registered private instrument to another portfolio by symbol', async () => {
+      const caller = await signInWithPortfolio();
+      const otherPortfolio = await createPortfolio(caller.user.id, {
+        name: 'Other'
+      });
+
+      const registered = await registerAsset(caller, PRIVATE_SYMBOL);
+      const added = await client
+        .post(CREATE_ASSET_ROUTE)
+        .set(bearer(caller.accessToken))
+        .send({ symbol: PRIVATE_SYMBOL, portfolioId: otherPortfolio.id });
+
+      assert.equal(added.status, 201);
+      assert.equal(
+        added.body.asset.instrumentId,
+        registered.body.asset.instrumentId
+      );
+    });
+
+    it('keeps the private instruments of two users apart, even under one symbol', async () => {
+      const owner = await signInWithPortfolio();
+      const other = await signInWithPortfolio(OTHER_USER_EMAIL);
+
+      const owned = await registerAsset(owner, PRIVATE_SYMBOL);
+      const foreignPick = await client
+        .post(CREATE_ASSET_ROUTE)
+        .set(bearer(other.accessToken))
+        .send({ symbol: PRIVATE_SYMBOL, portfolioId: other.portfolio.id });
+      const ownRegistration = await registerAsset(other, PRIVATE_SYMBOL);
+
+      assert.equal(foreignPick.status, Errors.NOT_FOUND.status);
+      assert.equal(foreignPick.body.message, InstrumentMessages.NOT_FOUND);
+      assert.equal(ownRegistration.status, 201);
+      assert.notEqual(
+        ownRegistration.body.asset.instrumentId,
+        owned.body.asset.instrumentId
+      );
+    });
+
+    it('refuses a currency the market does not quote in and registers nothing', async () => {
+      const caller = await signInWithPortfolio();
+
+      const res = await registerAsset(caller, PRIVATE_SYMBOL, {
+        ...XPML11,
+        currency: 'USD'
+      });
+
+      assert.equal(res.status, Errors.DOMAIN.status);
+      assert.equal(res.body.message, InstrumentMessages.CURRENCY_MISMATCH);
+      assert.equal(await prismaClient.instrument.count(), 0);
+      assert.equal(await prismaClient.position.count(), 0);
+    });
+
+    it('rejects attributes outside the instrument contract and registers nothing', async () => {
+      const caller = await signInWithPortfolio();
+      const invalidInstruments = [
+        { ...XPML11, name: undefined },
+        { ...XPML11, name: ' ' },
+        { ...XPML11, type: 'COMMODITY' },
+        { ...XPML11, market: undefined },
+        { ...XPML11, market: 'LSE' },
+        { ...XPML11, currency: 'REAL' },
+        { ...XPML11, country: 'BRA' }
+      ];
+
+      for (const instrument of invalidInstruments) {
+        const res = await registerAsset(caller, PRIVATE_SYMBOL, instrument);
+
+        assert.equal(
+          res.status,
+          Errors.VALIDATION.status,
+          JSON.stringify(instrument)
+        );
+      }
+
+      const invalidSymbol = await registerAsset(caller, 'XPML.11');
+
+      assert.equal(invalidSymbol.status, Errors.VALIDATION.status);
+      assert.equal(await prismaClient.instrument.count(), 0);
+      assert.equal(await prismaClient.position.count(), 0);
+    });
+
+    it("answers another user's portfolio like a missing one and registers nothing", async () => {
+      const caller = await signInWithPortfolio();
+      const other = await signInWithPortfolio(OTHER_USER_EMAIL);
+
+      const res = await registerAsset(
+        { ...caller, portfolio: other.portfolio },
+        PRIVATE_SYMBOL
+      );
+
+      assert.equal(res.status, Errors.NOT_FOUND.status);
+      assert.equal(res.body.message, PortfolioMessages.NOT_FOUND);
+      assert.equal(await prismaClient.instrument.count(), 0);
+    });
+
+    it('registers nothing when opening the position fails', async (t) => {
+      const caller = await signInWithPortfolio();
+      injectWriteFailure(t, 'position', 'create');
+      t.mock.method(console, 'error', () => undefined);
+
+      const res = await registerAsset(caller, PRIVATE_SYMBOL);
+
+      assert.equal(res.status, Errors.INTERNAL.status);
+      assert.equal(await prismaClient.instrument.count(), 0);
+      assert.equal(await prismaClient.position.count(), 0);
+    });
+  });
+
   /**
    * The API has no search. The web filters the page it already fetched by
    * symbol substring (`assets-table.tsx`), so it never finds a match on another
@@ -285,6 +483,38 @@ describe('assets', () => {
       assert.equal(foreign.status, Errors.NOT_FOUND.status);
       assert.deepEqual(foreign.body, missing.body);
       assert.equal(await storedSymbolOf(asset.id), asset.symbol);
+    });
+
+    it("moves the asset to the caller's private instrument, never to another user's", async () => {
+      const caller = await signInWithPortfolio();
+      const other = await signInWithPortfolio(OTHER_USER_EMAIL);
+      const asset = await createAsset({ portfolioId: caller.portfolio.id });
+      await createInstrument({
+        symbol: RENAMED_SYMBOL,
+        ownerId: other.user.id
+      });
+
+      const foreign = await renameAsset(caller, asset.symbol, RENAMED_SYMBOL);
+
+      assert.equal(foreign.status, Errors.NOT_FOUND.status);
+      assert.equal(await storedSymbolOf(asset.id), asset.symbol);
+
+      const owned = await createInstrument({
+        symbol: RENAMED_SYMBOL,
+        ownerId: caller.user.id
+      });
+
+      const moved = await renameAsset(caller, asset.symbol, RENAMED_SYMBOL);
+
+      assert.equal(moved.status, 200);
+      assert.equal(
+        (
+          await prismaClient.position.findUniqueOrThrow({
+            where: { id: asset.id }
+          })
+        ).instrumentId,
+        owned.id
+      );
     });
 
     it('answers not found for a new symbol outside the catalog, keeping the old one', async () => {

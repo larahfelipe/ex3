@@ -56,19 +56,25 @@ enum InstrumentType {
 
 model Instrument {
   id           String         @id @default(uuid())
-  symbol       String         @unique
+  symbol       String
   name         String
   type         InstrumentType
   market       String?
   currency     String?
   sector       String?
   country      String?
+  /// The user who registered a private instrument, null for the shared
+  /// catalog. The unique index treats nulls as equal (NULLS NOT DISTINCT, set in
+  /// the migration because the schema cannot express it), so the catalog holds
+  /// one instrument per symbol and each user one private instrument per symbol.
+  ownerId      String?
   positions    Position[]
   transactions Transaction[]
   marketQuotes MarketQuote[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
+  @@unique([ownerId, symbol])
   @@map("instruments")
 }
 

@@ -1,6 +1,6 @@
 import type { Prisma } from '@prisma/client';
 
-import type { Instrument } from '@/domain/models';
+import type { Instrument, InstrumentRegistration } from '@/domain/models';
 
 import { PrismaClient } from './PrismaClient';
 
@@ -21,16 +21,40 @@ export class InstrumentRepository {
     return InstrumentRepository.INSTANCE;
   }
 
-  async getAll(params: InstrumentRepository.GetAllParams) {
-    const { page = 1, limit = DEFAULT_PAGE_LIMIT, search } = params;
+  /**
+   * A private instrument shadows the catalog one of its symbol, so only the
+   * catalog instruments whose symbol the user has not registered are listed.
+   */
+  async getAllVisible(params: InstrumentRepository.GetAllVisibleParams) {
+    const { userId, page = 1, limit = DEFAULT_PAGE_LIMIT, search } = params;
 
-    const where: Prisma.InstrumentWhereInput | undefined =
+    const privateInstruments = await this.prismaClient.instrument.findMany({
+      where: { ownerId: userId },
+      select: { symbol: true }
+    });
+
+    const visible: Prisma.InstrumentWhereInput = {
+      OR: [
+        { ownerId: userId },
+        {
+          ownerId: null,
+          symbol: { notIn: privateInstruments.map(({ symbol }) => symbol) }
+        }
+      ]
+    };
+
+    const where: Prisma.InstrumentWhereInput =
       search === undefined
-        ? undefined
+        ? visible
         : {
-            OR: [
-              { symbol: { startsWith: search.toUpperCase() } },
-              { name: { contains: search, mode: 'insensitive' } }
+            AND: [
+              visible,
+              {
+                OR: [
+                  { symbol: { startsWith: search.toUpperCase() } },
+                  { name: { contains: search, mode: 'insensitive' } }
+                ]
+              }
             ]
           };
 
@@ -57,14 +81,29 @@ export class InstrumentRepository {
     });
   }
 
-  async getBySymbol(symbol: string) {
-    return this.prismaClient.instrument.findUnique({ where: { symbol } });
+  async getById(id: string) {
+    return this.prismaClient.instrument.findUnique({ where: { id } });
   }
 
   /**
-   * The unique index on symbol is the only authority on whether it is free, so
-   * of concurrent registrations of one symbol exactly one succeeds and the
-   * others resolve to null.
+   * The instrument a symbol names for a user: the private one they registered,
+   * else the catalog one. Nulls sort last, so a private instrument shadows the
+   * catalog instrument of its symbol.
+   */
+  async getVisibleBySymbol(params: InstrumentRepository.GetVisibleParams) {
+    const { symbol, userId } = params;
+
+    return this.prismaClient.instrument.findFirst({
+      where: { symbol, OR: [{ ownerId: userId }, { ownerId: null }] },
+      orderBy: { ownerId: { sort: 'asc', nulls: 'last' } }
+    });
+  }
+
+  /**
+   * The unique index on owner and symbol, which counts every catalog instrument
+   * as one owner, is the only authority on whether the symbol is free, so of
+   * concurrent registrations of one symbol exactly one succeeds and the others
+   * resolve to null.
    */
   async add(params: InstrumentRepository.AddParams) {
     try {
@@ -77,20 +116,24 @@ export class InstrumentRepository {
   }
 
   async update(params: InstrumentRepository.UpdateParams) {
-    const { symbol, ...attributes } = params;
+    const { id, ...attributes } = params;
 
     return this.prismaClient.instrument.update({
-      where: { symbol },
+      where: { id },
       data: attributes
     });
   }
 }
 
 namespace InstrumentRepository {
-  export type GetAllParams = { page?: number; limit?: number; search?: string };
-  export type AddParams = Pick<Instrument, 'symbol' | 'name' | 'type'> &
-    Record<'market' | 'currency', string> &
-    Partial<Record<'sector' | 'country', string>>;
-  export type UpdateParams = Pick<Instrument, 'symbol'> &
-    Partial<Omit<AddParams, 'symbol'>>;
+  export type GetAllVisibleParams = Record<'userId', string> & {
+    page?: number;
+    limit?: number;
+    search?: string;
+  };
+  export type GetVisibleParams = Pick<Instrument, 'symbol'> &
+    Record<'userId', string>;
+  export type AddParams = InstrumentRegistration;
+  export type UpdateParams = Pick<Instrument, 'id'> &
+    Partial<Omit<InstrumentRegistration, 'symbol'>>;
 }

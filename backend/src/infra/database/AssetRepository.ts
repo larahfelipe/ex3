@@ -1,7 +1,7 @@
 import type { Position as PositionRow } from '@prisma/client';
 
 import type { PricedInstrument } from '@/domain/MarketDataProvider';
-import type { Position } from '@/domain/models';
+import type { InstrumentRegistration, Position } from '@/domain/models';
 import type { AllocatedPosition } from '@/domain/PortfolioValuation';
 
 import { PrismaClient } from './PrismaClient';
@@ -131,6 +131,42 @@ export class AssetRepository {
   }
 
   /**
+   * The private instrument and the position holding it are created in one
+   * serializable transaction, so a failure leaves neither. The unique index on
+   * owner and symbol is the only authority on whether the owner already
+   * registered the symbol, so of concurrent registrations exactly one succeeds
+   * and the others resolve to null.
+   */
+  async addWithPrivateInstrument(
+    params: AssetRepository.AddWithPrivateInstrumentParams
+  ) {
+    const { portfolioId, instrument } = params;
+
+    try {
+      const position = await this.prismaClient.runSerializable(
+        async (transactionClient) => {
+          const { id: instrumentId } =
+            await transactionClient.instrument.create({
+              data: instrument,
+              select: { id: true }
+            });
+
+          return transactionClient.position.create({
+            data: { instrumentId, portfolioId },
+            include: INSTRUMENT_SYMBOL
+          });
+        }
+      );
+
+      return toPosition(position);
+    } catch (error) {
+      if (PrismaClient.isUniqueConstraintViolation(error)) return null;
+
+      throw error;
+    }
+  }
+
+  /**
    * The position and its transactions move to the new instrument in one
    * serializable transaction, so none is left behind on the old one. Resolves
    * to false, moving nothing, when the portfolio already holds the new one.
@@ -188,6 +224,8 @@ namespace AssetRepository {
   };
   export type PricedPosition = PricedInstrument & AllocatedPosition;
   export type AddParams = Pick<Position, 'instrumentId' | 'portfolioId'>;
+  export type AddWithPrivateInstrumentParams = Pick<Position, 'portfolioId'> &
+    Record<'instrument', InstrumentRegistration & Record<'ownerId', string>>;
   export type UpdateParams = Pick<Position, 'portfolioId'> &
     Record<'oldInstrumentId' | 'newInstrumentId', string>;
   export type DeleteParams = Pick<Position, 'instrumentId' | 'portfolioId'>;

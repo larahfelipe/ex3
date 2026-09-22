@@ -3,6 +3,7 @@ import { Router, type Application } from 'express';
 import {
   createInstrumentControllerHandler,
   getAllInstrumentsControllerHandler,
+  getInstrumentOptionsControllerHandler,
   updateInstrumentControllerHandler
 } from '@/controllers/instrument';
 import { authMiddleware } from '@/middleware';
@@ -13,6 +14,12 @@ instrumentRouter.get(
   '/v1/instruments',
   authMiddleware,
   getAllInstrumentsControllerHandler as Application
+);
+
+instrumentRouter.get(
+  '/v1/instruments/options',
+  authMiddleware,
+  getInstrumentOptionsControllerHandler as Application
 );
 
 instrumentRouter.post(

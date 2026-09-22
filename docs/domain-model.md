@@ -16,32 +16,38 @@ User
 | --- | --- | --- | --- |
 | `User` | Identidade, credenciais e sessão. | — | `id`; `email` único |
 | `Portfolio` | Agrupa o razão e as posições de um usuário sob uma moeda base. É a fronteira de acesso: todo recurso financeiro é resolvido pela carteira do usuário autenticado. | um `User`, que pode ter várias | `id` |
-| `Instrument` | O ativo de mercado negociável: ação, ETF, fundo, FII, cripto, título, caixa. Catálogo global, compartilhado por todos os usuários. | — | `symbol`, único no catálogo |
+| `Instrument` | O ativo de mercado negociável: ação, ETF, fundo, FII, cripto, título, caixa. Do catálogo global, compartilhado por todos os usuários, ou privado de quem o cadastrou. | nenhum no catálogo; um `User` quando privado | `(ownerId, symbol)`, com o catálogo contado como um único dono |
 | `Transaction` | Um evento financeiro de uma carteira sobre um instrumento. Fonte de verdade de toda movimentação. | um `Portfolio` | `id` |
 | `Position` | Quanto uma carteira detém de um instrumento e a que custo. Projeção derivada das transações, nunca editada diretamente. | um `Portfolio` | `(portfolioId, instrumentId)` |
 | `MarketQuote` | O fechamento de um dia de negociação de um instrumento, com moeda e fonte. | — | `(instrumentId, timestamp, source)`, com `timestamp` no início do dia em UTC |
 
 ## Carteira
 
-Toda conta tem ao menos uma carteira: o sign-up cria `Main`, e a exclusão da última responde `422`. Excluir uma carteira remove as posições e as transações dela na mesma transação serializável; os instrumentos continuam no catálogo. `name` muda a qualquer momento, e `baseCurrency` só enquanto a carteira não tem transação (`422`), porque o web registra transação nova na moeda base e uma posição já aberta em outra moeda recusaria a escrita (`CURRENCY_MISMATCH`). Não há teto de carteiras por conta (TD-011).
+Toda conta tem ao menos uma carteira: o sign-up cria `Main`, e a exclusão da última responde `422`. Excluir uma carteira remove as posições e as transações dela na mesma transação serializável; os instrumentos continuam cadastrados. `name` muda a qualquer momento, e `baseCurrency` só enquanto a carteira não tem transação (`422`), porque o web registra transação nova na moeda base e uma posição já aberta em outra moeda recusaria a escrita (`CURRENCY_MISMATCH`). Não há teto de carteiras por conta (TD-011).
 
 **Carteira ativa.** O web opera uma carteira por vez: a escolhida na tela de carteiras, guardada no `localStorage` do navegador (`ex3:active-portfolio`), ou a mais antiga enquanto não há escolha. Escolha que a API não resolve mais, porque a carteira foi excluída ou é de outra conta, é descartada, e o sign-out a apaga. A escolha é só preferência de exibição: a API resolve cada carteira pelo usuário autenticado.
 
 ## Catálogo de instrumentos
 
-`Instrument` é compartilhado por todas as carteiras e não pertence a nenhum usuário: excluir a conta de quem detém um instrumento mantém o instrumento.
+Um instrumento é do catálogo, sem dono e compartilhado por todas as carteiras, ou privado, com `ownerId` no usuário que o cadastrou e visível só a ele. Excluir a conta de quem detém um instrumento do catálogo mantém o instrumento; excluir a conta do dono de um instrumento privado remove o instrumento e a série de cotações dele na mesma transação.
 
 | Campo | Regra |
 | --- | --- |
-| `symbol` | identidade, única no catálogo e nunca alterada; símbolo novo aceita só letras e dígitos, até 6 caracteres |
+| `symbol` | identidade, única por escopo e nunca alterada; símbolo novo aceita só letras e dígitos, até 6 caracteres |
 | `name` | até 120 caracteres |
 | `type` | `STOCK`, `ETF`, `FUND`, `REIT`, `CRYPTO`, `BOND`, `TREASURY`, `CASH` ou `OTHER` |
 | `market` | mercado de negociação: `B3`, `NYSE`, `NASDAQ` ou `CRYPTO`, os que o provedor de cotação precifica |
-| `currency` | moeda de cotação, código ISO 4217 |
+| `currency` | moeda de cotação, código ISO 4217; a do mercado, quando o mercado cota numa só |
 | `sector` | opcional, até 60 caracteres |
 | `country` | opcional, código de duas letras |
 
-**Quem escreve.** Só admin cadastra e corrige instrumentos; os demais usuários escolhem do catálogo, e a escrita deles recebe 403. Qualquer usuário autenticado lista e busca o catálogo, e o web adiciona ativo escolhendo o instrumento numa lista buscável por símbolo ou nome, sem símbolo digitado livremente. Abrir ou renomear um ativo para símbolo fora do catálogo responde 404 até um admin cadastrá-lo.
+**Identidade.** Para cada usuário, um símbolo nomeia um só instrumento: o privado dele, se existir, senão o do catálogo. O índice único `(ownerId, symbol)` é a única autoridade sobre isso e é criado com `NULLS NOT DISTINCT`, que o Prisma não declara: sem ele cada linha do catálogo, de `ownerId` nulo, seria distinta das outras e o catálogo poderia repetir um símbolo. De cadastros simultâneos do mesmo símbolo, exatamente um grava. O mercado não entra na identidade, porque as rotas de ativo, posição e transação endereçam o instrumento pelo símbolo; o mesmo ticker em dois mercados é o TD-067.
+
+**Moeda do mercado.** `B3` cota em `BRL`, `NYSE` e `NASDAQ` em `USD`, e `CRYPTO` na moeda que o cadastro escolhe, porque o par pedido ao provedor a carrega. Cadastro ou correção em outra moeda responde `422` (`CURRENCY_MISMATCH`), já que o instrumento seria avaliado na moeda errada; instrumento migrado sem `market` ou `currency` não é restringido.
+
+**Quem escreve.** Só admin cadastra e corrige instrumentos do catálogo; a escrita de outro usuário no catálogo recebe 403. Qualquer usuário autenticado cadastra instrumento privado ao abrir o ativo (`POST /v1/assets/create` com `instrument`), e só o dono o corrige. O cadastro recusa com `409` o símbolo que o catálogo já tem (`ALREADY_EXISTS`), porque o ativo deve vir do catálogo, e o que o usuário já cadastrou (`PRIVATE_ALREADY_EXISTS`). Instrumento privado de outro usuário é invisível: listá-lo, abri-lo como ativo ou corrigi-lo responde como símbolo inexistente, 404. O web adiciona ativo escolhendo o instrumento numa lista buscável por símbolo ou nome, com o selo *Private* nos do usuário, ou cadastrando o que a lista não tem.
+
+**Instrumento privado e catálogo.** Um privado cujo símbolo o admin cadastre depois no catálogo continua do dono e esconde o do catálogo para ele, com a mesma série e as mesmas posições; o catálogo não absorve instrumentos privados.
 
 **Posição por instrumento.** Uma carteira tem no máximo uma posição por instrumento, e várias carteiras podem ter posição no mesmo instrumento. Transações referenciam a carteira e o instrumento.
 
@@ -243,7 +249,7 @@ Os valores de timeout, cache, pausa e lote são assumidos, não medidos, e a cot
 
 | Campo | Regra |
 | --- | --- |
-| `instrumentId` | o instrumento do catálogo; só instrumento catalogado tem série |
+| `instrumentId` | o instrumento, do catálogo ou privado; a série segue o instrumento, não o símbolo |
 | `timestamp` | o início do dia de negociação em UTC, não o instante do fechamento |
 | `price` | decimal na escala das colunas monetárias, como o provedor o devolveu |
 | `currency` | moeda da cotação, código ISO 4217 |
@@ -252,7 +258,7 @@ Os valores de timeout, cache, pausa e lote são assumidos, não medidos, e a cot
 * Um instrumento tem no máximo uma linha por dia e fonte, e o índice único `(instrumentId, timestamp, source)` é a única autoridade sobre isso: gravar de novo um dia já gravado mantém o preço primeiro observado, e duas gravações simultâneas do mesmo dia produzem uma linha só.
 * Correção de fechamento publicada pelo provedor não substitui o valor gravado (TD-027), e nada descarta linha antiga (TD-026).
 * O preço gravado é o que o adaptador já validou (ver [Yahoo Finance](#yahoo-finance)); a escrita não revalida.
-* A tabela cobre o catálogo de instrumentos, e o benchmark da série de performance é um símbolo dele, com a mesma série. O par de câmbio tem tabela própria.
+* A tabela cobre todos os instrumentos, e o benchmark da série de performance é o instrumento que o símbolo nomeia para o usuário, com a mesma série. O par de câmbio tem tabela própria.
 
 A série é consultada por intervalo, de `from` inclusive a `to` exclusivo, em ordem crescente de dia. O que o intervalo pedido não encontra gravado é pedido ao provedor no intervalo diário e gravado antes da resposta:
 

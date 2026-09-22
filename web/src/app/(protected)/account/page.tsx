@@ -2,6 +2,8 @@
 
 import { useId } from 'react';
 
+import { Loader2, LogOut } from 'lucide-react';
+
 import { ErrorState } from '@/components/data-state';
 import { PageHeader } from '@/components/page-header';
 import { SectionHeader } from '@/components/section-header';
@@ -14,10 +16,11 @@ import {
   Label,
   Skeleton
 } from '@/components/ui';
-import { useCurrentUser } from '@/hooks/use-user';
+import { useCurrentUser, useSignOut } from '@/hooks/use-user';
 
 export default function Account() {
   const { data: user, isLoading, isError, refetch } = useCurrentUser();
+  const { mutate: signOut, isPending: isSigningOut } = useSignOut();
 
   const profileHeadingId = useId();
   const securityHeadingId = useId();
@@ -27,6 +30,22 @@ export default function Account() {
       <PageHeader
         title="Account"
         description="Your profile and security details"
+        action={
+          <Button
+            variant="outline"
+            className="gap-2 sm:hidden"
+            disabled={isSigningOut}
+            onClick={() => signOut()}
+          >
+            {isSigningOut ? (
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+            ) : (
+              <LogOut aria-hidden="true" className="size-4" />
+            )}
+
+            <span>Sign out</span>
+          </Button>
+        }
       />
 
       <section aria-labelledby={profileHeadingId} className="min-w-0">

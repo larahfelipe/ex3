@@ -27,6 +27,8 @@ const NOT_FOUND_ERROR_CODE = 'NOT_FOUND';
 
 const CONFLICT_ERROR_CODE = 'CONFLICT';
 
+const DOMAIN_ERROR_CODE = 'DOMAIN';
+
 export const isValidationError = ({
   _error
 }: Pick<ApiProxyErrorData, '_error'>) => _error?.code === VALIDATION_ERROR_CODE;
@@ -38,6 +40,9 @@ export const isNotFoundError = ({
 export const isConflictError = ({
   _error
 }: Pick<ApiProxyErrorData, '_error'>) => _error?.code === CONFLICT_ERROR_CODE;
+
+export const isDomainError = ({ _error }: Pick<ApiProxyErrorData, '_error'>) =>
+  _error?.code === DOMAIN_ERROR_CODE;
 
 export class ApiProxyError extends AxiosError implements IApiProxyError {
   _error: ApiServerErrorData | null = null;

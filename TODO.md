@@ -58,9 +58,9 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-011 — Criação de carteiras sem limite por usuário
 
 - **Origem:** várias carteiras por usuário · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** avulso
-- **Contexto:** `POST /v1/portfolio` exige só autenticação: não há teto de carteiras por usuário nem rate limit na rota. A listagem é paginada com `limit` até 100, então o custo de cada leitura não cresce com o total. A criação de transações tem a mesma ausência de teto, anterior às várias carteiras, e cada escrita de transação relê e percorre todas as transações da posição.
-- **Impacto:** um usuário autenticado cria carteiras sem limite e faz a tabela `portfolios` crescer na vazão que a API aceitar (OWASP API4:2023). O custo de cada escrita de transação cresce linearmente com o razão da posição, sem alcançar posições de outras carteiras. O teto é decisão de produto e não foi fixado por conveniência da implementação.
-- **Proposta:** definir com o produto o número máximo de carteiras por usuário, recusar a criação acima dele sem gravar e aplicar um rate limit às rotas de escrita.
+- **Contexto:** `POST /v1/portfolio` exige só autenticação: não há teto de carteiras por usuário nem rate limit na rota. A listagem é paginada com `limit` até 100, então o custo de cada leitura não cresce com o total. A criação de transações tem a mesma ausência de teto, anterior às várias carteiras, e cada escrita de transação relê e percorre todas as transações da posição. O cadastro de instrumento privado (`POST /v1/assets/create` com `instrument`) tem a mesma forma: exige só autenticação, sem teto por usuário nem rate limit dedicado, e cada um grava uma linha em `instruments` com `ownerId` do chamador.
+- **Impacto:** um usuário autenticado cria carteiras, transações e agora instrumentos privados sem limite, fazendo as tabelas correspondentes crescerem na vazão que a API aceitar (OWASP API4:2023). O custo de cada escrita de transação cresce linearmente com o razão da posição, sem alcançar posições de outras carteiras. O teto é decisão de produto e não foi fixado por conveniência da implementação.
+- **Proposta:** definir com o produto o número máximo de carteiras, transações por posição e instrumentos privados por usuário, recusar a criação acima dele sem gravar e aplicar um rate limit às rotas de escrita, incluindo `assets/create` com `instrument`.
 
 ### TD-014 — Nome do usuário sem limite de tamanho
 
@@ -247,16 +247,16 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-048 — Paleta clara dos tokens semânticos sem cobertura em runtime
 
 - **Origem:** TASK 12.1 · **Tipo:** qualidade · **Prioridade:** baixa · **Encaminhamento:** avulso
-- **Contexto:** `globals.css` define os dois temas, mas `<html>` fixa `className="dark"` e nada alterna. Os valores de `:root` para `surface`, `positive`, `negative`, `warning`, `info`, `focus` e `chart-1..10` foram escolhidos com contraste calculado sobre fundo branco, sem nunca terem sido renderizados.
-- **Impacto:** se o seletor de tema entrar depois, a paleta clara chega sem validação visual e sem auditoria de contraste real.
+- **Contexto:** `globals.css` define os dois temas, mas `<html>` fixa `className="dark"` e nada alterna. Desde a correção do TD-053, todo par de `:root` passa no contraste exigido por cálculo (ver `docs/accessibility.md`, §Contraste medido), mas nenhum ainda foi visto renderizado: a captura visual desta task (BiDi + axe) forçou a paleta clara removendo a classe `dark` do `<html>` no navegador, o que não é o mesmo caminho que um seletor de tema real exercitaria.
+- **Impacto:** se o seletor de tema entrar depois, a paleta clara chega com o contraste já verificado por computação, mas ainda sem auditoria visual pelo caminho real (toggle, persistência, `color-scheme` refletido pelos controles nativos).
 - **Proposta:** validar junto da TASK 14.7, ou remover o bloco `:root` se o produto assumir tema escuro único — decisão ligada ao TD-046.
 
 ### TD-049 — Arquitetura de navegação sem as seções de produto previstas
 
 - **Origem:** TASK 13.1 · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** avulso
-- **Contexto:** a navegação desenhada prevê Portfolio, Income, Analytics, Performance, Allocation, Risk, Market, Watchlist e Settings, mas o app só expõe `/`, `/assets`, `/assets/[symbol]` e `/account`. Income e as métricas de risco dependem de tasks ainda não implementadas, e Market, Watchlist e Settings não têm rota nem endpoint em lugar nenhum.
-- **Impacto:** publicar os itens agora criaria links mortos e quebraria o critério de rotas acessíveis; manter a lista curta adia a hierarquia de dois níveis.
-- **Proposta:** promover o grupo Portfolio e os demais itens conforme cada rota nascer, reaproveitando `MAIN_SECTIONS` em `sidebar.tsx`, que já é a única fonte da estrutura.
+- **Contexto:** a navegação desenhada prevê Portfolio, Income, Analytics, Performance, Allocation, Risk, Market, Watchlist e Settings, mas o app só expõe `/`, `/assets`, `/assets/[symbol]`, `/portfolios` e `/account`. O redesenho do menu lateral já agrupa as rotas existentes sob "Portfolio" e "Account", com hierarquia visual, ícone semântico, `aria-current` e recolhimento em `PORTFOLIO_SECTIONS`/`ACCOUNT_SECTION` (`sidebar.tsx`) — a estrutura de grupos que o item pedia está pronta. Income e as métricas de risco dependem de tasks ainda não implementadas, e Market, Watchlist e Settings não têm rota nem endpoint em lugar nenhum.
+- **Impacto:** publicar os itens agora criaria links mortos e quebraria o critério de rotas acessíveis; manter a lista curta adia só a hierarquia de dois níveis entre grupos, não a existência dos grupos.
+- **Proposta:** promover cada novo grupo conforme a rota nascer, adicionando a `PORTFOLIO_SECTIONS`/`ACCOUNT_SECTION` ou a um novo grupo irmão em `sidebar.tsx`, que já é a única fonte da estrutura.
 
 ### TD-050 — Período do gráfico e página das transações continuam fora da URL
 
@@ -271,13 +271,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** ao excluir uma transação, `transactions-table.tsx` devolve o foco para a primeira linha restante. Quando era a última, o pai troca a tabela inteira pelo `EmptyState` e o componente que devolveria o foco desmonta junto — o mesmo vale para a última posição excluída, já que o `EmptyState` não tem elemento focável.
 - **Impacto:** o próximo `Tab` recomeça do topo do documento; nenhum conteúdo fica inacessível.
 - **Proposta:** dar ao `EmptyState` um destino de foco — cabeçalho da seção com `tabIndex={-1}` ou a própria ação do estado vazio — e apontar os fluxos de exclusão para ele.
-
-### TD-053 — Seis pares de token reprovam no contraste exigido
-
-- **Origem:** TASK 14.5 · **Tipo:** acessibilidade · **Prioridade:** alta · **Encaminhamento:** avulso
-- **Contexto:** a medição dos tokens de `globals.css` está em `docs/accessibility.md`, §Contraste medido. Na paleta escura, a única com consumidor em runtime, reprovam `--destructive` como texto (2,01:1), `--primary-foreground` sobre `--primary` (3,49:1, o rótulo de todo botão primário) e `--border`/`--input` sobre `--background` (1,33:1, única pista visual da borda do campo). A auditoria da TASK 20.6 confirmou o segundo par na renderização, em 3,48:1, e ele é a única violação que o axe encontra em qualquer página ou estado. Na paleta clara, latente até TD-048, reprovam ainda `--destructive-foreground` sobre `--destructive` (3,60:1), `--muted-foreground` sobre `--muted` (4,39:1) e `--warning` sobre `bg-warning/10` (4,40:1). As mensagens de erro já saíram de `--destructive` para `--negative`, medido em 4,80:1 e 7,31:1.
-- **Impacto:** 1.4.3 e 1.4.11 falham no caminho principal — o rótulo do botão que confirma cada ação e a borda que identifica cada campo —, e a ação destrutiva é o texto menos legível da interface justamente onde o engano é irreversível.
-- **Proposta:** escolher os novos valores no próprio `globals.css`, um token por par reprovado, e repetir a medição; trocar a classe em cada uso espalharia a decisão sem corrigir a origem.
 
 ### TD-054 — Lighthouse e acessibilidade não têm execução repetível
 
@@ -357,7 +350,47 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** fechar um desses dois diálogos joga o próximo `Tab` para o topo do documento; nenhum conteúdo fica inacessível. Soma-se a TD-052, que é a mesma perda por outro caminho.
 - **Proposta:** enquanto o overlay estiver montado, seguir o último foco ocorrido fora do conteúdo por `focusin` e usá-lo como destino — o roubo do menu passa a ser justamente o registro certo. Verificar num navegador com janela ativa, já que o arnês da TASK 20.6 não dispara evento de foco.
 
+### TD-067 — Mesmo ticker em mercados diferentes não pode coexistir
+
+- **Origem:** cadastro de instrumento privado · **Tipo:** produto · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** a identidade de um instrumento é `(ownerId, symbol)` (ver `docs/domain-model.md`, §Catálogo de instrumentos), sem o mercado. A opção escolhida para a task previa `(símbolo, mercado)` por escopo, o que permitiria o mesmo ticker em `NYSE` e `NASDAQ`, por exemplo, mas as rotas de ativo, posição e transação endereçam o instrumento só pelo símbolo, dentro da carteira do usuário — mudar isso é reescrever o endereçamento, não o cadastro.
+- **Impacto:** um usuário não consegue ter dois instrumentos do mesmo ticker em mercados diferentes, nem no catálogo nem entre os privados; o cadastro do segundo recebe 409 sobre o primeiro.
+- **Proposta:** se o produto precisar do caso, endereçar ativo, posição e transação por instrumento (`instrumentId`) em vez de símbolo, como a série de cotações e o histórico de preço já fazem internamente desde este cadastro (ver `docs/domain-model.md`, §Cotações gravadas), e mover a identidade para `(ownerId, symbol, market)`.
+
+### TD-068 — Sem edição de instrumento privado pelo web
+
+- **Origem:** cadastro de instrumento privado · **Tipo:** produto · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** `PATCH /v1/instrument/:symbol` já aceita o dono de um instrumento privado corrigi-lo (ver `docs/api-inventory.md`), mas o web não expõe essa rota: `web/src/app/api/v1/instruments/` só faz proxy de `GET /v1/instruments` e `GET /v1/instruments/options`.
+- **Impacto:** quem cadastra um instrumento privado com um campo errado — nome, setor, classe — não tem como corrigi-lo sem excluir o ativo e cadastrar de novo, o que também perde a série de cotações acumulada.
+- **Proposta:** adicionar a rota de proxy e uma UI de edição no detalhe do ativo, visível só quando `scope === 'PRIVATE'` e o instrumento é do usuário.
+
+### TD-069 — Instrumento privado com o mesmo símbolo de um catálogo cadastrado depois fica invisível ao próprio admin
+
+- **Origem:** cadastro de instrumento privado · **Tipo:** produto · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** `getVisibleBySymbol` resolve o privado do usuário antes do catálogo (ver `docs/domain-model.md`, §Catálogo de instrumentos, Instrumento privado e catálogo). Um admin que primeiro cadastra um instrumento privado próprio e depois o mesmo símbolo no catálogo continua vendo e operando o privado em toda rota por símbolo; o catálogo que ele mesmo cadastrou fica inacessível para a própria conta.
+- **Impacto:** confunde só o admin que cadastrou os dois, sem afetar os demais usuários, que só veem o catálogo. Nenhum dado é perdido — os dois instrumentos continuam distintos no banco.
+- **Proposta:** ao abrir `PATCH /v1/instrument/:symbol` como admin, avisar quando o símbolo resolvido é o privado do próprio chamador e não o catálogo que a escrita administrativa presume estar editando.
+
+### TD-070 — `Toaster` fixo em `theme="dark"`
+
+- **Origem:** redesenho de tema · **Tipo:** qualidade · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** `app-provider.tsx` passa `theme="dark"` ao `Toaster` do `sonner`, independente da paleta ativa em `<html>`. Enquanto só a paleta escura tem consumidor (TD-048), o toast sempre combina com a página.
+- **Impacto:** nenhum hoje; se um seletor de tema entrar, o toast destoaria da paleta clara.
+- **Proposta:** ler o mesmo estado que decide a classe de `<html>` e passar `theme="light" | "dark"` ao `Toaster`, resolvido junto do TD-048.
+
+### TD-071 — `TransactionFormDialog` e `PortfolioFormDialog` não usam `FormField`/`ChoiceField`
+
+- **Origem:** cadastro de instrumento privado · **Tipo:** qualidade · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** `components/form-field.tsx` extraiu a fiação de rótulo/`aria-invalid`/`aria-describedby` que `instrument-registration.tsx` usa, a partir do padrão que `transaction-form-dialog.tsx` e `portfolio-form-dialog.tsx` fixaram primeiro. Os dois continuam com a fiação manual original: correta, mas duplicada em vez de reaproveitada.
+- **Impacto:** nenhum hoje — os três formulários se comportam igual para teclado e leitor de tela. Só custo de manutenção: uma correção na fiação de acessibilidade precisa repetir em três lugares.
+- **Proposta:** migrar os dois formulários para `FormField`/`ChoiceField` quando algum deles for tocado por outro motivo, sem PR dedicado só para isso.
+
 ## Resolvidos
+
+### TD-053 — Seis pares de token reprovam no contraste exigido
+
+- **Tipo:** acessibilidade · **Prioridade:** alta
+- **Resolução:** ajuste só de token em `globals.css`, nas duas paletas: `--primary-foreground`, `--destructive`, `--destructive-foreground` e `--input` no escuro; `--muted-foreground`, `--warning`, `--input` e `--destructive` no claro. Os 62 pares medidos passam agora nas duas paletas; nenhuma classe de uso mudou. `--border` continua abaixo de 3:1 por decisão — é só separador decorativo, e todo controle interativo usa `--input`, que passa. Ver `docs/accessibility.md`, §Contraste medido.
 
 ### TD-013 — Web opera só a carteira mais antiga
 

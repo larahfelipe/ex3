@@ -118,7 +118,7 @@ export class GetPortfolioPerformanceService {
         baseCurrency,
         window
       ),
-      this.benchmarkOf(benchmark, window)
+      this.benchmarkOf(benchmark, userId, window)
     ]);
 
     return trackPortfolioPerformance({
@@ -163,7 +163,7 @@ export class GetPortfolioPerformanceService {
           async ({ id, symbol, currency }) =>
             [
               id,
-              { symbol, currency, closes: await this.closesOf(symbol, range) }
+              { symbol, currency, closes: await this.closesOf(id, range) }
             ] as const
         )
       )
@@ -191,26 +191,30 @@ export class GetPortfolioPerformanceService {
 
   private async benchmarkOf(
     symbol: string | undefined,
+    userId: string,
     range: PriceRange
   ): Promise<QuotedInstrument | null> {
     if (symbol === undefined) return null;
 
-    const instrument = await this.instrumentRepository.getBySymbol(symbol);
+    const instrument = await this.instrumentRepository.getVisibleBySymbol({
+      symbol,
+      userId
+    });
 
     if (!instrument) throw new NotFoundError(InstrumentMessages.NOT_FOUND);
 
     return {
       symbol: instrument.symbol,
       currency: instrument.currency,
-      closes: await this.closesOf(instrument.symbol, range)
+      closes: await this.closesOf(instrument.id, range)
     };
   }
 
   private closesOf(
-    symbol: string,
+    instrumentId: string,
     range: PriceRange
   ): Promise<Array<DailyPrice>> {
-    return this.getPriceHistoryService.execute({ symbol, ...range });
+    return this.getPriceHistoryService.execute({ instrumentId, ...range });
   }
 }
 

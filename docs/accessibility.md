@@ -70,7 +70,7 @@ Automação cobre parte do conjunto; nenhum item abaixo é considerado atendido 
 | C4 | Nenhuma cor literal no código: tudo sai dos tokens de `globals.css` | 1.4.3 · varredura de `#`, `rgb(` e `hsl(` fora de `globals.css` |
 | C5 | Texto redimensionável até 200% e refluxo em 320 px sem perda de conteúdo | 1.4.4, 1.4.10 · unidades relativas; verificado junto da FASE 15 |
 
-A paleta clara dos tokens semânticos não tem consumidor em runtime — ver TD-048. C1 e C2 valem hoje sobre a paleta escura. As razões medidas estão em §Contraste medido.
+A paleta clara dos tokens semânticos não tem consumidor em runtime — ver TD-048; C1 e C2 valem hoje sobre a paleta escura, mas as duas paletas passam por computação desde a correção registrada em TD-053. `color-scheme` é declarado por tema em `:root` e `.dark`, para que rolagem, seleção e os controles nativos (`<select>`, checkbox, scrollbar) sigam a paleta ativa em vez do padrão do navegador. As razões medidas estão em §Contraste medido.
 
 ## 5. Formulários
 
@@ -120,26 +120,28 @@ Observadas ao escrever este checklist, cada uma endereçada na task indicada:
 | Contraste dos tokens nunca foi medido, em nenhuma das duas paletas | C1, C2 | 14.7 |
 | Nenhuma auditoria automatizada roda no repositório | — | 14.7 |
 
-Encerradas desde a captura: o link de pulo e os landmarks em `8a3ef68`; a região rolável do gráfico em `b01bf45`; o destino de foco após fechar overlay em `e8cb974`; nome acessível, associação de erro, estado obrigatório e `autocomplete` em `717ada7`; movimento reduzido em `b6bda64`; a auditoria automatizada na TASK 20.6, medida em §Auditoria automatizada. A linha do contraste continua aberta, com a medição na seção seguinte e a decisão em TD-053.
+Encerradas desde a captura: o link de pulo e os landmarks em `8a3ef68`; a região rolável do gráfico em `b01bf45`; o destino de foco após fechar overlay em `e8cb974`; nome acessível, associação de erro, estado obrigatório e `autocomplete` em `717ada7`; movimento reduzido em `b6bda64`; a auditoria automatizada na TASK 20.6, medida em §Auditoria automatizada. A linha do contraste foi fechada em TD-053, com a medição na seção seguinte.
 
 ## Contraste medido
 
 Medição determinística dos tokens de `app/globals.css`, nas duas paletas, restrita aos pares que o código produz de fato — cada `text-*` sobre a superfície em que ele aparece em `web/src`. Método: HSL do token convertido para sRGB, luminância relativa e razão de contraste da WCAG 2.x, com 4.5:1 para texto normal (1.4.3) e 3:1 para limite de componente e indicador de estado (1.4.11); fundo com alpha, como `bg-warning/10`, composto sobre `--background` antes da medição. Nenhum navegador é necessário para repetir a medição — as entradas são os próprios tokens.
 
-Pares reprovados:
+Todos os 62 pares medidos passam no limite da regra que exercem, nas duas paletas (script `scratchpad/contrast.mjs`, refeito com os tokens atuais). Os seis pares que reprovavam foram corrigidos só no valor do token — nenhuma classe de uso mudou:
 
-| Par | Onde aparece | Claro | Escuro | Limite |
+| Par | Onde aparece | Claro (era) | Escuro (era) | Limite |
 | --- | --- | --- | --- | --- |
-| `--destructive` como texto | ação "Delete transaction" em `transaction-details-dialog.tsx` | 3.76:1 | 2.01:1 | 4.5:1 |
-| `--primary-foreground` sobre `--primary` | rótulo de todo botão primário | 16.95:1 | 3.49:1 | 4.5:1 |
-| `--border` e `--input` sobre `--background` | borda de campo, única pista visual do controle | 1.24:1 | 1.33:1 | 3:1 |
-| `--destructive-foreground` sobre `--destructive` | botão sólido de exclusão | 3.60:1 | 9.59:1 | 4.5:1 |
-| `--muted-foreground` sobre `--muted` | texto secundário em superfície de realce | 4.39:1 | 6.00:1 | 4.5:1 |
-| `--warning` sobre `bg-warning/10` | chip de alerta | 4.40:1 | 10.28:1 | 4.5:1 |
+| `--destructive` como texto | ação "Delete transaction" em `transaction-details-dialog.tsx` | 5.75:1 (3.76:1) | 7.31:1 (2.01:1) | 4.5:1 |
+| `--primary-foreground` sobre `--primary` | rótulo de todo botão primário; `/0.9` no hover | 16.95:1 (16.95:1) | 5.71:1, 4.74:1 no hover (3.49:1) | 4.5:1 |
+| `--border`/`--input` sobre `--background` | borda de campo, única pista visual do controle | `--input` 3.52:1 (1.24:1) | `--input` 3.50:1 (1.33:1) | 3:1 |
+| `--destructive-foreground` sobre `--destructive` | botão sólido de exclusão; `/0.9` no hover | 5.50:1, 4.84:1 no hover (3.60:1) | 6.53:1, 5.40:1 no hover (9.59:1) | 4.5:1 |
+| `--muted-foreground` sobre `--muted` | texto secundário em superfície de realce | 4.91:1 (4.39:1) | 6.00:1 (6.00:1) | 4.5:1 |
+| `--warning` sobre `bg-warning/10` | chip de alerta | 5.00:1 (4.40:1) | 10.28:1 (10.28:1) | 4.5:1 |
 
-Os demais pares passam nas duas paletas, com folga: texto padrão 20.14:1 e 19.24:1; `--muted-foreground` sobre `--background` 4.83:1 e 7.96:1; `--negative` 4.80:1 e 7.31:1; `--positive` 5.58:1 e 10.46:1; `--info` 5.94:1 e 9.55:1; anel de foco 20.14:1 e 5.27:1; pior série do gráfico 3.02:1 e 5.27:1.
+`--border` continua abaixo de 3:1 nas duas paletas (1.24:1 claro, 1.33:1 escuro) por decisão: ele é só separador decorativo desde a correção, e todo controle interativo — input, select, segmented control — usa `--input` para a borda, que passa. `AlertDialog`/`Dialog` usa `bg-scrim/80` em vez de `bg-black/80` para o overlay, e `Input`/`SelectTrigger`/o textarea de notas ganharam `aria-[invalid=true]:border-negative`, então o estado inválido também é visível fora do foco.
 
-Como só a paleta escura tem consumidor em runtime (TD-048), as reprovações que hoje afetam o usuário são as três primeiras. Correção registrada em TD-053: o ajuste é no token, em `globals.css`, não na classe de cada uso.
+Os demais pares passam nas duas paletas, com folga: texto padrão 20.14:1 e 19.24:1; `--muted-foreground` sobre `--background` 5.40:1 e 7.96:1; `--negative` 4.80:1 e 7.31:1; `--positive` 5.58:1 e 9.96:1; `--info` 5.94:1 e 9.09:1; anel de foco 20.14:1 e 6.40:1.
+
+A paleta clara ainda não tem consumidor em runtime (TD-048): a medição prova que ela passaria se ativada, não que foi vista renderizada. TD-053 está resolvido — os seis pares passam por computação nas duas paletas — mas a paleta clara segue sem auditoria visual real até TD-048 ser endereçado.
 
 ## Auditoria automatizada — TASK 20.6
 
@@ -172,7 +174,7 @@ Nenhuma violação de impacto `critical` em nenhum estado, nos dois viewports, e
 
 ### Contraste medido pelo axe
 
-Todo nó reprovado é o mesmo par: `#fef2f2` sobre `#e65000`, 3,48:1 contra o mínimo de 4,5:1 — `--primary-foreground` sobre `--primary`, que §Contraste medido calcula em 3,49:1 a partir do token. Os nós são o rótulo do botão primário e o chip selecionado dos grupos de rádio de período e de agrupamento do gráfico. A renderização confirma TD-053; a escolha do novo valor continua sendo decisão de design sobre o token, não sobre a classe de cada uso.
+Todo nó reprovado era o mesmo par: `#fef2f2` sobre `#e65000`, 3,48:1 contra o mínimo de 4,5:1 — `--primary-foreground` sobre `--primary`, que §Contraste medido calculava em 3,49:1 a partir do token. Os nós eram o rótulo do botão primário e o chip selecionado dos grupos de rádio de período e de agrupamento do gráfico. A auditoria da seção seguinte confirma que o token corrigido resolve os três nós.
 
 Em 1280×800 a regra `color-contrast` volta como **incompleta com zero nós** em toda página: nessa largura ela não avaliou nada neste arnês, enquanto numa página de controle trivial avalia normalmente em qualquer largura. O traço em desktop na tabela acima é ausência de medição, não ausência de defeito — em telas largas o contraste segue coberto pela medição estática da seção anterior, que parte dos mesmos tokens.
 
@@ -205,3 +207,23 @@ O fluxo que abre o dialog pelo menu da linha continua perdendo o foco ao fechar,
 - A janela headless nunca recebe ativação: `document.hasFocus()` é sempre `false` e o Firefox não dispara `focus`, `focusin` nem `blur`, embora `document.activeElement` mude. Duas consequências: `:focus-visible` nunca casa, então o anel de foco não pode ser observado renderizado e F1 segue verificado pelo par de classes no código; e o focus trap do Radix, que depende de `focusin`, não roda, então nem a contenção do teclado no modal nem a recuperação de um foco roubado podem ser medidas aqui.
 - O Lighthouse não foi executado: o pacote não está instalado. O critério "accessibility ≥ 95" da TASK 14.7 continua não verificado, em TD-054.
 - Leitor de tela real (NVDA, VoiceOver), clareza da mensagem de erro e equivalência do conteúdo alternativo permanecem no roteiro manual deste documento — nenhuma ferramenta decide por eles.
+
+## Auditoria automatizada — cadastro de instrumento e menu lateral (2026-09-21)
+
+Executada contra `next dev` com uma conta semeada (`PETR4` do catálogo, um instrumento privado e uma posição de cada), Firefox headless por WebDriver BiDi e axe-core 4.11.1, nas duas paletas e em 1280×800, 820×1180 e 390×844 — arnês e limites em §Auditoria automatizada — TASK 20.6.
+
+### Corrigido nesta task
+
+| Achado | Correção |
+| --- | --- |
+| `fieldset disabled={isSubmitting}` em todo formulário de diálogo desabilitava os campos assim que `handleSubmit` chamava `setValue`, e o `blur` disparado pelo `disabled` corria antes do `setFocus` do RHF: o foco caía no `body`, não no primeiro campo inválido (F4, 3.3.1) | `fieldset` sem `disabled` em `instrument-registration.tsx`, `add-asset-dialog.tsx`, `transaction-form-dialog.tsx` e `portfolio-form-dialog.tsx`; o botão de troca de vista (catálogo ↔ cadastro) e o link "Buscar no catálogo" continuam desabilitados durante o submit, individualmente |
+| `RegistrationForm` registra os campos na ordem do formulário, com os `SegmentedControl` de classe e mercado antes de símbolo e nome; `shouldFocusError` do RHF foca nessa ordem de registro, não na ordem visual, então um símbolo vazio focava "Stocks" (2.4.3, F6) | `shouldFocusError: false` mais um focus handler que percorre `REGISTRATION_FIELDS`, a ordem visual, e foca o primeiro campo com erro |
+| `ChoiceField` (grupo de rádio) não tinha nenhuma pista visual de erro — só a mensagem abaixo indicava o campo inválido, ao contrário de `Input`, que já ganha borda vermelha (1.4.1, 3.3.1) | `data-invalid` no `fieldset` mais `in-data-invalid:border-negative` em `SegmentedControl` |
+| `section[aria-labelledby]` da tabela de posições rolável tinha o mesmo rótulo ("Positions") do `<h2>` da seção que a contém, então em telas que precisam rolar (≥768px de tabela, <820px de viewport) os dois landmarks ficavam indistinguíveis (`landmark-unique`, 1.3.1, 2.4.1) | `label="Positions table"` e `"Transactions table"` em `Table`, distintos do heading da seção |
+| `Dialog`/`AlertDialogContent` não tinha `outline` próprio; num diálogo cujo conteúdo rolava (registro de instrumento em telas baixas), nada indicava visualmente o limite do modal quando o foco estava num controle já visível (2.4.11) | `outline-hidden` no conteúdo, junto do anel de foco de cada controle interno, que já bastava — mudança preventiva, sem achado de reprovação associado |
+
+Depois das correções, zero violações do axe em toda página, todo diálogo e as duas paletas, nos três viewports.
+
+### Persistência sem consumidor no servidor
+
+O estado expandido/recolhido do menu lateral é lido do cookie `ex3:navigation` em `(protected)/layout.tsx` antes da primeira renderização, então alternar, recarregar e reabrir a aplicação nunca produz o menu no estado errado por um instante (2.4.3, sem *flash*); verificado no arnês alternando, recarregando com o cookie já gravado e conferindo a largura do `nav` no primeiro paint.

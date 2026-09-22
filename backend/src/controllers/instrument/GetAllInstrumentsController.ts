@@ -29,6 +29,7 @@ export class GetAllInstrumentsController implements Controller {
     );
 
     const result = await this.getAllInstrumentsService.execute({
+      userId: req.user.id,
       page,
       limit,
       search
