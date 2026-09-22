@@ -7,7 +7,7 @@ import { APP_ROUTES } from '@/common/constants';
 import { SignUpForm } from './_components/sign-up-form';
 
 export const metadata: Metadata = {
-  title: 'Sign Up'
+  title: 'Create account'
 };
 
 export default function SignUp() {
