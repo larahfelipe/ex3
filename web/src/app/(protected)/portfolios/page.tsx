@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { EmptyState, LoadingState } from '@/components/data-state';
 import { PageHeader } from '@/components/page-header';
+import { PageNavigation } from '@/components/page-navigation';
 import { QuerySection } from '@/components/query-section';
 import { Button } from '@/components/ui';
 import {
@@ -188,35 +189,12 @@ export default function Portfolios() {
               )}
 
               {totalPages > FIRST_PAGE && (
-                <nav
-                  aria-label="Portfolio pages"
-                  className="flex items-center justify-between gap-3"
-                >
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={page <= FIRST_PAGE}
-                    onClick={() => setRequestedPage(page - 1)}
-                  >
-                    Previous
-                  </Button>
-
-                  <span
-                    aria-live="polite"
-                    className="text-sm text-muted-foreground"
-                  >
-                    {`Page ${page} of ${totalPages}`}
-                  </span>
-
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={page >= totalPages}
-                    onClick={() => setRequestedPage(page + 1)}
-                  >
-                    Next
-                  </Button>
-                </nav>
+                <PageNavigation
+                  label="Portfolio pages"
+                  page={page}
+                  totalPages={totalPages}
+                  onPageChange={setRequestedPage}
+                />
               )}
             </div>
           )

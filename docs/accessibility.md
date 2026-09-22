@@ -44,7 +44,7 @@ Automação cobre parte do conjunto; nenhum item abaixo é considerado atendido 
 | F1 | Indicador visível em todo elemento focável, com o par `focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2` | 2.4.7 · `components/ui/button.tsx`, `input.tsx`, `checkbox.tsx` e todo controle próprio |
 | F2 | Abrir overlay move o foco para dentro dele | 2.4.3 · Radix; nenhum `autoFocus` concorrente |
 | F3 | Fechar overlay devolve o foco ao elemento de origem | 2.4.3 · Radix, desde que o gatilho continue montado ao fechar |
-| F4 | Nenhum elemento focado é removido da árvore sem o foco ir para um destino previsível | 2.4.3 · trocar de página, limpar filtros, excluir linha |
+| F4 | Nenhum elemento focado é removido da árvore sem o foco ir para um destino previsível | 2.4.3 · trocar de página, limpar filtros, excluir linha; `QuerySection` devolve o foco ao `<h2>` da seção quando o conteúdo troca e o foco cai no `body` |
 | F5 | O elemento focado não fica coberto pela barra de navegação fixa nem por overlay | 2.4.11 · viewport `sm` com a barra inferior; `--navigation-bar` já reserva o espaço em `(protected)/layout.tsx` |
 | F6 | Foco não muda de contexto por conta de digitação ou de mudança de valor | 3.2.1, 3.2.2 · busca, selects de filtro e formulários |
 
@@ -92,7 +92,7 @@ A paleta clara dos tokens semânticos não tem consumidor em runtime — ver TD-
 | D2 | Todo dialog tem `DialogTitle` e `DialogDescription` reais, mesmo quando visualmente ocultos | 4.1.2 · inventário de dialogs |
 | D3 | Confirmação destrutiva usa `AlertDialog`, com a ação destrutiva rotulada pelo efeito | 3.3.4 · exclusão de ativo e de transação |
 | D4 | Fechar por Esc, por overlay e por botão leva ao mesmo estado | 2.1.2 · teste manual |
-| D5 | Nenhum dialog abre outro dialog empilhado | 2.4.3 · o fluxo ativo → transação fecha o primeiro antes de abrir o segundo |
+| D5 | Nenhum dialog abre outro dialog empilhado, exceto edição e exclusão que partem do detalhe da transação: abrem por cima dele para que cancelar volte ao detalhe com o foco no botão de origem | 2.4.3 · o fluxo ativo → transação fecha o primeiro antes de abrir o segundo; `transactions-table.tsx` |
 
 ## 7. Conteúdo dinâmico
 
@@ -100,7 +100,7 @@ A paleta clara dos tokens semânticos não tem consumidor em runtime — ver TD-
 | --- | --- | --- |
 | N1 | Carregamento usa `LoadingState`: `<output aria-busy="true">` com rótulo em `sr-only` e skeleton `aria-hidden` | 4.1.3 · `data-state.tsx` |
 | N2 | Falha recuperável usa `ErrorState`/`StaleState` com `role="alert"` e ação de nova tentativa | 4.1.3, 3.3.1 · `data-state.tsx` |
-| N3 | Contagem, paginação e total mudam dentro de `aria-live="polite"` | 4.1.3 · `positions-table.tsx`, `asset-transactions.tsx`, `positions-summary.tsx` |
+| N3 | Contagem, paginação e total mudam dentro de `aria-live="polite"` | 4.1.3 · `PageNavigation`, em `page-navigation.tsx`, nas quatro listagens paginadas |
 | N4 | Toast nunca é o único canal de um erro que bloqueia a tarefa | 4.1.3 · o estado também aparece na região afetada |
 | N5 | Dado obsoleto exibido durante refetch é marcado com `aria-busy` no container | 4.1.3 · `isPlaceholderData` em `positions-table.tsx` |
 | N6 | Sob `prefers-reduced-motion`, animação e transição não essenciais são neutralizadas em `globals.css`; o indicador de ocupado segue girando, mais devagar | 2.3.3 · bloco `@media (prefers-reduced-motion: reduce)`; transform de toque sob `motion-safe:` |
@@ -200,7 +200,7 @@ Em 1280×800 a regra `color-contrast` volta como **incompleta com zero nós** em
 | Toda rota servia o mesmo `<title>`, sem identificar a página (2.4.2) | `title.template` na raiz e título por segmento, incluindo `generateMetadata` no detalhe do ativo |
 | Fechar overlay deixava o foco no `body` (F3): o Radix devolve o foco ao `DialogTrigger`, e nenhum dialog daqui usa gatilho — todos abrem por estado, então `triggerRef` é sempre nulo | `hooks/use-focus-return.ts`, aplicado em `components/ui/dialog.tsx` e `alert-dialog.tsx` |
 
-O fluxo que abre o dialog pelo menu da linha continua perdendo o foco ao fechar, por um motivo distinto do corrigido acima: está em TD-066.
+O fluxo que abre o dialog pelo menu da linha continua perdendo o foco ao fechar, por um motivo distinto do corrigido acima: está em TD-066, resolvido na auditoria de 2026-09-22.
 
 ### Limites do arnês
 
@@ -247,3 +247,12 @@ Revisão por leitura de todo `web/src`, organizada em etapas, cada uma com os ga
 | `pagination.tsx`, `CardTitle`, `CardDescription` e catorze partes de `dropdown-menu`/`select` sem consumidor | removidos |
 
 Ícones de `lucide-react` 1.x já saem com `aria-hidden="true"` quando não recebem `aria-*`, `role` nem `title` (`buildLucideIconNode`); o `aria-hidden` explícito que o código tem é redundante, não falta, e o que S6 exige continua sendo o `aria-label` do controle só com ícone.
+
+### Foco e paginação
+
+| Achado | Correção |
+| --- | --- |
+| Quatro `nav` de paginação idênticos, copiados em `positions-summary.tsx`, `positions-table.tsx`, `asset-transactions.tsx` e `portfolios/page.tsx` | `PageNavigation` em `components/page-navigation.tsx` |
+| "Next" na penúltima página e "Previous" na segunda ficavam `disabled` com o foco em cima: o navegador soltava o foco no `body` e o próximo `Tab` recomeçava do topo (F4) | `aria-disabled` nos botões dos extremos, que continuam focáveis, são lidos como indisponíveis e ignoram a ativação |
+| Excluir a última transação da lista, ou a última de uma página, trocava a tabela pelo estado vazio e desmontava junto o elemento que receberia o foco (TD-052, F4) | `QuerySection` foca o `<h2>` da seção quando o conteúdo exibido troca e o foco, que estava na seção ou num diálogo aberto a partir dela, caiu no `body`; foco em outro lugar da página não é tocado |
+| Diálogo aberto por item de menu devolvia o foco a um item já desmontado (TD-066, F3) | `useFocusReturn` registra o gatilho do menu, pelo `aria-labelledby` que o Radix põe no conteúdo com o id do gatilho |

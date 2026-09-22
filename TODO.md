@@ -265,13 +265,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** é estado de visualização secundário — nenhum filtro de dados se perde —, mas quebra a expectativa de link profundo no detalhe do ativo e no overview.
 - **Proposta:** reaproveitar `updateUrlQuery` com um parâmetro `range` por rota e um `transactionsPage`, checando antes se `/` precisa de `Suspense` ao passar a ler `useSearchParams`.
 
-### TD-052 — Excluir o último item de uma lista deixa o foco no `body`
-
-- **Origem:** TASK 14.4 · **Tipo:** acessibilidade · **Prioridade:** baixa · **Encaminhamento:** avulso
-- **Contexto:** ao excluir uma transação, `transactions-table.tsx` devolve o foco para a primeira linha restante. Quando era a última, o pai troca a tabela inteira pelo `EmptyState` e o componente que devolveria o foco desmonta junto — o mesmo vale para a última posição excluída, já que o `EmptyState` não tem elemento focável.
-- **Impacto:** o próximo `Tab` recomeça do topo do documento; nenhum conteúdo fica inacessível.
-- **Proposta:** dar ao `EmptyState` um destino de foco — cabeçalho da seção com `tabIndex={-1}` ou a própria ação do estado vazio — e apontar os fluxos de exclusão para ele.
-
 ### TD-054 — Lighthouse e acessibilidade não têm execução repetível
 
 - **Origem:** TASK 14.7 · **Tipo:** acessibilidade · **Prioridade:** média · **Encaminhamento:** avulso (reduzido na TASK 20.6)
@@ -343,13 +336,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** uma inundação de requisições sem sessão consome CPU e conexões do web sem esbarrar em limite nenhum, e o custo do Cloud Run acompanha.
 - **Proposta:** decidir entre limite na plataforma (Cloud Armor à frente do serviço) e um budget por endereço no próprio `proxy.ts`, lembrando que o contador seria por instância.
 
-### TD-066 — Dialog aberto pelo menu da linha devolve o foco ao `body`
-
-- **Origem:** TASK 20.6 · **Tipo:** acessibilidade · **Prioridade:** baixa · **Encaminhamento:** avulso
-- **Contexto:** `use-focus-return.ts` guarda o elemento ativo quando o overlay monta e o refoca ao fechar, o que cobre todo dialog aberto a partir de um botão. Nos dois itens do menu de ações da linha — "New transaction" e "Delete" — o elemento ativo nesse instante é o próprio item de menu, que o Radix já está desmontando: ao fechar, `focus()` cai num nó desconectado. O `DropdownMenu` devolve o foco ao seu gatilho num `setTimeout` posterior ao autofoco do dialog, então nem o gatilho está em foco no momento do registro.
-- **Impacto:** fechar um desses dois diálogos joga o próximo `Tab` para o topo do documento; nenhum conteúdo fica inacessível. Soma-se a TD-052, que é a mesma perda por outro caminho.
-- **Proposta:** enquanto o overlay estiver montado, seguir o último foco ocorrido fora do conteúdo por `focusin` e usá-lo como destino — o roubo do menu passa a ser justamente o registro certo. Verificar num navegador com janela ativa, já que o arnês da TASK 20.6 não dispara evento de foco.
-
 ### TD-067 — Mesmo ticker em mercados diferentes não pode coexistir
 
 - **Origem:** cadastro de instrumento privado · **Tipo:** produto · **Prioridade:** baixa · **Encaminhamento:** avulso
@@ -386,6 +372,16 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Proposta:** migrar os dois formulários para `FormField`/`ChoiceField` quando algum deles for tocado por outro motivo, sem PR dedicado só para isso.
 
 ## Resolvidos
+
+### TD-066 — Dialog aberto pelo menu da linha devolve o foco ao `body`
+
+- **Tipo:** acessibilidade · **Prioridade:** baixa
+- **Resolução:** `useFocusReturn` registra como origem o gatilho do menu quando o elemento ativo na abertura é um item de `role="menu"`, lendo o `aria-labelledby` que o Radix põe no conteúdo do menu com o id do gatilho. Sem depender de ordem de eventos de foco: o registro é feito no mesmo instante de antes, só com o destino certo. Ver `docs/accessibility.md`, §Auditoria de UX/UI e acessibilidade (2026-09-22).
+
+### TD-052 — Excluir o último item de uma lista deixa o foco no `body`
+
+- **Tipo:** acessibilidade · **Prioridade:** baixa
+- **Resolução:** `QuerySection` devolve o foco ao próprio `<h2>`, agora com `tabIndex={-1}` em `SectionHeader`, quando o conteúdo exibido troca — outra página de dados ou o estado vazio — enquanto o foco estava na seção e caiu no `body`. "Na seção" inclui os diálogos que ela renderiza, porque o evento de foco sobe pela árvore do React através do portal. Cobre a última transação excluída da Overview e do detalhe do ativo e a página que esvazia no detalhe; a exclusão da última posição já levava o foco a "Add asset" e a da carteira, a "New portfolio". Ver `docs/accessibility.md`, §Auditoria de UX/UI e acessibilidade (2026-09-22).
 
 ### TD-053 — Seis pares de token reprovam no contraste exigido
 

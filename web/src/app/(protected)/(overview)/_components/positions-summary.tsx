@@ -15,6 +15,7 @@ import {
   ProfitLoss,
   Quantity
 } from '@/components/financial';
+import { PageNavigation } from '@/components/page-navigation';
 import { QuerySection } from '@/components/query-section';
 import {
   Button,
@@ -135,35 +136,12 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
           </Table>
 
           {totalPages > FIRST_PAGE && (
-            <nav
-              aria-label="Positions pages"
-              className="flex items-center justify-between gap-3"
-            >
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={page <= FIRST_PAGE}
-                onClick={() => setRequestedPage(page - 1)}
-              >
-                Previous
-              </Button>
-
-              <span
-                aria-live="polite"
-                className="text-sm text-muted-foreground"
-              >
-                {`Page ${page} of ${totalPages}`}
-              </span>
-
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setRequestedPage(page + 1)}
-              >
-                Next
-              </Button>
-            </nav>
+            <PageNavigation
+              label="Positions pages"
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setRequestedPage}
+            />
           )}
         </div>
       )}
