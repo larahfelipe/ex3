@@ -264,7 +264,8 @@ const CatalogPicker: FC<CatalogPickerProps> = ({
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
-                className="h-9 gap-2 max-sm:w-full"
+                size="sm"
+                className="gap-2 max-sm:w-full"
                 onClick={() => onRegister(search ?? '')}
               >
                 <Plus size={16} aria-hidden="true" />
@@ -280,7 +281,8 @@ const CatalogPicker: FC<CatalogPickerProps> = ({
                 <Button
                   type="button"
                   variant="secondary"
-                  className="h-9 max-sm:w-full"
+                  size="sm"
+                  className="max-sm:w-full"
                   onClick={clearSearch}
                 >
                   Clear search

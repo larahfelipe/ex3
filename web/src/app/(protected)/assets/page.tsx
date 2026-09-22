@@ -107,7 +107,8 @@ export default function Assets() {
           portfolio && (
             <Button
               ref={addAssetButtonRef}
-              className="h-9 max-sm:w-full"
+              size="sm"
+              className="max-sm:w-full"
               onClick={() => handleToggleDialog(ASSET_DIALOG_ACTIONS.Add)}
             >
               Add asset

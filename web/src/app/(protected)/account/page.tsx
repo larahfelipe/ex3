@@ -98,7 +98,12 @@ export default function Account() {
           </CardContent>
 
           <CardFooter className="flex justify-end">
-            <Button disabled variant="secondary" className="h-9 max-sm:w-full">
+            <Button
+              disabled
+              variant="secondary"
+              size="sm"
+              className="max-sm:w-full"
+            >
               Update
             </Button>
           </CardFooter>
@@ -140,7 +145,12 @@ export default function Account() {
           </CardContent>
 
           <CardFooter className="flex justify-end">
-            <Button disabled variant="secondary" className="h-9 max-sm:w-full">
+            <Button
+              disabled
+              variant="secondary"
+              size="sm"
+              className="max-sm:w-full"
+            >
               Update
             </Button>
           </CardFooter>

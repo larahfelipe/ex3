@@ -31,13 +31,14 @@ const CLEAR_REFINEMENTS_LABEL = 'Clear search and filters';
 
 const StateActionButton: FC<StateAction> = (action) =>
   'href' in action ? (
-    <Button asChild variant="secondary" className="h-9 max-sm:w-full">
+    <Button asChild variant="secondary" size="sm" className="max-sm:w-full">
       <Link href={action.href}>{action.label}</Link>
     </Button>
   ) : (
     <Button
       variant="secondary"
-      className="h-9 max-sm:w-full"
+      size="sm"
+      className="max-sm:w-full"
       onClick={() => action.onSelect()}
     >
       {action.label}
@@ -104,7 +105,8 @@ export const StaleState: FC<StaleStateProps> = ({
 
     <Button
       variant="secondary"
-      className="h-9 gap-2 max-sm:w-full"
+      size="sm"
+      className="gap-2 max-sm:w-full"
       onClick={() => onRetry()}
     >
       {isRetrying && (

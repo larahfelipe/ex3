@@ -361,7 +361,8 @@ const RegistrationForm: FC<RegistrationFormProps> = ({
             <Button
               type="button"
               variant="secondary"
-              className="h-9 gap-2 justify-self-start max-sm:w-full"
+              size="sm"
+              className="gap-2 justify-self-start max-sm:w-full"
               disabled={isSubmitting}
               onClick={() => onSearchCatalog(normalizedSymbol)}
             >
