@@ -6,8 +6,8 @@ import {
   TRANSACTION_TYPE_LABELS,
   TRANSACTION_TYPE_TONES
 } from '@/common/constants';
-import { formatExecutionTime } from '@/common/utils';
-import { DeleteTransactionDialog } from '@/components/delete-transaction-dialog';
+import { formatExecutionTime, formatQuantity } from '@/common/utils';
+import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
 import { Price, Quantity } from '@/components/financial';
 import { TransactionDetailsDialog } from '@/components/transaction-details-dialog';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
@@ -154,8 +154,11 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
       )}
 
       {selection?.action === 'delete' && (
-        <DeleteTransactionDialog
-          transaction={selection.transaction}
+        <ConfirmDeletionDialog
+          title="Delete this transaction?"
+          description={`${TRANSACTION_TYPE_LABELS[selection.transaction.type]} of ${formatQuantity(selection.transaction.quantity)} ${selection.transaction.symbol} on ${formatExecutionTime(selection.transaction.executedAt)}. The position is recalculated without it, and this cannot be undone.`}
+          confirmLabel="Delete transaction"
+          failureMessage="The transaction could not be deleted"
           onCancel={() => setSelection({ ...selection, action: 'details' })}
           onConfirm={async () => {
             await deleteTransaction({ id: selection.transaction.id });

@@ -315,13 +315,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** a carteira é descrita por retorno, sem nenhuma medida de risco, e a comparação com o benchmark fica restrita a retorno acumulado.
 - **Proposta:** derivar as métricas da série existente, com o período explícito na resposta, estado controlado quando os pontos forem insuficientes e sem exibir precisão que a série não sustenta, conforme os critérios da TASK 11.4.
 
-### TD-064 — Diálogo de confirmação de exclusão montado duas vezes
-
-- **Origem:** TASK 20.2 · **Tipo:** UX · **Prioridade:** baixa · **Encaminhamento:** avulso
-- **Contexto:** `web/src/app/(protected)/assets/_components/delete-asset-dialog.tsx` e `web/src/components/delete-transaction-dialog.tsx` montam o mesmo `AlertDialog` — cabeçalho, descrição, cancelar e confirmar destrutivo — e divergem no que fazem enquanto a exclusão corre: o de transação desabilita os dois botões e mostra a falha no próprio diálogo, o de ativo não tem estado de pendência e reporta a falha por toast, diferença deliberada registrada em `docs/component-inventory.md`.
-- **Impacto:** o botão de confirmar do ativo aceita um segundo clique, cuja requisição responde `404` e abre um toast de erro depois de a exclusão ter dado certo; a casca do diálogo é mantida em dois lugares.
-- **Proposta:** extrair um `ConfirmDialog` com o estado de pendência do diálogo de transação e a forma de reportar o erro como propriedade, quando as duas telas concordarem sobre toast ou erro embutido.
-
 ### TD-065 — Tráfego não autenticado contra o web não tem limite
 
 - **Origem:** TASK 20.4 · **Tipo:** segurança · **Prioridade:** baixa · **Encaminhamento:** avulso
@@ -358,6 +351,11 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Proposta:** ler o mesmo estado que decide a classe de `<html>` e passar `theme="light" | "dark"` ao `Toaster`, resolvido junto do TD-048.
 
 ## Resolvidos
+
+### TD-064 — Diálogo de confirmação de exclusão montado duas vezes
+
+- **Tipo:** UX · **Prioridade:** baixa
+- **Resolução:** `components/confirm-deletion-dialog.tsx` (`ConfirmDeletionDialog`) é o diálogo das exclusões de ativo, carteira e transação, que concordaram sobre erro embutido: aberto até a exclusão terminar, confirmar `aria-disabled` enquanto ela corre e recusa num alerta no próprio diálogo. `delete-asset-dialog.tsx`, `delete-portfolio-dialog.tsx` e `delete-transaction-dialog.tsx` saíram, junto com o toast de erro de `useDeleteAsset` e `withSettledRejection`, que só servia ao diálogo de ativo.
 
 ### TD-038 — Verde de compra e de ganho abaixo do contraste AA
 
