@@ -29,8 +29,10 @@ export default function Account() {
           <Button
             variant="outline"
             className="gap-2 sm:hidden"
-            disabled={isSigningOut}
-            onClick={() => signOut()}
+            aria-disabled={isSigningOut}
+            onClick={() => {
+              if (!isSigningOut) signOut();
+            }}
           >
             {isSigningOut ? (
               <Loader2 aria-hidden="true" className="size-4 animate-spin" />

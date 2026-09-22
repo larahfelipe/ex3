@@ -111,13 +111,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** nenhum hoje. Se uma tela passar a buscar no servidor (`prefetchQuery`, `useSuspenseQuery` ou hidratação), o mesmo cache atende requisições de usuários diferentes, e dado de um usuário pode ser servido a outro.
 - **Proposta:** criar um `QueryClient` por requisição no servidor e um único no navegador, como a documentação do TanStack Query orienta para o App Router, antes de a primeira busca no servidor entrar.
 
-### TD-024 — Seções da Overview sem sinal de dado desatualizado
-
-- **Origem:** TASK 8.2 · **Tipo:** UX · **Prioridade:** baixa · **Encaminhamento:** avulso
-- **Contexto:** o `PortfolioValueCard` avisa quando a nova busca falha e o valor exibido é o do cache (`isRefetchError`). `QuerySection` mantém o dado em cache nesse caso também para as demais seções da Overview e para a performance e as transações do detalhe do ativo, mas essas seções não sinalizam (`web/src/components/query-section.tsx`).
-- **Impacto:** depois de uma atualização que falha, ao voltar à Overview ou após registrar uma transação, o card aparece desatualizado e as demais seções mostram os valores anteriores como atuais.
-- **Proposta:** levar o aviso de desatualizado, com a semântica do card, para `QuerySection` quando uma task dessas seções tratar os estados.
-
 ### TD-025 — Cores do gráfico de alocação fora dos tokens e repetidas acima de 10 grupos
 
 - **Origem:** TASK 8.4 · **Tipo:** UX · **Prioridade:** baixa · **Encaminhamento:** TASK 12.1
@@ -344,6 +337,11 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Proposta:** adotar os termos longos nos cabeçalhos ordenáveis depois de medir a tabela entre 640 e 1280 px, onde cada termo alarga uma coluna `whitespace-nowrap` e pode tornar rolável uma região que hoje cabe; a verificação visual ficou fora do alcance desta auditoria, que não teve navegador.
 
 ## Resolvidos
+
+### TD-024 — Seções da Overview sem sinal de dado desatualizado
+
+- **Tipo:** UX · **Prioridade:** baixa
+- **Resolução:** `QuerySection` mostra `StaleState` com nova tentativa acima do conteúdo quando a nova busca falha com dado em cache (`isRefetchError`), em toda seção da Overview e do detalhe do ativo; o aviso próprio do `PortfolioValueCard` saiu. A tabela de posições, que não usa `QuerySection`, tem o mesmo aviso acima da tabela. A mensagem é `STALE_DATA_MESSAGE`, em `data-state.tsx`.
 
 ### TD-050 — Período do gráfico e página das transações continuam fora da URL
 

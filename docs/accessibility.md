@@ -256,6 +256,7 @@ Revisão por leitura de todo `web/src`, organizada em etapas, cada uma com os ga
 | "Next" na penúltima página e "Previous" na segunda ficavam `disabled` com o foco em cima: o navegador soltava o foco no `body` e o próximo `Tab` recomeçava do topo (F4) | `aria-disabled` nos botões dos extremos, que continuam focáveis, são lidos como indisponíveis e ignoram a ativação |
 | Excluir a última transação da lista, ou a última de uma página, trocava a tabela pelo estado vazio e desmontava junto o elemento que receberia o foco (TD-052, F4) | `QuerySection` foca o `<h2>` da seção quando o conteúdo exibido troca e o foco, que estava na seção ou num diálogo aberto a partir dela, caiu no `body`; foco em outro lugar da página não é tocado |
 | Diálogo aberto por item de menu devolvia o foco a um item já desmontado (TD-066, F3) | `useFocusReturn` registra o gatilho do menu, pelo `aria-labelledby` que o Radix põe no conteúdo com o id do gatilho |
+| "Refresh" das posições e os dois "Sign out" ficavam `disabled` enquanto buscavam ou saíam: ativados pelo teclado, soltavam o foco no `body`, onde ele continuava depois de uma falha (F4, 2.4.3) | `aria-disabled` com o clique ignorado enquanto a ação corre, como o `SubmitButton` |
 
 ### Formulários e conta
 
@@ -297,3 +298,9 @@ O contrato do proxy foi exercitado por `curl` contra o `compose` local: nome sal
 | --- | --- |
 | As posições da Overview e as tabelas de transações não tinham legenda, ao contrário das posições da tela de ativos, da alocação e da performance: o leitor de tela anunciava uma tabela sem nome (1.3.1) | `TableCaption` `sr-only` em todas: "Positions valued in {moeda}" e "Transactions, newest first" |
 | Nenhuma tabela tinha cabeçalho de linha: ao descer por uma coluna de valores, o leitor de tela lia só o número, sem o ativo, o grupo ou a data a que ele pertence (1.3.1) | `TableRowHeader`, `th scope="row"`, na primeira célula das cinco tabelas |
+
+### Dado desatualizado
+
+| Achado | Correção |
+| --- | --- |
+| Só o valor da carteira avisava quando a nova busca falhava e o valor exibido era o do cache; as demais seções da Overview, o detalhe do ativo e a tabela de posições mostravam os valores anteriores como atuais (TD-024, N2, 4.1.3) | `StaleState` com nova tentativa em `QuerySection`, acima do conteúdo de toda seção, e na tabela de posições, com a mesma mensagem (`STALE_DATA_MESSAGE`) |

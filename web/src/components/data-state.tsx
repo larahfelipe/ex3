@@ -27,6 +27,9 @@ type StaleStateProps = ErrorStateProps & Record<'isRetrying', boolean>;
 
 const RETRY_LABEL = 'Try again';
 
+export const STALE_DATA_MESSAGE =
+  'This could not be refreshed and may be out of date';
+
 const CLEAR_REFINEMENTS_LABEL = 'Clear search and filters';
 
 const StateActionButton: FC<StateAction> = (action) =>
