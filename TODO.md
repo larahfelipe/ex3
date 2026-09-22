@@ -181,13 +181,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** o usuário não vê no ativo os proventos recebidos nem o rendimento deles sobre o custo.
 - **Proposta:** acrescentar a seção de proventos ao detalhe do ativo quando o modelo e a API de proventos existirem, com o recorte por ativo que a API oferecer.
 
-### TD-037 — Tela de ativos aceita `action` desconhecido na URL
-
-- **Origem:** gerenciador de transações · **Tipo:** UX · **Prioridade:** baixa · **Encaminhamento:** TASK 13.3
-- **Contexto:** `web/src/app/(protected)/assets/page.tsx` lê `?action` sem validar o valor e marca um diálogo como aberto mesmo quando nenhum corresponde. Enquanto o parâmetro fica na URL, o efeito reabre esse estado a cada fechamento.
-- **Impacto:** com um `action` desconhecido na URL, editado à mão, o botão "Add asset" alterna um estado sem diálogo e não abre o formulário até a URL ser limpa.
-- **Proposta:** aceitar só os valores de `ASSET_DIALOG_ACTIONS`, e os que dependem de símbolo só com `symbol`, e limpar a URL do resto, junto com a troca de `replaceUrl` pelo router.
-
 ### TD-039 — Configuração de containers sem validação num runtime
 
 - **Origem:** configuração Docker Compose · **Tipo:** tooling · **Prioridade:** média · **Encaminhamento:** avulso
@@ -250,13 +243,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** a navegação desenhada prevê Portfolio, Income, Analytics, Performance, Allocation, Risk, Market, Watchlist e Settings, mas o app só expõe `/`, `/assets`, `/assets/[symbol]`, `/portfolios` e `/account`. O redesenho do menu lateral já agrupa as rotas existentes sob "Portfolio" e "Account", com hierarquia visual, ícone semântico, `aria-current` e recolhimento em `PORTFOLIO_SECTIONS`/`ACCOUNT_SECTION` (`sidebar.tsx`) — a estrutura de grupos que o item pedia está pronta. Income e as métricas de risco dependem de tasks ainda não implementadas, e Market, Watchlist e Settings não têm rota nem endpoint em lugar nenhum.
 - **Impacto:** publicar os itens agora criaria links mortos e quebraria o critério de rotas acessíveis; manter a lista curta adia só a hierarquia de dois níveis entre grupos, não a existência dos grupos.
 - **Proposta:** promover cada novo grupo conforme a rota nascer, adicionando a `PORTFOLIO_SECTIONS`/`ACCOUNT_SECTION` ou a um novo grupo irmão em `sidebar.tsx`, que já é a única fonte da estrutura.
-
-### TD-050 — Período do gráfico e página das transações continuam fora da URL
-
-- **Origem:** TASK 13.3 · **Tipo:** UX · **Prioridade:** baixa · **Encaminhamento:** avulso
-- **Contexto:** a listagem de posições passou a derivar busca, filtros, ordenação e paginação da query string, mas o seletor de período de `performance-chart.tsx` e a página de `asset-transactions.tsx` seguem em `useState`, então um refresh ou um link compartilhado volta para `1Y` e para a primeira página.
-- **Impacto:** é estado de visualização secundário — nenhum filtro de dados se perde —, mas quebra a expectativa de link profundo no detalhe do ativo e no overview.
-- **Proposta:** reaproveitar `updateUrlQuery` com um parâmetro `range` por rota e um `transactionsPage`, checando antes se `/` precisa de `Suspense` ao passar a ler `useSearchParams`.
 
 ### TD-054 — Lighthouse e acessibilidade não têm execução repetível
 
@@ -351,6 +337,16 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Proposta:** ler o mesmo estado que decide a classe de `<html>` e passar `theme="light" | "dark"` ao `Toaster`, resolvido junto do TD-048.
 
 ## Resolvidos
+
+### TD-050 — Período do gráfico e página das transações continuam fora da URL
+
+- **Tipo:** UX · **Prioridade:** baixa
+- **Resolução:** `usePageParam` (`web/src/hooks/use-page-param.ts`) guarda a página em `transactionsPage` no detalhe do ativo, em `positionsPage` na Overview e em `page` nas carteiras, e `PerformanceChart` guarda o período em `range`, fora da URL quando é o padrão `1Y`. `/` e o detalhe do ativo não precisaram de `Suspense`: toda rota já renderiza por requisição.
+
+### TD-037 — Tela de ativos aceita `action` desconhecido na URL
+
+- **Tipo:** UX · **Prioridade:** baixa
+- **Resolução:** `action` fora de `ASSET_DIALOG_ACTIONS` já era ignorado; `add-transaction` e `delete-asset` sem `symbol` também passaram a ser. Os parâmetros de diálogo são escritos com `replaceUrlQuery` (`history.replaceState`): fechar não cria entrada no histórico, e Voltar sai da tela em vez de reabrir o diálogo. A History API nativa é sincronizada com `useSearchParams` pelo App Router desde o Next 14.1, então a troca pelo router deixou de ser necessária.
 
 ### TD-064 — Diálogo de confirmação de exclusão montado duas vezes
 

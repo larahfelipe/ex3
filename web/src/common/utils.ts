@@ -105,9 +105,11 @@ export const formatExecutionTime = (timestamp: string) =>
 export const formatSeriesDay = (timestamp: string) =>
   SERIES_DAY_FORMAT.format(new Date(timestamp));
 
+const urlWithQuery = (params: URLSearchParams) =>
+  params.size ? `?${params}` : window.location.pathname;
+
 export const updateUrlQuery = (params: URLSearchParams) =>
-  window.history.pushState(
-    {},
-    '',
-    params.size ? `?${params}` : window.location.pathname
-  );
+  window.history.pushState({}, '', urlWithQuery(params));
+
+export const replaceUrlQuery = (params: URLSearchParams) =>
+  window.history.replaceState({}, '', urlWithQuery(params));

@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/page-header';
 import { PageNavigation } from '@/components/page-navigation';
 import { QuerySection } from '@/components/query-section';
 import { Button } from '@/components/ui';
+import { usePageParam } from '@/hooks/use-page-param';
 import {
   selectActivePortfolio,
   useActivePortfolio,
@@ -30,12 +31,13 @@ type PortfolioDialog =
 
 const FIRST_PAGE = 1;
 const PORTFOLIOS_PAGE_SIZE = 10;
+const PORTFOLIOS_PAGE_PARAM = 'page';
 
 const STORAGE_BLOCKED_MESSAGE =
   'Your browser blocked saving the active portfolio. Allow site data for this app and try again.';
 
 export default function Portfolios() {
-  const [requestedPage, setRequestedPage] = useState(FIRST_PAGE);
+  const [requestedPage, goToPage] = usePageParam(PORTFOLIOS_PAGE_PARAM);
   const [dialog, setDialog] = useState<Maybe<PortfolioDialog>>(null);
   const [deletedId, setDeletedId] = useState<Maybe<string>>(null);
 
@@ -108,7 +110,7 @@ export default function Portfolios() {
               message={`No portfolios on page ${page}`}
               action={{
                 label: `Go to page ${totalPages}`,
-                onSelect: () => setRequestedPage(totalPages)
+                onSelect: () => goToPage(totalPages)
               }}
             />
           ) : (
@@ -201,7 +203,7 @@ export default function Portfolios() {
                   label="Portfolio pages"
                   page={page}
                   totalPages={totalPages}
-                  onPageChange={setRequestedPage}
+                  onPageChange={goToPage}
                 />
               )}
             </div>

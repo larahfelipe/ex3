@@ -9,7 +9,7 @@ import {
   ASSET_DIALOG_ACTIONS,
   ASSET_DIALOG_PARAMS
 } from '@/common/constants';
-import { updateUrlQuery } from '@/common/utils';
+import { replaceUrlQuery } from '@/common/utils';
 import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
 import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
 import { PageHeader } from '@/components/page-header';
@@ -50,7 +50,7 @@ export default function Assets() {
         params.delete(ASSET_DIALOG_PARAMS.Action);
         params.delete(ASSET_DIALOG_PARAMS.Symbol);
 
-        updateUrlQuery(params);
+        replaceUrlQuery(params);
       }
 
       if (action && action !== dialogAction) setDialogAction(action);
