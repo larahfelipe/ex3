@@ -24,7 +24,8 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow
+  TableRow,
+  TableRowHeader
 } from '@/components/ui';
 import { usePerformance } from '@/hooks/use-portfolio';
 
@@ -366,7 +367,9 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
                         twr
                       }) => (
                         <TableRow key={date}>
-                          <TableCell>{formatSeriesDay(date)}</TableCell>
+                          <TableRowHeader>
+                            {formatSeriesDay(date)}
+                          </TableRowHeader>
 
                           <TableCell className="text-right font-medium">
                             <Money value={value} currency={baseCurrency} />

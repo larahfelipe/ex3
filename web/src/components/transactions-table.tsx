@@ -15,10 +15,12 @@ import {
   Button,
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
-  TableRow
+  TableRow,
+  TableRowHeader
 } from '@/components/ui';
 import {
   useDeleteTransaction,
@@ -57,6 +59,10 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   return (
     <>
       <Table label="Transactions table">
+        <TableCaption className="sr-only">
+          Transactions, newest first
+        </TableCaption>
+
         <TableHeader>
           <TableRow>
             <TableHead>Date</TableHead>
@@ -80,11 +86,11 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
         <TableBody>
           {transactions.map((transaction, index) => (
             <TableRow key={transaction.id}>
-              <TableCell className="sm:whitespace-nowrap">
+              <TableRowHeader className="sm:whitespace-nowrap">
                 <time dateTime={transaction.executedAt}>
                   {formatExecutionTime(transaction.executedAt)}
                 </time>
-              </TableCell>
+              </TableRowHeader>
 
               <TableCell className={TRANSACTION_TYPE_TONES[transaction.type]}>
                 {TRANSACTION_TYPE_LABELS[transaction.type]}

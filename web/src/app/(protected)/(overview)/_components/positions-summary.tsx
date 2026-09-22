@@ -21,10 +21,12 @@ import {
   Button,
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
-  TableRow
+  TableRow,
+  TableRowHeader
 } from '@/components/ui';
 import { usePageParam } from '@/hooks/use-page-param';
 import { usePositions } from '@/hooks/use-portfolio';
@@ -71,6 +73,10 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
       {({ items, page, totalPages }) => (
         <div className="space-y-4">
           <Table label="Positions summary">
+            <TableCaption className="sr-only">
+              {`Positions valued in ${portfolio.baseCurrency}`}
+            </TableCaption>
+
             <TableHeader>
               <TableRow>
                 <TableHead>Asset</TableHead>
@@ -92,7 +98,7 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
             <TableBody>
               {items.map((position) => (
                 <TableRow key={position.symbol}>
-                  <TableCell>
+                  <TableRowHeader>
                     <div className="flex flex-col items-start">
                       <Button
                         asChild
@@ -108,7 +114,7 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
                         {position.name}
                       </span>
                     </div>
-                  </TableCell>
+                  </TableRowHeader>
 
                   <TableCell className="text-right max-sm:hidden">
                     <Quantity value={position.quantity} />

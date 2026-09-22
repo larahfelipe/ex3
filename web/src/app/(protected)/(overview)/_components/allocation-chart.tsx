@@ -18,7 +18,8 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow
+  TableRow,
+  TableRowHeader
 } from '@/components/ui';
 import { useAllocation } from '@/hooks/use-portfolio';
 
@@ -236,7 +237,7 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
                       color
                     }) => (
                       <TableRow key={key}>
-                        <TableCell>
+                        <TableRowHeader>
                           <div className="flex items-center gap-2">
                             <span
                               aria-hidden="true"
@@ -256,7 +257,7 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
                               )}
                             </div>
                           </div>
-                        </TableCell>
+                        </TableRowHeader>
 
                         <TableCell className="text-right font-medium">
                           <Percentage value={allocation} />
