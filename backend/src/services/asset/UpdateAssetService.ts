@@ -57,8 +57,9 @@ export class UpdateAssetService {
 
     if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
-    const instrumentExists =
-      await this.instrumentRepository.getBySymbol(newSymbol);
+    const instrumentExists = await this.instrumentRepository.getVisibleBySymbol(
+      { symbol: newSymbol, userId }
+    );
 
     if (!instrumentExists)
       throw new NotFoundError(InstrumentMessages.NOT_FOUND);

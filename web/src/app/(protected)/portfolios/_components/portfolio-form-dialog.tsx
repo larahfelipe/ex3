@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { CURRENCIES } from '@/common/constants';
-import { FormField } from '@/components/form-field';
+import { ChoiceField, FormField } from '@/components/form-field';
 import {
   Button,
   Dialog,
@@ -16,7 +16,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input
+  Input,
+  SegmentedControl,
+  SegmentedControlItem
 } from '@/components/ui';
 import { ApiProxyError, UNEXPECTED_ERROR_MESSAGE } from '@/lib/axios';
 
@@ -69,8 +71,6 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
   onSubmit
 }) => {
   const formId = useId();
-  const currencyHintId = useId();
-  const currencyErrorId = useId();
 
   const isEditing = target.kind === 'edit';
 
@@ -95,12 +95,6 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
     resolver: zodResolver(PortfolioFormSchema),
     defaultValues
   });
-
-  const currencyError = errors.baseCurrency?.message;
-  const currencyDescriptionIds = [
-    ...(isEditing ? [currencyHintId] : []),
-    ...(currencyError !== undefined ? [currencyErrorId] : [])
-  ];
 
   const presentSubmitError = (error: unknown) => {
     const issues =
@@ -163,7 +157,7 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
         </DialogHeader>
 
         <form id={formId} noValidate onSubmit={handleSubmit(submitDraft)}>
-          <fieldset disabled={isSubmitting} className="grid gap-4">
+          <div className="grid gap-4">
             <FormField label="Name" error={errors.name?.message}>
               {(control) => (
                 <Input
@@ -176,60 +170,34 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
               )}
             </FormField>
 
-            <fieldset
-              aria-describedby={
-                currencyDescriptionIds.length > 0
-                  ? currencyDescriptionIds.join(' ')
+            <ChoiceField
+              legend="Base currency"
+              hint={
+                isEditing
+                  ? 'The base currency can change only while the portfolio has no transactions.'
                   : undefined
               }
+              error={errors.baseCurrency?.message}
             >
-              <legend className="mb-1.5 text-sm font-medium leading-none">
-                Base currency
-              </legend>
-
-              <div className="grid grid-cols-3 rounded-md border p-0.5 sm:flex sm:w-fit">
+              <SegmentedControl className="grid grid-cols-3 sm:flex sm:w-fit">
                 {currencyOptions.map((currency) => (
-                  <label key={currency} className="cursor-pointer">
-                    <input
-                      type="radio"
-                      value={currency}
-                      className="peer sr-only"
-                      {...register('baseCurrency')}
-                    />
-
-                    <span className="block rounded-sm px-3 py-1 text-center text-sm font-medium text-muted-foreground ring-offset-background transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-focus peer-focus-visible:ring-offset-2">
-                      {currency}
-                    </span>
-                  </label>
+                  <SegmentedControlItem
+                    key={currency}
+                    value={currency}
+                    {...register('baseCurrency')}
+                  >
+                    {currency}
+                  </SegmentedControlItem>
                 ))}
-              </div>
-
-              {isEditing && (
-                <p
-                  id={currencyHintId}
-                  className="mt-1.5 text-sm text-muted-foreground"
-                >
-                  The base currency can change only while the portfolio has no
-                  transactions.
-                </p>
-              )}
-
-              {currencyError !== undefined && (
-                <p
-                  id={currencyErrorId}
-                  className="mt-1.5 text-sm text-negative"
-                >
-                  {currencyError}
-                </p>
-              )}
-            </fieldset>
+              </SegmentedControl>
+            </ChoiceField>
 
             {errors.root?.server?.message !== undefined && (
               <p role="alert" className="text-sm text-negative">
                 {errors.root.server.message}
               </p>
             )}
-          </fieldset>
+          </div>
         </form>
 
         <DialogFooter>

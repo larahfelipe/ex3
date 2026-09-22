@@ -1774,6 +1774,23 @@ describe('portfolios', () => {
       assert.equal(res.body.message, InstrumentMessages.NOT_FOUND);
     });
 
+    it("refuses another user's private instrument as a benchmark, like one outside the catalog", async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      const other = await createUser({ email: OTHER_USER_EMAIL });
+      await holdPosition(portfolio.id, PETR4, PETR4_POSITION);
+      await createInstrument({ ...BENCHMARK, ownerId: other.id });
+      historyFrom(t, new FakeMarketDataProvider({}));
+
+      const res = await requestPerformance(accessToken, {
+        portfolioId: portfolio.id,
+        benchmark: BENCHMARK.symbol
+      });
+
+      assert.equal(res.status, Errors.NOT_FOUND.status);
+      assert.equal(res.body.message, InstrumentMessages.NOT_FOUND);
+    });
+
     it('describes a portfolio without transactions as an empty window', async () => {
       const { user, accessToken } = await signInUser();
       const portfolio = await createPortfolio(user.id, { baseCurrency: 'EUR' });

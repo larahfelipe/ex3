@@ -1,11 +1,17 @@
 import { InstrumentMessages } from '@/config';
-import type { Instrument, User } from '@/domain/models';
-import { AuthorizationError, ConflictError } from '@/errors';
+import {
+  isQuotedCurrencyOf,
+  toVisibleInstrument,
+  type VisibleInstrument
+} from '@/domain/InstrumentCatalog';
+import type { InstrumentRegistration, User } from '@/domain/models';
+import { AuthorizationError, ConflictError, DomainError } from '@/errors';
 import type { InstrumentRepository } from '@/infra/database';
 
 /**
- * The catalog is shared by every portfolio, so only an admin writes to it:
- * a user picks an instrument that already exists.
+ * The catalog is shared by every user, so only an admin writes to it: a user
+ * picks a catalog instrument or registers a private one along with the asset
+ * that holds it.
  */
 export class CreateInstrumentService {
   private static INSTANCE: CreateInstrumentService;
@@ -30,24 +36,24 @@ export class CreateInstrumentService {
   }: CreateInstrumentService.DTO): Promise<CreateInstrumentService.Result> {
     if (!isAdmin) throw new AuthorizationError();
 
+    if (!isQuotedCurrencyOf(attributes))
+      throw new DomainError(InstrumentMessages.CURRENCY_MISMATCH);
+
     const instrument = await this.instrumentRepository.add(attributes);
 
     if (!instrument) throw new ConflictError(InstrumentMessages.ALREADY_EXISTS);
 
     return {
-      instrument,
+      instrument: toVisibleInstrument(instrument),
       message: InstrumentMessages.CREATED
     };
   }
 }
 
 namespace CreateInstrumentService {
-  export type DTO = Pick<Instrument, 'symbol' | 'name' | 'type'> &
-    Record<'market' | 'currency', string> &
-    Partial<Record<'sector' | 'country', string>> &
-    Pick<User, 'isAdmin'>;
+  export type DTO = InstrumentRegistration & Pick<User, 'isAdmin'>;
   export type Result = {
-    instrument: Instrument;
+    instrument: VisibleInstrument;
     message: string;
   };
 }

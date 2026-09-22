@@ -75,7 +75,7 @@ export const createInstrument = async (
   overrides: Partial<
     Pick<
       Instrument,
-      'symbol' | 'name' | 'type' | 'market' | 'currency' | 'sector'
+      'symbol' | 'name' | 'type' | 'market' | 'currency' | 'sector' | 'ownerId'
     >
   > = {}
 ) =>
@@ -100,18 +100,16 @@ export const createAsset = async ({
   Partial<
     Pick<Position, 'symbol' | 'quantity' | 'averageCost' | 'investedValue'>
   >) => {
-  const { instrument, ...stored } = await prismaClient.position.create({
-    data: {
-      ...position,
-      portfolio: { connect: { id: portfolioId } },
-      instrument: {
-        connectOrCreate: {
-          where: { symbol },
-          create: { symbol, name: symbol, type: InstrumentTypes.OTHER }
-        }
-      }
-    },
-    include: { instrument: true }
+  const instrument =
+    (await prismaClient.instrument.findFirst({
+      where: { symbol, ownerId: null }
+    })) ??
+    (await prismaClient.instrument.create({
+      data: { symbol, name: symbol, type: InstrumentTypes.OTHER }
+    }));
+
+  const stored = await prismaClient.position.create({
+    data: { ...position, portfolioId, instrumentId: instrument.id }
   });
 
   return { ...stored, symbol: instrument.symbol };

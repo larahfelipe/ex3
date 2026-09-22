@@ -460,7 +460,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
 
             {data !== undefined && data.items.length > 0 && (
               <Table
-                label="Positions"
+                label="Positions table"
                 className={twMerge(
                   'transition-opacity',
                   isPlaceholderData && 'opacity-60'

@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import { toast } from 'sonner';
 
@@ -10,11 +10,13 @@ import type {
 } from '@/app/api/v1/assets';
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
+import { queryKeys } from '@/lib/react-query';
 import type { Maybe } from '@/types';
 
 import { requirePortfolio, useAnnouncePortfolioChange } from './use-portfolio';
 
 export const useCreateAsset = (portfolio: Maybe<Portfolio>) => {
+  const queryClient = useQueryClient();
   const announceChange = useAnnouncePortfolioChange(portfolio);
 
   return useMutation<
@@ -27,7 +29,15 @@ export const useCreateAsset = (portfolio: Maybe<Portfolio>) => {
         ...payload,
         portfolioId: requirePortfolio(portfolio).id
       } satisfies CreateAssetRequestPayload),
-    onSuccess: announceChange
+    onSuccess: async (response, { instrument }) => {
+      await Promise.all([
+        announceChange(response),
+        instrument !== undefined &&
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.visibleInstruments()
+          })
+      ]);
+    }
   });
 };
 

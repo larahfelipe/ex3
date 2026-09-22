@@ -3,6 +3,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@custom-variant navigation-expanded {
+  @media (width >= --theme(--breakpoint-lg)) {
+    &:where(
+      [data-navigation-state='expanded'],
+      [data-navigation-state='expanded'] *
+    ) {
+      @slot;
+    }
+  }
+}
+
 @utility container {
   margin-inline: auto;
   padding-inline: 2rem;
@@ -18,6 +29,7 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-focus: hsl(var(--focus));
+  --color-scrim: hsl(var(--scrim));
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
 
@@ -72,8 +84,8 @@
   --color-chart-10: hsl(var(--chart-10));
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-raleway), var(--font-inter), ui-sans-serif,
-    sans-serif;
+  --font-display:
+    var(--font-raleway), var(--font-inter), ui-sans-serif, sans-serif;
 
   --spacing: 0.25rem;
 
@@ -107,26 +119,9 @@
   }
 }
 
-/*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
-@layer base {
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
-  }
-}
-
 @layer base {
   :root {
+    color-scheme: light;
     --background: 0 0% 100%;
     --foreground: 224 71.4% 4.1%;
     --surface: 0 0% 100%;
@@ -138,22 +133,23 @@
     --secondary: 220 14.3% 95.9%;
     --secondary-foreground: 220.9 39.3% 11%;
     --muted: 220 14.3% 95.9%;
-    --muted-foreground: 220 8.9% 46.1%;
+    --muted-foreground: 220 8.9% 43%;
     --accent: 220 14.3% 95.9%;
     --accent-foreground: 220.9 39.3% 11%;
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 74% 45%;
     --destructive-foreground: 210 20% 98%;
     --positive: 163 94% 24%;
     --positive-foreground: 0 0% 98%;
     --negative: 0 72% 51%;
     --negative-foreground: 0 0% 98%;
-    --warning: 26 90% 37%;
+    --warning: 26 90% 34%;
     --warning-foreground: 0 0% 98%;
     --info: 201 96% 32%;
     --info-foreground: 0 0% 98%;
     --border: 220 13% 91%;
-    --input: 220 13% 91%;
+    --input: 220 9% 55%;
     --focus: 224 71.4% 4.1%;
+    --scrim: 224 71.4% 4.1%;
     --radius: 0.75rem;
     --chart-1: 21 100% 40%;
     --chart-2: 201 96% 32%;
@@ -168,22 +164,23 @@
   }
 
   .dark {
+    color-scheme: dark;
     --background: 0 0% 2.9%;
     --foreground: 0 0% 98%;
     --surface: 0 0% 6%;
     --surface-foreground: 0 0% 98%;
     --surface-elevated: 0 0% 3.9%;
     --surface-elevated-foreground: 0 0% 98%;
-    --primary: 21 100% 45%;
-    --primary-foreground: 0 85.7% 97.3%;
+    --primary: 21 100% 50%;
+    --primary-foreground: 0 0% 9%;
     --secondary: 0 0% 14.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 14.9%;
     --muted-foreground: 0 0% 63.9%;
     --accent: 0 0% 14.9%;
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 91% 71%;
+    --destructive-foreground: 0 0% 9%;
     --positive: 158 64% 52%;
     --positive-foreground: 0 0% 9%;
     --negative: 0 91% 71%;
@@ -193,8 +190,9 @@
     --info: 198 93% 60%;
     --info-foreground: 0 0% 9%;
     --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --focus: 21 100% 45%;
+    --input: 0 0% 40%;
+    --focus: 21 100% 50%;
+    --scrim: 0 0% 0%;
     --chart-1: 21 100% 45%;
     --chart-2: 198 93% 60%;
     --chart-3: 158 64% 52%;
@@ -213,20 +211,25 @@
     --card-foreground: var(--surface-foreground);
     --popover: var(--surface-elevated);
     --popover-foreground: var(--surface-elevated-foreground);
-    --navigation-rail: 10rem;
+    --navigation-rail: 5rem;
+    --navigation-sidebar: 13rem;
     --navigation-bar: 3.75rem;
   }
 }
 
 @layer base {
-  * {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
   }
-  input[type="number"]::-webkit-inner-spin-button,
-  input[type="number"]::-webkit-outer-spin-button {
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
   }

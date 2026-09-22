@@ -1,35 +1,53 @@
 'use client';
 
-import type { FC, ReactNode } from 'react';
+import { useId, useState, type FC, type ReactNode } from 'react';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { House, LayoutGrid, LogOut, User, Wallet } from 'lucide-react';
-import { twMerge } from 'tailwind-merge';
+import {
+  ChartCandlestick,
+  CircleUserRound,
+  LayoutDashboard,
+  Loader2,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Wallet
+} from 'lucide-react';
 
-import { APP_ROUTES } from '@/common/constants';
+import {
+  APP_ROUTES,
+  APP_STORAGE_KEYS,
+  NAVIGATION_STATES
+} from '@/common/constants';
 import { useCurrentUser, useSignOut } from '@/hooks/use-user';
+import { cn } from '@/lib/utils';
 
 import { Button } from './ui';
+
+type NavigationState =
+  (typeof NAVIGATION_STATES)[keyof typeof NAVIGATION_STATES];
 
 type NavigationSection = Record<'name' | 'path', string> &
   Record<'icon', ReactNode>;
 
-type NavigationLinkProps = Omit<NavigationSection, 'name'> &
-  Record<'label', string> &
-  Record<'isActive', boolean>;
+type NavigationLinkProps = NavigationSection &
+  Record<'isActive', boolean> &
+  Partial<Record<'detail', string>>;
 
-const MAIN_SECTIONS: Array<NavigationSection> = [
+type SidebarProps = Record<'initialState', NavigationState>;
+
+const PORTFOLIO_SECTIONS: Array<NavigationSection> = [
   {
     name: 'Overview',
     path: APP_ROUTES.Protected.Overview,
-    icon: <House size={18} />
+    icon: <LayoutDashboard size={18} />
   },
   {
     name: 'Assets',
     path: APP_ROUTES.Protected.Assets,
-    icon: <LayoutGrid size={18} />
+    icon: <ChartCandlestick size={18} />
   },
   {
     name: 'Portfolios',
@@ -38,85 +56,163 @@ const MAIN_SECTIONS: Array<NavigationSection> = [
   }
 ];
 
-const ACCOUNT_SECTION = {
+const ACCOUNT_SECTION: NavigationSection = {
   name: 'Account',
-  path: APP_ROUTES.Protected.Account
-} as const;
+  path: APP_ROUTES.Protected.Account,
+  icon: <CircleUserRound size={18} />
+};
+
+const NAVIGATION_STATE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 /** WCAG 2.5.5 asks for a 44px target, above the default button height. */
 const NAVIGATION_ITEM_CLASS =
-  'w-full min-h-11 gap-1.5 motion-safe:active:scale-90 max-sm:min-w-11';
+  'group/item relative flex min-h-11 w-full min-w-11 flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 text-[0.6875rem] font-medium text-muted-foreground outline-hidden ring-offset-background transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 motion-safe:active:scale-95 aria-[current=page]:text-foreground sm:py-2 navigation-expanded:flex-row navigation-expanded:justify-start navigation-expanded:gap-3 navigation-expanded:px-3 navigation-expanded:text-sm navigation-expanded:hover:bg-accent navigation-expanded:aria-[current=page]:bg-accent';
+
+const NAVIGATION_ICON_CLASS =
+  'flex h-7 w-12 shrink-0 items-center justify-center rounded-full transition-colors group-hover/item:bg-accent group-aria-[current=page]/item:bg-primary/15 group-aria-[current=page]/item:text-primary navigation-expanded:h-auto navigation-expanded:w-auto navigation-expanded:bg-transparent navigation-expanded:group-hover/item:bg-transparent navigation-expanded:group-aria-[current=page]/item:bg-transparent';
 
 const isCurrentPath = (pathname: string, path: string) =>
   pathname === path || pathname.startsWith(`${path}/`);
 
 const NavigationLink: FC<NavigationLinkProps> = ({
-  label,
+  name,
   path,
   icon,
+  detail,
   isActive
 }) => (
-  <Button
-    asChild
-    variant={isActive ? 'secondary' : 'ghost'}
-    className={twMerge(NAVIGATION_ITEM_CLASS, isActive && 'bg-muted/70')}
+  <Link
+    href={path}
+    aria-current={isActive ? 'page' : undefined}
+    className={NAVIGATION_ITEM_CLASS}
   >
-    <Link href={path} aria-current={isActive ? 'page' : undefined}>
-      <span aria-hidden="true">{icon}</span>
+    {isActive && (
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-2 left-0 hidden w-1 rounded-full bg-primary navigation-expanded:block"
+      />
+    )}
 
-      <span className="max-sm:sr-only">{label}</span>
-    </Link>
-  </Button>
+    <span aria-hidden="true" className={NAVIGATION_ICON_CLASS}>
+      {icon}
+    </span>
+
+    <span className="flex max-w-full min-w-0 flex-col items-center navigation-expanded:items-start">
+      <span className="max-w-full truncate">{name}</span>
+
+      {detail !== undefined && (
+        <span className="hidden max-w-full truncate text-xs font-normal text-muted-foreground navigation-expanded:block">
+          {detail}
+        </span>
+      )}
+    </span>
+  </Link>
 );
 
-export const Sidebar: FC = () => {
+export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
+  const portfolioHeadingId = useId();
+
   const pathname = usePathname();
 
-  const { mutate: signOut } = useSignOut();
+  const [navigationState, setNavigationState] = useState(initialState);
+
+  const { mutate: signOut, isPending: isSigningOut } = useSignOut();
   const { data: user } = useCurrentUser();
+
+  const isExpanded = navigationState === NAVIGATION_STATES.Expanded;
+
+  const toggleNavigation = () => {
+    const nextState = isExpanded
+      ? NAVIGATION_STATES.Collapsed
+      : NAVIGATION_STATES.Expanded;
+
+    setNavigationState(nextState);
+    document.cookie = `${APP_STORAGE_KEYS.Navigation}=${nextState}; path=/; max-age=${NAVIGATION_STATE_MAX_AGE_SECONDS}; samesite=lax`;
+  };
 
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 flex h-(--navigation-bar) items-center justify-around border-t bg-background sm:inset-y-0 sm:right-auto sm:h-screen sm:w-(--navigation-rail) sm:flex-col sm:justify-start sm:border-t-0 sm:overflow-y-auto"
+      data-navigation-state={navigationState}
+      className="fixed inset-x-0 bottom-0 z-40 flex h-(--navigation-bar) border-t bg-background px-1 sm:sticky sm:inset-auto sm:top-0 sm:h-dvh sm:w-(--navigation-rail) sm:shrink-0 sm:flex-col sm:self-start sm:overflow-y-auto sm:border-t-0 sm:border-r sm:px-2 sm:py-3 sm:transition-[width] navigation-expanded:w-(--navigation-sidebar) navigation-expanded:px-3"
     >
-      <p className="max-sm:hidden mt-3 text-lg font-bold text-center cursor-default font-display hover:animate-pulse">
-        EX3
-      </p>
+      <div className="hidden sm:flex sm:flex-col sm:items-center sm:gap-2 navigation-expanded:flex-row navigation-expanded:justify-between navigation-expanded:pl-3">
+        <p className="font-display text-lg font-bold">EX3</p>
 
-      <ul className="flex flex-1 justify-around gap-2 sm:mt-8 sm:w-[95%] sm:flex-none sm:flex-col sm:justify-start">
-        {MAIN_SECTIONS.map(({ name, path, icon }) => (
-          <li key={path} className="sm:w-full">
-            <NavigationLink
-              label={name}
-              path={path}
-              icon={icon}
-              isActive={isCurrentPath(pathname, path)}
-            />
-          </li>
-        ))}
-      </ul>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hidden text-muted-foreground hover:text-foreground lg:inline-flex"
+          aria-label={isExpanded ? 'Collapse navigation' : 'Expand navigation'}
+          title={isExpanded ? 'Collapse navigation' : 'Expand navigation'}
+          onClick={toggleNavigation}
+        >
+          {isExpanded ? (
+            <PanelLeftClose size={18} aria-hidden="true" />
+          ) : (
+            <PanelLeftOpen size={18} aria-hidden="true" />
+          )}
+        </Button>
+      </div>
 
-      <ul className="flex flex-1 justify-around gap-2 sm:absolute sm:bottom-3 sm:w-[95%] sm:flex-none sm:flex-col sm:items-center">
-        <li className="sm:w-full">
+      <div className="flex flex-3 sm:mt-6 sm:flex-none sm:flex-col">
+        <p
+          id={portfolioHeadingId}
+          className="sr-only navigation-expanded:not-sr-only navigation-expanded:mb-2 navigation-expanded:px-3 navigation-expanded:text-xs navigation-expanded:font-medium navigation-expanded:text-muted-foreground"
+        >
+          Portfolio
+        </p>
+
+        <ul
+          aria-labelledby={portfolioHeadingId}
+          className="flex flex-1 sm:flex-col sm:gap-1"
+        >
+          {PORTFOLIO_SECTIONS.map((section) => (
+            <li key={section.path} className="flex flex-1">
+              <NavigationLink
+                {...section}
+                isActive={isCurrentPath(pathname, section.path)}
+              />
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <ul className="flex flex-1 sm:mt-auto sm:flex-none sm:flex-col sm:gap-1 sm:border-t sm:pt-3">
+        <li className="flex flex-1">
           <NavigationLink
-            label={user?.name ?? ACCOUNT_SECTION.name}
-            path={ACCOUNT_SECTION.path}
-            icon={<User size={18} />}
+            {...ACCOUNT_SECTION}
+            detail={user?.name ?? undefined}
             isActive={isCurrentPath(pathname, ACCOUNT_SECTION.path)}
           />
         </li>
 
-        <li className="sm:w-full">
-          <Button
-            variant="ghost"
-            className={twMerge(NAVIGATION_ITEM_CLASS, 'hover:bg-negative/10')}
+        <li className="flex flex-1 max-sm:hidden">
+          <button
+            type="button"
+            disabled={isSigningOut}
+            className={cn(
+              NAVIGATION_ITEM_CLASS,
+              'hover:text-negative navigation-expanded:hover:bg-negative/10'
+            )}
             onClick={() => signOut()}
           >
-            <LogOut size={18} aria-hidden="true" className="text-negative" />
+            <span
+              aria-hidden="true"
+              className={cn(
+                NAVIGATION_ICON_CLASS,
+                'group-hover/item:bg-negative/10'
+              )}
+            >
+              {isSigningOut ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <LogOut size={18} />
+              )}
+            </span>
 
-            <span className="max-sm:sr-only text-negative">Sign out</span>
-          </Button>
+            <span className="max-w-full truncate">Sign out</span>
+          </button>
         </li>
       </ul>
     </nav>

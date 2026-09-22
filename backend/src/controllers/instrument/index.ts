@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 
+import { INSTRUMENT_REGISTRATION_OPTIONS } from '@/domain/InstrumentCatalog';
 import { InstrumentRepository } from '@/infra/database';
 import {
   CreateInstrumentService,
@@ -57,4 +58,11 @@ export const updateInstrumentControllerHandler = (
   );
 
   return updateInstrumentController.handle(req, res);
+};
+
+export const getInstrumentOptionsControllerHandler = (
+  _req: Request,
+  res: Response
+) => {
+  res.status(200).json(INSTRUMENT_REGISTRATION_OPTIONS);
 };

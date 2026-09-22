@@ -13,6 +13,8 @@ import { EmptyState, LoadingState } from '@/components/data-state';
 import { Money, Trend } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
 import {
+  SegmentedControl,
+  SegmentedControlItem,
   Skeleton,
   Table,
   TableBody,
@@ -260,25 +262,22 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
       query={performanceQuery}
       errorMessage="The performance could not be loaded"
       action={
-        <fieldset className="flex flex-wrap rounded-md border p-0.5">
+        <fieldset>
           <legend className="sr-only">Period</legend>
 
-          {PERFORMANCE_RANGES.map((range) => (
-            <label key={range} className="cursor-pointer">
-              <input
-                type="radio"
+          <SegmentedControl className="flex-wrap">
+            {PERFORMANCE_RANGES.map((range) => (
+              <SegmentedControlItem
+                key={range}
                 name={rangeInputName}
                 value={range}
                 checked={range === selectedRange}
                 onChange={() => setSelectedRange(range)}
-                className="peer sr-only"
-              />
-
-              <span className="block rounded-sm px-3 py-1 text-sm font-medium text-muted-foreground ring-offset-background transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-focus peer-focus-visible:ring-offset-2">
+              >
                 {PERFORMANCE_RANGE_LABELS[range].name}
-              </span>
-            </label>
-          ))}
+              </SegmentedControlItem>
+            ))}
+          </SegmentedControl>
         </fieldset>
       }
       loading={

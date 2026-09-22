@@ -33,6 +33,7 @@ export class UpdateInstrumentController implements Controller {
     const result = await this.updateInstrumentService.execute({
       symbol,
       attributes,
+      userId: user.id,
       isAdmin: user.isAdmin
     });
 

@@ -1,4 +1,7 @@
-import type { Instrument } from '@/domain/models';
+import {
+  toVisibleInstrument,
+  type VisibleInstrument
+} from '@/domain/InstrumentCatalog';
 import type { InstrumentRepository } from '@/infra/database';
 
 export class GetAllInstrumentsService {
@@ -19,25 +22,30 @@ export class GetAllInstrumentsService {
   }
 
   async execute({
+    userId,
     page,
     limit,
     search
   }: GetAllInstrumentsService.DTO): Promise<GetAllInstrumentsService.Result> {
-    const { pagination, docs: instruments } =
-      await this.instrumentRepository.getAll({ page, limit, search });
+    const { pagination, docs } = await this.instrumentRepository.getAllVisible({
+      userId,
+      page,
+      limit,
+      search
+    });
 
-    return { pagination, instruments };
+    return { pagination, instruments: docs.map(toVisibleInstrument) };
   }
 }
 
 namespace GetAllInstrumentsService {
-  export type DTO = {
+  export type DTO = Record<'userId', string> & {
     page?: number;
     limit?: number;
     search?: string;
   };
   export type Result = {
-    instruments: Array<Instrument>;
+    instruments: Array<VisibleInstrument>;
     pagination: Record<'page' | 'limit' | 'total' | 'totalPages', number>;
   };
 }

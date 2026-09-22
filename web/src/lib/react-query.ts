@@ -46,13 +46,17 @@ type PortfolioId = Maybe<Portfolio['id']>;
 
 const accountPortfolios = () => ['portfolios'] as const;
 
+const visibleInstruments = () => ['instruments'] as const;
+
 const portfolioScope = (portfolioId: PortfolioId) =>
   ['portfolio', portfolioId] as const;
 
 export const queryKeys = {
   currentUser: () => ['user'] as const,
+  visibleInstruments,
   instruments: (params: GetInstrumentsRequestParams) =>
-    ['instruments', params] as const,
+    [...visibleInstruments(), params] as const,
+  instrumentOptions: () => ['instrument-options'] as const,
   portfolios: accountPortfolios,
   portfolioPage: (requestedPage: GetPortfoliosRequestParams) =>
     [...accountPortfolios(), 'page', requestedPage] as const,

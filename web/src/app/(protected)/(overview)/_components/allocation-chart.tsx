@@ -9,6 +9,8 @@ import { EmptyState, LoadingState } from '@/components/data-state';
 import { Money, Percentage } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
 import {
+  SegmentedControl,
+  SegmentedControlItem,
   Skeleton,
   Table,
   TableBody,
@@ -162,25 +164,22 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
       errorMessage="The allocation could not be loaded"
       action={
         hasGroups && (
-          <fieldset className="flex rounded-md border p-0.5">
+          <fieldset>
             <legend className="sr-only">Group allocation by</legend>
 
-            {ALLOCATION_VIEWS.map((view) => (
-              <label key={view} className="cursor-pointer">
-                <input
-                  type="radio"
+            <SegmentedControl>
+              {ALLOCATION_VIEWS.map((view) => (
+                <SegmentedControlItem
+                  key={view}
                   name={viewInputName}
                   value={view}
                   checked={view === selectedView}
                   onChange={() => setSelectedView(view)}
-                  className="peer sr-only"
-                />
-
-                <span className="block rounded-sm px-3 py-1 text-sm font-medium text-muted-foreground ring-offset-background transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-focus peer-focus-visible:ring-offset-2">
+                >
                   {ALLOCATION_VIEW_LABELS[view].name}
-                </span>
-              </label>
-            ))}
+                </SegmentedControlItem>
+              ))}
+            </SegmentedControl>
           </fieldset>
         )
       }

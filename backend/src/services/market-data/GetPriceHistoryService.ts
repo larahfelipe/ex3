@@ -62,15 +62,14 @@ export class GetPriceHistoryService {
    * what is stored, because an incomplete history is not a failed request.
    */
   async execute({
-    symbol,
+    instrumentId,
     from,
     to
   }: GetPriceHistoryService.DTO): Promise<GetPriceHistoryService.Result> {
-    const instrument = await this.instrumentRepository.getBySymbol(symbol);
+    const instrument = await this.instrumentRepository.getById(instrumentId);
 
     if (!instrument) throw new NotFoundError(InstrumentMessages.NOT_FOUND);
 
-    const { id: instrumentId } = instrument;
     const storedCloses = () =>
       this.marketQuoteRepository.getDailyCloses({ instrumentId, from, to });
 
@@ -103,6 +102,6 @@ export class GetPriceHistoryService {
 }
 
 namespace GetPriceHistoryService {
-  export type DTO = Pick<Instrument, 'symbol'> & PriceRange;
+  export type DTO = Record<'instrumentId', Instrument['id']> & PriceRange;
   export type Result = Array<MarketQuote>;
 }

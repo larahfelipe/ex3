@@ -24,8 +24,14 @@ export const COOKIE_OPTIONS: Partial<ResponseCookie> = {
 
 export const APP_STORAGE_KEYS = {
   Token: 'ex3:token',
-  ActivePortfolio: 'ex3:active-portfolio'
+  ActivePortfolio: 'ex3:active-portfolio',
+  Navigation: 'ex3:navigation'
 };
+
+export const NAVIGATION_STATES = {
+  Expanded: 'expanded',
+  Collapsed: 'collapsed'
+} as const;
 
 export const APP_TITLE = 'EX3';
 
