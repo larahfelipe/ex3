@@ -2,7 +2,6 @@ import { useId, type FC } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
 import type {
@@ -16,6 +15,7 @@ import {
   TRANSACTION_UNIT_PRICE_LABELS
 } from '@/common/constants';
 import { ChoiceField, FormField } from '@/components/form-field';
+import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
   Dialog,
@@ -28,7 +28,7 @@ import {
   SegmentedControl,
   SegmentedControlItem
 } from '@/components/ui';
-import { ApiProxyError } from '@/lib/axios';
+import { presentSubmitError } from '@/lib/submit-error';
 
 export type TransactionFormTarget =
   | { kind: 'create'; symbol: string; currency: string }
@@ -212,38 +212,6 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
 
   const selectedType = useWatch({ control: formControl, name: 'type' });
 
-  const presentSubmitError = (error: unknown) => {
-    const issues =
-      error instanceof ApiProxyError ? (error._error?.details ?? []) : [];
-    const unplacedMessages: Array<string> = [];
-    let hasFieldIssue = false;
-
-    for (const { path, message } of issues) {
-      if (!isTransactionFormField(path)) {
-        unplacedMessages.push(message);
-        continue;
-      }
-
-      setError(
-        path,
-        { type: 'server', message },
-        { shouldFocus: !hasFieldIssue }
-      );
-      hasFieldIssue = true;
-    }
-
-    if (unplacedMessages.length > 0)
-      setError('root.server', {
-        type: 'server',
-        message: unplacedMessages.join(', ')
-      });
-    else if (!hasFieldIssue)
-      setError('root.server', {
-        type: 'server',
-        message: error instanceof Error ? error.message : SUBMIT_FAILURE_MESSAGE
-      });
-  };
-
   const submitDraft = async (draft: TransactionDraft) => {
     const isOriginalExecutionTime =
       target.kind === 'edit' && dirtyFields.executedAt !== true;
@@ -256,7 +224,11 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
           : draft.executedAt
       });
     } catch (error) {
-      presentSubmitError(error);
+      presentSubmitError(error, {
+        setError,
+        fieldOf: (path) => (isTransactionFormField(path) ? path : undefined),
+        fallbackMessage: SUBMIT_FAILURE_MESSAGE
+      });
     }
   };
 
@@ -416,18 +388,9 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
             Cancel
           </Button>
 
-          <Button
-            type="submit"
-            form={formId}
-            disabled={isSubmitting}
-            className="gap-2"
-          >
-            {isSubmitting && (
-              <Loader2 aria-hidden className="size-4 animate-spin" />
-            )}
-
+          <SubmitButton form={formId} isPending={isSubmitting}>
             {target.kind === 'create' ? 'Add transaction' : 'Save changes'}
-          </Button>
+          </SubmitButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

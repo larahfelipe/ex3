@@ -1,7 +1,8 @@
 import type { FC } from 'react';
 
-import { Loader2, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
+import { SubmitButton } from '@/components/submit-button';
 import { Button, DialogFooter } from '@/components/ui';
 import type { Maybe } from '@/types';
 
@@ -44,17 +45,8 @@ export const AddAssetFooter: FC<AddAssetFooterProps> = ({
       Cancel
     </Button>
 
-    <Button
-      type="submit"
-      form={formId}
-      className="gap-2"
-      disabled={isSubmitting || !canSubmit}
-    >
-      {isSubmitting && (
-        <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-      )}
-
-      <span>{submitLabel}</span>
-    </Button>
+    <SubmitButton form={formId} isPending={isSubmitting} disabled={!canSubmit}>
+      {submitLabel}
+    </SubmitButton>
   </DialogFooter>
 );

@@ -17,12 +17,8 @@ import {
   SegmentedControlItem
 } from '@/components/ui';
 import { useInstrumentOptions } from '@/hooks/use-instruments';
-import {
-  ApiProxyError,
-  isConflictError,
-  isDomainError,
-  UNEXPECTED_ERROR_MESSAGE
-} from '@/lib/axios';
+import { ApiProxyError, isConflictError, isDomainError } from '@/lib/axios';
+import { presentSubmitError } from '@/lib/submit-error';
 
 import { AddAssetFooter, type AddAssetDialogActions } from './add-asset-footer';
 
@@ -245,7 +241,10 @@ const RegistrationForm: FC<RegistrationFormProps> = ({
     return `Assets on ${marketOption.market} are quoted in ${marketOption.currency}.`;
   })();
 
-  const presentSubmitError = (error: unknown, registeredSymbol: string) => {
+  const presentRegistrationError = (
+    error: unknown,
+    registeredSymbol: string
+  ) => {
     if (error instanceof ApiProxyError && isConflictError(error)) {
       setError(
         'symbol',
@@ -267,40 +266,16 @@ const RegistrationForm: FC<RegistrationFormProps> = ({
       return;
     }
 
-    const issues =
-      error instanceof ApiProxyError ? (error._error?.details ?? []) : [];
-    const unplacedMessages: Array<string> = [];
-    let hasFieldIssue = false;
+    presentSubmitError(error, {
+      setError,
+      fieldOf: (path) => {
+        const field = path.startsWith(INSTRUMENT_PATH_PREFIX)
+          ? path.slice(INSTRUMENT_PATH_PREFIX.length)
+          : path;
 
-    for (const { path, message } of issues) {
-      const field = path.startsWith(INSTRUMENT_PATH_PREFIX)
-        ? path.slice(INSTRUMENT_PATH_PREFIX.length)
-        : path;
-
-      if (!isRegistrationField(field)) {
-        unplacedMessages.push(message);
-        continue;
+        return isRegistrationField(field) ? field : undefined;
       }
-
-      setError(
-        field,
-        { type: 'server', message },
-        { shouldFocus: !hasFieldIssue }
-      );
-      hasFieldIssue = true;
-    }
-
-    if (unplacedMessages.length > 0)
-      setError('root.server', {
-        type: 'server',
-        message: unplacedMessages.join(', ')
-      });
-    else if (!hasFieldIssue)
-      setError('root.server', {
-        type: 'server',
-        message:
-          error instanceof Error ? error.message : UNEXPECTED_ERROR_MESSAGE
-      });
+    });
   };
 
   /** RHF would focus in registration order, where the radios precede the fields `FormField` renders. */
@@ -320,7 +295,7 @@ const RegistrationForm: FC<RegistrationFormProps> = ({
       reset(EMPTY_REGISTRATION, { keepFieldsRef: true });
       setFocus('symbol');
     } catch (error) {
-      presentSubmitError(error, registration.symbol);
+      presentRegistrationError(error, registration.symbol);
     }
   };
 

@@ -3,7 +3,7 @@ import type { WithId, WithTimestamps } from '@/types';
 export type WithAccessToken = Record<'accessToken', string>;
 
 export type UserProperties = {
-  name: string;
+  name: string | null;
   email: string;
 };
 

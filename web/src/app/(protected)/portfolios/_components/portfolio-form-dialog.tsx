@@ -2,12 +2,12 @@ import { useId, type FC } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { CURRENCIES } from '@/common/constants';
 import { ChoiceField, FormField } from '@/components/form-field';
+import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
   Dialog,
@@ -20,7 +20,7 @@ import {
   SegmentedControl,
   SegmentedControlItem
 } from '@/components/ui';
-import { ApiProxyError, UNEXPECTED_ERROR_MESSAGE } from '@/lib/axios';
+import { presentSubmitError } from '@/lib/submit-error';
 
 export type PortfolioFormTarget =
   { kind: 'create' } | { kind: 'edit'; portfolio: Portfolio };
@@ -96,44 +96,14 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
     defaultValues
   });
 
-  const presentSubmitError = (error: unknown) => {
-    const issues =
-      error instanceof ApiProxyError ? (error._error?.details ?? []) : [];
-    const unplacedMessages: Array<string> = [];
-    let hasFieldIssue = false;
-
-    for (const { path, message } of issues) {
-      if (!isPortfolioFormField(path)) {
-        unplacedMessages.push(message);
-        continue;
-      }
-
-      setError(
-        path,
-        { type: 'server', message },
-        { shouldFocus: !hasFieldIssue }
-      );
-      hasFieldIssue = true;
-    }
-
-    if (unplacedMessages.length > 0)
-      setError('root.server', {
-        type: 'server',
-        message: unplacedMessages.join(', ')
-      });
-    else if (!hasFieldIssue)
-      setError('root.server', {
-        type: 'server',
-        message:
-          error instanceof Error ? error.message : UNEXPECTED_ERROR_MESSAGE
-      });
-  };
-
   const submitDraft = async (draft: PortfolioDraft) => {
     try {
       await onSubmit(draft);
     } catch (error) {
-      presentSubmitError(error);
+      presentSubmitError(error, {
+        setError,
+        fieldOf: (path) => (isPortfolioFormField(path) ? path : undefined)
+      });
     }
   };
 
@@ -205,18 +175,13 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
             Cancel
           </Button>
 
-          <Button
-            type="submit"
+          <SubmitButton
             form={formId}
-            className="gap-2"
-            disabled={isSubmitting || (isEditing && !isDirty)}
+            isPending={isSubmitting}
+            disabled={isEditing && !isDirty}
           >
-            {isSubmitting && (
-              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-            )}
-
-            <span>{isEditing ? 'Save changes' : 'Create portfolio'}</span>
-          </Button>
+            {isEditing ? 'Save changes' : 'Create portfolio'}
+          </SubmitButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,17 +1,15 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
 import { type FC } from 'react';
 import { Controller, useForm, type SubmitHandler } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
 import { CURRENCIES } from '@/common/constants';
 import { FormField } from '@/components/form-field';
+import { SubmitButton } from '@/components/submit-button';
 import {
-  Button,
   Input,
   Select,
   SelectContent,
@@ -20,40 +18,23 @@ import {
   SelectValue
 } from '@/components/ui';
 import { useSignUp } from '@/hooks/use-user';
-import { withSettledRejection } from '@/lib/utils';
+import {
+  AccountNameSchema,
+  NEW_PASSWORD_HINT,
+  NewPasswordSchema
+} from '@/lib/account-schema';
+import { ApiProxyError, isConflictError } from '@/lib/axios';
+import { presentSubmitError } from '@/lib/submit-error';
 
 type SignUpFormValues = z.infer<typeof signUpSchema>;
-
-/**
- * Mirror of the API's new-password policy, so the form flags violations before
- * submitting; the API stays authoritative. Passwords are never trimmed.
- */
-const PASSWORD_MIN_CODE_POINTS = 15;
-const PASSWORD_MAX_BYTES = 72;
-
-const utf8Encoder = new TextEncoder();
 
 const CURRENCY_IDS = Object.values(CURRENCIES).map(({ id }) => id);
 
 const signUpSchema = z
   .object({
-    name: z
-      .string()
-      .trim()
-      .min(6, 'Name must be at least 6 characters long')
-      .max(255, 'Name must be at most 255 characters long'),
+    name: AccountNameSchema,
     email: z.string().trim().email(),
-    password: z
-      .string()
-      .refine(
-        (value) => [...value].length >= PASSWORD_MIN_CODE_POINTS,
-        `Password must be at least ${PASSWORD_MIN_CODE_POINTS} characters long`
-      )
-      .refine(
-        (value) => utf8Encoder.encode(value).byteLength <= PASSWORD_MAX_BYTES,
-        `Password must be at most ${PASSWORD_MAX_BYTES} bytes long`
-      )
-      .refine((value) => value.trim().length > 0, 'Password must not be blank'),
+    password: NewPasswordSchema,
     confirmPassword: z.string().min(1, 'Confirm password is required'),
     baseCurrency: z.enum(CURRENCY_IDS, 'Select a valid base currency')
   })
@@ -62,17 +43,22 @@ const signUpSchema = z
     path: ['confirmPassword']
   });
 
+const SIGN_UP_FIELDS = signUpSchema.keyof().options;
+
+const isSignUpField = (path: string): path is keyof SignUpFormValues =>
+  SIGN_UP_FIELDS.some((field) => field === path);
+
 export const SignUpForm: FC = () => {
-  const { mutateAsync: signUpMutationFn } = useSignUp();
+  const { mutateAsync: signUp } = useSignUp();
 
   const {
     control: formControl,
     register,
-    reset,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting }
   } = useForm<SignUpFormValues>({
-    mode: 'onChange',
+    mode: 'onTouched',
     resolver: zodResolver(signUpSchema),
     defaultValues: {
       name: '',
@@ -84,18 +70,35 @@ export const SignUpForm: FC = () => {
   });
 
   const handleSignUp: SubmitHandler<SignUpFormValues> = async ({
-    confirmPassword,
-    ...formData
+    name,
+    email,
+    password,
+    baseCurrency
   }) => {
-    await signUpMutationFn(formData);
-    reset();
+    try {
+      await signUp({ name, email, password, baseCurrency });
+    } catch (error) {
+      if (error instanceof ApiProxyError && isConflictError(error)) {
+        setError(
+          'email',
+          {
+            type: 'server',
+            message: 'This email is already registered. Sign in instead.'
+          },
+          { shouldFocus: true }
+        );
+        return;
+      }
+
+      presentSubmitError(error, {
+        setError,
+        fieldOf: (path) => (isSignUpField(path) ? path : undefined)
+      });
+    }
   };
 
   return (
-    <form
-      noValidate
-      onSubmit={withSettledRejection(handleSubmit(handleSignUp))}
-    >
+    <form noValidate onSubmit={handleSubmit(handleSignUp)}>
       <div className="space-y-4">
         <FormField label="Name" error={errors.name?.message}>
           {(control) => (
@@ -103,7 +106,6 @@ export const SignUpForm: FC = () => {
               {...control}
               autoComplete="name"
               autoCorrect="off"
-              disabled={isSubmitting}
               {...register('name')}
             />
           )}
@@ -115,19 +117,21 @@ export const SignUpForm: FC = () => {
               {...control}
               type="email"
               autoComplete="username"
-              disabled={isSubmitting}
               {...register('email')}
             />
           )}
         </FormField>
 
-        <FormField label="Password" error={errors.password?.message}>
+        <FormField
+          label="Password"
+          hint={NEW_PASSWORD_HINT}
+          error={errors.password?.message}
+        >
           {(control) => (
             <Input
               {...control}
               type="password"
               autoComplete="new-password"
-              disabled={isSubmitting}
               {...register('password')}
             />
           )}
@@ -142,7 +146,6 @@ export const SignUpForm: FC = () => {
               {...control}
               type="password"
               autoComplete="new-password"
-              disabled={isSubmitting}
               {...register('confirmPassword')}
             />
           )}
@@ -158,7 +161,6 @@ export const SignUpForm: FC = () => {
                   required={required}
                   name={field.name}
                   value={field.value}
-                  disabled={isSubmitting}
                   onValueChange={field.onChange}
                 >
                   <SelectTrigger
@@ -181,20 +183,17 @@ export const SignUpForm: FC = () => {
             />
           )}
         </FormField>
+
+        {errors.root?.server?.message !== undefined && (
+          <p role="alert" className="text-sm text-negative">
+            {errors.root.server.message}
+          </p>
+        )}
       </div>
 
-      <Button
-        type="submit"
-        disabled={isSubmitting}
-        size="lg"
-        className="w-full mt-12 gap-2"
-      >
-        {isSubmitting && (
-          <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-        )}
-
-        <span>Register</span>
-      </Button>
+      <SubmitButton isPending={isSubmitting} size="lg" className="mt-12 w-full">
+        Create account
+      </SubmitButton>
     </form>
   );
 };

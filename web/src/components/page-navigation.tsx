@@ -27,7 +27,6 @@ const PageStepButton: FC<PageStepButtonProps> = ({
     variant="secondary"
     size="sm"
     aria-disabled={isUnavailable}
-    className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
     onClick={() => {
       if (!isUnavailable) onStep();
     }}
