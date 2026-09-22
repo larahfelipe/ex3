@@ -3,10 +3,9 @@ import axios, {
   type CreateAxiosDefaults,
   isAxiosError
 } from 'axios';
-import { toast } from 'sonner';
 
 import { type SignOutResponseData } from '@/app/api/v1/sign-out';
-import { APP_ROUTES } from '@/common/constants';
+import { signInRouteFor } from '@/common/constants';
 
 import type { ApiServerErrorData, IApiProxyError } from './errors';
 import { ApiProxyError, UNEXPECTED_ERROR_MESSAGE } from './errors';
@@ -41,7 +40,7 @@ const SIGN_OUT_ENDPOINT = '/v1/sign-out';
 
 /**
  * Concurrent requests that fail with 401 share one sign-out, so the session is
- * ended once and the user sees a single toast and redirect.
+ * ended once and the user is redirected once.
  */
 let pendingSignOut: Promise<void> | null = null;
 
@@ -59,8 +58,10 @@ proxyApi.interceptors.response.use(
         .post<SignOutResponseData>(SIGN_OUT_ENDPOINT)
         .then(({ data }) => {
           if (!data?.success) return;
-          toast.error('Session expired. Please, log in again');
-          window.location.href = APP_ROUTES.Public.SignIn;
+          window.location.href = signInRouteFor({
+            returnPath: `${window.location.pathname}${window.location.search}`,
+            hasSessionExpired: true
+          });
         })
         .finally(() => {
           pendingSignOut = null;

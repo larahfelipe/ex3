@@ -281,3 +281,10 @@ O contrato do proxy foi exercitado por `curl` contra o `compose` local: nome sal
 | "Confirm" e "Are you sure you want to delete…" no ativo, diante de "Delete transaction" e "Delete portfolio" nos outros dois | "Delete asset" e "Delete {symbol}?", com a consequência na descrição |
 | Com uma carteira só, "Delete" ficava `disabled`, fora da ordem de `Tab`, e a explicação abaixo da lista não estava ligada a ele (1.3.1, 4.1.2) | `aria-disabled`, focável e com `aria-describedby` apontando para a explicação |
 | `?action=delete` sem `symbol` abria a confirmação de "Unknown", com o confirmar desabilitado | ignorado, como `add-transaction` sem `symbol` |
+
+### Sessão e acesso direto
+
+| Achado | Correção |
+| --- | --- |
+| Sessão expirada no meio do uso recarregava a página no sign-in, e o toast "Session expired" se perdia na recarga: o formulário aparecia sem explicar por que o usuário saiu (N4, 3.3.1) | `reason=session-expired` na URL do sign-in, pelo interceptor e pelo proxy, e um aviso acima do formulário |
+| Link direto para uma rota protegida sem sessão, ou sessão expirada numa tela funda, terminava na Overview depois do sign-in, e o usuário refazia o caminho | o sign-in volta ao caminho e à query pedidos, em `next`, aceitos só como caminho desta origem |

@@ -52,7 +52,7 @@ const useLeaveSession = () => {
   };
 };
 
-export const useSignIn = () => {
+export const useSignIn = (destination: string) => {
   const queryClient = useQueryClient();
   const { push } = useRouter();
 
@@ -65,7 +65,7 @@ export const useSignIn = () => {
     onSuccess: ({ data: userData }) => {
       queryClient.removeQueries();
       toast.success(`Signed in as ${userData.name ?? userData.email}`);
-      push(APP_ROUTES.Protected.Overview);
+      push(destination);
     }
   });
 };

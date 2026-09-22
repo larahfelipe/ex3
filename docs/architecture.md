@@ -116,7 +116,7 @@ Falha do provedor nunca vira 500: a porta responde `not-found`, `unavailable` ou
 
 | Ponto | O que decide |
 | --- | --- |
-| `web/src/proxy.ts` | rota protegida sem token válido redireciona para o sign-in; token expirado é apagado |
+| `web/src/proxy.ts` | rota protegida sem token válido redireciona para o sign-in, com o caminho pedido em `next` e, havendo token, `reason=session-expired`; token expirado é apagado |
 | `web/src/lib/session.ts` | grava o cookie `httpOnly` com a própria expiração do token |
 | `web/src/app/api/v1/**` | anexa `Authorization: Bearer`; sem cookie, responde 401 sem chamar o backend |
 | `backend/src/middleware/AuthMiddleware.ts` | verifica assinatura e compara a claim `sessionVersion` com a linha do usuário |

@@ -1,6 +1,10 @@
 import { NextResponse, type ProxyConfig, type NextRequest } from 'next/server';
 
-import { APP_ROUTES, APP_STORAGE_KEYS } from './common/constants';
+import {
+  APP_ROUTES,
+  APP_STORAGE_KEYS,
+  signInRouteFor
+} from './common/constants';
 import { isAccessTokenActive } from './lib/access-token';
 
 /**
@@ -40,12 +44,14 @@ export const proxy = async (req: NextRequest) => {
   const token = req.cookies.get(APP_STORAGE_KEYS.Token)?.value;
   const isAuthenticated = !!token && isAccessTokenActive(token);
 
-  const { pathname } = req.nextUrl;
+  const { pathname, search } = req.nextUrl;
 
   if (!isPubRoute(pathname) && !isAuthenticated) {
-    const res = NextResponse.redirect(
-      new URL(APP_ROUTES.Public.SignIn, req.url)
-    );
+    const signInRoute = signInRouteFor({
+      returnPath: `${pathname}${search}`,
+      hasSessionExpired: !!token
+    });
+    const res = NextResponse.redirect(new URL(signInRoute, req.url));
 
     if (token) res.cookies.delete(APP_STORAGE_KEYS.Token);
 

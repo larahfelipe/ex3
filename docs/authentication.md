@@ -53,13 +53,15 @@ Senhas submetidas para verificação (sign-in, exclusão de conta, `oldPassword`
 
 Antes, o proxy do Next (`web/src/proxy.ts`, `middleware.ts` até o Next 16) autenticava por **presença** do cookie: um token expirado ou revogado deixava o usuário navegar até a primeira chamada de API falhar com 401.
 
-Agora o proxy decodifica o payload do token e verifica `exp` antes de liberar a rota; se estiver expirado, redireciona para o sign-in **e apaga o cookie**.
+Agora o proxy decodifica o payload do token e verifica `exp` antes de liberar a rota; se estiver expirado, redireciona para o sign-in **e apaga o cookie**. O redirecionamento leva o caminho pedido, com a query, em `next`, salvo quando é a Overview, e, se havia token, `reason=session-expired`. A URL sai de `signInRouteFor`, em `web/src/common/constants.ts`, a mesma do interceptor abaixo.
 
 **O proxy não verifica a assinatura.** Ele é um portão de UX, não um limite de segurança. A autoridade continua sendo o backend, que valida assinatura, expiração e sessão ativa; um token forjado passa pelo proxy e é rejeitado na primeira chamada à API.
 
 Complementarmente, o cookie de sessão recebe `expires` derivado do `exp` do próprio token (`web/src/lib/session.ts`), de modo que o browser descarta a credencial no mesmo instante em que a API deixa de aceitá-la.
 
-No cliente, o interceptor do axios (`web/src/lib/axios/axios.ts`) trata 401 como sessão expirada: chama `/v1/sign-out`, que revoga a sessão e apaga o cookie, e redireciona para o sign-in. As exceções são `/v1/sign-in` e `/v1/sign-up`, onde o 401 significa credencial recusada e precisa chegar ao formulário, e o próprio `/v1/sign-out`, para que encerrar a sessão não recorra. 401s concorrentes compartilham um único sign-out: a sessão é encerrada uma vez, com um só aviso e um só redirecionamento.
+No cliente, o interceptor do axios (`web/src/lib/axios/axios.ts`) trata 401 como sessão expirada: chama `/v1/sign-out`, que revoga a sessão e apaga o cookie, e recarrega no sign-in com `reason=session-expired` e a página atual em `next`. As exceções são `/v1/sign-in` e `/v1/sign-up`, onde o 401 significa credencial recusada e precisa chegar ao formulário, e o próprio `/v1/sign-out`, para que encerrar a sessão não recorra. 401s concorrentes compartilham um único sign-out: a sessão é encerrada uma vez, com um só redirecionamento.
+
+Com `reason=session-expired`, o sign-in mostra "Your session expired. Sign in again to continue." acima do formulário; o toast que o interceptor mostrava se perdia na recarga. Entrando, o web vai para `next` se ele for um caminho desta origem — começa com uma só `/`, sem `\` logo depois, sem espaço, tab ou quebra de linha, que o parser de URL descartaria para formar `//host` — e para a Overview no resto. `next` chega pela barra de endereço, então é validado na página do sign-in, no servidor, antes de chegar ao `router.push`.
 
 O perfil exibido vem de `GET /api/v1/user`; o `localStorage` não guarda dados do usuário. Sign-in, sign-up e sign-out descartam o cache do React Query, para que dados de uma conta não apareçam para a seguinte na mesma aba.
 
