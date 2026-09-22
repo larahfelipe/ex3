@@ -66,8 +66,8 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 
 - **Origem:** revisão de segurança do sign-up com moeda base · **Tipo:** segurança · **Prioridade:** baixa · **Encaminhamento:** avulso
 - **Contexto:** `name` é `z.string().optional()` em `CreateUserSchema` e `UpdateUserSchema`, sem `trim` nem máximo; o único teto é o limite do corpo JSON (`RequestLimits.JSON_BODY_SIZE`, 100 kB). O nome da carteira já usa `boundedTextSchema`.
-- **Impacto:** cada conta grava um nome de até cerca de 100 kB, devolvido nas respostas que trazem o usuário, inclusive a listagem de admin (OWASP API4:2023). Nome só de espaços é aceito. Conta criada pela API sem nome recebe `name` `null`, que `SignInResponseData` no web declara como `string`, e o toast de sign-in mostra `Logged in as null`; o perfil de `GET /api/v1/user` já trata o `null`.
-- **Proposta:** `boundedTextSchema` com máximo nomeado e documentado nos dois schemas. Decidir com o produto se o nome passa a ser obrigatório; enquanto for opcional, tipar `name` como `string | null` em `SignInResponseData`.
+- **Impacto:** cada conta grava um nome de até cerca de 100 kB, devolvido nas respostas que trazem o usuário, inclusive a listagem de admin (OWASP API4:2023). Nome só de espaços é aceito. Conta criada pela API sem nome recebe `name` `null`; o web o tipa assim desde a auditoria de UX/UI de 2026-09-22 e saúda essa conta pelo e-mail. O sign-up e a tela de conta do web limitam o nome a 6–255 caracteres sem espaço nas pontas, mas a API continua aceitando qualquer tamanho de outro cliente.
+- **Proposta:** `boundedTextSchema` com máximo nomeado e documentado nos dois schemas. Decidir com o produto se o nome passa a ser obrigatório.
 
 ### TD-015 — Tamanho de página padrão repetido em cada repositório
 
@@ -187,13 +187,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** `web/src/app/(protected)/assets/page.tsx` lê `?action` sem validar o valor e marca um diálogo como aberto mesmo quando nenhum corresponde. Enquanto o parâmetro fica na URL, o efeito reabre esse estado a cada fechamento.
 - **Impacto:** com um `action` desconhecido na URL, editado à mão, o botão "Add asset" alterna um estado sem diálogo e não abre o formulário até a URL ser limpa.
 - **Proposta:** aceitar só os valores de `ASSET_DIALOG_ACTIONS`, e os que dependem de símbolo só com `symbol`, e limpar a URL do resto, junto com a troca de `replaceUrl` pelo router.
-
-### TD-038 — Verde de compra e de ganho abaixo do contraste AA
-
-- **Origem:** modelo de proventos · **Tipo:** acessibilidade · **Prioridade:** média · **Encaminhamento:** TASK 14.1
-- **Contexto:** `text-green-600` do Tailwind 4 tem contraste de cerca de 3,2:1 sobre fundo branco, abaixo dos 4,5:1 que o WCAG 2.2 AA exige para texto no tamanho `text-sm`. Ele colore o tipo `BUY` em `TRANSACTION_TYPE_TONES` (`web/src/common/constants.ts`), na tabela e no diálogo de transações, e o valor positivo em `web/src/common/utils.ts`.
-- **Impacto:** o tipo da compra e os ganhos ficam difíceis de ler com baixa visão ou tela sob luz forte.
-- **Proposta:** trocar pelo tom verde que atinja 4,5:1 nos dois lugares, dentro da revisão de contraste dos tokens.
 
 ### TD-039 — Configuração de containers sem validação num runtime
 
@@ -364,14 +357,17 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** nenhum hoje; se um seletor de tema entrar, o toast destoaria da paleta clara.
 - **Proposta:** ler o mesmo estado que decide a classe de `<html>` e passar `theme="light" | "dark"` ao `Toaster`, resolvido junto do TD-048.
 
+## Resolvidos
+
+### TD-038 — Verde de compra e de ganho abaixo do contraste AA
+
+- **Tipo:** acessibilidade · **Prioridade:** média
+- **Resolução:** `TRANSACTION_TYPE_TONES` e `signedValueTone` já usam o token `text-positive`, de 5.58:1 na paleta clara e 9.96:1 na escura (`docs/accessibility.md`, §Contraste medido); não resta `text-green-*` em `web/src`.
+
 ### TD-071 — `TransactionFormDialog` e `PortfolioFormDialog` não usam `FormField`/`ChoiceField`
 
-- **Origem:** cadastro de instrumento privado · **Tipo:** qualidade · **Prioridade:** baixa · **Encaminhamento:** avulso
-- **Contexto:** `components/form-field.tsx` extraiu a fiação de rótulo/`aria-invalid`/`aria-describedby` que `instrument-registration.tsx` usa, a partir do padrão que `transaction-form-dialog.tsx` e `portfolio-form-dialog.tsx` fixaram primeiro. Os dois continuam com a fiação manual original: correta, mas duplicada em vez de reaproveitada.
-- **Impacto:** nenhum hoje — os três formulários se comportam igual para teclado e leitor de tela. Só custo de manutenção: uma correção na fiação de acessibilidade precisa repetir em três lugares.
-- **Proposta:** migrar os dois formulários para `FormField`/`ChoiceField` quando algum deles for tocado por outro motivo, sem PR dedicado só para isso.
-
-## Resolvidos
+- **Tipo:** qualidade · **Prioridade:** baixa
+- **Resolução:** `transaction-form-dialog.tsx` e `portfolio-form-dialog.tsx` já usavam `FormField`/`ChoiceField`; a auditoria de UX/UI de 2026-09-22 levou o mesmo contrato ao sign-in, ao sign-up e à tela de conta, e o mapeamento do erro da API, copiado nos três diálogos, virou `presentSubmitError` em `lib/submit-error.ts`.
 
 ### TD-066 — Dialog aberto pelo menu da linha devolve o foco ao `body`
 

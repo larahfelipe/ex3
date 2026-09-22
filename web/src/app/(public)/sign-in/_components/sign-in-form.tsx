@@ -4,13 +4,13 @@ import { type FC } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
 import { FormField } from '@/components/form-field';
-import { Button, Input } from '@/components/ui';
+import { SubmitButton } from '@/components/submit-button';
+import { Input } from '@/components/ui';
 import { useSignIn } from '@/hooks/use-user';
-import { withSettledRejection } from '@/lib/utils';
+import { presentSubmitError } from '@/lib/submit-error';
 
 type SignInFormValues = z.infer<typeof signInSchema>;
 
@@ -19,16 +19,21 @@ const signInSchema = z.object({
   password: z.string().min(1, 'Password is required')
 });
 
+const SIGN_IN_FIELDS = signInSchema.keyof().options;
+
+const isSignInField = (path: string): path is keyof SignInFormValues =>
+  SIGN_IN_FIELDS.some((field) => field === path);
+
 export const SignInForm: FC = () => {
-  const { mutateAsync: signInMutationFn } = useSignIn();
+  const { mutateAsync: signIn } = useSignIn();
 
   const {
     register,
-    reset,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting }
   } = useForm<SignInFormValues>({
-    mode: 'onChange',
+    mode: 'onTouched',
     resolver: zodResolver(signInSchema),
     defaultValues: {
       email: '',
@@ -37,15 +42,18 @@ export const SignInForm: FC = () => {
   });
 
   const handleSignIn: SubmitHandler<SignInFormValues> = async (formData) => {
-    await signInMutationFn(formData);
-    reset();
+    try {
+      await signIn(formData);
+    } catch (error) {
+      presentSubmitError(error, {
+        setError,
+        fieldOf: (path) => (isSignInField(path) ? path : undefined)
+      });
+    }
   };
 
   return (
-    <form
-      noValidate
-      onSubmit={withSettledRejection(handleSubmit(handleSignIn))}
-    >
+    <form noValidate onSubmit={handleSubmit(handleSignIn)}>
       <div className="space-y-4">
         <FormField label="Email" error={errors.email?.message}>
           {(control) => (
@@ -53,7 +61,6 @@ export const SignInForm: FC = () => {
               {...control}
               type="email"
               autoComplete="username"
-              disabled={isSubmitting}
               {...register('email')}
             />
           )}
@@ -65,25 +72,21 @@ export const SignInForm: FC = () => {
               {...control}
               type="password"
               autoComplete="current-password"
-              disabled={isSubmitting}
               {...register('password')}
             />
           )}
         </FormField>
+
+        {errors.root?.server?.message !== undefined && (
+          <p role="alert" className="text-sm text-negative">
+            {errors.root.server.message}
+          </p>
+        )}
       </div>
 
-      <Button
-        type="submit"
-        disabled={isSubmitting}
-        size="lg"
-        className="w-full mt-12 gap-2"
-      >
-        {isSubmitting && (
-          <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-        )}
-
-        <span>Login</span>
-      </Button>
+      <SubmitButton isPending={isSubmitting} size="lg" className="mt-12 w-full">
+        Sign in
+      </SubmitButton>
     </form>
   );
 };

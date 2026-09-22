@@ -32,7 +32,7 @@ export default function SignUp() {
             href={APP_ROUTES.Public.SignIn}
             className="leading-6 text-foreground underline underline-offset-4 hover:text-foreground/90"
           >
-            Login instead
+            Sign in instead
           </Link>
         </p>
       </section>

@@ -77,7 +77,7 @@ A paleta clara dos tokens semânticos não tem consumidor em runtime — ver TD-
 | # | Regra | Verificação |
 | --- | --- | --- |
 | P1 | Todo input tem nome acessível por `<Label htmlFor>`; `aria-label` só quando não há rótulo visível | 1.3.1, 3.3.2, 4.1.2 · `jsx-a11y/label-has-associated-control` |
-| P2 | Erro de campo é associado por `aria-describedby` e marcado com `aria-invalid` | 3.3.1 · formulários de transação, ativo e autenticação |
+| P2 | Erro de campo é associado por `aria-describedby` e marcado com `aria-invalid` | 3.3.1 · `FormField`/`ChoiceField` em todo formulário |
 | P3 | A mensagem descreve o que corrigir, não só que falhou | 3.3.3 · texto das mensagens do Zod |
 | P4 | Campo obrigatório é comunicado ao AT e visualmente | 3.3.2 · `required`/`aria-required` |
 | P5 | Campo de identidade ou credencial tem `autocomplete` | 1.3.5 · `sign-in`, `sign-up`, `account` |
@@ -256,3 +256,17 @@ Revisão por leitura de todo `web/src`, organizada em etapas, cada uma com os ga
 | "Next" na penúltima página e "Previous" na segunda ficavam `disabled` com o foco em cima: o navegador soltava o foco no `body` e o próximo `Tab` recomeçava do topo (F4) | `aria-disabled` nos botões dos extremos, que continuam focáveis, são lidos como indisponíveis e ignoram a ativação |
 | Excluir a última transação da lista, ou a última de uma página, trocava a tabela pelo estado vazio e desmontava junto o elemento que receberia o foco (TD-052, F4) | `QuerySection` foca o `<h2>` da seção quando o conteúdo exibido troca e o foco, que estava na seção ou num diálogo aberto a partir dela, caiu no `body`; foco em outro lugar da página não é tocado |
 | Diálogo aberto por item de menu devolvia o foco a um item já desmontado (TD-066, F3) | `useFocusReturn` registra o gatilho do menu, pelo `aria-labelledby` que o Radix põe no conteúdo com o id do gatilho |
+
+### Formulários e conta
+
+| Achado | Correção |
+| --- | --- |
+| Erro da API no sign-in e no sign-up — credencial inválida, e-mail já cadastrado, limite de tentativas — só aparecia em toast (N4, 3.3.1) | alerta `role="alert"` no formulário, como nos diálogos; o `409` do sign-up vai para o campo de e-mail, com foco; os toasts de erro saíram de `useSignIn` e `useSignUp` |
+| Sign-in e sign-up desabilitavam cada campo durante o envio, e Enter num campo o desabilitava com o foco em cima — o mesmo defeito do `fieldset disabled` já corrigido nos diálogos (F4) | campos seguem habilitados; quem impede o reenvio é o botão |
+| O submit de todo formulário ficava `disabled` durante o envio: ativado pelo teclado, perdia o foco para o `body`, e o próximo `Tab` depois de um envio recusado recomeçava do topo (F4, 2.4.3) | `SubmitButton`, com `aria-disabled` e o clique cancelado enquanto envia, o que cancela também a submissão implícita por Enter num campo |
+| Tela de conta: nome e e-mail em `Input disabled`, fora da ordem de `Tab` e anunciados como campos indisponíveis, e um formulário de senha que aceitava digitação ao lado de "Update" sempre desabilitado, sem rota que o atendesse | nome editável e e-mail como texto numa lista de definição; troca de senha com senha atual, nova e confirmação, pelo novo `PATCH /api/v1/user`. Senha atual errada vai para o próprio campo, com foco, e a descrição da seção avisa que a troca encerra a sessão |
+| A política de senha só aparecia depois do erro (3.3.2) | dica "At least 15 characters" ligada por `aria-describedby` à senha do sign-up e à nova senha da conta |
+| Sign-in e sign-up validavam em `onChange`, com erro a cada tecla antes de o campo ser deixado | `onTouched`, como nos diálogos |
+| "Login", "Register", "Login instead", "Logged in as", "Logged out successfully" e dois toasts no sign-up, ao lado de "Sign out" no menu | "Sign in", "Create account", "Sign in instead", "Signed in as", "Signed out" e um toast só; conta sem nome é saudada pelo e-mail |
+
+O contrato do proxy foi exercitado por `curl` contra o `compose` local: nome salvo com o cookie mantido, senha atual errada em `400` `VALIDATION` sem `details`, nova senha curta em `400` com `path` `newPassword`, corpo inválido em `400` do proxy, troca aceita com `Set-Cookie` apagando `ex3:token`, `GET /api/v1/user` seguinte em `401`, sign-in com a senha antiga recusado e com a nova aceito.

@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 import { APP_STORAGE_KEYS } from '@/common/constants';
 
@@ -10,7 +10,7 @@ type ForwardedRequest = {
   method: 'get' | 'post' | 'patch' | 'delete';
   path: string;
   searchParams?: URLSearchParams;
-  payloadFrom?: NextRequest;
+  payloadFrom?: Request;
 };
 
 /** The browser never holds the token: it is read from the httpOnly cookie and sent only to the API. */
@@ -27,7 +27,7 @@ const authorizationHeaders = async () => {
 };
 
 /** A body the proxy cannot parse is a rejected request, not an upstream failure. */
-export const jsonPayload = async <Payload = unknown>(req: NextRequest) => {
+export const jsonPayload = async <Payload = unknown>(req: Request) => {
   try {
     return (await req.json()) as Payload;
   } catch {

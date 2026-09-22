@@ -13,9 +13,17 @@ import type {
   SignUpRequestPayload,
   SignUpResponseData
 } from '@/app/api/v1/sign-up';
-import type { GetCurrentUserResponseData } from '@/app/api/v1/user';
+import type {
+  ChangePasswordRequestPayload,
+  GetCurrentUserResponseData,
+  UpdateCurrentUserResponseData,
+  UpdateProfileRequestPayload
+} from '@/app/api/v1/user';
 import { APP_ROUTES } from '@/common/constants';
-import api, { type ApiProxyErrorData } from '@/lib/axios';
+import api, {
+  type ApiProxyErrorData,
+  UNEXPECTED_ERROR_MESSAGE
+} from '@/lib/axios';
 import { queryKeys } from '@/lib/react-query';
 
 import { selectActivePortfolio } from './use-portfolio';
@@ -31,6 +39,19 @@ export const useCurrentUser = () =>
     select: ({ data }) => data.user
   });
 
+/** Nothing cached for the account that is leaving may reach the next one to sign in. */
+const useLeaveSession = () => {
+  const queryClient = useQueryClient();
+  const { push } = useRouter();
+
+  return (message: string) => {
+    selectActivePortfolio(null);
+    queryClient.removeQueries();
+    toast.success(message);
+    push(APP_ROUTES.Public.SignIn);
+  };
+};
+
 export const useSignIn = () => {
   const queryClient = useQueryClient();
   const { push } = useRouter();
@@ -43,10 +64,9 @@ export const useSignIn = () => {
     mutationFn: (payload) => api.getInstance().post('/v1/sign-in', payload),
     onSuccess: ({ data: userData }) => {
       queryClient.removeQueries();
-      toast.success(`Logged in as ${userData.name}`);
+      toast.success(`Signed in as ${userData.name ?? userData.email}`);
       push(APP_ROUTES.Protected.Overview);
-    },
-    onError: (e) => toast.error(e.message)
+    }
   });
 };
 
@@ -60,29 +80,55 @@ export const useSignUp = () => {
     SignUpRequestPayload
   >({
     mutationFn: (payload) => api.getInstance().post('/v1/sign-up', payload),
-    onSuccess: ({ data }) => {
-      const { message, user: userData } = data;
+    onSuccess: ({ data: { user: userData } }) => {
       queryClient.removeQueries();
-      toast.success(message);
-      toast.success(`Logged in as ${userData.name}`);
+      toast.success(
+        `Account created. Signed in as ${userData.name ?? userData.email}`
+      );
       push(APP_ROUTES.Protected.Overview);
-    },
-    onError: (e) => toast.error(e.message)
+    }
   });
 };
 
 export const useSignOut = () => {
-  const queryClient = useQueryClient();
-  const { push } = useRouter();
+  const leaveSession = useLeaveSession();
 
   return useMutation<AxiosResponse<SignOutResponseData>>({
     mutationFn: () => api.getInstance().post('/v1/sign-out'),
-    onSuccess: () => {
-      selectActivePortfolio(null);
-      queryClient.removeQueries();
-      toast.success('Logged out successfully');
-      push(APP_ROUTES.Public.SignIn);
-    },
-    onError: () => toast.error('Something went wrong. Please try again later')
+    onSuccess: () => leaveSession('Signed out'),
+    onError: () => toast.error(UNEXPECTED_ERROR_MESSAGE)
+  });
+};
+
+export const useUpdateProfile = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    AxiosResponse<UpdateCurrentUserResponseData>,
+    ApiProxyErrorData,
+    UpdateProfileRequestPayload
+  >({
+    mutationFn: (payload) => api.getInstance().patch('/v1/user', payload),
+    onSuccess: async ({ data }) => {
+      toast.success(data.message);
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.currentUser()
+      });
+    }
+  });
+};
+
+/** The API revokes the session that changed the password, and the proxy clears its cookie in the same response. */
+export const useChangePassword = () => {
+  const leaveSession = useLeaveSession();
+
+  return useMutation<
+    AxiosResponse<UpdateCurrentUserResponseData>,
+    ApiProxyErrorData,
+    ChangePasswordRequestPayload
+  >({
+    mutationFn: (payload) => api.getInstance().patch('/v1/user', payload),
+    onSuccess: () =>
+      leaveSession('Password changed. Sign in with your new password')
   });
 };
