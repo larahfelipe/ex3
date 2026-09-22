@@ -336,6 +336,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** nenhum hoje; se um seletor de tema entrar, o toast destoaria da paleta clara.
 - **Proposta:** ler o mesmo estado que decide a classe de `<html>` e passar `theme="light" | "dark"` ao `Toaster`, resolvido junto do TD-048.
 
+### TD-072 — Tabela de posições nomeia as colunas com termos diferentes do resto do web
+
+- **Origem:** auditoria de UX/UI e acessibilidade (2026-09-22) · **Tipo:** UX · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** `web/src/app/(protected)/assets/_components/positions-table.tsx` chama as colunas de "Average price", "Price", "Value", "P&L" e "P&L %"; a Overview, o cartão de valor e o detalhe do ativo usam "Average cost", "Market price", "Market value" e "Profit/Loss" para os mesmos campos da API.
+- **Impacto:** o mesmo número aparece com dois nomes conforme a tela, e "P&L" só é lido como a sigla.
+- **Proposta:** adotar os termos longos nos cabeçalhos ordenáveis depois de medir a tabela entre 640 e 1280 px, onde cada termo alarga uma coluna `whitespace-nowrap` e pode tornar rolável uma região que hoje cabe; a verificação visual ficou fora do alcance desta auditoria, que não teve navegador.
+
 ## Resolvidos
 
 ### TD-050 — Período do gráfico e página das transações continuam fora da URL

@@ -72,7 +72,8 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow
+  TableRow,
+  TableRowHeader
 } from '@/components/ui';
 import { usePositions, useRefreshPortfolio } from '@/hooks/use-portfolio';
 
@@ -523,7 +524,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                 <TableBody>
                   {data.items.map((position) => (
                     <TableRow key={position.symbol}>
-                      <TableCell>
+                      <TableRowHeader>
                         <div className="flex flex-col items-start">
                           <Button
                             asChild
@@ -547,7 +548,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                             />
                           </span>
                         </div>
-                      </TableCell>
+                      </TableRowHeader>
 
                       <TableCell className="text-right max-sm:hidden">
                         <Quantity value={position.quantity} />

@@ -290,3 +290,10 @@ O contrato do proxy foi exercitado por `curl` contra o `compose` local: nome sal
 | Link direto para uma rota protegida sem sessão, ou sessão expirada numa tela funda, terminava na Overview depois do sign-in, e o usuário refazia o caminho | o sign-in volta ao caminho e à query pedidos, em `next`, aceitos só como caminho desta origem |
 | Fechar qualquer diálogo da tela de ativos empilhava no histórico uma entrada igual à atual, e Voltar parecia não fazer nada; aberto por link, como "Add asset" da Overview, o diálogo fechado reabria no Voltar | parâmetros de diálogo escritos com `history.replaceState` |
 | Refresh ou link compartilhado voltava o gráfico de performance a `1Y` e as carteiras, as posições da Overview e as transações do ativo à primeira página | período e página na URL, empilhados a cada mudança para Voltar desfazê-la, como na tabela de posições |
+
+### Tabelas
+
+| Achado | Correção |
+| --- | --- |
+| As posições da Overview e as tabelas de transações não tinham legenda, ao contrário das posições da tela de ativos, da alocação e da performance: o leitor de tela anunciava uma tabela sem nome (1.3.1) | `TableCaption` `sr-only` em todas: "Positions valued in {moeda}" e "Transactions, newest first" |
+| Nenhuma tabela tinha cabeçalho de linha: ao descer por uma coluna de valores, o leitor de tela lia só o número, sem o ativo, o grupo ou a data a que ele pertence (1.3.1) | `TableRowHeader`, `th scope="row"`, na primeira célula das cinco tabelas |
