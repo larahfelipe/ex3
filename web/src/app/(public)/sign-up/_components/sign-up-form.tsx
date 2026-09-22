@@ -96,7 +96,7 @@ export const SignUpForm: FC = () => {
       noValidate
       onSubmit={withSettledRejection(handleSubmit(handleSignUp))}
     >
-      <div className="flex-col align-center space-y-4">
+      <div className="space-y-4">
         <FormField label="Name" error={errors.name?.message}>
           {(control) => (
             <Input
@@ -186,7 +186,8 @@ export const SignUpForm: FC = () => {
       <Button
         type="submit"
         disabled={isSubmitting}
-        className="w-full mt-12 p-6 gap-2"
+        size="lg"
+        className="w-full mt-12 gap-2"
       >
         {isSubmitting && (
           <Loader2 aria-hidden="true" className="size-4 animate-spin" />

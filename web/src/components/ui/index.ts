@@ -5,7 +5,6 @@ export * from './dialog';
 export * from './dropdown-menu';
 export * from './input';
 export * from './label';
-export * from './pagination';
 export * from './segmented-control';
 export * from './select';
 export * from './skeleton';

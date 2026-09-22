@@ -321,7 +321,8 @@ export const PositionsTable: FC<PositionsTableProps> = ({
           action={
             <Button
               variant="outline"
-              className="h-9 gap-2 max-sm:w-full"
+              size="sm"
+              className="gap-2 max-sm:w-full"
               disabled={isFetching}
               onClick={() => refreshPortfolio()}
             >
@@ -494,7 +495,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                             type="button"
                             onClick={() => sortBy(field)}
                             className={twMerge(
-                              'inline-flex items-center gap-1 rounded-sm font-medium transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2',
+                              'inline-flex items-center gap-1 rounded-sm font-medium transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2',
                               isSorted && 'text-foreground'
                             )}
                           >
@@ -608,7 +609,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                             </DropdownMenuItem>
 
                             <DropdownMenuItem
-                              className="text-negative focus:text-negative"
+                              className="text-destructive focus:text-destructive"
                               onSelect={() => onDeleteAsset(position.symbol)}
                             >
                               Delete

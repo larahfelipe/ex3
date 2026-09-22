@@ -9,13 +9,13 @@ shadcn/ui sobre Radix, com `cn()` (`clsx` + `tailwind-merge`) e `class-variance-
 | Componente | Base | Avaliação |
 | --- | --- | --- |
 | `button` | Radix Slot + CVA | **Preservar.** Variantes já cobrem o novo produto |
-| `card` | — | **Preservar.** Base dos KPI cards da FASE 8 |
+| `card` | — | **Preservar.** Base dos KPI cards da FASE 8. `CardTitle` e `CardDescription` saíram na auditoria de UX de 2026-09-22: todo título de seção vem de `SectionHeader`, com `<h2>` |
 | `dialog`, `alert-dialog` | Radix | **Preservar.** Focus trap e `aria` vêm do Radix. Desde a TASK 15.4 o conteúdo é limitado a `max-h-dvh` e rola por dentro — abaixo de `sm` isso equivale à tela integral —, e o rodapé separa os botões empilhados com `gap-2` |
-| `dropdown-menu`, `select` | Radix | **Preservar** |
+| `dropdown-menu`, `select` | Radix | **Preservar.** Reduzidos na auditoria de UX de 2026-09-22 às partes com consumidor: `DropdownMenu`, `Trigger`, `Content` e `Item`; `Select`, `Trigger`, `Value`, `Content` e `Item`, com os botões de rolagem que o próprio `SelectContent` usa |
 | `input`, `label` | Radix | **Preservar.** `checkbox` foi removido com `@radix-ui/react-checkbox` na auditoria de dependências (TASK 20.3): estava sem consumidor desde que a tabela de ativos deixou de selecionar linhas |
 | `segmented-control` | — | **Novo.** `SegmentedControl`/`SegmentedControlItem` estiliza um grupo de `input[type=radio]` nativo como um controle segmentado — nenhum papel ARIA próprio além do que o HTML já dá ao rádio. O item marcado usa `--primary`/`--primary-foreground`; o contêiner ganha `border-negative` quando o `ChoiceField` que o envolve está inválido (`in-data-invalid:`). Três consumidores: tipo da transação (`transaction-form-dialog.tsx`), moeda base da carteira (`portfolio-form-dialog.tsx`) e classe/mercado/moeda do cadastro de instrumento (`instrument-registration.tsx`), que antes eram rádio nativo sem estilo |
 | `table` | HTML semântico | **Preservar como primitive**, mas não cobre ordenação, seleção ou estado vazio — o consumidor implementa tudo. Desde a TASK 15.3 o wrapper é um `section` que exige a prop `label`: enquanto transborda, vira região nomeada e focável; `regionClassName` ajusta a caixa que rola |
-| `pagination` | — | **Preservar.** Sem consumidor: a tabela de posições pagina com botões num `nav` próprio |
+| `pagination` | — | **Removido** na auditoria de UX de 2026-09-22: nunca teve consumidor, e toda listagem pagina por botões, não por link |
 | `skeleton` | — | **Preservar.** Vira base do `LoadingState` (TASK 12.4) |
 | `separator`, `tooltip` | Radix | **Removidos** na TASK 20.3, com `@radix-ui/react-separator` e `@radix-ui/react-tooltip`: nenhuma tela os renderizava |
 | `sonner` | Sonner | **Preservar** |

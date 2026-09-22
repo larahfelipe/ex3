@@ -130,7 +130,7 @@ Todos os 62 pares medidos passam no limite da regra que exercem, nas duas paleta
 
 | Par | Onde aparece | Claro (era) | Escuro (era) | Limite |
 | --- | --- | --- | --- | --- |
-| `--destructive` como texto | ação "Delete transaction" em `transaction-details-dialog.tsx` | 5.75:1 (3.76:1) | 7.31:1 (2.01:1) | 4.5:1 |
+| `--destructive` como texto | ação de exclusão em `transaction-details-dialog.tsx`, no menu da linha de `positions-table.tsx` e na lista de `portfolios/page.tsx` | 5.75:1 (3.76:1) | 7.31:1 (2.01:1) | 4.5:1 |
 | `--primary-foreground` sobre `--primary` | rótulo de todo botão primário; `/0.9` no hover | 16.95:1 (16.95:1) | 5.71:1, 4.74:1 no hover (3.49:1) | 4.5:1 |
 | `--border`/`--input` sobre `--background` | borda de campo, única pista visual do controle | `--input` 3.52:1 (1.24:1) | `--input` 3.50:1 (1.33:1) | 3:1 |
 | `--destructive-foreground` sobre `--destructive` | botão sólido de exclusão; `/0.9` no hover | 5.50:1, 4.84:1 no hover (3.60:1) | 6.53:1, 5.40:1 no hover (9.59:1) | 4.5:1 |
@@ -227,3 +227,23 @@ Depois das correções, zero violações do axe em toda página, todo diálogo e
 ### Persistência sem consumidor no servidor
 
 O estado expandido/recolhido do menu lateral é lido do cookie `ex3:navigation` em `(protected)/layout.tsx` antes da primeira renderização, então alternar, recarregar e reabrir a aplicação nunca produz o menu no estado errado por um instante (2.4.3, sem *flash*); verificado no arnês alternando, recarregando com o cookie já gravado e conferindo a largura do `nav` no primeiro paint.
+
+## Auditoria de UX/UI e acessibilidade (2026-09-22)
+
+Revisão por leitura de todo `web/src`, organizada em etapas, cada uma com os gates do `web` (`lint`, `typecheck`, `build`) e um commit próprio.
+
+### Primitives e tokens
+
+| Achado | Correção |
+| --- | --- |
+| `SelectTrigger` e o botão de fechar do `Dialog` mostravam o anel com `focus:`, também depois de um clique; o resto dos controles usa `focus-visible:` (F1) | par `focus-visible:` nos dois; o link de pulo continua em `focus:`, porque só existe na tela enquanto focado |
+| Botão de fechar do `Dialog` com 16×16 px, abaixo do alvo mínimo (K6, 2.5.8) | alvo de 24×24 px com o ícone no mesmo centro; saíram as classes `data-[state=open]:`, que o `DialogClose` do Radix nunca recebe |
+| `summary` da tabela de performance e botão de ordenação da tabela de posições usavam `outline-none`, que também apaga o contorno em `forced-colors` | `outline-hidden`, como no resto do código |
+| Ação destrutiva em texto variava entre `text-negative` e `text-destructive`; `--negative` sobre `--accent`, o fundo do item de menu focado, dá 4.36:1 na paleta clara | `text-destructive` em toda ação de exclusão: 5.23:1 claro e 5.51:1 escuro sobre `--accent`, 7.21:1 escuro sobre `--surface-elevated`. `--negative` fica para valor e erro |
+| Cabeçalho e título de `Dialog` e `AlertDialog` com espaçamento e entrelinha diferentes; `leading-none` encavalava título quebrado em duas linhas no celular | mesmo `space-y-1.5` e `leading-tight tracking-tight` nos dois; `AlertDialogCancel` perdeu o `mt-2`, que somava ao `gap-2` do rodapé só no celular |
+| Botões de ação com `h-9` sobrescrito no tamanho padrão, ao lado de `size="sm"` com outro padding; submit de autenticação com `p-6` sobre `h-10` | `size="sm"` em toda ação de 36 px e `size="lg"` no submit de sign-in e sign-up |
+| `align-center`, classe que não existe, em `(public)/layout.tsx` e nos dois formulários de autenticação, junto de `flex-col` sem `flex` | removidas, sem mudança de layout |
+| Link de autoria do rodapé público sem indicador de foco (F1) | anel `focus-visible:` e hover |
+| `pagination.tsx`, `CardTitle`, `CardDescription` e catorze partes de `dropdown-menu`/`select` sem consumidor | removidos |
+
+Ícones de `lucide-react` 1.x já saem com `aria-hidden="true"` quando não recebem `aria-*`, `role` nem `title` (`buildLucideIconNode`); o `aria-hidden` explícito que o código tem é redundante, não falta, e o que S6 exige continua sendo o `aria-label` do controle só com ícone.

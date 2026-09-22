@@ -78,7 +78,8 @@ export default function Portfolios() {
         action={
           <Button
             ref={newPortfolioButtonRef}
-            className="h-9 max-sm:w-full"
+            size="sm"
+            className="max-sm:w-full"
             onClick={openCreateDialog}
           >
             New portfolio
@@ -142,7 +143,8 @@ export default function Portfolios() {
                         {!isActive && (
                           <Button
                             variant="secondary"
-                            className="h-9 max-sm:flex-1"
+                            size="sm"
+                            className="max-sm:flex-1"
                             aria-label={`Use ${portfolio.name}`}
                             onClick={() => activatePortfolio(portfolio)}
                           >
@@ -152,7 +154,8 @@ export default function Portfolios() {
 
                         <Button
                           variant="outline"
-                          className="h-9 max-sm:flex-1"
+                          size="sm"
+                          className="max-sm:flex-1"
                           aria-label={`Edit ${portfolio.name}`}
                           onClick={() => setDialog({ kind: 'edit', portfolio })}
                         >
@@ -161,7 +164,8 @@ export default function Portfolios() {
 
                         <Button
                           variant="outline"
-                          className="h-9 text-negative max-sm:flex-1"
+                          size="sm"
+                          className="text-destructive hover:text-destructive max-sm:flex-1"
                           disabled={total === 1}
                           aria-label={`Delete ${portfolio.name}`}
                           onClick={() =>
