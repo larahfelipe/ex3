@@ -49,6 +49,7 @@ import {
   Quantity,
   Trend
 } from '@/components/financial';
+import { PageNavigation } from '@/components/page-navigation';
 import { SectionHeader } from '@/components/section-header';
 import {
   Button,
@@ -657,35 +658,13 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                   </Select>
                 </div>
 
-                <nav
-                  aria-label="Positions pages"
-                  className="flex items-center justify-between gap-3"
-                >
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={data.page <= FIRST_PAGE}
-                    onClick={() => refine({ page: data.page - 1 })}
-                  >
-                    Previous
-                  </Button>
-
-                  <span
-                    aria-live="polite"
-                    className="text-sm text-muted-foreground"
-                  >
-                    {`Page ${data.page} of ${data.totalPages} · ${data.total} ${data.total === 1 ? 'position' : 'positions'}`}
-                  </span>
-
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={data.page >= data.totalPages}
-                    onClick={() => refine({ page: data.page + 1 })}
-                  >
-                    Next
-                  </Button>
-                </nav>
+                <PageNavigation
+                  label="Positions pages"
+                  page={data.page}
+                  totalPages={data.totalPages}
+                  detail={`${data.total} ${data.total === 1 ? 'position' : 'positions'}`}
+                  onPageChange={(page) => refine({ page })}
+                />
               </div>
             )}
           </div>
