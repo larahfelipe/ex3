@@ -7,6 +7,7 @@ import { QuerySection } from '@/components/query-section';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import { TransactionsTable } from '@/components/transactions-table';
 import { Button } from '@/components/ui';
+import { usePageParam } from '@/hooks/use-page-param';
 import {
   useCreateTransaction,
   useTransactions
@@ -17,12 +18,13 @@ type AssetTransactionsProps = Record<'portfolio', Portfolio> &
 
 const FIRST_PAGE = 1;
 const TRANSACTIONS_PAGE_SIZE = 10;
+const TRANSACTIONS_PAGE_PARAM = 'transactionsPage';
 
 export const AssetTransactions: FC<AssetTransactionsProps> = ({
   portfolio,
   symbol
 }) => {
-  const [requestedPage, setRequestedPage] = useState(FIRST_PAGE);
+  const [requestedPage, goToPage] = usePageParam(TRANSACTIONS_PAGE_PARAM);
   const [isAddingTransaction, setIsAddingTransaction] = useState(false);
 
   const transactionsQuery = useTransactions(portfolio, {
@@ -54,7 +56,7 @@ export const AssetTransactions: FC<AssetTransactionsProps> = ({
               message={`No transactions on page ${page}`}
               action={{
                 label: `Go to page ${totalPages}`,
-                onSelect: () => setRequestedPage(totalPages)
+                onSelect: () => goToPage(totalPages)
               }}
             />
           ) : (
@@ -70,7 +72,7 @@ export const AssetTransactions: FC<AssetTransactionsProps> = ({
                   label="Transactions pages"
                   page={page}
                   totalPages={totalPages}
-                  onPageChange={setRequestedPage}
+                  onPageChange={goToPage}
                 />
               )}
             </div>

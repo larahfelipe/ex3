@@ -1,5 +1,7 @@
 import { useId, useMemo, useState, type FC, type PointerEvent } from 'react';
 
+import { useSearchParams } from 'next/navigation';
+
 import { twMerge } from 'tailwind-merge';
 
 import type {
@@ -8,7 +10,7 @@ import type {
   PortfolioPerformance
 } from '@/app/api/v1/portfolio';
 import type { Portfolio } from '@/app/api/v1/portfolios';
-import { formatSeriesDay } from '@/common/utils';
+import { formatSeriesDay, updateUrlQuery } from '@/common/utils';
 import { EmptyState, LoadingState } from '@/components/data-state';
 import { Money, Trend } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
@@ -36,6 +38,9 @@ type PerformanceSeriesProps = Pick<
   Record<'period', string>;
 
 type ChartPoint = Record<'x' | 'y', number>;
+
+const RANGE_PARAM = 'range';
+const DEFAULT_RANGE: PerformanceRange = '1Y';
 
 const PERFORMANCE_RANGES: PerformanceRange[] = [
   '1W',
@@ -248,13 +253,26 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
   portfolio,
   symbol
 }) => {
-  const [selectedRange, setSelectedRange] = useState<PerformanceRange>('1Y');
+  const searchParams = useSearchParams();
+  const selectedRange =
+    PERFORMANCE_RANGES.find(
+      (range) => range === searchParams.get(RANGE_PARAM)
+    ) ?? DEFAULT_RANGE;
   const [isTableOpen, setIsTableOpen] = useState(false);
   const performanceQuery = usePerformance(portfolio, {
     range: selectedRange,
     symbol
   });
   const rangeInputName = useId();
+
+  const selectRange = (range: PerformanceRange) => {
+    const params = new URLSearchParams(searchParams);
+
+    if (range === DEFAULT_RANGE) params.delete(RANGE_PARAM);
+    else params.set(RANGE_PARAM, range);
+
+    updateUrlQuery(params);
+  };
 
   return (
     <QuerySection
@@ -272,7 +290,7 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
                 name={rangeInputName}
                 value={range}
                 checked={range === selectedRange}
-                onChange={() => setSelectedRange(range)}
+                onChange={() => selectRange(range)}
               >
                 {PERFORMANCE_RANGE_LABELS[range].name}
               </SegmentedControlItem>

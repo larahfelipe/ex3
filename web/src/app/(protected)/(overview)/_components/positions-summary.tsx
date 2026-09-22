@@ -1,4 +1,4 @@
-import { useState, type FC } from 'react';
+import type { FC } from 'react';
 
 import Link from 'next/link';
 
@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui';
+import { usePageParam } from '@/hooks/use-page-param';
 import { usePositions } from '@/hooks/use-portfolio';
 
 type PositionsSummaryProps = Record<'portfolio', Portfolio> &
@@ -33,6 +34,7 @@ type PositionsSummaryProps = Record<'portfolio', Portfolio> &
 
 const FIRST_PAGE = 1;
 const POSITIONS_PAGE_SIZE = 10;
+const POSITIONS_PAGE_PARAM = 'positionsPage';
 
 const ADD_ASSET_HREF = `${APP_ROUTES.Protected.Assets}?action=${ASSET_DIALOG_ACTIONS.Add}`;
 
@@ -40,7 +42,7 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
   portfolio,
   className
 }) => {
-  const [requestedPage, setRequestedPage] = useState(FIRST_PAGE);
+  const [requestedPage, goToPage] = usePageParam(POSITIONS_PAGE_PARAM);
   const positionsQuery = usePositions(portfolio, {
     page: requestedPage,
     pageSize: POSITIONS_PAGE_SIZE
@@ -140,7 +142,7 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
               label="Positions pages"
               page={page}
               totalPages={totalPages}
-              onPageChange={setRequestedPage}
+              onPageChange={goToPage}
             />
           )}
         </div>

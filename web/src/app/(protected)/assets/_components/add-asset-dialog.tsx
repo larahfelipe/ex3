@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 import type { CreateAssetRequestPayload } from '@/app/api/v1/assets';
 import { ASSET_DIALOG_ACTIONS, ASSET_DIALOG_PARAMS } from '@/common/constants';
-import { updateUrlQuery } from '@/common/utils';
+import { replaceUrlQuery } from '@/common/utils';
 import { ErrorState, LoadingState } from '@/components/data-state';
 import {
   Button,
@@ -403,7 +403,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
     params.set(ASSET_DIALOG_PARAMS.Symbol, addedSymbol);
     params.set(ASSET_DIALOG_PARAMS.Action, ASSET_DIALOG_ACTIONS.AddTransaction);
 
-    updateUrlQuery(params);
+    replaceUrlQuery(params);
   };
 
   const dialogActions: AddAssetDialogActions = {
