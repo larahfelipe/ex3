@@ -28,7 +28,7 @@ export const ProfileForm: FC<ProfileFormProps> = ({ user }) => {
     setError,
     formState: { errors, isSubmitting }
   } = useForm<ProfileFormValues>({
-    mode: 'onTouched',
+    mode: 'onChange',
     resolver: zodResolver(ProfileFormSchema),
     defaultValues: { name: user.name ?? '' }
   });

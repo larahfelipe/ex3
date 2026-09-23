@@ -49,9 +49,11 @@ export const PasswordForm: FC<PasswordFormProps> = ({ email }) => {
     register,
     handleSubmit,
     setError,
+    getValues,
+    trigger,
     formState: { errors, isSubmitting }
   } = useForm<PasswordFormValues>({
-    mode: 'onTouched',
+    mode: 'onChange',
     resolver: zodResolver(PasswordFormSchema),
     defaultValues: {
       currentPassword: '',
@@ -112,7 +114,12 @@ export const PasswordForm: FC<PasswordFormProps> = ({ email }) => {
               {...control}
               type="password"
               autoComplete="new-password"
-              {...register('newPassword')}
+              {...register('newPassword', {
+                onChange: () => {
+                  if (getValues('confirmNewPassword'))
+                    void trigger('confirmNewPassword');
+                }
+              })}
             />
           )}
         </FormField>

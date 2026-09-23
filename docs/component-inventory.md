@@ -114,7 +114,7 @@ Lacuna fechada: erro de servidor sem campo correspondente, e `aria-invalid`/`ari
 
 **`components/password-requirements.tsx` — `PasswordRequirements`.** A dica da nova senha no sign-up e na tela de conta: o mínimo e a regra do e-mail, cada um marcado quando cumprido enquanto se digita, com o estado em texto para leitor de tela, e uma linha sobre preferir senhas longas. Senha vazia não cumpre nenhum.
 
-Todo formulário valida em `onTouched`, não desabilita os campos durante o envio e mostra o erro da API no próprio formulário; toast só confirma sucesso.
+Todo formulário valida em `onChange`: o campo só mostra erro depois de receber um valor, e passar por ele sem digitar não o acusa; o envio valida todos. Onde o erro de um campo depende de outro — a confirmação, da senha; a senha, do e-mail no sign-up —, mudar o outro revalida o dependente se ele já tiver valor. Nenhum formulário desabilita os campos durante o envio; o erro da API aparece no próprio formulário, e toast só confirma sucesso.
 
 ## Data fetching
 
