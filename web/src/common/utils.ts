@@ -7,24 +7,6 @@ const PERCENT_FRACTION_DIGITS = 2;
 
 const UNIT_AMOUNT_SIGNIFICANT_DIGITS = 4;
 
-const QUOTE_TIME_FORMAT = new Intl.DateTimeFormat(LOCALE, {
-  month: 'short',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit'
-});
-
-const EXECUTION_TIME_FORMAT = new Intl.DateTimeFormat(LOCALE, {
-  dateStyle: 'medium',
-  timeStyle: 'short'
-});
-
-/** A series day is a calendar day at midnight UTC, and a local zone would name the day before it. */
-const SERIES_DAY_FORMAT = new Intl.DateTimeFormat(LOCALE, {
-  dateStyle: 'medium',
-  timeZone: 'UTC'
-});
-
 /**
  * Building a number formatter costs about forty times more than formatting with
  * one, and a table row builds several. The options are the cache key, and the
@@ -100,15 +82,6 @@ export const signedValueTone = (value: DecimalString) => {
 
   return value.startsWith('-') ? 'text-negative' : 'text-positive';
 };
-
-export const formatQuoteTime = (timestamp: string) =>
-  QUOTE_TIME_FORMAT.format(new Date(timestamp));
-
-export const formatExecutionTime = (timestamp: string) =>
-  EXECUTION_TIME_FORMAT.format(new Date(timestamp));
-
-export const formatSeriesDay = (timestamp: string) =>
-  SERIES_DAY_FORMAT.format(new Date(timestamp));
 
 const urlWithQuery = (params: URLSearchParams) =>
   params.size ? `?${params}` : window.location.pathname;

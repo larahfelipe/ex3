@@ -6,7 +6,6 @@ import {
   TRANSACTION_TYPE_TONES,
   TRANSACTION_UNIT_PRICE_LABELS
 } from '@/common/constants';
-import { formatExecutionTime } from '@/common/utils';
 import {
   Metric,
   Money,
@@ -24,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui';
+import { formatExecutionTime } from '@/lib/dates';
 
 type TransactionAction = (transaction: ListedTransaction) => void;
 

@@ -1,6 +1,7 @@
 /* eslint-disable react/jsx-newline */
 import Link from 'next/link';
 
+import { currentYear } from '@/lib/dates';
 import type { Children } from '@/types';
 
 import pkg from '../../../package.json';
@@ -19,7 +20,7 @@ export default function Layout({ children }: Children) {
             rel="noopener noreferrer"
             className="rounded-sm text-xs text-muted-foreground ring-offset-background transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
           >
-            © {pkg.author.name} {new Date().getFullYear()} - v.{pkg.version}
+            © {pkg.author.name} {currentYear()} - v.{pkg.version}
           </Link>
         </footer>
       </main>

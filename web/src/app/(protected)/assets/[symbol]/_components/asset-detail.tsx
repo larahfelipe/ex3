@@ -8,7 +8,6 @@ import { ArrowLeft } from 'lucide-react';
 
 import type { PositionDetail } from '@/app/api/v1/portfolio';
 import { APP_ROUTES, INSTRUMENT_TYPE_LABELS } from '@/common/constants';
-import { formatQuoteTime } from '@/common/utils';
 import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
 import {
   Metric,
@@ -25,6 +24,7 @@ import { SectionHeader } from '@/components/section-header';
 import { Button, Card, CardContent, Skeleton } from '@/components/ui';
 import { usePosition, useActivePortfolio } from '@/hooks/use-portfolio';
 import { isNotFoundError } from '@/lib/axios';
+import { formatQuoteTime } from '@/lib/dates';
 import type { Children } from '@/types';
 
 import { AssetTransactions } from './asset-transactions';
