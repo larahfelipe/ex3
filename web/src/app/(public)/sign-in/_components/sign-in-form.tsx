@@ -38,7 +38,7 @@ export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
     setError,
     formState: { errors, isSubmitting }
   } = useForm<SignInFormValues>({
-    mode: 'onTouched',
+    mode: 'onChange',
     resolver: zodResolver(signInSchema),
     defaultValues: {
       email: '',

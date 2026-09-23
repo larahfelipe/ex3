@@ -254,7 +254,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
     setFocus,
     formState: { errors, dirtyFields, isSubmitting }
   } = useForm<TransactionFormInput, unknown, TransactionDraft>({
-    mode: 'onTouched',
+    mode: 'onChange',
     resolver: zodResolver(TransactionFormSchema),
     defaultValues
   });

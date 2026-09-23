@@ -91,7 +91,7 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
     setError,
     formState: { errors, isDirty, isSubmitting }
   } = useForm<PortfolioFormInput, unknown, PortfolioDraft>({
-    mode: 'onTouched',
+    mode: 'onChange',
     resolver: zodResolver(PortfolioFormSchema),
     defaultValues
   });

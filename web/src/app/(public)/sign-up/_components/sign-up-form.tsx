@@ -70,9 +70,11 @@ export const SignUpForm: FC = () => {
     register,
     handleSubmit,
     setError,
+    getValues,
+    trigger,
     formState: { errors, isSubmitting }
   } = useForm<SignUpFormValues>({
-    mode: 'onTouched',
+    mode: 'onChange',
     resolver: zodResolver(signUpSchema),
     defaultValues: {
       name: '',
@@ -87,6 +89,15 @@ export const SignUpForm: FC = () => {
     control: formControl,
     name: ['email', 'password']
   });
+
+  /**
+   * A field's error depends on another field here, and only the changed field
+   * is validated on change; the dependent one is re-validated once it has a
+   * value, so an untouched field still shows nothing.
+   */
+  const revalidateOnceTyped = (field: 'password' | 'confirmPassword') => () => {
+    if (getValues(field)) void trigger(field);
+  };
 
   const handleSignUp: SubmitHandler<SignUpFormValues> = async ({
     name,
@@ -136,7 +147,9 @@ export const SignUpForm: FC = () => {
               {...control}
               type="email"
               autoComplete="username"
-              {...register('email')}
+              {...register('email', {
+                onChange: revalidateOnceTyped('password')
+              })}
             />
           )}
         </FormField>
@@ -151,7 +164,9 @@ export const SignUpForm: FC = () => {
               {...control}
               type="password"
               autoComplete="new-password"
-              {...register('password')}
+              {...register('password', {
+                onChange: revalidateOnceTyped('confirmPassword')
+              })}
             />
           )}
         </FormField>
