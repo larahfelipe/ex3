@@ -278,7 +278,7 @@ A série é consultada por intervalo, de `from` inclusive a `to` exclusivo, em o
 * O custo médio é truncado em 18 casas a cada `BUY`, e `investedValue` uma vez, ao fim da reconstrução. Razão que passa por posição fora de `DECIMAL(38,18)`, `investedValue` incluído, é recusado, mesmo que a posição final caiba.
 * Todo valor monetário tem moeda explícita. `Instrument.currency` é a moeda de cotação, `Transaction.currency` a da operação e `Portfolio.baseCurrency` a de consolidação.
 * Valores em moedas diferentes só se somam por conversão com cotação de câmbio explícita; sem cotação, o total não é calculado. A cotação de câmbio vem do provedor de cotação, pela taxa mais recente (ver [Visão geral da carteira](#visão-geral-da-carteira)).
-* Instantes são gravados em UTC. `executedAt` é quando a operação aconteceu, informado por quem registra; `createdAt` e `updatedAt` são quando o registro foi gravado e alterado. O web registra o dia e a hora no fuso do navegador e envia o instante em UTC que eles nomeiam; hora que o fuso não mostra naquele dia, na mudança de horário, é recusada no formulário, não ajustada.
+* Instantes são gravados em UTC. `executedAt` é quando a operação aconteceu, informado por quem registra; `createdAt` e `updatedAt` são quando o registro foi gravado e alterado. O web registra só o dia da execução, escolhido no fuso do navegador, e envia o primeiro instante que cai nesse dia tanto no fuso do navegador quanto em UTC, a mais tardia das duas meias-noites, para que a tabela e a série de performance mostrem o mesmo dia. Transações do mesmo dia seguem no razão a ordem em que foram registradas (`sequence`); uma gravada antes com hora posterior a esse instante fica depois de uma registrada mais tarde só com o dia.
 
 ## Termos
 
