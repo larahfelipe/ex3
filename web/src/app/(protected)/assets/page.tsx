@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useSearchParams } from 'next/navigation';
 
+import { Plus } from 'lucide-react';
+
 import {
   APP_ROUTES,
   ASSET_DIALOG_ACTIONS,
@@ -116,9 +118,10 @@ export default function Assets() {
             <Button
               ref={addAssetButtonRef}
               size="sm"
-              className="max-sm:w-full"
+              className="gap-1.5 max-sm:w-full"
               onClick={() => handleToggleDialog(ASSET_DIALOG_ACTIONS.Add)}
             >
+              <Plus size={16} aria-hidden="true" />
               Add asset
             </Button>
           )

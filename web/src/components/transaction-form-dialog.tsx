@@ -24,7 +24,7 @@ import {
   TRANSACTION_UNIT_PRICE_LABELS,
   UNIT_PRICE_DECIMALS
 } from '@/common/constants';
-import { currencyFractionDigits } from '@/common/utils';
+import { currencyFractionDigits, formatQuantity } from '@/common/utils';
 import { LoadingState } from '@/components/data-state';
 import { DatePicker } from '@/components/date-picker';
 import { ChoiceField, FormField } from '@/components/form-field';
@@ -96,7 +96,7 @@ type AmountFieldProps = Record<'name', AmountField> &
   Record<'label' | 'currency', string> &
   Record<'decimals', number> &
   Partial<Record<'isOptional', boolean>> &
-  Partial<Record<'hint', string>> &
+  Partial<Record<'hint' | 'className', string>> &
   Partial<Record<'action', ReactNode>> &
   Record<'control', Control<TransactionFormInput, unknown, TransactionDraft>>;
 
@@ -142,9 +142,22 @@ const TRANSACTION_TYPE_HINTS: Record<TransactionType, string> = {
     'Bonus units received, at the cost per unit the company attributed, which can be zero.'
 };
 
+const CREATE_SUBMIT_LABELS: Record<TransactionType, string> = {
+  BUY: 'Add buy',
+  SELL: 'Add sell',
+  DIVIDEND: 'Add dividend',
+  JCP: 'Add JCP',
+  INTEREST: 'Add interest',
+  BONUS: 'Add bonus'
+};
+
 /** A trade happens at the market, so its price is the one to start from. */
 const isTradedAtMarket = (type: TransactionType) =>
   type === 'BUY' || type === 'SELL';
+
+/** A sale and every income count the units already held; a buy and a bonus add new ones. */
+const isQuantityOfHeldUnits = (type: TransactionType) =>
+  type !== 'BUY' && type !== 'BONUS';
 
 /** Interest on equity is paid net of a tax withheld at source. */
 const hasWithheldTax = (type: TransactionType) => type === 'JCP';
@@ -360,6 +373,7 @@ const AmountField: FC<AmountFieldProps> = ({
   decimals,
   isOptional = false,
   hint,
+  className,
   action,
   control: formControl
 }) => {
@@ -381,6 +395,7 @@ const AmountField: FC<AmountFieldProps> = ({
       hint={hint}
       error={error?.message}
       action={action}
+      className={className}
     >
       {(control) => (
         <MoneyInput
@@ -464,6 +479,14 @@ const TransactionForm: FC<TransactionFormProps> = ({
   });
 
   const amountDecimals = currencyFractionDigits(currency);
+
+  const heldQuantity =
+    target.kind === 'create' &&
+    position !== undefined &&
+    position !== null &&
+    isNonzeroDecimal(position.quantity)
+      ? position.quantity
+      : null;
 
   const unitPriceHint =
     marketUnitPrice !== null &&
@@ -595,7 +618,41 @@ const TransactionForm: FC<TransactionFormProps> = ({
             </SegmentedControl>
           </ChoiceField>
 
-          <FormField label="Quantity" error={errors.quantity?.message}>
+          <FormField label="Date" error={errors.executionDay?.message}>
+            {(control) => (
+              <DatePicker
+                id={control.id}
+                ref={executionDayField.ref}
+                name={executionDayField.name}
+                value={executionDayField.value}
+                aria-invalid={control['aria-invalid']}
+                aria-describedby={control['aria-describedby']}
+                onValueChange={executionDayField.onChange}
+                onBlur={executionDayField.onBlur}
+              />
+            )}
+          </FormField>
+
+          <FormField
+            label="Quantity"
+            error={errors.quantity?.message}
+            action={
+              heldQuantity !== null && isQuantityOfHeldUnits(selectedType) ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xxs"
+                  className="text-muted-foreground"
+                  onClick={() => {
+                    stepQuantityTo(heldQuantity);
+                    setFocus('quantity');
+                  }}
+                >
+                  {`Use ${formatQuantity(heldQuantity)} held`}
+                </Button>
+              ) : undefined
+            }
+          >
             {(control) => (
               <div className="flex gap-2">
                 <div className="min-w-0 flex-1">
@@ -644,23 +701,9 @@ const TransactionForm: FC<TransactionFormProps> = ({
             currency={currency}
             decimals={unitPriceDecimals}
             hint={unitPriceHint}
+            className="sm:col-span-2"
             control={formControl}
           />
-
-          <FormField label="Date" error={errors.executionDay?.message}>
-            {(control) => (
-              <DatePicker
-                id={control.id}
-                ref={executionDayField.ref}
-                name={executionDayField.name}
-                value={executionDayField.value}
-                aria-invalid={control['aria-invalid']}
-                aria-describedby={control['aria-describedby']}
-                onValueChange={executionDayField.onChange}
-                onBlur={executionDayField.onBlur}
-              />
-            )}
-          </FormField>
 
           {shownDetails.has('fees') && (
             <AmountField
@@ -768,7 +811,9 @@ const TransactionForm: FC<TransactionFormProps> = ({
         </Button>
 
         <SubmitButton form={formId} isPending={isSubmitting}>
-          {target.kind === 'create' ? 'Add transaction' : 'Save changes'}
+          {target.kind === 'create'
+            ? CREATE_SUBMIT_LABELS[selectedType]
+            : 'Save changes'}
         </SubmitButton>
       </DialogFooter>
     </>
