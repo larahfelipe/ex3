@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { connection } from 'next/server';
 
 import {
+  APP_THEME,
   APP_TITLE,
   APP_TITLE_TEMPLATE,
   inter,
@@ -35,7 +36,10 @@ export default async function RootLayout({ children }: Children) {
   await connection();
 
   return (
-    <html lang="en" className={`dark ${inter.variable} ${raleway.variable}`}>
+    <html
+      lang="en"
+      className={`${APP_THEME} ${inter.variable} ${raleway.variable}`}
+    >
       <head>
         <meta name="theme-color" content="#070707" />
 

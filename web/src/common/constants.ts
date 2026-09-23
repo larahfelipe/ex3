@@ -35,6 +35,9 @@ export const NAVIGATION_STATES = {
 
 export const APP_TITLE = 'EX3';
 
+/** The class on `<html>` that selects the theme's tokens, and the theme the toasts draw their own parts in. */
+export const APP_THEME = 'dark';
+
 export const APP_TITLE_TEMPLATE = `${APP_TITLE} | %s`;
 
 export const CURRENCIES = {
