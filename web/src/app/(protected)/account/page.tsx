@@ -81,7 +81,7 @@ export default function Account() {
             description="Changing your password signs you out everywhere, including here"
           />
 
-          <PasswordForm />
+          <PasswordForm email={user?.email} />
         </Card>
       </section>
     </div>

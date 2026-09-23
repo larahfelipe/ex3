@@ -14,7 +14,7 @@ export type FieldControlProps = Pick<
 >;
 
 type FieldDescription = {
-  hint?: string;
+  hint?: ReactNode;
   error?: string;
 };
 
@@ -46,9 +46,9 @@ const useFieldDescription = ({ hint, error }: FieldDescription) => {
     description: (
       <>
         {hint !== undefined && (
-          <p id={hintId} className="text-sm text-muted-foreground">
+          <div id={hintId} className="text-sm text-muted-foreground">
             {hint}
-          </p>
+          </div>
         )}
 
         {error !== undefined && (

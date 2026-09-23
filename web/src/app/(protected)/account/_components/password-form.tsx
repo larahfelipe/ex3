@@ -1,16 +1,19 @@
 import type { FC } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 import { FormField } from '@/components/form-field';
+import { PasswordRequirements } from '@/components/password-requirements';
 import { SubmitButton } from '@/components/submit-button';
 import { CardContent, CardFooter, Input } from '@/components/ui';
 import { useChangePassword } from '@/hooks/use-user';
-import { NEW_PASSWORD_HINT, NewPasswordSchema } from '@/lib/account-schema';
+import { NewPasswordSchema } from '@/lib/account-schema';
 import { ApiProxyError, isValidationError } from '@/lib/axios';
 import { presentSubmitError } from '@/lib/submit-error';
+
+type PasswordFormProps = Partial<Record<'email', string>>;
 
 type PasswordFormValues = z.infer<typeof PasswordFormSchema>;
 
@@ -20,11 +23,11 @@ const PasswordFormSchema = z
   .object({
     currentPassword: z.string().min(1, 'Current password is required'),
     newPassword: NewPasswordSchema,
-    confirmNewPassword: z.string().min(1, 'Confirm the new password')
+    confirmNewPassword: z.string().min(1, 'Confirm your new password')
   })
   .refine(
     ({ newPassword, confirmNewPassword }) => newPassword === confirmNewPassword,
-    { message: 'Passwords must match', path: ['confirmNewPassword'] }
+    { message: 'Passwords do not match', path: ['confirmNewPassword'] }
   );
 
 const FIELDS_BY_API_PATH = new Map<string, PasswordFormField>([
@@ -38,10 +41,11 @@ const isWrongCurrentPassword = (error: unknown) =>
   isValidationError(error) &&
   error._error?.details.length === 0;
 
-export const PasswordForm: FC = () => {
+export const PasswordForm: FC<PasswordFormProps> = ({ email }) => {
   const { mutateAsync: changePassword } = useChangePassword();
 
   const {
+    control,
     register,
     handleSubmit,
     setError,
@@ -55,6 +59,8 @@ export const PasswordForm: FC = () => {
       confirmNewPassword: ''
     }
   });
+
+  const newPassword = useWatch({ control, name: 'newPassword' });
 
   const replacePassword = async ({
     currentPassword,
@@ -98,7 +104,7 @@ export const PasswordForm: FC = () => {
 
         <FormField
           label="New password"
-          hint={NEW_PASSWORD_HINT}
+          hint={<PasswordRequirements password={newPassword} email={email} />}
           error={errors.newPassword?.message}
         >
           {(control) => (

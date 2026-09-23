@@ -38,16 +38,19 @@ A condição 6 é o ponto de revogação. Sign-in, sign-out e troca de senha inc
 
 ## Política de senha
 
-Aplicada a senhas novas (sign-up e troca de senha) em `backend/src/validation/schema/user/PasswordSchema.ts`:
+Aplicada a senhas novas (sign-up e troca de senha) em `backend/src/validation/schema/user/PasswordSchema.ts` e, a regra do e-mail, em `backend/src/domain/PasswordPolicy.ts`:
 
 | Regra | Valor | Fundamento |
 | --- | --- | --- |
-| **Mínimo** | 15 caracteres, contados em code points Unicode | NIST SP 800-63B-4 §3.1.1.2: senha usada como único fator (o app não tem MFA) |
+| **Mínimo** | 8 caracteres, contados em code points Unicode | Decisão do produto (2026-09-23). O NIST SP 800-63B-4 §3.1.1.2 pede 15 para senha usada como único fator, caso do app, que não tem MFA, e 8 só ao lado de um segundo fator. 8 é o piso do perfil 800-63B-3, que compensa com as recusas abaixo e com o throttling do sign-in |
 | **Máximo** | 72 bytes UTF-8 | O bcrypt só digere os primeiros 72 bytes e ignora o resto. Rejeitar evita gravar uma senha mais fraca do que parece (OWASP Password Storage Cheat Sheet) |
 | **Em branco** | Rejeitada | Senha só de espaços, de qualquer tamanho |
+| **Um caractere repetido** | Rejeitada | `aaaaaaaa` cumpre o mínimo e é das primeiras tentativas de um ataque de dicionário |
+| **Senha comum** | Rejeitada, sem distinção de caixa | Lista curada das senhas que os rankings de vazamentos publicados põem no topo, só as que passam do mínimo (NIST SP 800-63B §3.1.1.2). Não é um corpus de vazamentos: ver limitação 3 |
+| **Derivada do e-mail** | Rejeitada a senha que contém, sem distinção de caixa, a parte do e-mail antes do `@`, quando essa parte tem 4 caracteres ou mais | Palavra específica do contexto (NIST SP 800-63B §3.1.1.2): o e-mail nomeia a conta. Abaixo de 4 caracteres a parte é genérica demais e recusaria senhas sem relação com ela. O sign-up checa no schema; a troca de senha, no serviço, contra o e-mail da conta, e responde `400` com o detalhe em `newPassword` |
 | **Normalização** | Nenhuma, nem `trim` | A senha é usada exatamente como recebida (OWASP ASVS): o valor validado é o valor gravado e, depois, o verificado |
 
-Senhas submetidas para verificação (sign-in, exclusão de conta, `oldPassword`) só precisam não ser vazias e ter até 255 caracteres, o limite anterior; assim, contas criadas sob a política antiga continuam entrando. O formulário de sign-up do web espelha a política para avisar antes do envio, mas a autoridade é o backend.
+Senhas submetidas para verificação (sign-in, exclusão de conta, `oldPassword`) só precisam não ser vazias e ter até 255 caracteres, o limite anterior; assim, contas criadas sob a política antiga continuam entrando. Os formulários de sign-up e de troca de senha do web espelham a política, menos a lista de senhas comuns, que só o backend tem, e marcam o mínimo e a regra do e-mail conforme a senha é digitada; a autoridade é o backend.
 
 ## Coerência entre o proxy do Next e o backend
 
@@ -104,7 +107,7 @@ Um `JWT_EXPIRATION` sem unidade que antes subia (e expirava em milissegundos) ag
 
 1. **Sem refresh, `JWT_EXPIRATION` alto demais enfraquece a revogação por expiração e baixo demais degrada a UX.** O padrão `1d` é o meio-termo assumido; é configurável por ambiente até o teto de `30d`.
 2. **Enumeração de e-mails no sign-up.** `POST /v1/user/create` responde `User already exists` para e-mail já cadastrado. Eliminar isso exige confirmação por e-mail, fluxo que o produto não tem. A vazão é limitada pelo teto da API para tráfego sem sessão, não pelo limite de autenticação: este é por conta, e cada e-mail sondado estreia o próprio balde.
-3. **Sem verificação contra senhas vazadas.** O NIST SP 800-63B-4 pede comparar senhas novas com uma lista de senhas comprometidas, o que depende de uma fonte externa. Candidato à TASK 20.4.
+3. **A lista de senhas comuns não é um corpus de vazamentos.** O NIST SP 800-63B-4 pede comparar senhas novas com senhas comprometidas; a lista curada cobre só as mais frequentes, e uma senha vazada fora dela é aceita. Com o mínimo em 8, essa comparação pesa mais; está em TD-005.
 4. **Sem normalização Unicode.** A mesma senha digitada com composições diferentes (`é` pré-composto vs. `e` + acento combinante) não confere. Normalizar altera o valor verificado de contas existentes; avaliar junto do item 3.
 5. **Contadores na memória do processo.** Com mais de uma instância do backend, cada uma aplica o budget inteiro, e o limite efetivo é o budget multiplicado pelo número de instâncias. Um store compartilhado resolve; está em TD-006. A chave deixou de ser o endereço do chamador na TASK 20.4 — ver `security.md`, §Rate limiting.
 6. **Diferença residual de tempo se `BCRYPT_SALT` mudar.** Hashes antigos mantêm o custo antigo, enquanto o hash fictício usa o atual.

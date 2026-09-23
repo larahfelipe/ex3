@@ -22,9 +22,9 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 
 ### TD-005 — Senha nova não é comparada a senhas vazadas nem normalizada
 
-- **Origem:** `docs/authentication.md`, limitações 3 e 4 · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** avulso (auditado na TASK 20.4, mantido aberto)
-- **Contexto:** o NIST SP 800-63B-4 pede recusar senhas presentes em listas de senhas comprometidas e normalizar Unicode antes do hash. Nenhum dos dois é feito.
-- **Impacto:** senhas conhecidas de vazamentos são aceitas, e a mesma senha digitada com outra composição Unicode não confere.
+- **Origem:** `docs/authentication.md`, limitações 3 e 4 · **Tipo:** segurança · **Prioridade:** alta · **Encaminhamento:** avulso (auditado na TASK 20.4, mantido aberto)
+- **Contexto:** o NIST SP 800-63B-4 pede recusar senhas presentes em listas de senhas comprometidas e normalizar Unicode antes do hash. Desde 2026-09-23 a senha nova é recusada se estiver numa lista curada das senhas mais comuns, mas não é comparada a um corpus de vazamentos nem normalizada.
+- **Impacto:** senhas conhecidas de vazamentos, fora da lista curada, são aceitas, e a mesma senha digitada com outra composição Unicode não confere. A prioridade subiu de média para alta quando o mínimo caiu de 15 para 8 caracteres, o que deixa à lista de bloqueio uma parte maior da resistência a adivinhação.
 - **Proposta:** tratar os dois juntos. Normalizar muda o valor verificado de contas existentes, então exige migração no login bem-sucedido (verificar com o valor bruto e regravar o hash normalizado). A checagem de vazamento depende de fonte externa, como a API de k-anonymity do Have I Been Pwned, ou de lista local.
 
 ### TD-006 — Contadores de rate limit na memória de cada processo

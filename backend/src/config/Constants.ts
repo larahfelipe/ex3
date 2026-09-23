@@ -157,6 +157,8 @@ export const UserMessages = {
   ALREADY_EXISTS: 'User already exists',
   INVALID_PASSWORD: 'Invalid password',
   INVALID_CREDENTIALS: 'Invalid email or password',
+  PASSWORD_DERIVED_FROM_EMAIL:
+    'Password must not contain the part of the email before the @',
   SIGNED_OUT: 'Signed out successfully',
   CREATED: 'User created successfully',
   UPDATED: 'User updated successfully',
