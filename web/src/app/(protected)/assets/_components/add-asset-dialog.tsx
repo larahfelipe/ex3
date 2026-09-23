@@ -52,7 +52,12 @@ type InstrumentChoice = Record<'key' | 'symbol' | 'name', string> &
 
 const SEARCH_MAX_LENGTH = 120;
 
-const SEARCH_DEBOUNCE_MS = 300;
+/**
+ * Every search may reach the quote provider, and the API grants a user 30 a
+ * minute. Keystrokes come under 300 ms apart while a word is typed, so a pause
+ * this long means the user stopped, and a term costs about one request.
+ */
+const SEARCH_DEBOUNCE_MS = 500;
 
 const CATALOG_SEARCH_PATTERN = /^[\p{L}\p{N} .&'-]+$/u;
 
