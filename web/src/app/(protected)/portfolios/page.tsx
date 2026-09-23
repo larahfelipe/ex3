@@ -75,7 +75,7 @@ export default function Portfolios() {
   };
 
   return (
-    <div className="space-y-6 px-3 py-8 sm:px-4">
+    <div className="space-y-6">
       <PageHeader
         title="Portfolios"
         description="The active portfolio is the one the overview and the assets show"
