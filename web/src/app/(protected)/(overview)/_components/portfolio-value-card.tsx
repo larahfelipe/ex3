@@ -1,12 +1,12 @@
 import type { FC } from 'react';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
-import { formatQuoteTime } from '@/common/utils';
 import { EmptyState, LoadingState } from '@/components/data-state';
 import { Metric, Money, ProfitLoss } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
 import { Skeleton } from '@/components/ui';
 import { usePortfolioOverview } from '@/hooks/use-portfolio';
+import { formatQuoteTime } from '@/lib/dates';
 
 type PortfolioValueCardProps = Record<'portfolio', Portfolio>;
 

@@ -8,7 +8,7 @@ import type {
   PortfolioPerformance
 } from '@/app/api/v1/portfolio';
 import type { Portfolio } from '@/app/api/v1/portfolios';
-import { formatSeriesDay, updateUrlQuery } from '@/common/utils';
+import { updateUrlQuery } from '@/common/utils';
 import { EmptyState, LoadingState } from '@/components/data-state';
 import { Money, Trend } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
@@ -26,6 +26,7 @@ import {
   TableRowHeader
 } from '@/components/ui';
 import { usePerformance } from '@/hooks/use-portfolio';
+import { formatSeriesDay } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
 type PerformanceChartProps = Record<'portfolio', Portfolio> &

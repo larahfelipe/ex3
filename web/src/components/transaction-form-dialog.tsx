@@ -26,6 +26,7 @@ import {
 } from '@/common/constants';
 import { currencyFractionDigits } from '@/common/utils';
 import { LoadingState } from '@/components/data-state';
+import { DatePicker } from '@/components/date-picker';
 import { ChoiceField, FormField } from '@/components/form-field';
 import { MoneyInput, type RejectedAmount } from '@/components/money-input';
 import { SubmitButton } from '@/components/submit-button';
@@ -42,6 +43,12 @@ import {
   SegmentedControlItem
 } from '@/components/ui';
 import { usePosition } from '@/hooks/use-portfolio';
+import {
+  calendarDayOf,
+  currentInstant,
+  instantOf,
+  timeOfDayOf
+} from '@/lib/dates';
 import {
   DECIMAL_COLUMN,
   INTEGER_DIGITS,
@@ -93,9 +100,8 @@ const NOTES_MAX_LENGTH = 500;
 
 const DECIMAL_LIMITS = `at most ${INTEGER_DIGITS} integer digits and ${DECIMAL_COLUMN.SCALE} decimal places`;
 
-const MS_PER_MINUTE = 60_000;
-
-const LOCAL_DATE_TIME_LENGTH = 'YYYY-MM-DDTHH:mm:ss'.length;
+const EXECUTION_TIME_ISSUE =
+  'Execution time must be one your time zone shows on that day';
 
 const SUBMIT_FAILURE_MESSAGE = 'The transaction could not be saved';
 
@@ -187,30 +193,54 @@ const unitPriceDecimalsOf = (
     (instrumentType && UNIT_PRICE_DECIMALS[instrumentType]) ?? 0
   );
 
-const TransactionFormSchema = z
-  .object({
-    type: z.enum(TRANSACTION_TYPES),
-    quantity: quantityField,
-    unitPrice: z.string(),
-    fees: chargeField('Fees'),
-    taxes: chargeField('Taxes'),
-    executedAt: z
-      .string()
-      .min(1, 'Execution date is required')
-      .transform((value) => new Date(value))
-      .pipe(z.date('Execution date must be a valid date'))
-      .transform((date) => date.toISOString()),
-    broker: optionalTextField('Broker', BROKER_MAX_LENGTH),
-    notes: optionalTextField('Notes', NOTES_MAX_LENGTH)
-  })
-  .superRefine(({ type, unitPrice }, ctx) => {
+const TransactionFormFields = z.object({
+  type: z.enum(TRANSACTION_TYPES),
+  quantity: quantityField,
+  unitPrice: z.string(),
+  fees: chargeField('Fees'),
+  taxes: chargeField('Taxes'),
+  executionDay: z.string().min(1, 'Execution date is required'),
+  executionTime: z.string().min(1, 'Execution time is required'),
+  broker: optionalTextField('Broker', BROKER_MAX_LENGTH),
+  notes: optionalTextField('Notes', NOTES_MAX_LENGTH)
+});
+
+/** The day and the time are the browser's; the API receives the instant they name. */
+const TransactionFormSchema = TransactionFormFields.superRefine(
+  ({ type, unitPrice, executionDay, executionTime }, ctx) => {
     const message = unitPriceIssueOf(type, unitPrice);
 
     if (message !== null)
       ctx.addIssue({ code: 'custom', path: ['unitPrice'], message });
-  });
 
-const TRANSACTION_FORM_FIELDS = TransactionFormSchema.keyof().options;
+    if (
+      executionDay !== '' &&
+      executionTime !== '' &&
+      instantOf(executionDay, executionTime) === null
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['executionTime'],
+        message: EXECUTION_TIME_ISSUE
+      });
+  }
+).transform(({ executionDay, executionTime, ...entry }, ctx) => {
+  const executedAt = instantOf(executionDay, executionTime);
+
+  if (executedAt === null) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['executionTime'],
+      message: EXECUTION_TIME_ISSUE
+    });
+
+    return z.NEVER;
+  }
+
+  return { ...entry, executedAt };
+});
+
+const TRANSACTION_FORM_FIELDS = TransactionFormFields.keyof().options;
 
 const EMPTY_TRANSACTION_FORM: TransactionFormInput = {
   type: 'BUY',
@@ -218,7 +248,8 @@ const EMPTY_TRANSACTION_FORM: TransactionFormInput = {
   unitPrice: '',
   fees: '',
   taxes: '',
-  executedAt: '',
+  executionDay: '',
+  executionTime: '',
   broker: '',
   notes: ''
 };
@@ -226,12 +257,11 @@ const EMPTY_TRANSACTION_FORM: TransactionFormInput = {
 const isTransactionFormField = (path: string): path is TransactionFormField =>
   TRANSACTION_FORM_FIELDS.some((field) => field === path);
 
-const toLocalDateTime = (isoDateTime: string) => {
-  const date = new Date(isoDateTime);
+/** An error the API reports on the instant belongs to the day that names it. */
+const formFieldOf = (path: string) => {
+  if (path === 'executedAt') return 'executionDay';
 
-  return new Date(date.getTime() - date.getTimezoneOffset() * MS_PER_MINUTE)
-    .toISOString()
-    .slice(0, LOCAL_DATE_TIME_LENGTH);
+  return isTransactionFormField(path) ? path : undefined;
 };
 
 const toTransactionFormValues = ({
@@ -249,7 +279,8 @@ const toTransactionFormValues = ({
   unitPrice,
   fees,
   taxes,
-  executedAt: toLocalDateTime(executedAt),
+  executionDay: calendarDayOf(executedAt),
+  executionTime: timeOfDayOf(executedAt),
   broker: broker ?? '',
   notes: notes ?? ''
 });
@@ -310,11 +341,14 @@ const TransactionForm: FC<TransactionFormProps> = ({
   onCancel,
   onSubmit
 }) => {
+  const openedAt = currentInstant();
+
   const defaultValues =
     target.kind === 'create'
       ? {
           ...EMPTY_TRANSACTION_FORM,
-          executedAt: toLocalDateTime(new Date().toISOString())
+          executionDay: calendarDayOf(openedAt),
+          executionTime: timeOfDayOf(openedAt)
         }
       : toTransactionFormValues(target.transaction);
 
@@ -338,6 +372,11 @@ const TransactionForm: FC<TransactionFormProps> = ({
 
   const selectedType = useWatch({ control: formControl, name: 'type' });
 
+  const { field: executionDayField } = useController({
+    name: 'executionDay',
+    control: formControl
+  });
+
   const amountDecimals = currencyFractionDigits(currency);
 
   const openDetail = () => {
@@ -347,7 +386,9 @@ const TransactionForm: FC<TransactionFormProps> = ({
 
   const submitDraft = async (draft: TransactionDraft) => {
     const isOriginalExecutionTime =
-      target.kind === 'edit' && dirtyFields.executedAt !== true;
+      target.kind === 'edit' &&
+      dirtyFields.executionDay !== true &&
+      dirtyFields.executionTime !== true;
 
     try {
       await onSubmit({
@@ -359,7 +400,7 @@ const TransactionForm: FC<TransactionFormProps> = ({
     } catch (error) {
       presentSubmitError(error, {
         setError,
-        fieldOf: (path) => (isTransactionFormField(path) ? path : undefined),
+        fieldOf: formFieldOf,
         fallbackMessage: SUBMIT_FAILURE_MESSAGE
       });
     }
@@ -426,13 +467,28 @@ const TransactionForm: FC<TransactionFormProps> = ({
             control={formControl}
           />
 
-          <FormField label="Executed at" error={errors.executedAt?.message}>
+          <FormField label="Date" error={errors.executionDay?.message}>
+            {(control) => (
+              <DatePicker
+                id={control.id}
+                ref={executionDayField.ref}
+                name={executionDayField.name}
+                value={executionDayField.value}
+                aria-invalid={control['aria-invalid']}
+                aria-describedby={control['aria-describedby']}
+                onValueChange={executionDayField.onChange}
+                onBlur={executionDayField.onBlur}
+              />
+            )}
+          </FormField>
+
+          <FormField label="Time" error={errors.executionTime?.message}>
             {(control) => (
               <Input
                 {...control}
-                type="datetime-local"
+                type="time"
                 step={1}
-                {...register('executedAt')}
+                {...register('executionTime')}
               />
             )}
           </FormField>

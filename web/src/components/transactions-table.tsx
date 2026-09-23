@@ -6,7 +6,7 @@ import {
   TRANSACTION_TYPE_LABELS,
   TRANSACTION_TYPE_TONES
 } from '@/common/constants';
-import { formatExecutionTime, formatQuantity } from '@/common/utils';
+import { formatQuantity } from '@/common/utils';
 import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
 import { Price, Quantity } from '@/components/financial';
 import { TransactionDetailsDialog } from '@/components/transaction-details-dialog';
@@ -26,6 +26,7 @@ import {
   useDeleteTransaction,
   useUpdateTransaction
 } from '@/hooks/use-transactions';
+import { formatExecutionTime } from '@/lib/dates';
 
 type TransactionsTableProps = Record<'portfolio', Portfolio> &
   Record<'transactions', ReadonlyArray<ListedTransaction>> &
