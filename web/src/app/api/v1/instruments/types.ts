@@ -8,10 +8,10 @@ export type InstrumentProperties = Record<'symbol' | 'name', string> &
 /** `PRIVATE` instruments were registered by the caller and are seen by no one else. */
 export type InstrumentScope = 'CATALOG' | 'PRIVATE';
 
-export interface Instrument
-  extends WithId, WithTimestamps, InstrumentProperties {
-  scope: InstrumentScope;
-}
+export type Instrument = WithId &
+  WithTimestamps &
+  InstrumentProperties &
+  Record<'scope', InstrumentScope>;
 
 export type GetInstrumentsRequestParams = {
   page?: number;

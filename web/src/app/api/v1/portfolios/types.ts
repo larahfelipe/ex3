@@ -5,8 +5,7 @@ export type PortfolioProperties = {
   baseCurrency: string;
 };
 
-export interface Portfolio
-  extends WithId, WithTimestamps, PortfolioProperties {}
+export type Portfolio = WithId & WithTimestamps & PortfolioProperties;
 
 export type GetPortfoliosRequestParams = {
   page?: number;
@@ -20,9 +19,8 @@ export type GetPortfoliosResponseData = {
 
 export type CreatePortfolioRequestPayload = PortfolioProperties;
 
-export interface CreatePortfolioResponseData extends WithMessage {
-  portfolio: Portfolio;
-}
+export type CreatePortfolioResponseData = WithMessage &
+  Record<'portfolio', Portfolio>;
 
 export type UpdatePortfolioRequestPayload = Record<
   'portfolioId',
@@ -30,9 +28,8 @@ export type UpdatePortfolioRequestPayload = Record<
 > &
   Partial<PortfolioProperties>;
 
-export interface UpdatePortfolioResponseData extends WithMessage {
-  portfolio: Portfolio;
-}
+export type UpdatePortfolioResponseData = WithMessage &
+  Record<'portfolio', Portfolio>;
 
 export type GetPortfolioResponseData = Portfolio;
 

@@ -9,10 +9,7 @@ export type SignUpRequestPayload = {
   baseCurrency: string;
 };
 
-export interface SignUpApiResponseData extends WithMessage {
-  user: User;
-}
+export type SignUpApiResponseData = WithMessage & Record<'user', User>;
 
-export interface SignUpResponseData extends WithMessage {
-  user: UserProperties & WithId & WithTimestamps;
-}
+export type SignUpResponseData = WithMessage &
+  Record<'user', UserProperties & WithId & WithTimestamps>;

@@ -7,7 +7,7 @@ import axios, {
 import { type SignOutResponseData } from '@/app/api/v1/sign-out';
 import { signInRouteFor } from '@/common/constants';
 
-import type { ApiServerErrorData, IApiProxyError } from './errors';
+import type { ApiProxyErrorFields, ApiServerErrorData } from './errors';
 import { ApiProxyError, UNEXPECTED_ERROR_MESSAGE } from './errors';
 
 const baseAxiosConfig: CreateAxiosDefaults = {
@@ -46,7 +46,7 @@ let pendingSignOut: Promise<void> | null = null;
 
 proxyApi.interceptors.response.use(
   (res) => res,
-  async (err: AxiosError<IApiProxyError>) => {
+  async (err: AxiosError<ApiProxyErrorFields>) => {
     const endpoint = err.config?.url ?? '';
     const isSessionRejection =
       err.response?.status === 401 &&

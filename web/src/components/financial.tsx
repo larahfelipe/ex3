@@ -1,7 +1,5 @@
 import type { FC } from 'react';
 
-import { twMerge } from 'tailwind-merge';
-
 import {
   formatMoney,
   formatPercent,
@@ -10,6 +8,7 @@ import {
   formatUnitAmount,
   signedValueTone
 } from '@/common/utils';
+import { cn } from '@/lib/utils';
 import type { Children, DecimalString } from '@/types';
 
 type ValueProps = Partial<Record<'value', DecimalString>>;
@@ -81,7 +80,7 @@ export const ProfitLoss: FC<ProfitLossProps> = ({
 
   return (
     <span
-      className={twMerge(
+      className={cn(
         'inline-flex flex-wrap items-baseline gap-x-2',
         signedValueTone(value)
       )}
@@ -101,10 +100,10 @@ export const Metric: FC<MetricProps> = ({
   valueClassName,
   children
 }) => (
-  <div className={twMerge('min-w-0 space-y-1', className)}>
+  <div className={cn('min-w-0 space-y-1', className)}>
     <dt className="text-sm text-muted-foreground">{label}</dt>
 
-    <dd className={twMerge('font-medium wrap-anywhere', valueClassName)}>
+    <dd className={cn('font-medium wrap-anywhere', valueClassName)}>
       {children}
     </dd>
   </div>

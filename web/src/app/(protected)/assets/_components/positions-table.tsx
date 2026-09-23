@@ -20,7 +20,6 @@ import {
   Search,
   type LucideIcon
 } from 'lucide-react';
-import { twMerge } from 'tailwind-merge';
 
 import type {
   PositionListingParams,
@@ -78,6 +77,7 @@ import {
   TableRowHeader
 } from '@/components/ui';
 import { usePositions, useRefreshPortfolio } from '@/hooks/use-portfolio';
+import { cn } from '@/lib/utils';
 
 type PositionsTableProps = Record<'portfolio', Portfolio> &
   Record<'onAddAsset', VoidFunction> &
@@ -340,7 +340,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
             >
               <RefreshCw
                 aria-hidden="true"
-                className={twMerge('size-4', isFetching && 'animate-spin')}
+                className={cn('size-4', isFetching && 'animate-spin')}
               />
               Refresh
             </Button>
@@ -482,7 +482,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
             {data !== undefined && data.items.length > 0 && (
               <Table
                 label="Positions table"
-                className={twMerge(
+                className={cn(
                   'transition-opacity',
                   isPlaceholderData && 'opacity-60'
                 )}
@@ -505,7 +505,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                           aria-sort={
                             isSorted ? ARIA_SORT[listing.sortOrder] : undefined
                           }
-                          className={twMerge(
+                          className={cn(
                             'whitespace-nowrap',
                             field !== 'symbol' && 'text-right',
                             isSecondary && 'max-sm:hidden'
@@ -514,7 +514,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                           <button
                             type="button"
                             onClick={() => sortBy(field)}
-                            className={twMerge(
+                            className={cn(
                               'inline-flex items-center gap-1 rounded-sm font-medium transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2',
                               isSorted && 'text-foreground'
                             )}
@@ -523,7 +523,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
 
                             <SortIcon
                               aria-hidden="true"
-                              className={twMerge(
+                              className={cn(
                                 'size-3.5',
                                 !isSorted && 'opacity-40'
                               )}

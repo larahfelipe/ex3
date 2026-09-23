@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 
 import type { UseQueryResult } from '@tanstack/react-query';
-import { twMerge } from 'tailwind-merge';
 
 import {
   ErrorState,
@@ -11,6 +10,7 @@ import {
 import { SectionHeader } from '@/components/section-header';
 import { Card, CardContent } from '@/components/ui';
 import type { ApiProxyErrorData } from '@/lib/axios';
+import { cn } from '@/lib/utils';
 
 type QuerySectionProps<Content> = {
   title: string;
@@ -71,7 +71,7 @@ export const QuerySection = <Content,>({
   return (
     <section
       aria-labelledby={headingId}
-      className={twMerge('min-w-0', className)}
+      className={cn('min-w-0', className)}
       onFocus={() => {
         hasFocusWithin.current = true;
       }}

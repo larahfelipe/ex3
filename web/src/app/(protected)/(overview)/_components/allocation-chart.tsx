@@ -1,7 +1,5 @@
 import { useId, useState, type FC } from 'react';
 
-import { twMerge } from 'tailwind-merge';
-
 import type { PortfolioAllocation } from '@/app/api/v1/portfolio';
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { INSTRUMENT_TYPE_LABELS } from '@/common/constants';
@@ -22,6 +20,7 @@ import {
   TableRowHeader
 } from '@/components/ui';
 import { useAllocation } from '@/hooks/use-portfolio';
+import { cn } from '@/lib/utils';
 
 type AllocationChartProps = Record<'portfolio', Portfolio>;
 
@@ -241,7 +240,7 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
                           <div className="flex items-center gap-2">
                             <span
                               aria-hidden="true"
-                              className={twMerge(
+                              className={cn(
                                 'size-2.5 shrink-0 rounded-full',
                                 allocation !== undefined && color.swatch
                               )}

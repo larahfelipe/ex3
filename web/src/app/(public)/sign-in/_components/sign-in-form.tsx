@@ -15,7 +15,7 @@ import { presentSubmitError } from '@/lib/submit-error';
 type SignInFormValues = z.infer<typeof signInSchema>;
 
 const signInSchema = z.object({
-  email: z.string().trim().email(),
+  email: z.string().trim().pipe(z.email()),
   password: z.string().min(1, 'Password is required')
 });
 

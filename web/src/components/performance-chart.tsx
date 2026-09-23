@@ -2,8 +2,6 @@ import { useId, useMemo, useState, type FC, type PointerEvent } from 'react';
 
 import { useSearchParams } from 'next/navigation';
 
-import { twMerge } from 'tailwind-merge';
-
 import type {
   PerformancePoint,
   PerformanceRange,
@@ -28,6 +26,7 @@ import {
   TableRowHeader
 } from '@/components/ui';
 import { usePerformance } from '@/hooks/use-portfolio';
+import { cn } from '@/lib/utils';
 
 type PerformanceChartProps = Record<'portfolio', Portfolio> &
   Partial<Record<'symbol', string>>;
@@ -228,7 +227,7 @@ const PerformanceSeries: FC<PerformanceSeriesProps> = ({
 
             <div
               aria-hidden="true"
-              className={twMerge(
+              className={cn(
                 'pointer-events-none absolute top-0 space-y-0.5 rounded-md border bg-background px-3 py-2 text-xs shadow-elevated',
                 activePoint.x > CHART_WIDTH / 2 ? 'left-0' : 'right-0'
               )}
