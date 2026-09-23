@@ -21,6 +21,7 @@ import {
 } from '@/test/ApiClient';
 import { FakeMarketDataProvider } from '@/test/FakeMarketDataProvider';
 import {
+  FIXTURE_EXECUTED_AT,
   MISSING_UUID,
   createAsset,
   createInstrument,
@@ -35,6 +36,8 @@ const PORTFOLIO_ALLOCATION_ROUTE = '/v1/portfolio/allocation';
 const PORTFOLIO_OVERVIEW_ROUTE = '/v1/portfolio/overview';
 const PORTFOLIO_PERFORMANCE_ROUTE = '/v1/portfolio/performance';
 const PORTFOLIO_POSITIONS_ROUTE = '/v1/portfolio/positions';
+const positionIndicatorsRoute = (symbol: string) =>
+  `${PORTFOLIO_POSITIONS_ROUTE}/${encodeURIComponent(symbol)}/indicators`;
 const PORTFOLIOS_ROUTE = '/v1/portfolios';
 
 /** Mirror `CreatePortfolioSchema`, `PaginationQuerySchema`, `PageQuerySchema` and the default page size in `PortfolioRepository.getAll`. */
@@ -1846,6 +1849,149 @@ describe('portfolios', () => {
           JSON.stringify(query)
         );
       }
+    });
+  });
+
+  describe('indicators', () => {
+    const now = new Date();
+    const startOfToday = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    );
+    const closedOn = (daysBefore: number) =>
+      new Date(startOfToday.getTime() - daysBefore * DAY_MS);
+
+    /** Before the one-year window, which is at most 366 days long, and within the two weeks read before it. */
+    const OPENING_DAYS_BEFORE = 370;
+
+    const requestIndicators = (
+      accessToken: string,
+      symbol: string,
+      portfolioId?: string
+    ) =>
+      client
+        .get(positionIndicatorsRoute(symbol))
+        .query({ portfolioId })
+        .set(bearer(accessToken));
+
+    const holdTradedPosition = async (portfolioId: string) => {
+      await createInstrument(PETR4);
+      const asset = await createAsset({
+        portfolioId,
+        symbol: PETR4.symbol,
+        quantity: '80',
+        averageCost: '40',
+        investedValue: '3200'
+      });
+      await createTransaction(asset, { quantity: '100', unitPrice: '40' });
+      await createTransaction(asset, {
+        type: 'SELL',
+        quantity: '20',
+        unitPrice: '55',
+        executedAt: closedOn(20)
+      });
+      await createTransaction(asset, {
+        type: 'DIVIDEND',
+        quantity: '80',
+        unitPrice: '0.5',
+        executedAt: closedOn(10)
+      });
+    };
+
+    it('ranges the last year of closes and returns what the ledger realized and paid', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await holdTradedPosition(portfolio.id);
+      historyFrom(
+        t,
+        new FakeMarketDataProvider({
+          PETR4: [
+            {
+              price: '40',
+              currency: 'BRL',
+              timestamp: closedOn(OPENING_DAYS_BEFORE)
+            },
+            { price: '50', currency: 'BRL', timestamp: closedOn(2) },
+            { price: '55', currency: 'BRL', timestamp: closedOn(1) }
+          ]
+        })
+      );
+
+      const res = await requestIndicators(accessToken, 'petr4', portfolio.id);
+
+      assert.equal(res.status, 200);
+
+      const { changes, ...prices } = res.body.prices;
+
+      assert.deepEqual(prices, {
+        currency: 'BRL',
+        close: '55',
+        closedOn: closedOn(1).toISOString(),
+        yearLow: '50',
+        yearHigh: '55'
+      });
+      assert.deepEqual(
+        changes.filter(({ range }: { range: string }) => range !== 'YTD'),
+        [
+          { range: '1M', change: '0.375' },
+          { range: '3M', change: '0.375' },
+          { range: '6M', change: '0.375' },
+          { range: '1Y', change: '0.375' }
+        ]
+      );
+      assert.deepEqual(res.body.returns, {
+        currency: 'BRL',
+        since: FIXTURE_EXECUTED_AT.toISOString(),
+        realizedProfitLoss: '300',
+        income: '40',
+        trailingIncome: '40',
+        yieldOnCost: '0.0125'
+      });
+    });
+
+    it('answers a position without transactions or closes with no indicators', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await createInstrument(PETR4);
+      await createAsset({ portfolioId: portfolio.id, symbol: PETR4.symbol });
+      historyFrom(t, new FakeMarketDataProvider({}));
+
+      const res = await requestIndicators(accessToken, 'PETR4', portfolio.id);
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, {});
+    });
+
+    it('answers 404 for a symbol the portfolio does not hold, without reading its history', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      const { getHistoricalPrices } = historyFrom(
+        t,
+        new FakeMarketDataProvider({})
+      );
+
+      const res = await requestIndicators(accessToken, 'PETR4', portfolio.id);
+
+      assert.equal(res.status, Errors.NOT_FOUND.status);
+      assert.equal(res.body.message, AssetMessages.NOT_FOUND);
+      assert.equal(getHistoricalPrices.mock.callCount(), 0);
+    });
+
+    it("answers 404 for another user's portfolio and 400 for an invalid query", async () => {
+      const { accessToken } = await signInUser();
+      const other = await createUser({ email: OTHER_USER_EMAIL });
+      const foreign = await createPortfolio(other.id);
+      await holdTradedPosition(foreign.id);
+
+      const foreignRes = await requestIndicators(
+        accessToken,
+        'PETR4',
+        foreign.id
+      );
+      const invalidRes = await requestIndicators(accessToken, 'PETR4');
+
+      assert.equal(foreignRes.status, Errors.NOT_FOUND.status);
+      assert.equal(foreignRes.body.message, PortfolioMessages.NOT_FOUND);
+      assert.equal(invalidRes.status, Errors.VALIDATION.status);
     });
   });
 });

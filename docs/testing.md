@@ -226,7 +226,10 @@ O bloco de validação cobre, em `POST` e `PATCH`, sem gravar nem mover a posiç
 * `BONUS` soma quantidade e custo atribuído, zero inclusive;
 * `DIVIDEND`, `JCP` e `INTEREST` não alteram quantidade nem custo, com ou sem unidades detidas, e em outra moeda recusam o razão;
 * recusados: `SELL` antes da compra que o cobriria, razão com duas moedas, razão que passa por posição fora da coluna e `investedValue` fora da coluna com os demais valores dentro dela;
-* tipo que a reconstrução não implementa (`SPLIT`) lança.
+* tipo que a reconstrução não implementa (`SPLIT`) lança;
+* `realizeProfitLoss` realiza cada venda pelo custo médio antes dela, com o mesmo resultado nas 24 permutações de compra, venda, recompra e venda; trunca cada venda em 18 casas; e devolve a recusa do replay.
+
+`src/domain/PositionIndicators.test.ts` cobre `describePositionIndicators` com um instante fixo: a variação de cada janela contra o último fechamento no seu primeiro dia ou antes, com fechamentos fora de ordem e fora do horário de meia-noite; a mínima e a máxima só do último ano, sem o fechamento lido antes dele; a janela que o histórico não alcança, a que o fechamento mais recente não alcança e a aberta em zero sem `change`; nenhum indicador de preço sem fechamento no último ano; o realizado de cada venda, a renda líquida de taxas e impostos, a do último ano, o `yieldOnCost` e o `since` com o razão fora de ordem; prejuízo realizado sem `yieldOnCost` quando nada está investido; e razão que não se reconstrói lança. O bloco `indicators` de `src/routes/Portfolios.integration.ts` cobre a rota contra o banco, com fechamentos semeados relativos ao dia corrente: preço e retorno de uma posição com compra, venda e dividendo; posição sem transação nem fechamento com o corpo vazio; símbolo fora da carteira com 404, sem ler histórico; carteira de outro usuário com 404 e `portfolioId` ausente com 400. A variação `YTD` fica fora da asserção de integração, porque nos três primeiros dias de janeiro os fechamentos semeados caem no seu primeiro dia; a unit a cobre com data fixa.
 
 **Ordem de gravação.** `Transaction.sequence` é `BIGINT` único, preenchido pelo banco na inserção e nunca devolvido pela API. `createTransaction` aceita `id` e `createdAt`, o que permite gravar transações no mesmo instante com ids em ordem contrária à de gravação.
 

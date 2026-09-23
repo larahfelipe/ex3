@@ -286,6 +286,7 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** `DIVIDEND`, `JCP` e `INTEREST` são gravados e entram no `netContribution` da performance, mas nenhuma rota soma a renda do mês, do ano ou de sempre, nem calcula `yield` e `yield on cost`. As TASKS 10.2 e 10.3 do plano, que definiriam essa API e a sua tela, não foram executadas.
 - **Impacto:** quem registra provento não consegue ler quanto a carteira rendeu em renda, e a única visão é a listagem de transações, uma a uma.
 - **Proposta:** somar por período a partir do razão, na moeda base, e expor os totais e os dois rendimentos, com as regras de ausência já usadas na visão geral. A definição de cada número entra em `docs/financial-rules.md` antes da implementação.
+- **Parcial (2026-09-23):** por posição, `GET /v1/portfolio/positions/:symbol/indicators` soma a renda líquida de sempre e a do último ano e calcula o `yield on cost` sobre o valor investido, na moeda do razão, e o detalhe do ativo os exibe. Segue aberto o da carteira: totais por mês e por ano, na moeda base, e o `yield` sobre o valor de mercado.
 
 ### TD-063 — Drawdown e métricas de risco não calculados
 

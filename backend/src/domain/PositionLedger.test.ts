@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { type LedgerEntry, rebuildPosition } from './PositionLedger';
+import {
+  type LedgerEntry,
+  realizeProfitLoss,
+  rebuildPosition
+} from './PositionLedger';
 
 const EXECUTED_AT = new Date('2026-01-05T13:00:00.000Z');
 const EXECUTED_LATER = new Date('2026-01-06T13:00:00.000Z');
@@ -342,5 +346,71 @@ describe('rebuildPosition', () => {
     ];
 
     assert.throws(() => rebuildPosition(ledger), /does not implement SPLIT/);
+  });
+});
+
+describe('realizeProfitLoss', () => {
+  it('realizes each SELL at the average cost of the units it sells, in ledger order', () => {
+    const ledger = [
+      ledgerEntry({
+        type: 'BUY',
+        quantity: '10',
+        unitPrice: '10',
+        sequence: 1n
+      }),
+      ledgerEntry({
+        type: 'SELL',
+        quantity: '5',
+        unitPrice: '12',
+        fees: '1',
+        sequence: 2n
+      }),
+      ledgerEntry({
+        type: 'BUY',
+        quantity: '5',
+        unitPrice: '16',
+        executedAt: EXECUTED_LATER,
+        sequence: 3n
+      }),
+      ledgerEntry({
+        type: 'SELL',
+        quantity: '10',
+        unitPrice: '11',
+        executedAt: EXECUTED_LATER,
+        sequence: 4n
+      })
+    ];
+
+    for (const permutation of permutationsOf(ledger))
+      assert.deepEqual(realizeProfitLoss(permutation), {
+        outcome: 'realized',
+        realizedProfitLoss: '-11'
+      });
+  });
+
+  it('truncates each SELL towards zero at the column scale', () => {
+    const ledger = [
+      ledgerEntry({ type: 'BUY', quantity: '3', unitPrice: '1', fees: '1' }),
+      ledgerEntry({
+        type: 'SELL',
+        quantity: '1',
+        unitPrice: '2',
+        executedAt: EXECUTED_LATER
+      })
+    ];
+
+    assert.deepEqual(realizeProfitLoss(ledger), {
+      outcome: 'realized',
+      realizedProfitLoss: '0.666666666666666667'
+    });
+  });
+
+  it('refuses a ledger the position cannot be rebuilt from', () => {
+    assert.deepEqual(
+      realizeProfitLoss([
+        ledgerEntry({ type: 'SELL', quantity: '1', unitPrice: '10' })
+      ]),
+      { outcome: 'negative-amount' }
+    );
   });
 });
