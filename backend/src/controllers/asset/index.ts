@@ -5,6 +5,7 @@ import {
   InstrumentRepository,
   PortfolioRepository
 } from '@/infra/database';
+import { YahooFinanceProvider } from '@/infra/market-data';
 import {
   CreateAssetService,
   DeleteAssetService,
@@ -19,11 +20,13 @@ export const createAssetControllerHandler = (req: Request, res: Response) => {
   const assetRepository = AssetRepository.getInstance();
   const instrumentRepository = InstrumentRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
+  const marketDataProvider = YahooFinanceProvider.getInstance();
 
   const createAssetService = CreateAssetService.getInstance(
     assetRepository,
     instrumentRepository,
-    portfolioRepository
+    portfolioRepository,
+    marketDataProvider
   );
 
   const createAssetController =

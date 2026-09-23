@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-const SYMBOL_MAX_LENGTH = 6;
-
-/** Letters and digits only: the same set the web form lets a user type. */
-const NEW_SYMBOL_PATTERN = /^[A-Z0-9]+$/;
+import {
+  INSTRUMENT_SYMBOL_PATTERN,
+  InstrumentLimits
+} from '@/config/Constants';
 
 /**
  * Normalised before it is bounded, so a blank value is rejected instead of
@@ -15,8 +15,8 @@ export const AssetSymbolSchema = z
   .toUpperCase()
   .min(1, 'Asset symbol must have at least 1 character')
   .max(
-    SYMBOL_MAX_LENGTH,
-    `Asset symbol must have at most ${SYMBOL_MAX_LENGTH} characters`
+    InstrumentLimits.SYMBOL_MAX_LENGTH,
+    `Asset symbol must have at most ${InstrumentLimits.SYMBOL_MAX_LENGTH} characters`
   );
 
 /**
@@ -24,6 +24,6 @@ export const AssetSymbolSchema = z
  * before it existed can still be read, renamed and deleted.
  */
 export const NewAssetSymbolSchema = AssetSymbolSchema.regex(
-  NEW_SYMBOL_PATTERN,
+  INSTRUMENT_SYMBOL_PATTERN,
   'Asset symbol must contain only letters and digits'
 );

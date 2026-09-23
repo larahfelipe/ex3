@@ -4,4 +4,5 @@ export * from './AuthorizationError';
 export * from './ConflictError';
 export * from './DomainError';
 export * from './NotFoundError';
+export * from './UnavailableError';
 export * from './ValidationError';

@@ -1,8 +1,8 @@
 import {
+  INSTRUMENT_SYMBOL_PATTERN,
+  InstrumentLimits,
   InstrumentScopes,
-  InstrumentTypes,
   MarketQuoteCurrencies,
-  Markets,
   type InstrumentScope
 } from '@/config/Constants';
 
@@ -15,14 +15,10 @@ const QUOTE_CURRENCY_BY_MARKET: ReadonlyMap<string, string | null> = new Map(
   Object.entries(MarketQuoteCurrencies)
 );
 
-/** What an instrument can be registered with, so a client offers only these. */
-export const INSTRUMENT_REGISTRATION_OPTIONS = {
-  types: Object.values(InstrumentTypes),
-  markets: Object.values(Markets).map((market) => ({
-    market,
-    currency: MarketQuoteCurrencies[market]
-  }))
-};
+/** Whether a search term could be the symbol of a new instrument, and so be looked up in the market. */
+export const isListableSymbol = (term: string) =>
+  term.length <= InstrumentLimits.SYMBOL_MAX_LENGTH &&
+  INSTRUMENT_SYMBOL_PATTERN.test(term);
 
 /** The owner stays internal: a caller only ever sees its own private instruments. */
 export const toVisibleInstrument = ({

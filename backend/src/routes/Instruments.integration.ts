@@ -1,16 +1,19 @@
 import assert from 'node:assert/strict';
-import { before, describe, it } from 'node:test';
+import { before, describe, it, type TestContext } from 'node:test';
 
 import {
   Errors,
   InstrumentMessages,
   InstrumentScopes,
   InstrumentTypes,
-  MarketQuoteCurrencies
+  MarketSearchStatuses,
+  RateLimits
 } from '@/config';
 import type { User } from '@/domain/models';
 import { PrismaClient } from '@/infra/database/PrismaClient';
+import { YahooFinanceProvider } from '@/infra/market-data';
 import { apiRequest, bearer, signIn } from '@/test/ApiClient';
+import { FakeMarketDataProvider } from '@/test/FakeMarketDataProvider';
 import {
   FIXTURE_PASSWORD,
   createInstrument,
@@ -20,7 +23,7 @@ import {
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
 
 const INSTRUMENTS_ROUTE = '/v1/instruments';
-const INSTRUMENT_OPTIONS_ROUTE = '/v1/instruments/options';
+const INSTRUMENT_SEARCH_ROUTE = '/v1/instruments/search';
 const CREATE_INSTRUMENT_ROUTE = '/v1/instrument';
 const USER_ROUTE = '/v1/user';
 
@@ -383,27 +386,192 @@ describe('instruments', () => {
       assert.equal(both.status, 200);
       assert.equal(await prismaClient.instrument.count(), 1);
     });
+  });
 
-    it('answers what an instrument can be registered with', async () => {
-      const accessToken = await signInAs({ isAdmin: false });
+  describe('search', () => {
+    const VALE_LISTING = {
+      symbol: 'VALE',
+      name: 'Vale S.A.',
+      type: InstrumentTypes.STOCK,
+      market: 'NYSE',
+      currency: 'USD'
+    };
 
-      const res = await client
-        .get(INSTRUMENT_OPTIONS_ROUTE)
-        .set(bearer(accessToken));
+    const listingsFrom = (
+      t: TestContext,
+      provider: FakeMarketDataProvider = new FakeMarketDataProvider(
+        {},
+        { listings: [{ ...VALE_LISTING, sector: 'Basic Materials' }] }
+      )
+    ) =>
+      t.mock.method(
+        YahooFinanceProvider.getInstance(),
+        'findListings',
+        (...args: Parameters<YahooFinanceProvider['findListings']>) =>
+          provider.findListings(...args)
+      );
+
+    const searchInstruments = (
+      accessToken: string,
+      query: Partial<Record<'query', string | Array<string>>>
+    ) =>
+      client.get(INSTRUMENT_SEARCH_ROUTE).query(query).set(bearer(accessToken));
+
+    const symbolsAndScopes = (instruments: Array<Record<string, string>>) =>
+      instruments.map(({ symbol, scope }) => ({ symbol, scope }));
+
+    it('answers the instruments the caller sees under the term and what the provider lists under it as a symbol', async (t) => {
+      const findListings = listingsFrom(t);
+      const owner = await signInWithUser({ isAdmin: false });
+      const other = await signInWithUser({
+        isAdmin: false,
+        email: OTHER_USER_EMAIL
+      });
+      await createInstrument({ symbol: 'VALE3', name: 'Vale ON' });
+      await createInstrument({ symbol: 'VALE5', ownerId: owner.user.id });
+      await createInstrument({ symbol: 'VALE6', ownerId: other.user.id });
+
+      const res = await searchInstruments(owner.accessToken, {
+        query: ' vale '
+      });
 
       assert.equal(res.status, 200);
-      assert.deepEqual(res.body, {
-        types: Object.keys(InstrumentTypes),
-        markets: Object.entries(MarketQuoteCurrencies).map(
-          ([market, currency]) => ({ market, currency })
-        )
-      });
+      assert.deepEqual(symbolsAndScopes(res.body.instruments), [
+        { symbol: 'VALE3', scope: InstrumentScopes.CATALOG },
+        { symbol: 'VALE5', scope: InstrumentScopes.PRIVATE }
+      ]);
+      assert.deepEqual(res.body.listings, [VALE_LISTING]);
+      assert.equal(res.body.marketSearch, MarketSearchStatuses.SEARCHED);
+      assert.deepEqual(findListings.mock.calls[0].arguments, ['VALE']);
     });
 
-    it('answers the options only to a signed-in user', async () => {
-      const res = await client.get(INSTRUMENT_OPTIONS_ROUTE);
+    it('asks the provider for a symbol only another user registered', async (t) => {
+      const findListings = listingsFrom(t);
+      const caller = await signInWithUser({ isAdmin: false });
+      const other = await signInWithUser({
+        isAdmin: false,
+        email: OTHER_USER_EMAIL
+      });
+      await createInstrument({ symbol: 'VALE', ownerId: other.user.id });
+
+      const res = await searchInstruments(caller.accessToken, {
+        query: 'vale'
+      });
+
+      assert.deepEqual(res.body.instruments, []);
+      assert.deepEqual(res.body.listings, [VALE_LISTING]);
+      assert.equal(findListings.mock.callCount(), 1);
+    });
+
+    it('does not ask the provider for a term that cannot be a symbol or names an instrument the caller sees', async (t) => {
+      const findListings = listingsFrom(t);
+      const accessToken = await signInAs({ isAdmin: false });
+      await createInstrument({ symbol: 'VALE3', name: 'Vale ON' });
+
+      const skippedTerms: Array<[string, Array<string>]> = [
+        ['vale on', ['VALE3']],
+        ['vale.', []],
+        ['valeon3', []],
+        ['vale3', ['VALE3']]
+      ];
+
+      for (const [query, symbols] of skippedTerms) {
+        const res = await searchInstruments(accessToken, { query });
+
+        assert.equal(res.status, 200, query);
+        assert.deepEqual(
+          res.body.instruments.map(
+            ({ symbol }: Record<'symbol', string>) => symbol
+          ),
+          symbols,
+          query
+        );
+        assert.deepEqual(res.body.listings, [], query);
+        assert.equal(res.body.marketSearch, MarketSearchStatuses.SKIPPED);
+      }
+      assert.equal(findListings.mock.callCount(), 0);
+    });
+
+    it('still answers the instruments the caller sees while the provider is unavailable', async (t) => {
+      listingsFrom(
+        t,
+        new FakeMarketDataProvider(
+          {},
+          { isAvailable: false, listings: [VALE_LISTING] }
+        )
+      );
+      const accessToken = await signInAs({ isAdmin: false });
+      await createInstrument({ symbol: 'VALE3', name: 'Vale ON' });
+
+      const res = await searchInstruments(accessToken, { query: 'vale' });
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(symbolsAndScopes(res.body.instruments), [
+        { symbol: 'VALE3', scope: InstrumentScopes.CATALOG }
+      ]);
+      assert.deepEqual(res.body.listings, []);
+      assert.equal(res.body.marketSearch, MarketSearchStatuses.UNAVAILABLE);
+    });
+
+    it('rejects a term outside the contract without asking the provider', async (t) => {
+      const findListings = listingsFrom(t);
+      const accessToken = await signInAs({ isAdmin: false });
+      const invalidQueries = [
+        {},
+        { query: '' },
+        { query: '   ' },
+        { query: 'va%' },
+        { query: 'va_e' },
+        { query: ['vale', 'petr'] },
+        { query: 'v'.repeat(NAME_MAX_LENGTH + 1) }
+      ];
+
+      for (const query of invalidQueries) {
+        const res = await searchInstruments(accessToken, query);
+
+        assert.equal(
+          res.status,
+          Errors.VALIDATION.status,
+          JSON.stringify(query)
+        );
+      }
+      assert.equal(findListings.mock.callCount(), 0);
+    });
+
+    it('answers the search only to a signed-in user', async () => {
+      const res = await client
+        .get(INSTRUMENT_SEARCH_ROUTE)
+        .query({ query: 'vale' });
 
       assert.equal(res.status, Errors.AUTHENTICATION.status);
+    });
+
+    it('limits how fast each user can search, apart from other users', async (t) => {
+      listingsFrom(t);
+      const caller = await signInAs({ isAdmin: false });
+      const other = await signInWithUser({
+        isAdmin: false,
+        email: OTHER_USER_EMAIL
+      });
+
+      for (
+        let request = 0;
+        request < RateLimits.INSTRUMENT_SEARCH.limit;
+        request++
+      )
+        assert.equal(
+          (await searchInstruments(caller, { query: 'vale on' })).status,
+          200
+        );
+
+      const throttled = await searchInstruments(caller, { query: 'vale on' });
+      const otherUser = await searchInstruments(other.accessToken, {
+        query: 'vale on'
+      });
+
+      assert.equal(throttled.status, Errors.THROTTLED.status);
+      assert.equal(throttled.body.code, Errors.THROTTLED.code);
+      assert.equal(otherUser.status, 200);
     });
   });
 

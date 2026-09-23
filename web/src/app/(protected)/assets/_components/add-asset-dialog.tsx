@@ -1,36 +1,43 @@
-import { useEffect, useId, useRef, useState, type FC } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FC,
+  type FormEvent
+} from 'react';
 
 import { useSearchParams } from 'next/navigation';
 
-import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowDownUp, Plus, Search } from 'lucide-react';
-import { z } from 'zod';
 
 import type { CreateAssetRequestPayload } from '@/app/api/v1/assets';
+import type {
+  SearchInstrumentsResponseData,
+  MarketSearchStatus
+} from '@/app/api/v1/instruments';
 import { ASSET_DIALOG_ACTIONS, ASSET_DIALOG_PARAMS } from '@/common/constants';
 import { replaceUrlQuery } from '@/common/utils';
-import { ErrorState, LoadingState } from '@/components/data-state';
+import { ErrorState } from '@/components/data-state';
+import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   Input,
   Label
 } from '@/components/ui';
-import { useInstruments } from '@/hooks/use-instruments';
+import { useInstrumentSearch } from '@/hooks/use-instruments';
 import {
   ApiProxyError,
   isConflictError,
   UNEXPECTED_ERROR_MESSAGE
 } from '@/lib/axios';
 import type { Maybe } from '@/types';
-
-import { AddAssetFooter, type AddAssetDialogActions } from './add-asset-footer';
-import { InstrumentRegistration } from './instrument-registration';
 
 type AssetAddition = Omit<CreateAssetRequestPayload, 'portfolioId'>;
 
@@ -39,22 +46,9 @@ type AddAssetDialogProps = {
   onConfirm: (payload: AssetAddition) => Promise<unknown>;
 };
 
-type AddAssetView = Record<'kind', 'catalog' | 'registration'> &
-  Record<'search', string>;
-
-type CatalogPickerProps = AddAssetDialogActions & {
-  initialSearch: string;
-  onConfirm: (payload: AssetAddition) => Promise<unknown>;
-  onRegister: (search: string) => void;
-};
-
-type AddAssetFormValues = z.infer<typeof AddAssetSchema>;
-
-const AddAssetSchema = z.object({
-  symbol: z.string().min(1, 'Choose an instrument from the catalog')
-});
-
-const CATALOG_PICKER_LIMIT = 20;
+type InstrumentChoice = Record<'key' | 'symbol' | 'name', string> &
+  Record<'venue' | 'badge', Maybe<string>> &
+  Record<'addition', AssetAddition>;
 
 const SEARCH_MAX_LENGTH = 120;
 
@@ -65,329 +59,181 @@ const CATALOG_SEARCH_PATTERN = /^[\p{L}\p{N} .&'-]+$/u;
 const SEARCH_PATTERN_MESSAGE =
   "Search accepts only letters, digits, spaces and . & ' -";
 
-const EMPTY_CATALOG_MESSAGE =
-  'The catalog has no instruments yet. Register the one you want to track.';
+const CHOICE_REQUIRED_MESSAGE = 'Choose one of the instruments found';
 
-const VIEW_DESCRIPTIONS: Record<AddAssetView['kind'], string> = {
-  catalog:
-    'Choose an instrument to track it in this portfolio, or register one the catalog lacks.',
-  registration:
-    'Register an instrument the catalog lacks. Only you can see the instruments you register.'
-};
+const MARKET_UNAVAILABLE_MESSAGE =
+  'The market could not be searched right now, so instruments you do not track yet are missing.';
 
-const CATALOG_LOAD_FAILURE_MESSAGE =
-  'The instrument catalog could not be loaded';
+const NEW_LISTING_NOTE =
+  'New instruments are added with the name, class and sector the market lists, and only you see them.';
 
-const submitFailureMessageOf = (error: unknown, symbol: string) => {
-  if (!(error instanceof ApiProxyError)) return UNEXPECTED_ERROR_MESSAGE;
+const PRIVATE_BADGE = 'Private';
 
-  return isConflictError(error)
-    ? `${symbol} is already in this portfolio`
-    : error.message;
-};
+const NEW_BADGE = 'New';
+
+const venueOf = ({
+  market,
+  currency
+}: Record<'market' | 'currency', Maybe<string>>) =>
+  market !== null && currency !== null ? `${market} · ${currency}` : null;
+
+const choicesOf = ({
+  instruments,
+  listings
+}: SearchInstrumentsResponseData): Array<InstrumentChoice> => [
+  ...instruments.map((instrument) => ({
+    key: `instrument:${instrument.id}`,
+    symbol: instrument.symbol,
+    name: instrument.name,
+    venue: venueOf(instrument),
+    badge: instrument.scope === 'PRIVATE' ? PRIVATE_BADGE : null,
+    addition: { symbol: instrument.symbol }
+  })),
+  ...listings.map(({ symbol, name, market, currency }) => ({
+    key: `listing:${symbol}:${market}:${currency}`,
+    symbol,
+    name,
+    venue: venueOf({ market, currency }),
+    badge: NEW_BADGE,
+    addition: { symbol, listing: { market, currency } }
+  }))
+];
+
+const noMatchMessageOf = (search: string, marketSearch: MarketSearchStatus) =>
+  marketSearch === 'SEARCHED'
+    ? `Nothing is listed under “${search}”. Check the ticker, as in PETR4, AAPL or BTC.`
+    : `No instrument you track matches “${search}”. To add a new one, search by its ticker, as in PETR4.`;
 
 const foundInstrumentsLabel = (count: number) =>
   count === 1 ? '1 instrument found' : `${count} instruments found`;
 
-const CatalogPicker: FC<CatalogPickerProps> = ({
-  initialSearch,
-  onConfirm,
-  onRegister,
-  ...dialogActions
-}) => {
-  const formId = useId();
-  const searchId = useId();
-  const searchIssueId = useId();
-  const catalogStatusId = useId();
+const submitFailureMessageOf = (
+  error: unknown,
+  { symbol, addition }: InstrumentChoice
+) => {
+  if (!(error instanceof ApiProxyError)) return UNEXPECTED_ERROR_MESSAGE;
 
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
-  const [searchInput, setSearchInput] = useState(initialSearch);
-  const [search, setSearch] = useState(initialSearch.trim() || undefined);
-
-  const {
-    control,
-    register,
-    handleSubmit,
-    reset,
-    resetField,
-    setError,
-    clearErrors,
-    formState: { errors, isSubmitting }
-  } = useForm<AddAssetFormValues>({
-    resolver: zodResolver(AddAssetSchema),
-    defaultValues: { symbol: '' }
-  });
-
-  const selectedSymbol = useWatch({ control, name: 'symbol' });
-
-  const {
-    data: catalog,
-    isPending,
-    isError,
-    isPlaceholderData,
-    refetch
-  } = useInstruments({ search, limit: CATALOG_PICKER_LIMIT });
-
-  const searchTerm = searchInput.trim();
-  const isSearchAccepted =
-    searchTerm === '' || CATALOG_SEARCH_PATTERN.test(searchTerm);
-
-  const instruments = catalog?.instruments ?? [];
-  const matchCount = catalog?.pagination.total ?? 0;
-
-  useEffect(() => {
-    const requestedSearch = searchTerm || undefined;
-
-    if (!isSearchAccepted || requestedSearch === search) return;
-
-    const timeout = setTimeout(() => {
-      setSearch(requestedSearch);
-      resetField('symbol');
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => clearTimeout(timeout);
-  }, [searchTerm, search, isSearchAccepted, resetField]);
-
-  useEffect(() => {
-    searchInputRef.current?.focus();
-  }, []);
-
-  const hasNoMatch =
-    catalog !== undefined && matchCount === 0 && !isPlaceholderData;
-
-  const catalogStatus = (() => {
-    if (isPending) return 'Loading the instrument catalog…';
-    if (catalog === undefined) return '';
-    if (isPlaceholderData) return 'Searching the catalog…';
-    if (matchCount === 0)
-      return search === undefined
-        ? EMPTY_CATALOG_MESSAGE
-        : `No instrument matches “${search}”`;
-    if (matchCount > instruments.length)
-      return `Showing ${instruments.length} of ${matchCount} instruments. Refine the search to narrow them.`;
-
-    return foundInstrumentsLabel(matchCount);
-  })();
-
-  const clearSearch = () => {
-    setSearchInput('');
-    setSearch(undefined);
-    searchInputRef.current?.focus();
-  };
-
-  const submitSelection = async ({ symbol }: AddAssetFormValues) => {
-    try {
-      await onConfirm({ symbol });
-      reset();
-      searchInputRef.current?.focus();
-    } catch (error) {
-      setError('root.server', {
-        type: 'server',
-        message: submitFailureMessageOf(error, symbol)
-      });
-    }
-  };
-
-  return (
-    <>
-      <div
-        role="search"
-        aria-label="Instrument catalog"
-        className="space-y-1.5"
-      >
-        <Label htmlFor={searchId}>Search the catalog</Label>
-
-        <Input
-          ref={searchInputRef}
-          id={searchId}
-          type="search"
-          autoComplete="off"
-          placeholder="Symbol or name"
-          maxLength={SEARCH_MAX_LENGTH}
-          value={searchInput}
-          aria-invalid={!isSearchAccepted}
-          aria-describedby={
-            isSearchAccepted
-              ? catalogStatusId
-              : `${searchIssueId} ${catalogStatusId}`
-          }
-          onChange={({ target }) => setSearchInput(target.value)}
-          leftElement={
-            <Search
-              aria-hidden="true"
-              size={16}
-              className="text-muted-foreground"
-            />
-          }
-        />
-
-        {!isSearchAccepted && (
-          <p id={searchIssueId} className="text-sm text-negative">
-            {SEARCH_PATTERN_MESSAGE}
-          </p>
-        )}
-      </div>
-
-      <form id={formId} noValidate onSubmit={handleSubmit(submitSelection)}>
-        <fieldset
-          aria-busy={isPending || isPlaceholderData}
-          className="min-w-0 space-y-2"
-        >
-          <legend className="mb-1.5 text-sm font-medium leading-none">
-            Instrument
-          </legend>
-
-          <p
-            id={catalogStatusId}
-            role="status"
-            className="text-sm text-muted-foreground"
-          >
-            {catalogStatus}
-          </p>
-
-          {isPending && (
-            <LoadingState
-              label="Loading the instrument catalog"
-              className="h-48"
-            />
-          )}
-
-          {isError && catalog === undefined && (
-            <ErrorState
-              message={CATALOG_LOAD_FAILURE_MESSAGE}
-              onRetry={refetch}
-            />
-          )}
-
-          {hasNoMatch && (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                className="gap-2 max-sm:w-full"
-                onClick={() => onRegister(search ?? '')}
-              >
-                <Plus size={16} aria-hidden="true" />
-
-                <span>
-                  {search === undefined
-                    ? 'Register an instrument'
-                    : `Register “${search}”`}
-                </span>
-              </Button>
-
-              {search !== undefined && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="max-sm:w-full"
-                  onClick={clearSearch}
-                >
-                  Clear search
-                </Button>
-              )}
-            </div>
-          )}
-
-          {instruments.length > 0 && (
-            <ul className="max-h-64 divide-y overflow-y-auto rounded-md border">
-              {instruments.map(
-                ({ id, symbol, name, market, currency, scope }) => (
-                  <li key={id}>
-                    <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/50 has-checked:bg-muted/70">
-                      <input
-                        type="radio"
-                        value={symbol}
-                        className="size-4 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-                        {...register('symbol', {
-                          onChange: () => clearErrors('root.server')
-                        })}
-                      />
-
-                      <span className="font-medium">{symbol}</span>
-
-                      <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                        {name}
-                      </span>
-
-                      {scope === 'PRIVATE' && (
-                        <span className="shrink-0 rounded-sm border px-1.5 text-xs text-muted-foreground">
-                          Private
-                        </span>
-                      )}
-
-                      {market !== null && currency !== null && (
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {`${market} · ${currency}`}
-                        </span>
-                      )}
-                    </label>
-                  </li>
-                )
-              )}
-            </ul>
-          )}
-
-          {instruments.length > 0 && (
-            <p className="text-sm text-muted-foreground">
-              {'Not listed? '}
-
-              <Button
-                type="button"
-                variant="link"
-                className="h-auto p-0"
-                disabled={isSubmitting}
-                onClick={() => onRegister(search ?? '')}
-              >
-                Register a new instrument
-              </Button>
-            </p>
-          )}
-
-          {errors.symbol?.message !== undefined && (
-            <p className="text-sm text-negative">{errors.symbol.message}</p>
-          )}
-
-          {errors.root?.server?.message !== undefined && (
-            <p role="alert" className="text-sm text-negative">
-              {errors.root.server.message}
-            </p>
-          )}
-        </fieldset>
-      </form>
-
-      <AddAssetFooter
-        formId={formId}
-        submitLabel="Confirm"
-        isSubmitting={isSubmitting}
-        canSubmit={selectedSymbol !== ''}
-        {...dialogActions}
-      />
-    </>
-  );
+  return isConflictError(error) && addition.listing === undefined
+    ? `${symbol} is already in this portfolio`
+    : error.message;
 };
 
+/**
+ * Only a term the user typed is searched. A single result is chosen for them
+ * once it settles, so Enter searches without waiting for the debounce and a
+ * second Enter adds what was found.
+ */
 export const AddAssetDialog: FC<AddAssetDialogProps> = ({
   onCancel,
   onConfirm
 }) => {
-  const [view, setView] = useState<AddAssetView>({
-    kind: 'catalog',
-    search: ''
-  });
+  const formId = useId();
+  const searchId = useId();
+  const searchIssueId = useId();
+  const searchStatusId = useId();
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState<string | null>(null);
+  const [chosenKey, setChosenKey] = useState<Maybe<string>>(null);
+  const [submitIssue, setSubmitIssue] = useState<Maybe<string>>(null);
   const [addedSymbol, setAddedSymbol] = useState<Maybe<string>>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const searchParams = useSearchParams();
 
-  const confirmAddition = async (payload: AssetAddition) => {
+  const {
+    data: results,
+    error,
+    isPending,
+    isPlaceholderData,
+    refetch
+  } = useInstrumentSearch(search);
+
+  const searchTerm = searchInput.trim();
+  const isSearchAccepted =
+    searchTerm === '' || CATALOG_SEARCH_PATTERN.test(searchTerm);
+  const requestedSearch = isSearchAccepted ? searchTerm || null : search;
+
+  const isAwaitingResults =
+    requestedSearch !== search ||
+    isPlaceholderData ||
+    (search !== null && isPending);
+
+  const choices = search !== null && results ? choicesOf(results) : [];
+
+  const selectedChoice =
+    choices.find(({ key }) => key === chosenKey) ??
+    (!isAwaitingResults && choices.length === 1 ? choices[0] : null);
+
+  const hasListingChoice = choices.some(
+    ({ addition }) => addition.listing !== undefined
+  );
+
+  const applySearch = (nextSearch: string | null) => {
+    setSearch(nextSearch);
+    setChosenKey(null);
+    setSubmitIssue(null);
+  };
+
+  useEffect(() => {
+    if (requestedSearch === search) return;
+
+    const timeout = setTimeout(() => {
+      setSearch(requestedSearch);
+      setChosenKey(null);
+      setSubmitIssue(null);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timeout);
+  }, [requestedSearch, search]);
+
+  useEffect(() => {
+    searchInputRef.current?.focus();
+  }, []);
+
+  const searchStatus = (() => {
+    if (search === null) return '';
+    if (isAwaitingResults) return 'Searching…';
+    if (results === undefined) return '';
+    if (choices.length === 0)
+      return noMatchMessageOf(search, results.marketSearch);
+
+    return foundInstrumentsLabel(choices.length);
+  })();
+
+  const chooseInstrument = (key: string) => {
+    setChosenKey(key);
+    setSubmitIssue(null);
+  };
+
+  const submitChoice = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (requestedSearch !== search) {
+      applySearch(requestedSearch);
+
+      return;
+    }
+
+    if (selectedChoice === null) {
+      if (!isAwaitingResults && choices.length > 0)
+        setSubmitIssue(CHOICE_REQUIRED_MESSAGE);
+
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      await onConfirm(payload);
-      setAddedSymbol(payload.symbol);
+      await onConfirm(selectedChoice.addition);
+      setAddedSymbol(selectedChoice.symbol);
+      setSearchInput('');
+      applySearch(null);
+      searchInputRef.current?.focus();
+    } catch (failure) {
+      setSubmitIssue(submitFailureMessageOf(failure, selectedChoice));
     } finally {
       setIsSubmitting(false);
     }
@@ -406,12 +252,6 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
     replaceUrlQuery(params);
   };
 
-  const dialogActions: AddAssetDialogActions = {
-    addedSymbol,
-    onAddTransaction: handleAddTransaction,
-    onCancel
-  };
-
   return (
     <Dialog
       open
@@ -427,24 +267,156 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
             <span>Add asset</span>
           </DialogTitle>
 
-          <DialogDescription>{VIEW_DESCRIPTIONS[view.kind]}</DialogDescription>
+          <DialogDescription>
+            Search by ticker to add any listed instrument, or by name among the
+            ones you already track.
+          </DialogDescription>
         </DialogHeader>
 
-        {view.kind === 'catalog' ? (
-          <CatalogPicker
-            initialSearch={view.search}
-            onConfirm={confirmAddition}
-            onRegister={(search) => setView({ kind: 'registration', search })}
-            {...dialogActions}
-          />
-        ) : (
-          <InstrumentRegistration
-            initialSearch={view.search}
-            onConfirm={confirmAddition}
-            onSearchCatalog={(search) => setView({ kind: 'catalog', search })}
-            {...dialogActions}
-          />
+        <form
+          id={formId}
+          noValidate
+          className="min-w-0 space-y-3"
+          onSubmit={submitChoice}
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor={searchId}>Ticker or name</Label>
+
+            <Input
+              ref={searchInputRef}
+              id={searchId}
+              type="search"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              placeholder="PETR4, AAPL, BTC…"
+              maxLength={SEARCH_MAX_LENGTH}
+              value={searchInput}
+              aria-invalid={!isSearchAccepted}
+              aria-describedby={
+                isSearchAccepted
+                  ? searchStatusId
+                  : `${searchIssueId} ${searchStatusId}`
+              }
+              onChange={({ target }) => setSearchInput(target.value)}
+              leftElement={
+                <Search
+                  aria-hidden="true"
+                  size={16}
+                  className="text-muted-foreground"
+                />
+              }
+            />
+
+            {!isSearchAccepted && (
+              <p id={searchIssueId} className="text-sm text-negative">
+                {SEARCH_PATTERN_MESSAGE}
+              </p>
+            )}
+          </div>
+
+          <p
+            id={searchStatusId}
+            role="status"
+            className="text-sm text-muted-foreground empty:hidden"
+          >
+            {searchStatus}
+          </p>
+
+          {search !== null &&
+            !isAwaitingResults &&
+            results?.marketSearch === 'UNAVAILABLE' && (
+              <p className="text-sm text-muted-foreground">
+                {`${MARKET_UNAVAILABLE_MESSAGE} `}
+
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0"
+                  onClick={() => refetch()}
+                >
+                  Try again
+                </Button>
+              </p>
+            )}
+
+          {choices.length > 0 && (
+            <fieldset aria-busy={isAwaitingResults} className="min-w-0">
+              <legend className="sr-only">Instruments found</legend>
+
+              <ul className="max-h-64 divide-y overflow-y-auto rounded-md border">
+                {choices.map((choice) => (
+                  <li key={choice.key}>
+                    <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/50 has-checked:bg-muted/70">
+                      <input
+                        type="radio"
+                        name={formId}
+                        value={choice.key}
+                        checked={selectedChoice?.key === choice.key}
+                        className="size-4 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                        onChange={() => chooseInstrument(choice.key)}
+                      />
+
+                      <span className="font-medium">{choice.symbol}</span>
+
+                      <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                        {choice.name}
+                      </span>
+
+                      {choice.badge !== null && (
+                        <span className="shrink-0 rounded-sm border px-1.5 text-xs text-muted-foreground">
+                          {choice.badge}
+                        </span>
+                      )}
+
+                      {choice.venue !== null && (
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {choice.venue}
+                        </span>
+                      )}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </fieldset>
+          )}
+
+          {hasListingChoice && (
+            <p className="text-xs text-muted-foreground">{NEW_LISTING_NOTE}</p>
+          )}
+
+          {submitIssue !== null && (
+            <p role="alert" className="text-sm text-negative">
+              {submitIssue}
+            </p>
+          )}
+        </form>
+
+        {search !== null && error !== null && results === undefined && (
+          <ErrorState message={error.message} onRetry={refetch} />
         )}
+
+        <DialogFooter>
+          {addedSymbol && (
+            <Button
+              variant="ghost"
+              className="gap-2 sm:absolute sm:left-6 max-sm:mt-6"
+              onClick={handleAddTransaction}
+            >
+              <Plus size={16} aria-hidden="true" />
+
+              <span>{`Add a ${addedSymbol} transaction?`}</span>
+            </Button>
+          )}
+
+          <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
+            Cancel
+          </Button>
+
+          <SubmitButton form={formId} isPending={isSubmitting}>
+            Add
+          </SubmitButton>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

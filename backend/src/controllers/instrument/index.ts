@@ -1,15 +1,17 @@
 import type { Request, Response } from 'express';
 
-import { INSTRUMENT_REGISTRATION_OPTIONS } from '@/domain/InstrumentCatalog';
 import { InstrumentRepository } from '@/infra/database';
+import { YahooFinanceProvider } from '@/infra/market-data';
 import {
   CreateInstrumentService,
   GetAllInstrumentsService,
+  SearchInstrumentsService,
   UpdateInstrumentService
 } from '@/services/instrument';
 
 import { CreateInstrumentController } from './CreateInstrumentController';
 import { GetAllInstrumentsController } from './GetAllInstrumentsController';
+import { SearchInstrumentsController } from './SearchInstrumentsController';
 import { UpdateInstrumentController } from './UpdateInstrumentController';
 
 export const createInstrumentControllerHandler = (
@@ -44,6 +46,25 @@ export const getAllInstrumentsControllerHandler = (
   return getAllInstrumentsController.handle(req, res);
 };
 
+export const searchInstrumentsControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const instrumentRepository = InstrumentRepository.getInstance();
+  const marketDataProvider = YahooFinanceProvider.getInstance();
+
+  const searchInstrumentsService = SearchInstrumentsService.getInstance(
+    instrumentRepository,
+    marketDataProvider
+  );
+
+  const searchInstrumentsController = SearchInstrumentsController.getInstance(
+    searchInstrumentsService
+  );
+
+  return searchInstrumentsController.handle(req, res);
+};
+
 export const updateInstrumentControllerHandler = (
   req: Request,
   res: Response
@@ -58,11 +79,4 @@ export const updateInstrumentControllerHandler = (
   );
 
   return updateInstrumentController.handle(req, res);
-};
-
-export const getInstrumentOptionsControllerHandler = (
-  _req: Request,
-  res: Response
-) => {
-  res.status(200).json(INSTRUMENT_REGISTRATION_OPTIONS);
 };

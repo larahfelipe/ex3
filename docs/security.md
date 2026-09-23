@@ -14,7 +14,7 @@ e senha está em [`authentication.md`](authentication.md); o envelope de erro, e
 | `x-request-id` | `PROPAGATED_REQUEST_ID` aceita 8–64 caracteres de `[A-Za-z0-9-]`; fora disso o id é gerado | id descartado em silêncio, sem erro | nenhuma: o valor só volta no cabeçalho e no log |
 | `Origin` | allowlist de `CORS_ALLOWED_ORIGINS`, obrigatória em produção | resposta sem `Access-Control-Allow-Origin` | nenhuma |
 | Corpo dos route handlers do web | `jsonPayload` (`web/src/lib/api-proxy.ts`) | `400 Bad Request` com envelope `{ message, _error }` | nenhuma |
-| Provedor de cotação (Yahoo Finance) | origem fixa e símbolo restrito a letras e dígitos, escapado na URL; resposta parseada por schema antes de virar preço | falha de infraestrutura; a posição é reportada pelo livro | resposta tratada como dado externo |
+| Provedor de cotação (Yahoo Finance) | origem fixa e símbolo restrito a letras e dígitos, escapado na URL; resposta parseada por schema antes de virar preço ou atributo de instrumento, com nome e setor limitados em tamanho; do cliente, o registro só aceita símbolo, mercado e moeda | falha de infraestrutura; a posição é reportada pelo livro | resposta tratada como dado externo |
 
 O corpo é limitado a `100kb` (`RequestLimits.JSON_BODY_SIZE`) antes de qualquer
 parse, e o payload acima disso responde `413`.
@@ -76,9 +76,10 @@ resposta JSON do proxy sai com `nosniff` mesmo sem CSP. `worker-src` passou a
 
 ## Rate limiting
 
-Dois budgets, ambos em `middleware/RateLimitMiddleware.ts`: 120 requisições por
-minuto para a API e 10 por 15 minutos para os endpoints que verificam senha
-(sign-in, sign-up, `PATCH` e `DELETE /v1/user`).
+Três budgets, todos em `middleware/RateLimitMiddleware.ts`: 120 requisições por
+minuto para a API, 10 por 15 minutos para os endpoints que verificam senha
+(sign-in, sign-up, `PATCH` e `DELETE /v1/user`) e 30 por minuto para a busca de
+instrumentos, que pode gastar a cota do provedor de cotação.
 
 **A chave não é o endereço do chamador.** Em produção o navegador só fala com o
 web, e o proxy encaminha à API apenas o `Authorization`: todo tráfego chega do
@@ -90,6 +91,7 @@ deixaria de ser por conta. Desde a TASK 20.4:
 | --- | --- | --- |
 | API | digest da sessão apresentada | endereço do chamador, para o tráfego sem sessão |
 | Autenticação | digest da sessão; sem ela, digest do e-mail submetido | endereço do chamador |
+| Busca de instrumentos | id do usuário autenticado | nenhum: a rota exige sessão |
 
 O contador guarda digest, nunca o token nem o e-mail: um store de rate limit não
 é lugar de credencial. A contrapartida assumida é que um atacante consegue

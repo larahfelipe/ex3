@@ -1,22 +1,14 @@
 import { z } from 'zod';
 
-import { InstrumentTypes, Markets } from '@/config/Constants';
+import { InstrumentLimits, InstrumentTypes, Markets } from '@/config/Constants';
 
 import { boundedTextSchema } from '../BoundedTextSchema';
 import { currencyCodeSchema } from '../CurrencyCodeSchema';
 
-/**
- * Bounds the free-text attributes (OWASP API4:2023, unrestricted resource
- * consumption). Assumed, not measured: above the longest name and sector label
- * an exchange listing publishes.
- */
-export const INSTRUMENT_NAME_MAX_LENGTH = 120;
-const SECTOR_MAX_LENGTH = 60;
-
 const COUNTRY_CODE_PATTERN = /^[A-Z]{2}$/;
 
 export const InstrumentAttributesSchema = z.object({
-  name: boundedTextSchema('Instrument name', INSTRUMENT_NAME_MAX_LENGTH),
+  name: boundedTextSchema('Instrument name', InstrumentLimits.NAME_MAX_LENGTH),
   type: z
     .string()
     .trim()
@@ -38,7 +30,10 @@ export const InstrumentAttributesSchema = z.object({
       )
     ),
   currency: currencyCodeSchema('Instrument currency'),
-  sector: boundedTextSchema('Instrument sector', SECTOR_MAX_LENGTH).optional(),
+  sector: boundedTextSchema(
+    'Instrument sector',
+    InstrumentLimits.SECTOR_MAX_LENGTH
+  ).optional(),
   country: z
     .string()
     .trim()

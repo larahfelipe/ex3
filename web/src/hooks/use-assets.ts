@@ -28,10 +28,10 @@ export const useCreateAsset = (portfolio: Maybe<Portfolio>) => {
         ...payload,
         portfolioId: requirePortfolio(portfolio).id
       } satisfies CreateAssetRequestPayload),
-    onSuccess: async (response, { instrument }) => {
+    onSuccess: async (response, { listing }) => {
       await Promise.all([
         announceChange(response),
-        instrument !== undefined &&
+        listing !== undefined &&
           queryClient.invalidateQueries({
             queryKey: queryKeys.visibleInstruments()
           })

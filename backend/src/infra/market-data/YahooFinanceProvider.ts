@@ -1,9 +1,20 @@
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
-import { DecimalColumn, Markets, type Market } from '@/config/Constants';
+import {
+  CryptoListingCurrencies,
+  DecimalColumn,
+  InstrumentLimits,
+  InstrumentTypes,
+  MarketQuoteCurrencies,
+  Markets,
+  type Market
+} from '@/config/Constants';
 import { envs } from '@/config/Envs';
 import type {
+  Listing,
+  ListingLookup,
+  ListingSearch,
   MarketDataProvider,
   ObservedPrice,
   PriceHistoryLookup,
@@ -12,6 +23,7 @@ import type {
   PriceRange,
   QuoteLookup
 } from '@/domain/MarketDataProvider';
+import type { InstrumentType } from '@/domain/models';
 import { LogSeverities, log, type LogSink } from '@/infra/observability';
 
 export const YAHOO_FINANCE_SOURCE = 'yahoo-finance';
@@ -19,6 +31,8 @@ export const YAHOO_FINANCE_SOURCE = 'yahoo-finance';
 const YAHOO_FINANCE_ORIGIN = 'https://yfapi.net';
 const QUOTE_PATH = '/v6/finance/quote';
 const CHART_PATH = '/v8/finance/chart/';
+const PROFILE_PATH = '/v11/finance/quoteSummary/';
+const PROFILE_MODULE = 'assetProfile';
 
 /** Assumed, not measured: well above a quote round trip, short enough not to hold a page load. */
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -37,6 +51,19 @@ const QUOTE_TIME_TO_LIVE_MS = 60_000;
  * so a provider that is down costs one timeout, not one per page load.
  */
 const FAILURE_COOLDOWN_MS = 30_000;
+
+/**
+ * Assumed, not measured: an exchange renames, reclassifies or moves a listing
+ * far less often than hourly, and a search typed again within the hour spends
+ * none of the plan's request quota.
+ */
+const LISTING_TIME_TO_LIVE_MS = 3_600_000;
+
+/**
+ * Assumed, not measured: searched symbols come from users and not from what is
+ * stored, so the listing cache is bounded by count, dropping the oldest entry.
+ */
+const LISTING_CACHE_MAX_ENTRIES = 1_000;
 
 const HTTP_NOT_FOUND = 404;
 const MILLISECONDS_PER_SECOND = 1_000;
@@ -70,6 +97,39 @@ const YAHOO_SYMBOL_BY_MARKET: Record<
   [Markets.CRYPTO]: (symbol, currency) => `${symbol}-${currency}`
 };
 
+/** The venue codes Yahoo reports for each known market; a listing on any other venue is left out. */
+const MARKET_BY_EXCHANGE: ReadonlyMap<string, Market> = new Map([
+  ['SAO', Markets.B3],
+  ['NYQ', Markets.NYSE],
+  ['ASE', Markets.NYSE],
+  ['PCX', Markets.NYSE],
+  ['NMS', Markets.NASDAQ],
+  ['NGM', Markets.NASDAQ],
+  ['NCM', Markets.NASDAQ],
+  ['CCC', Markets.CRYPTO]
+]);
+
+const INSTRUMENT_TYPE_BY_QUOTE_TYPE: ReadonlyMap<string, InstrumentType> =
+  new Map([
+    ['EQUITY', InstrumentTypes.STOCK],
+    ['ETF', InstrumentTypes.ETF],
+    ['MUTUALFUND', InstrumentTypes.FUND],
+    ['CRYPTOCURRENCY', InstrumentTypes.CRYPTO]
+  ]);
+
+/** Only equities have a sector, so no other listing spends a profile request. */
+const SECTORED_TYPES: ReadonlySet<InstrumentType> = new Set([
+  InstrumentTypes.STOCK,
+  InstrumentTypes.REIT
+]);
+
+/**
+ * B3 lists its real estate funds (FII) as equities, and only the legal name,
+ * "Fundo de Investimento Imobiliário", or the `FII` abbreviation tells them
+ * apart from stocks.
+ */
+const REAL_ESTATE_FUND_NAME_PATTERN = /\bFII\b|imobili[aá]ri/i;
+
 /** A price fits the decimal columns, as every monetary value does. */
 const PRICE_UPPER_BOUND = 10 ** (DecimalColumn.PRECISION - DecimalColumn.SCALE);
 
@@ -98,6 +158,34 @@ const QuoteSchema = z.object({
   regularMarketTime: EpochSecondsSchema,
   regularMarketPreviousClose: PriceSchema.optional().catch(undefined),
   priceHint: PriceHintSchema.optional()
+});
+
+const ListingNameSchema = z.string().trim().min(1).optional().catch(undefined);
+
+const ListingSchema = z.object({
+  currency: CurrencySchema,
+  quoteType: z.string(),
+  exchange: z.string(),
+  longName: ListingNameSchema,
+  shortName: ListingNameSchema
+});
+
+const ProfileSchema = z.object({
+  quoteSummary: z.object({
+    result: z.tuple([
+      z.object({
+        [PROFILE_MODULE]: z.object({
+          sector: z
+            .string()
+            .trim()
+            .min(1)
+            .max(InstrumentLimits.SECTOR_MAX_LENGTH)
+            .optional()
+            .catch(undefined)
+        })
+      })
+    ])
+  })
 });
 
 const ChartSchema = z.object({
@@ -137,6 +225,23 @@ type CachedQuote = {
   cachedAt: number;
 };
 
+type SearchedListings = Extract<ListingSearch, { outcome: 'searched' }>;
+
+type CachedListings = {
+  search: SearchedListings;
+  cachedAt: number;
+};
+
+type ListingCandidate = Record<'yahooSymbol' | 'currency', string> &
+  Record<'market', Market>;
+
+/**
+ * `pause` leaves the provider alone for `FAILURE_COOLDOWN_MS`, as any quote
+ * failure does; `report` only logs it, for an optional answer from an endpoint
+ * the plan may not include, which must not take quotes down with it.
+ */
+type FailureHandling = 'pause' | 'report';
+
 const isMarket = (market: string): market is Market =>
   Object.hasOwn(YAHOO_SYMBOL_BY_MARKET, market);
 
@@ -148,6 +253,63 @@ const toYahooSymbol = ({ symbol, market, currency }: PricedInstrument) =>
   CURRENCY_CODE_PATTERN.test(currency)
     ? YAHOO_SYMBOL_BY_MARKET[market](symbol, currency)
     : null;
+
+/** The symbol under every market, and under every looked-up currency where the pair names one. */
+const listingCandidatesOf = (symbol: string): ListingCandidate[] =>
+  Object.values(Markets).flatMap((market) => {
+    const quoteCurrency = MarketQuoteCurrencies[market];
+    const currencies =
+      quoteCurrency === null ? CryptoListingCurrencies : [quoteCurrency];
+
+    return currencies.map((currency) => ({
+      market,
+      currency,
+      yahooSymbol: YAHOO_SYMBOL_BY_MARKET[market](symbol, currency)
+    }));
+  });
+
+/** Bounded by code points, so a surrogate pair is never split. */
+const toListingName = (name: string) =>
+  [...name.replace(/\s+/g, ' ')]
+    .slice(0, InstrumentLimits.NAME_MAX_LENGTH)
+    .join('')
+    .trimEnd();
+
+/** A candidate is listed only where the venue and the currency the provider reports are its own. */
+const toListing = (
+  symbol: string,
+  { market, currency }: ListingCandidate,
+  item: unknown
+): Listing | null => {
+  const parsed = ListingSchema.safeParse(item);
+
+  if (!parsed.success) return null;
+
+  const { longName, shortName, quoteType, exchange } = parsed.data;
+  const name = longName ?? shortName;
+  const quotedType = INSTRUMENT_TYPE_BY_QUOTE_TYPE.get(quoteType);
+
+  if (
+    name === undefined ||
+    quotedType === undefined ||
+    MARKET_BY_EXCHANGE.get(exchange) !== market ||
+    parsed.data.currency !== currency
+  )
+    return null;
+
+  const isRealEstateFund =
+    market === Markets.B3 &&
+    quotedType === InstrumentTypes.STOCK &&
+    REAL_ESTATE_FUND_NAME_PATTERN.test(`${longName} ${shortName}`);
+
+  return {
+    symbol,
+    name: toListingName(name),
+    type: isRealEstateFund ? InstrumentTypes.REIT : quotedType,
+    market,
+    currency
+  };
+};
 
 const toExchangeRateSymbol = (currency: string, baseCurrency: string) =>
   CURRENCY_CODE_PATTERN.test(currency) &&
@@ -173,8 +335,9 @@ const inBatches = <Item>(items: ReadonlyArray<Item>, size: number) =>
  * sent elsewhere. Quotes are cached for `QUOTE_TIME_TO_LIVE_MS` and a symbol
  * already being requested joins that request; when the provider fails, the
  * last quote received is answered, with the timestamp it was observed at. The
- * caches hold only symbols translated from catalog instruments and from pairs
- * of stored currency codes, so they are bounded by what is stored, and they
+ * quote cache holds only symbols translated from stored instruments and from
+ * pairs of stored currency codes, so it is bounded by what is stored; the
+ * listing cache holds symbols users searched, so it is bounded by count. Both
  * live in this process.
  */
 export class YahooFinanceProvider implements MarketDataProvider {
@@ -185,6 +348,7 @@ export class YahooFinanceProvider implements MarketDataProvider {
   private readonly logEntry: LogSink;
   private readonly quoteCache = new Map<string, CachedQuote>();
   private readonly inFlightQuotes = new Map<string, Promise<QuoteLookup>>();
+  private readonly listingCache = new Map<string, CachedListings>();
   private unavailableUntil = 0;
 
   constructor({
@@ -277,6 +441,115 @@ export class YahooFinanceProvider implements MarketDataProvider {
       lookup.prices.some(({ currency: quoted }) => quoted !== baseCurrency)
       ? UNAVAILABLE
       : lookup;
+  }
+
+  /** A search the provider fails is answered from the last one received for the symbol, however old. */
+  async findListings(symbol: string): Promise<ListingSearch> {
+    if (!QUOTABLE_SYMBOL_PATTERN.test(symbol))
+      return { outcome: 'searched', listings: [] };
+
+    const cached = this.listingCache.get(symbol);
+
+    if (
+      cached !== undefined &&
+      this.now() - cached.cachedAt < LISTING_TIME_TO_LIVE_MS
+    )
+      return cached.search;
+
+    const search = await this.requestListings(symbol);
+
+    if (search.outcome === 'unavailable') return cached?.search ?? search;
+
+    this.cacheListings(symbol, search);
+
+    return search;
+  }
+
+  async describeListing(instrument: PricedInstrument): Promise<ListingLookup> {
+    const search = await this.findListings(instrument.symbol);
+
+    if (search.outcome === 'unavailable') return UNAVAILABLE;
+
+    const listing = search.listings.find(
+      ({ market, currency }) =>
+        market === instrument.market && currency === instrument.currency
+    );
+
+    if (listing === undefined) return NOT_FOUND;
+
+    const yahooSymbol = toYahooSymbol(listing);
+    const sector =
+      SECTORED_TYPES.has(listing.type) && yahooSymbol !== null
+        ? await this.lookUpSector(yahooSymbol)
+        : null;
+
+    return { outcome: 'listed', listing: { ...listing, sector } };
+  }
+
+  private async requestListings(symbol: string): Promise<ListingSearch> {
+    const candidates = listingCandidatesOf(symbol);
+    const response = await this.request(QUOTE_PATH, {
+      symbols: [
+        ...new Set(candidates.map(({ yahooSymbol }) => yahooSymbol))
+      ].join(',')
+    });
+
+    if (response.outcome === 'unavailable') return UNAVAILABLE;
+    if (response.outcome === 'not-found')
+      return { outcome: 'searched', listings: [] };
+
+    const envelope = QuoteEnvelopeSchema.safeParse(response.body);
+
+    if (!envelope.success) return this.reportFailure('invalid quote response');
+
+    const itemsBySymbol = new Map(
+      envelope.data.quoteResponse.result.map((item) => [item.symbol, item])
+    );
+
+    return {
+      outcome: 'searched',
+      listings: candidates.flatMap((candidate) => {
+        const listing = toListing(
+          symbol,
+          candidate,
+          itemsBySymbol.get(candidate.yahooSymbol)
+        );
+
+        return listing === null ? [] : [listing];
+      })
+    };
+  }
+
+  private cacheListings(symbol: string, search: SearchedListings) {
+    this.listingCache.delete(symbol);
+
+    if (this.listingCache.size >= LISTING_CACHE_MAX_ENTRIES) {
+      const [oldestSymbol] = this.listingCache.keys();
+
+      if (oldestSymbol !== undefined) this.listingCache.delete(oldestSymbol);
+    }
+
+    this.listingCache.set(symbol, { search, cachedAt: this.now() });
+  }
+
+  /** The sector is optional, so a profile the provider does not answer is none. */
+  private async lookUpSector(yahooSymbol: string) {
+    const response = await this.request(
+      `${PROFILE_PATH}${encodeURIComponent(yahooSymbol)}`,
+      { modules: PROFILE_MODULE },
+      'report'
+    );
+
+    if (response.outcome !== 'responded') return null;
+
+    const profile = ProfileSchema.safeParse(response.body);
+
+    if (!profile.success) {
+      this.reportFailure('invalid profile response', 'report');
+      return null;
+    }
+
+    return profile.data.quoteSummary.result[0][PROFILE_MODULE].sector ?? null;
   }
 
   private async lookUpPriceHistory(
@@ -465,7 +738,8 @@ export class YahooFinanceProvider implements MarketDataProvider {
 
   private async request(
     path: string,
-    query: Record<string, string>
+    query: Record<string, string>,
+    failureHandling: FailureHandling = 'pause'
   ): Promise<ProviderResponse> {
     if (this.apiKey === undefined || this.now() < this.unavailableUntil)
       return UNAVAILABLE;
@@ -487,18 +761,32 @@ export class YahooFinanceProvider implements MarketDataProvider {
 
       if (!response.ok) {
         await response.body?.cancel();
-        return this.reportFailure(`status ${response.status}`);
+        return this.reportFailure(`status ${response.status}`, failureHandling);
       }
 
       return { outcome: 'responded', body: await response.json() };
     } catch (error) {
       return this.reportFailure(
-        error instanceof Error ? error.name : 'unknown error'
+        error instanceof Error ? error.name : 'unknown error',
+        failureHandling
       );
     }
   }
 
-  private reportFailure(reason: string): typeof UNAVAILABLE {
+  private reportFailure(
+    reason: string,
+    failureHandling: FailureHandling = 'pause'
+  ): typeof UNAVAILABLE {
+    if (failureHandling === 'report') {
+      this.logEntry({
+        severity: LogSeverities.WARNING,
+        event: 'quote_provider_request_failed',
+        reason
+      });
+
+      return UNAVAILABLE;
+    }
+
     this.unavailableUntil = this.now() + FAILURE_COOLDOWN_MS;
     this.logEntry({
       severity: LogSeverities.WARNING,

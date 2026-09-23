@@ -13,6 +13,7 @@ const BEARER_PREFIX = 'Bearer ';
 
 const SESSION_NAMESPACE = 'session';
 const ACCOUNT_NAMESPACE = 'account';
+const USER_NAMESPACE = 'user';
 
 /**
  * The counter is keyed by a digest and never by the credential itself: the
@@ -71,6 +72,9 @@ const credentialKey = (req: Request) => {
   return account ? accountRateLimitKey(account) : clientAddressKey(req);
 };
 
+/** Only for a route behind `authMiddleware`, which has already resolved the user. */
+const signedInUserKey = (req: Request) => `${USER_NAMESPACE}:${req.user.id}`;
+
 /**
  * The limiter answers on its own, without reaching the error boundary, so the
  * envelope and the code the request log reports are written here.
@@ -87,12 +91,17 @@ const rejectThrottledRequest: RateLimitExceededEventHandler = (req, res) => {
 
 const authRateLimitStore = new MemoryStore();
 const apiRateLimitStore = new MemoryStore();
+const instrumentSearchRateLimitStore = new MemoryStore();
 
 /**
  * Counters live in the memory of one process, so a suite that authenticates
  * repeatedly clears them between tests through these stores.
  */
-export const rateLimitStores = [authRateLimitStore, apiRateLimitStore];
+export const rateLimitStores = [
+  authRateLimitStore,
+  apiRateLimitStore,
+  instrumentSearchRateLimitStore
+];
 
 /**
  * Credential endpoints are the cheapest target for online guessing, so they get
@@ -105,6 +114,16 @@ export const authRateLimitMiddleware = rateLimit({
   legacyHeaders: false,
   store: authRateLimitStore,
   keyGenerator: credentialKey,
+  handler: rejectThrottledRequest
+});
+
+export const instrumentSearchRateLimitMiddleware = rateLimit({
+  windowMs: RateLimits.INSTRUMENT_SEARCH.windowMs,
+  limit: RateLimits.INSTRUMENT_SEARCH.limit,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  store: instrumentSearchRateLimitStore,
+  keyGenerator: signedInUserKey,
   handler: rejectThrottledRequest
 });
 

@@ -1,6 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
 
-import type { GetInstrumentsRequestParams } from '@/app/api/v1/instruments';
 import type {
   PerformanceParams,
   PositionListingParams
@@ -54,9 +53,8 @@ const portfolioScope = (portfolioId: PortfolioId) =>
 export const queryKeys = {
   currentUser: () => ['user'] as const,
   visibleInstruments,
-  instruments: (params: GetInstrumentsRequestParams) =>
-    [...visibleInstruments(), params] as const,
-  instrumentOptions: () => ['instrument-options'] as const,
+  instrumentSearch: (query: string | null) =>
+    [...visibleInstruments(), 'search', query] as const,
   portfolios: accountPortfolios,
   portfolioPage: (requestedPage: GetPortfoliosRequestParams) =>
     [...accountPortfolios(), 'page', requestedPage] as const,

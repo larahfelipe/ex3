@@ -106,7 +106,7 @@ O schema e as migrations vivem em `backend/prisma`. Nenhuma escrita de domínio 
 
 **Responsabilidade:** obter preço e câmbio de fora, sem que isso vaze para o domínio.
 
-`YahooFinanceProvider` implementa a porta `MarketDataProvider`: traduz símbolo do catálogo para o símbolo do provedor, envia a chave só no header do seu próprio origin, recusa redirecionamento e valida com zod tudo o que recebe — resposta de provedor é entrada não confiável. Guarda cotação por 60s, junta na mesma requisição um símbolo já em voo e, depois de uma falha, responde 30s com a última cotação observada em vez de insistir, registrando `quote_provider_unavailable`.
+`YahooFinanceProvider` implementa a porta `MarketDataProvider`: traduz símbolo do catálogo para o símbolo do provedor, envia a chave só no header do seu próprio origin, recusa redirecionamento e valida com zod tudo o que recebe — resposta de provedor é entrada não confiável. Guarda cotação por 60s, junta na mesma requisição um símbolo já em voo e, depois de uma falha, responde 30s com a última cotação observada em vez de insistir, registrando `quote_provider_unavailable`. Também resolve um ticker nas listagens que o provedor tem — nome, classe, mercado e moeda, pela mesma requisição de cotação, com cache de uma hora — e no setor, pelo perfil do ativo, para que o registro de instrumento não pergunte esses atributos ao usuário.
 
 Falha do provedor nunca vira 500: a porta responde `not-found`, `unavailable` ou `range-not-served`, e o service omite do corpo o campo que dependia daquele preço, mantendo o 200. Fechamento diário é persistido (`MarketQuoteRepository`, `ExchangeRateRepository`) e só os dias que faltam são pedidos.
 

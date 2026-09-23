@@ -28,8 +28,7 @@ Para o `retry` distinguir 4xx de 5xx, o interceptor de `web/src/lib/axios/axios.
 | --- | --- | --- | --- | --- |
 | `useActivePortfolio` | `GET /v1/portfolio?portfolioId=` com carteira escolhida; senão `GET /v1/portfolios?page=1&limit=1` | `['portfolios', 'details', id]` ou `['portfolios', 'page', {page,limit}]` | Toda tela protegida | O id da carteira escolhida vem do `localStorage` (`useSyncExternalStore`, com `undefined` no servidor para nada ser pedido antes da leitura); sem escolha, a mais antiga. Uma única entrada de cache serve as telas |
 | `usePortfolios` | `GET /v1/portfolios` | `['portfolios', 'page', {page,limit}]` | `/portfolios` | Lista paginada da tela de carteiras |
-| `useInstruments` | `GET /v1/instruments` | `['instruments', params]` | `CatalogPicker`, no diálogo de adicionar ativo | Busca no catálogo com debounce de 300 ms; cada termo é uma chave |
-| `useInstrumentOptions` | `GET /v1/instruments/options` | `['instrument-options']` | `InstrumentRegistration`, no diálogo de adicionar ativo | Tipos e mercados aceitos no cadastro de instrumento privado; sem parâmetro, uma chave para a sessão inteira. `staleTime: Infinity` — foge do default de 60 s porque o valor só muda com um release da API, não com o tempo (comentário no próprio hook, `use-instruments.ts`) |
+| `useInstrumentSearch` | `GET /v1/instruments/search` | `['instruments', 'search', query]` | `AddAssetDialog`, depois de o usuário digitar | Campo vazio não pede nada (`skipToken`). Debounce de 300 ms, que Enter antecipa; cada termo é uma chave, e o resultado anterior fica visível enquanto o próximo carrega |
 | `useCurrentUser` | `GET /v1/user` | `['user']` | `sidebar.tsx` e `/account` | Nome e e-mail do cabeçalho de navegação; os dois consumidores compartilham a mesma chave, então é um request, não dois |
 | `usePortfolioOverview` | `GET /v1/portfolio/overview` | `[...portfolio, 'overview']` | `PortfolioValueCard` | Totais agregados que a listagem de posições não traz |
 | `useAllocation` | `GET /v1/portfolio/allocation` | `[...portfolio, 'allocation']` | `AllocationChart` | Agrupamento por classe e por ativo, com percentuais calculados no servidor |
@@ -44,7 +43,7 @@ Toda query com escopo de carteira usa `skipToken` enquanto a carteira não chego
 
 Criar, editar ou excluir carteira invalida `['portfolios']`; a edição invalida também o escopo da carteira, porque a moeda base muda os valores, e a exclusão remove o escopo do cache e descarta a escolha que apontava para ela.
 
-Criar ativo com `instrument` — cadastro de instrumento privado — invalida `['instruments']` (`queryKeys.visibleInstruments()`), o prefixo que cobre toda busca de `useInstruments`: o instrumento recém-criado passa a aparecer na `CatalogPicker` na próxima vez que ela buscar. Criar ativo sem `instrument` não invalida nada em `['instruments']`, porque nenhum instrumento foi escrito. `['instrument-options']` nunca é invalidada — não há escrita que mude tipos ou mercados aceitos.
+Criar ativo com `listing` — registro de instrumento privado a partir da listagem do provedor — invalida `['instruments']` (`queryKeys.visibleInstruments()`), o prefixo que cobre toda busca de `useInstrumentSearch`: o instrumento registrado passa a vir entre os que o usuário vê, com o selo *Private*, e não mais como listagem nova. Criar ativo sem `listing` não invalida nada em `['instruments']`, porque nenhum instrumento foi escrito.
 
 ## Waterfall
 

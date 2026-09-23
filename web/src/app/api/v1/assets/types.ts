@@ -1,4 +1,4 @@
-import type { InstrumentRegistrationPayload } from '@/app/api/v1/instruments';
+import type { ListingReference } from '@/app/api/v1/instruments';
 import type { DecimalString, WithId, WithMessage } from '@/types';
 
 export type AssetProperties = {
@@ -11,12 +11,15 @@ export type AssetProperties = {
 
 export type Asset = WithId & AssetProperties;
 
-/** With `instrument`, the symbol is registered as a private instrument of the caller. */
+/**
+ * With `listing`, the symbol is registered as a private instrument of the
+ * caller from what the quote provider lists in that market and currency.
+ */
 export type CreateAssetRequestPayload = Pick<
   AssetProperties,
   'symbol' | 'portfolioId'
 > & {
-  instrument?: InstrumentRegistrationPayload;
+  listing?: ListingReference;
 };
 
 export type CreateAssetResponseData = WithMessage & Record<'asset', Asset>;

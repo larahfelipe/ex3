@@ -1,5 +1,5 @@
 import type { InstrumentType } from '@/app/api/v1/portfolio';
-import type { Maybe, Pagination, WithId, WithTimestamps } from '@/types';
+import type { Maybe, WithId, WithTimestamps } from '@/types';
 
 export type InstrumentProperties = Record<'symbol' | 'name', string> &
   Record<'type', InstrumentType> &
@@ -13,32 +13,22 @@ export type Instrument = WithId &
   InstrumentProperties &
   Record<'scope', InstrumentScope>;
 
-export type GetInstrumentsRequestParams = {
-  page?: number;
-  limit?: number;
-  search?: string;
-};
+/** An instrument the quote provider lists and the caller does not track yet. */
+export type Listing = Pick<InstrumentProperties, 'symbol' | 'name' | 'type'> &
+  Record<'market' | 'currency', string>;
 
-export type GetInstrumentsResponseData = {
+export type ListingReference = Pick<Listing, 'market' | 'currency'>;
+
+/**
+ * `SKIPPED` when the term cannot be a symbol or names an instrument the caller
+ * already sees, so the quote provider was not asked.
+ */
+export type MarketSearchStatus = 'SEARCHED' | 'SKIPPED' | 'UNAVAILABLE';
+
+export type SearchInstrumentsRequestParams = Record<'query', string>;
+
+export type SearchInstrumentsResponseData = {
   instruments: Array<Instrument>;
-  pagination: Pagination;
-};
-
-/** A null currency means the market takes any, as a crypto pair does. */
-export type InstrumentMarketOption = {
-  market: string;
-  currency: Maybe<string>;
-};
-
-/** Types are strings, not `InstrumentType`: the API may offer one this client does not know yet. */
-export type GetInstrumentOptionsResponseData = {
-  types: Array<string>;
-  markets: Array<InstrumentMarketOption>;
-};
-
-export type InstrumentRegistrationPayload = Record<
-  'name' | 'type' | 'market' | 'currency',
-  string
-> & {
-  sector?: string;
+  listings: Array<Listing>;
+  marketSearch: MarketSearchStatus;
 };

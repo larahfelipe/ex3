@@ -1,16 +1,13 @@
 import { z } from 'zod';
 
-import { SortOrderTypes } from '@/config/Constants';
+import { InstrumentLimits, SortOrderTypes } from '@/config/Constants';
 import {
   PositionSortFields,
   PositionStatuses
 } from '@/domain/PortfolioValuation';
 
 import { boundedTextSchema } from '../BoundedTextSchema';
-import {
-  INSTRUMENT_NAME_MAX_LENGTH,
-  InstrumentAttributesSchema
-} from '../instrument/InstrumentAttributesSchema';
+import { InstrumentAttributesSchema } from '../instrument/InstrumentAttributesSchema';
 import { PageQuerySchema } from '../PaginationQuerySchema';
 import { PortfolioScopeSchema } from '../PortfolioScopeSchema';
 
@@ -30,7 +27,10 @@ export const GetPortfolioPositionsSchema = z.object({
   sortOrder: z
     .enum(SORT_ORDERS, `Sort order must be one of ${SORT_ORDERS.join(', ')}`)
     .default(SortOrderTypes.ASCENDENT),
-  search: boundedTextSchema('Search', INSTRUMENT_NAME_MAX_LENGTH).optional(),
+  search: boundedTextSchema(
+    'Search',
+    InstrumentLimits.NAME_MAX_LENGTH
+  ).optional(),
   type: InstrumentAttributesSchema.shape.type.optional(),
   status: z
     .enum(
