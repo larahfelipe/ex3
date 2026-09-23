@@ -26,7 +26,7 @@ import {
   useDeleteTransaction,
   useUpdateTransaction
 } from '@/hooks/use-transactions';
-import { formatExecutionTime } from '@/lib/dates';
+import { formatExecutionDay } from '@/lib/dates';
 
 type TransactionsTableProps = Record<'portfolio', Portfolio> &
   Record<'transactions', ReadonlyArray<ListedTransaction>> &
@@ -89,7 +89,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
             <TableRow key={transaction.id}>
               <TableRowHeader className="sm:whitespace-nowrap">
                 <time dateTime={transaction.executedAt}>
-                  {formatExecutionTime(transaction.executedAt)}
+                  {formatExecutionDay(transaction.executedAt)}
                 </time>
               </TableRowHeader>
 
@@ -127,7 +127,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                 >
                   Details
                   <span className="sr-only">
-                    {` for ${TRANSACTION_TYPE_LABELS[transaction.type]} ${transaction.symbol} on ${formatExecutionTime(transaction.executedAt)}`}
+                    {` for ${TRANSACTION_TYPE_LABELS[transaction.type]} ${transaction.symbol} on ${formatExecutionDay(transaction.executedAt)}`}
                   </span>
                 </Button>
               </TableCell>
@@ -164,7 +164,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
       {selection?.action === 'delete' && (
         <ConfirmDeletionDialog
           title="Delete this transaction?"
-          description={`${TRANSACTION_TYPE_LABELS[selection.transaction.type]} of ${formatQuantity(selection.transaction.quantity)} ${selection.transaction.symbol} on ${formatExecutionTime(selection.transaction.executedAt)}. The position is recalculated without it, and this cannot be undone.`}
+          description={`${TRANSACTION_TYPE_LABELS[selection.transaction.type]} of ${formatQuantity(selection.transaction.quantity)} ${selection.transaction.symbol} on ${formatExecutionDay(selection.transaction.executedAt)}. The position is recalculated without it, and this cannot be undone.`}
           confirmLabel="Delete transaction"
           failureMessage="The transaction could not be deleted"
           onCancel={() => setSelection({ ...selection, action: 'details' })}

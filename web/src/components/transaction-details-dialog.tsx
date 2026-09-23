@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui';
-import { formatExecutionTime } from '@/lib/dates';
+import { formatExecutionDay } from '@/lib/dates';
 
 type TransactionAction = (transaction: ListedTransaction) => void;
 
@@ -66,7 +66,7 @@ const TransactionDetails: FC<
         <DialogDescription>
           {'Executed on '}
 
-          <time dateTime={executedAt}>{formatExecutionTime(executedAt)}</time>
+          <time dateTime={executedAt}>{formatExecutionDay(executedAt)}</time>
         </DialogDescription>
       </DialogHeader>
 
