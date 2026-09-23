@@ -1,5 +1,6 @@
 import { UserMessages } from '@/config';
 import type { User } from '@/domain/models';
+import { isDerivedFromEmail } from '@/domain/PasswordPolicy';
 import { ValidationError } from '@/errors';
 import type { Bcrypt } from '@/infra/cryptography';
 import type { UserRepository } from '@/infra/database';
@@ -30,6 +31,14 @@ export class UpdateUserService {
     passwordChange
   }: UpdateUserService.DTO): Promise<UpdateUserService.Result> {
     if (passwordChange) {
+      if (isDerivedFromEmail(passwordChange.newPassword, user.email))
+        throw new ValidationError(UserMessages.PASSWORD_DERIVED_FROM_EMAIL, [
+          {
+            path: 'newPassword',
+            message: UserMessages.PASSWORD_DERIVED_FROM_EMAIL
+          }
+        ]);
+
       const isPasswordValid = await this.bcrypt.compare(
         passwordChange.oldPassword,
         user.password

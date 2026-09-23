@@ -2,14 +2,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
-import { TriangleAlert } from 'lucide-react';
-
 import {
   APP_ROUTES,
   SIGN_IN_PARAMS,
   SIGN_IN_REASONS
 } from '@/common/constants';
 
+import { AuthNotice } from '../_components/auth-notice';
 import { PublicPageHeader } from '../_components/public-page-header';
 import { SignInForm } from './_components/sign-in-form';
 
@@ -45,10 +44,9 @@ export default async function SignIn({ searchParams }: SignInProps) {
 
       <section>
         {hasSessionExpired && (
-          <p className="mb-6 flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
-            <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
+          <AuthNotice tone="warning" className="mb-6">
             Your session expired. Sign in again to continue.
-          </p>
+          </AuthNotice>
         )}
 
         <SignInForm destination={destination} />

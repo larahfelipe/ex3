@@ -1,13 +1,19 @@
 'use client';
 
 import { type FC } from 'react';
-import { Controller, useForm, type SubmitHandler } from 'react-hook-form';
+import {
+  Controller,
+  useForm,
+  useWatch,
+  type SubmitHandler
+} from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 import { CURRENCIES } from '@/common/constants';
 import { FormField } from '@/components/form-field';
+import { PasswordRequirements } from '@/components/password-requirements';
 import { SubmitButton } from '@/components/submit-button';
 import {
   Input,
@@ -20,11 +26,15 @@ import {
 import { useSignUp } from '@/hooks/use-user';
 import {
   AccountNameSchema,
-  NEW_PASSWORD_HINT,
-  NewPasswordSchema
+  EmailSchema,
+  isDerivedFromEmail,
+  NewPasswordSchema,
+  PASSWORD_DERIVED_FROM_EMAIL_MESSAGE
 } from '@/lib/account-schema';
 import { ApiProxyError, isConflictError } from '@/lib/axios';
 import { presentSubmitError } from '@/lib/submit-error';
+
+import { AuthNotice } from '../../_components/auth-notice';
 
 type SignUpFormValues = z.infer<typeof signUpSchema>;
 
@@ -33,13 +43,17 @@ const CURRENCY_IDS = Object.values(CURRENCIES).map(({ id }) => id);
 const signUpSchema = z
   .object({
     name: AccountNameSchema,
-    email: z.string().trim().pipe(z.email()),
+    email: EmailSchema,
     password: NewPasswordSchema,
-    confirmPassword: z.string().min(1, 'Confirm password is required'),
+    confirmPassword: z.string().min(1, 'Confirm your password'),
     baseCurrency: z.enum(CURRENCY_IDS, 'Select a valid base currency')
   })
+  .refine(({ email, password }) => !isDerivedFromEmail(password, email), {
+    message: PASSWORD_DERIVED_FROM_EMAIL_MESSAGE,
+    path: ['password']
+  })
   .refine(({ password, confirmPassword }) => password === confirmPassword, {
-    message: 'Passwords must match',
+    message: 'Passwords do not match',
     path: ['confirmPassword']
   });
 
@@ -67,6 +81,11 @@ export const SignUpForm: FC = () => {
       confirmPassword: '',
       baseCurrency: CURRENCIES.BRL.id
     }
+  });
+
+  const [email, password] = useWatch({
+    control: formControl,
+    name: ['email', 'password']
   });
 
   const handleSignUp: SubmitHandler<SignUpFormValues> = async ({
@@ -124,7 +143,7 @@ export const SignUpForm: FC = () => {
 
         <FormField
           label="Password"
-          hint={NEW_PASSWORD_HINT}
+          hint={<PasswordRequirements password={password} email={email} />}
           error={errors.password?.message}
         >
           {(control) => (
@@ -151,7 +170,11 @@ export const SignUpForm: FC = () => {
           )}
         </FormField>
 
-        <FormField label="Base currency" error={errors.baseCurrency?.message}>
+        <FormField
+          label="Base currency"
+          hint="Your first portfolio reports in this currency."
+          error={errors.baseCurrency?.message}
+        >
           {({ required, ...control }) => (
             <Controller
               name="baseCurrency"
@@ -185,9 +208,9 @@ export const SignUpForm: FC = () => {
         </FormField>
 
         {errors.root?.server?.message !== undefined && (
-          <p role="alert" className="text-sm text-negative">
+          <AuthNotice tone="negative" role="alert">
             {errors.root.server.message}
-          </p>
+          </AuthNotice>
         )}
       </div>
 

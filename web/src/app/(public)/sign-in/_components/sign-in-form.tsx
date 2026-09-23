@@ -10,12 +10,15 @@ import { FormField } from '@/components/form-field';
 import { SubmitButton } from '@/components/submit-button';
 import { Input } from '@/components/ui';
 import { useSignIn } from '@/hooks/use-user';
+import { EmailSchema } from '@/lib/account-schema';
 import { presentSubmitError } from '@/lib/submit-error';
+
+import { AuthNotice } from '../../_components/auth-notice';
 
 type SignInFormValues = z.infer<typeof signInSchema>;
 
 const signInSchema = z.object({
-  email: z.string().trim().pipe(z.email()),
+  email: EmailSchema,
   password: z.string().min(1, 'Password is required')
 });
 
@@ -80,9 +83,9 @@ export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
         </FormField>
 
         {errors.root?.server?.message !== undefined && (
-          <p role="alert" className="text-sm text-negative">
+          <AuthNotice tone="negative" role="alert">
             {errors.root.server.message}
-          </p>
+          </AuthNotice>
         )}
       </div>
 

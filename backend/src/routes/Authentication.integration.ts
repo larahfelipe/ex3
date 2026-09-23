@@ -37,12 +37,21 @@ const FIRST_PORTFOLIO_NAME = 'Main';
 const CONCURRENT_SIGN_UPS = 3;
 
 /** Mirror `NewPasswordSchema`: the minimum counts code points, the maximum UTF-8 bytes. */
-const PASSWORD_MIN_CODE_POINTS = 15;
+const PASSWORD_MIN_CODE_POINTS = 8;
 const PASSWORD_MAX_BYTES = 72;
 
-/** One code point, two UTF-16 code units, four UTF-8 bytes. */
-const ASTRAL_CHARACTER = '😀';
+/** `!`, the first printable ASCII character: one code point, one UTF-8 byte. */
+const PRINTABLE_ASCII_START = 0x21;
+
+/** `😀`, the first of a run of emoji: each one code point, two UTF-16 code units, four UTF-8 bytes. */
+const ASTRAL_START = 0x1f600;
 const ASTRAL_CHARACTER_BYTES = 4;
+
+/** No two characters alike, so the rule against repeating one is not what decides a length case. */
+const distinctCharacters = (firstCodePoint: number, count: number) =>
+  String.fromCodePoint(
+    ...Array.from({ length: count }, (_, offset) => firstCodePoint + offset)
+  );
 
 /**
  * One second after the Unix epoch: expired under any clock, and with
@@ -53,7 +62,7 @@ const EXPIRED_AT_EPOCH_SECONDS = 1;
 const NEW_USER = {
   name: 'Newcomer',
   email: 'newcomer@ex3.app',
-  password: 'newcomer-password',
+  password: 'onboarding-password',
   baseCurrency: 'USD'
 };
 
@@ -215,7 +224,7 @@ describe('authentication', () => {
 
     it('rejects a password one character below the minimum', async () => {
       const res = await signUpWithPassword(
-        'a'.repeat(PASSWORD_MIN_CODE_POINTS - 1)
+        distinctCharacters(PRINTABLE_ASCII_START, PASSWORD_MIN_CODE_POINTS - 1)
       );
 
       assert.equal(res.status, Errors.VALIDATION.status);
@@ -223,7 +232,7 @@ describe('authentication', () => {
 
     it('accepts a password at exactly the minimum length', async () => {
       const res = await signUpWithPassword(
-        'a'.repeat(PASSWORD_MIN_CODE_POINTS)
+        distinctCharacters(PRINTABLE_ASCII_START, PASSWORD_MIN_CODE_POINTS)
       );
 
       assert.equal(res.status, 201);
@@ -231,25 +240,28 @@ describe('authentication', () => {
 
     it('counts the minimum in code points, not UTF-16 code units', async () => {
       const res = await signUpWithPassword(
-        ASTRAL_CHARACTER.repeat(PASSWORD_MIN_CODE_POINTS - 1)
+        distinctCharacters(ASTRAL_START, PASSWORD_MIN_CODE_POINTS - 1)
       );
 
       assert.equal(res.status, Errors.VALIDATION.status);
     });
 
     it('accepts a password of exactly 72 bytes', async () => {
-      const res = await signUpWithPassword('a'.repeat(PASSWORD_MAX_BYTES));
+      const res = await signUpWithPassword(
+        distinctCharacters(PRINTABLE_ASCII_START, PASSWORD_MAX_BYTES)
+      );
 
       assert.equal(res.status, 201);
     });
 
     it('rejects a password beyond the 72 bytes bcrypt digests', async () => {
-      const astralOverLimit = ASTRAL_CHARACTER.repeat(
+      const astralOverLimit = distinctCharacters(
+        ASTRAL_START,
         Math.floor(PASSWORD_MAX_BYTES / ASTRAL_CHARACTER_BYTES) + 1
       );
 
       const ascii = await signUpWithPassword(
-        'a'.repeat(PASSWORD_MAX_BYTES + 1)
+        distinctCharacters(PRINTABLE_ASCII_START, PASSWORD_MAX_BYTES + 1)
       );
       const astral = await signUpWithPassword(astralOverLimit);
 
@@ -263,6 +275,32 @@ describe('authentication', () => {
       );
 
       assert.equal(res.status, Errors.VALIDATION.status);
+    });
+
+    it('rejects a password repeating a single character', async () => {
+      const res = await signUpWithPassword(
+        'z'.repeat(PASSWORD_MIN_CODE_POINTS)
+      );
+
+      assert.equal(res.status, Errors.VALIDATION.status);
+    });
+
+    it('rejects a commonly used password in any case', async () => {
+      const lower = await signUpWithPassword('password123');
+      const mixed = await signUpWithPassword('Password123');
+
+      assert.equal(lower.status, Errors.VALIDATION.status);
+      assert.equal(mixed.status, Errors.VALIDATION.status);
+      assert.equal(await prismaClient.user.count(), 0);
+    });
+
+    it('rejects a password containing the part of the email before the @', async () => {
+      const res = await signUpWithPassword('Newcomer-2026');
+
+      assert.equal(res.status, Errors.VALIDATION.status);
+      assert.deepEqual(res.body.details, [
+        { path: 'password', message: UserMessages.PASSWORD_DERIVED_FROM_EMAIL }
+      ]);
     });
 
     it('keeps surrounding whitespace as part of the password', async () => {
@@ -553,6 +591,32 @@ describe('authentication', () => {
         });
 
       assert.equal(res.status, Errors.VALIDATION.status);
+    });
+
+    it('refuses a new password containing the part of the email before the @, keeping the session', async () => {
+      const { user, accessToken } = await signInFixtureUser();
+
+      const res = await client
+        .patch(ACCOUNT_ROUTE)
+        .set(bearer(accessToken))
+        .send({
+          oldPassword: FIXTURE_PASSWORD,
+          newPassword: `${user.email.slice(0, user.email.indexOf('@'))}-2026`
+        });
+
+      assert.equal(res.status, Errors.VALIDATION.status);
+      assert.deepEqual(res.body.details, [
+        {
+          path: 'newPassword',
+          message: UserMessages.PASSWORD_DERIVED_FROM_EMAIL
+        }
+      ]);
+
+      const scoped = await client
+        .get(AUTHENTICATED_ROUTE)
+        .set(bearer(accessToken));
+
+      assert.equal(scoped.status, 200);
     });
 
     it('throttles password-verifying requests at the sign-in limit', async () => {
