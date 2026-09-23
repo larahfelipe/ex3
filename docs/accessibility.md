@@ -103,7 +103,7 @@ A paleta clara dos tokens semânticos não tem consumidor em runtime — ver TD-
 | N3 | Contagem, paginação e total mudam dentro de `aria-live="polite"` | 4.1.3 · `PageNavigation`, em `page-navigation.tsx`, nas quatro listagens paginadas |
 | N4 | Toast nunca é o único canal de um erro que bloqueia a tarefa | 4.1.3 · o estado também aparece na região afetada |
 | N5 | Dado obsoleto exibido durante refetch é marcado com `aria-busy` no container | 4.1.3 · `isPlaceholderData` em `positions-table.tsx` |
-| N6 | Sob `prefers-reduced-motion`, animação e transição não essenciais são neutralizadas em `globals.css`; o indicador de ocupado segue girando, mais devagar | 2.3.3 · bloco `@media (prefers-reduced-motion: reduce)`; transform de toque sob `motion-safe:` |
+| N6 | Sob `prefers-reduced-motion`, animação e transição não essenciais são neutralizadas em `globals.css`; o indicador de ocupado segue girando, mais devagar. Sob `prefers-reduced-transparency`, o overlay dos diálogos perde o desfoque e fica mais opaco | 2.3.3 · bloco `@media (prefers-reduced-motion: reduce)`; transform de toque sob `motion-safe:` |
 | N7 | Nenhuma atualização automática de conteúdo sem controle do usuário | 2.2.2 · refetch é disparado por ação ou por invalidação de mutação |
 
 ## Lacunas conhecidas na captura
@@ -137,7 +137,7 @@ Todos os 62 pares medidos passam no limite da regra que exercem, nas duas paleta
 | `--muted-foreground` sobre `--muted` | texto secundário em superfície de realce | 4.91:1 (4.39:1) | 6.00:1 (6.00:1) | 4.5:1 |
 | `--warning` sobre `bg-warning/10` | chip de alerta | 5.00:1 (4.40:1) | 10.28:1 (10.28:1) | 4.5:1 |
 
-`--border` continua abaixo de 3:1 nas duas paletas (1.24:1 claro, 1.33:1 escuro) por decisão: ele é só separador decorativo desde a correção, e todo controle interativo — input, select, segmented control — usa `--input` para a borda, que passa. `AlertDialog`/`Dialog` usa `bg-scrim/80` em vez de `bg-black/80` para o overlay, e `Input`/`SelectTrigger`/o textarea de notas ganharam `aria-[invalid=true]:border-negative`, então o estado inválido também é visível fora do foco.
+`--border` continua abaixo de 3:1 nas duas paletas (1.24:1 claro, 1.33:1 escuro) por decisão: ele é só separador decorativo desde a correção, e todo controle interativo — input, select, segmented control — usa `--input` para a borda, que passa. `AlertDialog`/`Dialog` usa `bg-scrim` em vez de `bg-black` para o overlay — a 60% com desfoque, ou a 80% sem desfoque sob `prefers-reduced-transparency` —, e `Input`/`SelectTrigger`/o textarea de notas ganharam `aria-[invalid=true]:border-negative`, então o estado inválido também é visível fora do foco.
 
 Os demais pares passam nas duas paletas, com folga: texto padrão 20.14:1 e 19.24:1; `--muted-foreground` sobre `--background` 5.40:1 e 7.96:1; `--negative` 4.80:1 e 7.31:1; `--positive` 5.58:1 e 9.96:1; `--info` 5.94:1 e 9.09:1; anel de foco 20.14:1 e 6.40:1.
 

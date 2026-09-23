@@ -3,6 +3,8 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@custom-variant reduced-transparency (@media (prefers-reduced-transparency: reduce));
+
 @custom-variant navigation-expanded {
   @media (width >= --theme(--breakpoint-lg)) {
     &:where(
