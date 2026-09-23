@@ -2,17 +2,19 @@ import type { FC } from 'react';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { EmptyState, LoadingState } from '@/components/data-state';
-import { Metric, Money, ProfitLoss } from '@/components/financial';
+import {
+  HEADLINE_VALUE_CLASS,
+  Metric,
+  Money,
+  PROMINENT_VALUE_CLASS,
+  ProfitLoss
+} from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
 import { Skeleton } from '@/components/ui';
 import { usePortfolioOverview } from '@/hooks/use-portfolio';
 import { formatQuoteTime } from '@/lib/dates';
 
 type PortfolioValueCardProps = Record<'portfolio', Portfolio>;
-
-const VALUE_CLASS = 'text-lg font-semibold';
-
-const TOTAL_VALUE_CLASS = 'text-3xl font-bold';
 
 export const PortfolioValueCard: FC<PortfolioValueCardProps> = ({
   portfolio
@@ -50,11 +52,11 @@ export const PortfolioValueCard: FC<PortfolioValueCardProps> = ({
       }) => (
         <div className="space-y-5">
           <dl className="flex flex-wrap items-end gap-x-10 gap-y-4">
-            <Metric label="Total value" valueClassName={TOTAL_VALUE_CLASS}>
+            <Metric label="Total value" valueClassName={HEADLINE_VALUE_CLASS}>
               <Money value={totalValue} currency={baseCurrency} />
             </Metric>
 
-            <Metric label="Day change" valueClassName={VALUE_CLASS}>
+            <Metric label="Day change" valueClassName={PROMINENT_VALUE_CLASS}>
               <ProfitLoss
                 value={dayChange}
                 percent={dayChangePercent}
@@ -62,11 +64,11 @@ export const PortfolioValueCard: FC<PortfolioValueCardProps> = ({
               />
             </Metric>
 
-            <Metric label="Invested" valueClassName={VALUE_CLASS}>
+            <Metric label="Invested" valueClassName={PROMINENT_VALUE_CLASS}>
               <Money value={investedValue} currency={baseCurrency} />
             </Metric>
 
-            <Metric label="Profit/Loss" valueClassName={VALUE_CLASS}>
+            <Metric label="Profit/Loss" valueClassName={PROMINENT_VALUE_CLASS}>
               <ProfitLoss
                 value={profitLoss}
                 percent={profitLossPercent}
