@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { APP_ROUTES } from '@/common/constants';
 
+import { PublicPageHeader } from '../_components/public-page-header';
 import { SignUpForm } from './_components/sign-up-form';
 
 export const metadata: Metadata = {
@@ -13,24 +14,16 @@ export const metadata: Metadata = {
 export default function SignUp() {
   return (
     <>
-      <section className="mx-auto space-y-1.5">
-        <p className="text-center text-lg font-semibold font-display">EX3</p>
+      <PublicPageHeader title="Create your account" />
 
-        <div className="w-full h-px bg-border" />
-
-        <h1 className="text-base text-muted-foreground text-center">
-          Create your account
-        </h1>
-      </section>
-
-      <section className="w-full flex flex-col justify-center mx-auto px-6 sm:w-[400px] sm:px-0">
+      <section>
         <SignUpForm />
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
+        <p className="mt-8 text-center text-sm text-muted-foreground">
           Already registered?{' '}
           <Link
             href={APP_ROUTES.Public.SignIn}
-            className="leading-6 text-foreground underline underline-offset-4 hover:text-foreground/90"
+            className="rounded-sm font-medium text-foreground underline decoration-muted-foreground underline-offset-4 ring-offset-background transition-colors hover:decoration-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
           >
             Sign in instead
           </Link>

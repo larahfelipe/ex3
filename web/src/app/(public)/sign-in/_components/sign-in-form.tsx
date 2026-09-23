@@ -56,7 +56,7 @@ export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
 
   return (
     <form noValidate onSubmit={handleSubmit(handleSignIn)}>
-      <div className="space-y-4">
+      <div className="space-y-5">
         <FormField label="Email" error={errors.email?.message}>
           {(control) => (
             <Input
@@ -86,7 +86,7 @@ export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
         )}
       </div>
 
-      <SubmitButton isPending={isSubmitting} size="lg" className="mt-12 w-full">
+      <SubmitButton isPending={isSubmitting} size="lg" className="mt-8 w-full">
         Sign in
       </SubmitButton>
     </form>
