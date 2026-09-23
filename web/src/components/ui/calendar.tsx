@@ -4,7 +4,9 @@ import * as React from 'react';
 import {
   DayPicker,
   getDefaultClassNames,
-  type ChevronProps
+  useDayPicker,
+  type ChevronProps,
+  type DropdownProps
 } from 'react-day-picker';
 
 import {
@@ -14,9 +16,29 @@ import {
   ChevronUp
 } from 'lucide-react';
 
+import {
+  formatShortMonth,
+  startOfMonthInYear,
+  startOfMonthNumbered
+} from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
 import { buttonVariants } from './button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from './select';
+
+/** The dropdowns move the calendar from the month it shows, so it shows one at a time. */
+type CalendarProps = React.ComponentProps<typeof DayPicker> &
+  Partial<Record<'numberOfMonths', 1>>;
+
+type CalendarDropdownProps = DropdownProps & {
+  onValueChange: (value: number) => void;
+};
 
 const CHEVRONS = {
   left: ChevronLeft,
@@ -31,12 +53,80 @@ const CalendarChevron = ({ orientation = 'left', className }: ChevronProps) => {
   return <Icon aria-hidden="true" className={cn('size-4', className)} />;
 };
 
+/**
+ * The month and the year are picked from the themed Select instead of the
+ * native `<select>`, whose list the browser draws in its own colors.
+ */
+const CalendarDropdown = ({
+  options = [],
+  value,
+  disabled,
+  'aria-label': label,
+  onValueChange
+}: CalendarDropdownProps) => {
+  const selected = options.find((option) => option.value === value);
+
+  return (
+    <Select
+      disabled={disabled}
+      value={selected === undefined ? undefined : String(selected.value)}
+      onValueChange={(chosen) => onValueChange(Number(chosen))}
+    >
+      <SelectTrigger
+        aria-label={label}
+        className="h-8 w-auto gap-1 border-transparent px-2 font-medium hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
+      >
+        <SelectValue />
+      </SelectTrigger>
+
+      <SelectContent className="max-h-64">
+        {options.map((option) => (
+          <SelectItem
+            key={option.value}
+            value={String(option.value)}
+            disabled={option.disabled}
+          >
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+};
+
+const CalendarMonthsDropdown = (props: DropdownProps) => {
+  const { months, goToMonth } = useDayPicker();
+
+  return (
+    <CalendarDropdown
+      {...props}
+      onValueChange={(month) =>
+        goToMonth(startOfMonthNumbered(months[0].date, month))
+      }
+    />
+  );
+};
+
+const CalendarYearsDropdown = (props: DropdownProps) => {
+  const { months, goToMonth } = useDayPicker();
+
+  return (
+    <CalendarDropdown
+      {...props}
+      onValueChange={(year) =>
+        goToMonth(startOfMonthInYear(months[0].date, year))
+      }
+    />
+  );
+};
+
 const Calendar = ({
   className,
   classNames,
+  formatters,
   showOutsideDays = true,
   ...props
-}: React.ComponentProps<typeof DayPicker>) => {
+}: CalendarProps) => {
   const defaultClassNames = getDefaultClassNames();
 
   return (
@@ -59,10 +149,7 @@ const Calendar = ({
         month_caption: 'flex h-9 items-center justify-center px-10',
         caption_label:
           'flex h-8 items-center gap-1 rounded-md px-2 font-medium',
-        dropdowns: 'flex items-center gap-1.5 font-medium',
-        dropdown_root:
-          'relative rounded-md border border-input has-focus-visible:ring-2 has-focus-visible:ring-focus has-focus-visible:ring-offset-2 ring-offset-background',
-        dropdown: 'absolute inset-0 cursor-pointer opacity-0',
+        dropdowns: 'flex items-center gap-1',
         month_grid: 'w-full border-collapse',
         weekdays: 'flex',
         weekday:
@@ -81,7 +168,12 @@ const Calendar = ({
         hidden: 'invisible',
         ...classNames
       }}
-      components={{ Chevron: CalendarChevron }}
+      formatters={{ formatMonthDropdown: formatShortMonth, ...formatters }}
+      components={{
+        Chevron: CalendarChevron,
+        MonthsDropdown: CalendarMonthsDropdown,
+        YearsDropdown: CalendarYearsDropdown
+      }}
       {...props}
     />
   );
