@@ -22,6 +22,7 @@ type FormFieldProps = FieldDescription & {
   label: string;
   className?: string;
   isOptional?: boolean;
+  action?: ReactNode;
   children: (control: FieldControlProps) => ReactNode;
 };
 
@@ -67,20 +68,33 @@ export const FormField: FC<FormFieldProps> = ({
   error,
   className,
   isOptional = false,
+  action,
   children
 }) => {
   const controlId = useId();
   const { describedBy, description } = useFieldDescription({ hint, error });
 
+  const fieldLabel = (
+    <Label htmlFor={controlId}>
+      {label}
+
+      {isOptional && (
+        <span className="font-normal text-muted-foreground"> (optional)</span>
+      )}
+    </Label>
+  );
+
   return (
     <div className={cn('space-y-1.5', className)}>
-      <Label htmlFor={controlId}>
-        {label}
+      {action === undefined ? (
+        fieldLabel
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          {fieldLabel}
 
-        {isOptional && (
-          <span className="font-normal text-muted-foreground"> (optional)</span>
-        )}
-      </Label>
+          {action}
+        </div>
+      )}
 
       {children({
         id: controlId,
