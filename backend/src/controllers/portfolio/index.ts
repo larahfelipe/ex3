@@ -23,6 +23,7 @@ import {
   GetPortfolioPositionService,
   GetPortfolioPositionsService,
   GetPortfolioService,
+  GetPositionIndicatorsService,
   UpdatePortfolioService
 } from '@/services/portfolio';
 
@@ -35,6 +36,7 @@ import { GetPortfolioOverviewController } from './GetPortfolioOverviewController
 import { GetPortfolioPerformanceController } from './GetPortfolioPerformanceController';
 import { GetPortfolioPositionController } from './GetPortfolioPositionController';
 import { GetPortfolioPositionsController } from './GetPortfolioPositionsController';
+import { GetPositionIndicatorsController } from './GetPositionIndicatorsController';
 import { UpdatePortfolioController } from './UpdatePortfolioController';
 
 export const createPortfolioControllerHandler = (
@@ -229,4 +231,32 @@ export const getPortfolioPositionsControllerHandler = (
     GetPortfolioPositionsController.getInstance(getPortfolioPositionsService);
 
   return getPortfolioPositionsController.handle(req, res);
+};
+
+export const getPositionIndicatorsControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const assetRepository = AssetRepository.getInstance();
+  const instrumentRepository = InstrumentRepository.getInstance();
+  const portfolioRepository = PortfolioRepository.getInstance();
+  const transactionRepository = TransactionRepository.getInstance();
+  const marketQuoteRepository = MarketQuoteRepository.getInstance();
+  const marketDataProvider = YahooFinanceProvider.getInstance();
+
+  const getPositionIndicatorsService = GetPositionIndicatorsService.getInstance(
+    assetRepository,
+    portfolioRepository,
+    transactionRepository,
+    GetPriceHistoryService.getInstance(
+      instrumentRepository,
+      marketQuoteRepository,
+      marketDataProvider
+    )
+  );
+
+  const getPositionIndicatorsController =
+    GetPositionIndicatorsController.getInstance(getPositionIndicatorsService);
+
+  return getPositionIndicatorsController.handle(req, res);
 };

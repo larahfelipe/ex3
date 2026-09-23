@@ -28,6 +28,18 @@ export type LedgerRefusal =
 export type PositionRebuild =
   { outcome: 'rebuilt'; position: RebuiltPosition } | LedgerRefusal;
 
+export type ProfitLossRealization =
+  { outcome: 'realized'; realizedProfitLoss: string } | LedgerRefusal;
+
+type LedgerReplay =
+  | {
+      outcome: 'replayed';
+      quantity: Prisma.Decimal;
+      averageCost: Prisma.Decimal;
+      realizedProfitLoss: Prisma.Decimal;
+    }
+  | LedgerRefusal;
+
 /**
  * No operation of a replay rounds at this precision. Every position it passes
  * through fits the columns, so a product of two column values has at most
@@ -71,19 +83,19 @@ const truncateToColumnScale = (value: Prisma.Decimal) =>
  * taxes, and truncates the new average cost to the column scale, and so does a
  * BONUS, priced at the cost attributed to each unit; a SELL leaves the average
  * cost unchanged, back to zero once nothing is held, and is refused when it
- * exceeds what the ledger holds at that point; income changes nothing.
- * `investedValue` is quantity × average cost, truncated to the column scale at
- * the end. A ledger passing through a position that does not fit the columns is
- * refused.
+ * exceeds what the ledger holds at that point; income changes nothing. A SELL
+ * realizes its net proceeds, quantity × unit price less fees and taxes, less
+ * the average cost of the units it sells, truncated to the column scale before
+ * it is added to the others. A ledger passing through a position that does not
+ * fit the columns is refused.
  */
-export const rebuildPosition = (
-  ledger: ReadonlyArray<LedgerEntry>
-): PositionRebuild => {
+const replayLedger = (ledger: ReadonlyArray<LedgerEntry>): LedgerReplay => {
   if (new Set(ledger.map(({ currency }) => currency)).size > 1)
     return { outcome: 'currency-mismatch' };
 
   let quantity = ZERO;
   let averageCost = ZERO;
+  let realizedProfitLoss = ZERO;
 
   for (const entry of ledger.toSorted(byLedgerOrder)) {
     const entryQuantity = new LedgerDecimal(entry.quantity);
@@ -107,6 +119,15 @@ export const rebuildPosition = (
     } else if (entry.type === TransactionTypes.SELL) {
       if (entryQuantity.gt(quantity)) return { outcome: 'negative-amount' };
 
+      realizedProfitLoss = realizedProfitLoss.add(
+        truncateToColumnScale(
+          entryQuantity
+            .mul(entry.unitPrice)
+            .sub(entry.fees)
+            .sub(entry.taxes)
+            .sub(entryQuantity.mul(averageCost))
+        )
+      );
       quantity = quantity.sub(entryQuantity);
       averageCost = quantity.isZero() ? ZERO : averageCost;
     } else if (!Object.hasOwn(IncomeTransactionTypes, entry.type)) {
@@ -117,6 +138,19 @@ export const rebuildPosition = (
       return { outcome: 'out-of-range' };
   }
 
+  return { outcome: 'replayed', quantity, averageCost, realizedProfitLoss };
+};
+
+/** `investedValue` is quantity × average cost, truncated to the column scale. */
+export const rebuildPosition = (
+  ledger: ReadonlyArray<LedgerEntry>
+): PositionRebuild => {
+  const replay = replayLedger(ledger);
+
+  if (replay.outcome !== 'replayed') return replay;
+
+  const { quantity, averageCost } = replay;
+
   return {
     outcome: 'rebuilt',
     position: {
@@ -125,4 +159,17 @@ export const rebuildPosition = (
       investedValue: truncateToColumnScale(quantity.mul(averageCost)).toFixed()
     }
   };
+};
+
+export const realizeProfitLoss = (
+  ledger: ReadonlyArray<LedgerEntry>
+): ProfitLossRealization => {
+  const replay = replayLedger(ledger);
+
+  return replay.outcome === 'replayed'
+    ? {
+        outcome: 'realized',
+        realizedProfitLoss: replay.realizedProfitLoss.toFixed()
+      }
+    : replay;
 };

@@ -136,7 +136,36 @@ Subtrair o aporte do dia antes de dividir é o que impede que dinheiro colocado 
 1. **Não alteram a posição.** Quantidade e preço médio ficam como estavam — renda não é custo, e não pode diluir nem inflar o custo de quem a recebeu.
 2. **Contam como distribuição na performance.** Entram no `netContribution` do dia com o líquido de sinal negativo, como uma retirada — não há saldo em caixa na carteira, então o provento sai dela como sai o líquido de uma venda. Como o preço do ativo cai no dia ex, o `twr` daquele dia é `(value + provento) ÷ value anterior`: o provento não aparece como perda.
 
-Não há agregação de proventos: nenhuma rota devolve total do mês, do ano, `yield` ou `yield on cost` (TD-062 em [`../TODO.md`](../TODO.md)). O que existe hoje é a transação individual, que a listagem de transações devolve.
+A renda de uma posição é somada em `GET /v1/portfolio/positions/:symbol/indicators` (ver Indicadores da posição, abaixo). Da carteira não há agregação: nenhuma rota devolve total do mês, do ano ou `yield` da carteira inteira (TD-062 em [`../TODO.md`](../TODO.md)).
+
+## Indicadores da posição
+
+`GET /v1/portfolio/positions/:symbol/indicators` descreve uma posição por dois grupos, cada um ausente quando não há de onde calculá-lo.
+
+**Preço (`prices`)**, dos fechamentos diários do instrumento, na moeda em que é cotado. Lidos de 14 dias antes do início da janela de um ano até o início do dia corrente em UTC, exclusivo; os 14 dias acham o fechamento que precifica um primeiro dia que caiu em fim de semana ou feriado (limite suposto, não medido: nenhum mercado do catálogo fica duas semanas sem pregão). Ausente sem fechamento no último ano.
+
+```text
+close, closedOn      = o fechamento mais recente e o seu dia
+yearLow, yearHigh    = o menor e o maior fechamento do último ano (fechamentos, não preços intradiários)
+change(janela)       = close ÷ abertura − 1
+abertura             = o último fechamento no primeiro dia da janela ou antes dele
+```
+
+As janelas são `1M`, `3M`, `6M`, `YTD` e `1Y`, com os inícios de Performance, acima. A variação de uma janela fica sem `change` quando o histórico não alcança o seu primeiro dia, quando o fechamento mais recente não é posterior a ele ou quando a abertura é zero.
+
+**Retorno (`returns`)**, do razão da posição executado até o instante da requisição, na moeda do razão. Ausente sem transação.
+
+```text
+realizedProfitLoss = Σ das vendas de (q · p − f − t − q · c)      c = custo médio antes da venda
+income             = Σ dos proventos de (q · p − f − t)
+trailingIncome     = o mesmo, só dos executados no último ano
+yieldOnCost        = trailingIncome ÷ investedValue               (ausente se investedValue = 0)
+since              = o executedAt mais antigo do razão
+```
+
+O resultado de cada venda é truncado em 18 casas antes da soma, e o custo médio é o do replay de `rebuildPosition`, o mesmo que a posição grava. Um razão gravado sempre se reconstrói, porque toda escrita o reconstruiu; uma recusa aqui é invariante quebrado e responde `500`. Não há retorno total: somar o resultado não realizado da posição exigiria a cotação na moeda do razão, a mesma restrição de P&L, acima.
+
+`describePositionIndicators`, em `backend/src/domain/PositionIndicators.ts`, e `realizeProfitLoss`, em `backend/src/domain/PositionLedger.ts`
 
 ## Benchmarks
 
@@ -157,7 +186,7 @@ twr(dia) = close(dia) ÷ close(primeiro dia da janela) − 1
 ## O que estas definições não fazem
 
 * **Não há custo por lote.** O custo médio é ponderado sobre a posição inteira; FIFO, LIFO e custo específico não são opções.
-* **Não há resultado realizado.** A venda sai do valor da posição sem registrar o ganho que realizou; o P&L reportado é sempre o não realizado do que ainda se detém.
+* **O resultado realizado não entra no P&L.** `profitLoss` é sempre o não realizado do que ainda se detém; o realizado de cada posição só aparece nos indicadores dela, e a carteira não o soma.
 * **Não há efeito de câmbio separado.** Ver P&L, acima.
 * **Não há imposto apurado.** `taxes` é o valor lançado na transação, somado ao custo; não há regra fiscal, alíquota nem apuração de período.
 * **Não há preço intradiário na série.** A performance usa fechamento diário; a visão geral e as posições usam a última cotação do provedor, com 60s de cache.

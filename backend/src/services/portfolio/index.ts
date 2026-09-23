@@ -7,4 +7,5 @@ export * from './GetPortfolioPerformanceService';
 export * from './GetPortfolioPositionService';
 export * from './GetPortfolioPositionsService';
 export * from './GetPortfolioService';
+export * from './GetPositionIndicatorsService';
 export * from './UpdatePortfolioService';
