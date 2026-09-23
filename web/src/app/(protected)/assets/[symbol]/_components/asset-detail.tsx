@@ -40,7 +40,7 @@ const DetailSection: FC<DetailSectionProps> = ({ title, children }) => {
 
   return (
     <section aria-labelledby={headingId} className="min-w-0">
-      <Card className="h-full shadow-none">
+      <Card className="h-full">
         <SectionHeader id={headingId} title={title} />
 
         <CardContent>
@@ -196,9 +196,9 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
       {isPositionPending && (
         <LoadingState label="Loading this asset">
           <div className="grid gap-6 lg:grid-cols-2">
-            <Skeleton aria-hidden="true" className="h-64 w-full rounded-xl" />
+            <Skeleton aria-hidden="true" className="h-64 w-full rounded-2xl" />
 
-            <Skeleton aria-hidden="true" className="h-64 w-full rounded-xl" />
+            <Skeleton aria-hidden="true" className="h-64 w-full rounded-2xl" />
           </div>
         </LoadingState>
       )}
