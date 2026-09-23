@@ -10,13 +10,13 @@ const DropdownMenu = DropdownMenuPrimitive.Root;
 
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 
-const DropdownMenuContent = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
+const DropdownMenuContent = ({
+  className,
+  sideOffset = 4,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) => (
   <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.Content
-      ref={ref}
       sideOffset={sideOffset}
       className={cn(
         'z-50 min-w-32 overflow-hidden rounded-md border bg-surface-elevated p-1 text-surface-elevated-foreground shadow-elevated',
@@ -26,23 +26,20 @@ const DropdownMenuContent = React.forwardRef<
       {...props}
     />
   </DropdownMenuPrimitive.Portal>
-));
-DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName;
+);
 
-const DropdownMenuItem = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item>
->(({ className, ...props }, ref) => (
+const DropdownMenuItem = ({
+  className,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Item>) => (
   <DropdownMenuPrimitive.Item
-    ref={ref}
     className={cn(
       'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-hidden transition-colors focus:bg-accent focus:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50',
       className
     )}
     {...props}
   />
-));
-DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName;
+);
 
 export {
   DropdownMenu,
