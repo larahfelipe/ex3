@@ -2,51 +2,26 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-const Card = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
+const Card = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
-    ref={ref}
     className={cn(
       'rounded-3xl bg-surface text-surface-foreground shadow-surface',
       className
     )}
     {...props}
   />
-));
-Card.displayName = 'Card';
+);
 
-const CardHeader = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn('flex flex-col space-y-1.5 p-6', className)}
-    {...props}
-  />
-));
-CardHeader.displayName = 'CardHeader';
+const CardHeader = ({ className, ...props }: React.ComponentProps<'div'>) => (
+  <div className={cn('flex flex-col space-y-1.5 p-6', className)} {...props} />
+);
 
-const CardContent = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn('p-6 pt-0', className)} {...props} />
-));
-CardContent.displayName = 'CardContent';
+const CardContent = ({ className, ...props }: React.ComponentProps<'div'>) => (
+  <div className={cn('p-6 pt-0', className)} {...props} />
+);
 
-const CardFooter = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn('flex items-center p-6 pt-0', className)}
-    {...props}
-  />
-));
-CardFooter.displayName = 'CardFooter';
+const CardFooter = ({ className, ...props }: React.ComponentProps<'div'>) => (
+  <div className={cn('flex items-center p-6 pt-0', className)} {...props} />
+);
 
 export { Card, CardContent, CardFooter, CardHeader };
