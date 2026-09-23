@@ -392,6 +392,18 @@ describe('authentication', () => {
       assert.equal(compare.mock.callCount(), 1);
     });
 
+    it('does not count successful sign-ins against the account', async () => {
+      const { user } = await seedPortfolio();
+      const credentials = { email: user.email, password: FIXTURE_PASSWORD };
+
+      for (
+        let attempt = 0;
+        attempt <= RateLimits.SIGN_IN_PER_ACCOUNT_AND_ADDRESS.limit;
+        attempt += 1
+      )
+        await signIn(credentials);
+    });
+
     it('keeps the active session after a failed attempt', async () => {
       const { user } = await seedPortfolio();
       const accessToken = await signIn({
@@ -619,15 +631,19 @@ describe('authentication', () => {
       assert.equal(scoped.status, 200);
     });
 
-    it('throttles password-verifying requests at the sign-in limit', async () => {
+    it('throttles repeated failed password-verifying requests', async () => {
       const statuses: Array<number> = [];
 
-      for (let attempt = 0; attempt <= RateLimits.AUTH.limit; attempt += 1)
+      for (
+        let attempt = 0;
+        attempt <= RateLimits.ACCOUNT_CHANGE.limit;
+        attempt += 1
+      )
         statuses.push((await client.patch(ACCOUNT_ROUTE)).status);
 
       assert.ok(
         statuses
-          .slice(0, RateLimits.AUTH.limit)
+          .slice(0, RateLimits.ACCOUNT_CHANGE.limit)
           .every((status) => status === Errors.AUTHENTICATION.status)
       );
       assert.equal(statuses.at(-1), Errors.THROTTLED.status);

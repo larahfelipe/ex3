@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import { EnvValidationError, parseEnvs } from './EnvsSchema';
 
 const VALID_JWT_SECRET = 'a'.repeat(32);
+const VALID_API_PROXY_SECRET = 'b'.repeat(32);
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
@@ -175,14 +176,41 @@ describe('parseEnvs', () => {
     );
   });
 
+  it('requires API_PROXY_SECRET in production', () => {
+    expectIssue(
+      {
+        ...validEnvs,
+        NODE_ENV: 'production',
+        CORS_ALLOWED_ORIGINS: 'https://ex3.app',
+        API_PROXY_SECRET: ''
+      },
+      'API_PROXY_SECRET'
+    );
+  });
+
+  it('rejects an API_PROXY_SECRET shorter than 32 characters', () => {
+    expectIssue(
+      { ...validEnvs, API_PROXY_SECRET: 'proxySecret' },
+      'API_PROXY_SECRET'
+    );
+  });
+
+  it('leaves API_PROXY_SECRET unset outside production when it is blank', () => {
+    const envs = parseEnvs({ ...validEnvs, API_PROXY_SECRET: '' });
+
+    assert.equal(envs.apiProxySecret, undefined);
+  });
+
   it('accepts a complete production environment', () => {
     const envs = parseEnvs({
       ...validEnvs,
       NODE_ENV: 'production',
-      CORS_ALLOWED_ORIGINS: 'https://ex3.app'
+      CORS_ALLOWED_ORIGINS: 'https://ex3.app',
+      API_PROXY_SECRET: VALID_API_PROXY_SECRET
     });
 
     assert.equal(envs.isProduction, true);
+    assert.equal(envs.apiProxySecret, VALID_API_PROXY_SECRET);
     assert.equal(envs.yahooFinanceApiKey, undefined);
   });
 

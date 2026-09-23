@@ -100,16 +100,35 @@ const logUpstreamFailure = (err: unknown, error: ApiProxyError) => {
   );
 };
 
+const THROTTLED_STATUS = 429;
+const SECONDS_PER_MINUTE = 60;
+
+/** The API's message says only "later"; its `Retry-After`, in seconds, says when. */
+const throttledMessageFor = (retryAfter: unknown) => {
+  if (typeof retryAfter !== 'string') return null;
+
+  const seconds = Number(retryAfter);
+
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+
+  const minutes = Math.ceil(seconds / SECONDS_PER_MINUTE);
+
+  return `Too many requests. Try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`;
+};
+
 serverApi.interceptors.response.use(
   (res) => res,
   (err) => {
     const error = new ApiProxyError(UNEXPECTED_ERROR_MESSAGE);
     if (isAxiosError<ApiServerErrorData>(err)) {
-      const { data, statusText, status } = err.response ?? {};
+      const { data, statusText, status, headers } = err.response ?? {};
       if (data) error._error = data;
       if (data?.message) error.message = data.message;
       if (statusText) error.statusText = statusText;
       if (status) error.status = status;
+      if (status === THROTTLED_STATUS)
+        error.message =
+          throttledMessageFor(headers?.['retry-after']) ?? error.message;
     }
     logUpstreamFailure(err, error);
     return Promise.reject(error);

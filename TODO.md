@@ -17,7 +17,7 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 
 - **Origem:** revisão de segurança posterior à TASK 3.3 · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** avulso (risco reafirmado na TASK 20.4)
 - **Contexto:** `POST /v1/user/create` responde `User already exists` para e-mail cadastrado. Mantido como risco aceito em 2026-09-11; detalhes em `docs/authentication.md`, limitação 2.
-- **Impacto:** permite descobrir se um e-mail tem conta. Desde a TASK 20.4 o limite de autenticação é por conta, então cada e-mail sondado estreia o próprio balde e quem limita a vazão é o teto da API para tráfego sem sessão.
+- **Impacto:** permite descobrir se um e-mail tem conta. Desde 2026-09-23 a vazão é de 10 sondagens por hora por endereço, o budget do sign-up (`docs/security.md`, §Rate limiting).
 - **Proposta:** reavaliar quando o produto tiver confirmação de e-mail, que permite responder igual para e-mail novo e existente.
 
 ### TD-005 — Senha nova não é comparada a senhas vazadas nem normalizada
@@ -30,7 +30,7 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-006 — Contadores de rate limit na memória de cada processo
 
 - **Origem:** `docs/authentication.md`, limitação 5 · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** avulso (metade resolvida na TASK 20.4)
-- **Contexto:** os contadores do `express-rate-limit` ficam na memória de cada processo (`docs/testing.md`). A chave deixou de ser o endereço do chamador na TASK 20.4 — é a sessão na API e a conta nos endpoints de credencial (`docs/security.md`, §Rate limiting) —, mas o store continua local.
+- **Contexto:** os contadores do `express-rate-limit` ficam na memória de cada processo (`docs/testing.md`). As chaves — sessão, conta e endereço do cliente atestado pelo web — estão em `docs/security.md`, §Rate limiting; o store continua local.
 - **Impacto:** com mais de uma instância do backend, cada uma aplica o budget inteiro, e o limite efetivo é o budget vezes o número de instâncias.
 - **Proposta:** store compartilhado entre instâncias, com o mesmo chaveamento por identidade.
 
@@ -356,6 +356,20 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** com a identidade `(ownerId, symbol)` e o catálogo escrito só por admin, registrar uma listagem cria um instrumento privado do chamador. Dois usuários que adicionam `AAPL` têm dois instrumentos, duas séries de fechamento gravadas e dois backfills.
 - **Impacto:** armazenamento e requisições ao provedor crescem com usuários vezes símbolos, não com símbolos.
 - **Proposta:** decidir com o produto se uma listagem confirmada pelo provedor pode entrar no catálogo, o que revê a decisão de instrumento privado e quem escreve no catálogo.
+
+### TD-076 — Sign-in e sign-up sem desafio a bots
+
+- **Origem:** rate limiting de autenticação (2026-09-23) · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** os budgets de `docs/security.md`, §Rate limiting, limitam o volume por endereço, por conta e pelos dois, mas nada distingue um script de uma pessoa dentro deles.
+- **Impacto:** quem controla muitos endereços cria contas e testa credenciais no ritmo dos budgets de cada um, e o bloqueio por conta vira negação de serviço contra o dono.
+- **Proposta:** desafio progressivo, exigido só depois das primeiras falhas de um endereço ou conta, para não custar nada a quem acerta de primeira; avaliar Cloudflare Turnstile ou reCAPTCHA pela privacidade e pela dependência externa, e verificar o token na API, nunca só no web.
+
+### TD-077 — Falhas consecutivas de sign-in sem teto absoluto por conta
+
+- **Origem:** rate limiting de autenticação (2026-09-23) · **Tipo:** segurança · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** o NIST SP 800-63B-3 §5.2.2 limita a 100 as falhas consecutivas numa conta. O budget por conta é de 50 falhas por hora e renova com a janela, então um ataque lento passa de 100 ao longo do dia, e o backoff não cresce com a persistência do ataque.
+- **Impacto:** uma conta com senha fraca, fora da lista de senhas comuns, pode ser adivinhada ao longo de dias, uma janela por vez.
+- **Proposta:** contar falhas consecutivas na linha do usuário, zerando no sucesso, com backoff crescente a partir de um limiar e teto que exige desafio (TD-076) ou redefinição de senha, fluxo que o produto ainda não tem.
 
 ## Resolvidos
 
