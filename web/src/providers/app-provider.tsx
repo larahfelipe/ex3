@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Toaster } from 'sonner';
 
+import { APP_THEME } from '@/common/constants';
 import { Button } from '@/components/ui';
 import { queryClient } from '@/lib/react-query';
 import type { Children } from '@/types';
@@ -76,7 +77,7 @@ export const AppProvider: FC<Children> = ({ children }) => (
 
     <Toaster
       position="bottom-right"
-      theme="dark"
+      theme={APP_THEME}
       icons={{
         error: (
           <CircleAlert aria-hidden="true" size={22} className="text-negative" />

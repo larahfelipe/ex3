@@ -139,12 +139,15 @@ export const usePortfolioScopedQuery = <Data>({
       : undefined
   });
 
+type PortfolioChangeAnnouncement = Record<'title', string> &
+  Partial<Record<'description', string>>;
+
 export const useAnnouncePortfolioChange = (portfolio: Maybe<Portfolio>) => {
   const refreshPortfolio = useRefreshPortfolio(portfolio);
 
   return useCallback(
-    async ({ data }: AxiosResponse<WithMessage>) => {
-      toast.success(data.message);
+    async ({ title, description }: PortfolioChangeAnnouncement) => {
+      toast.success(title, { description });
       await refreshPortfolio();
     },
     [refreshPortfolio]

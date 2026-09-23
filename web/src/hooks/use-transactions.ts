@@ -13,7 +13,10 @@ import type {
   UpdateTransactionRequestPayload,
   UpdateTransactionResponseData
 } from '@/app/api/v1/transactions';
+import { TRANSACTION_TYPE_LABELS } from '@/common/constants';
+import { formatPrice, formatQuantity } from '@/common/utils';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
+import { formatExecutionDay } from '@/lib/dates';
 import { queryKeys } from '@/lib/react-query';
 import type { Maybe } from '@/types';
 
@@ -57,7 +60,11 @@ export const useCreateTransaction = (portfolio: Maybe<Portfolio>) => {
         currency: baseCurrency
       } satisfies CreateTransactionRequestPayload);
     },
-    onSuccess: announceChange
+    onSuccess: ({ data: { transaction } }, { assetSymbol }) =>
+      announceChange({
+        title: `${TRANSACTION_TYPE_LABELS[transaction.type]} recorded`,
+        description: `${formatQuantity(transaction.quantity)} ${assetSymbol} at ${formatPrice(transaction.unitPrice, transaction.currency)} on ${formatExecutionDay(transaction.executedAt)}`
+      })
   });
 };
 
@@ -76,7 +83,7 @@ export const useUpdateTransaction = (portfolio: Maybe<Portfolio>) => {
           `/v1/transactions/${encodeURIComponent(id)}`,
           payload satisfies UpdateTransactionRequestPayload
         ),
-    onSuccess: announceChange
+    onSuccess: ({ data }) => announceChange({ title: data.message })
   });
 };
 
@@ -90,6 +97,6 @@ export const useDeleteTransaction = (portfolio: Maybe<Portfolio>) => {
   >({
     mutationFn: ({ id }) =>
       api.getInstance().delete(`/v1/transactions/${encodeURIComponent(id)}`),
-    onSuccess: announceChange
+    onSuccess: ({ data }) => announceChange({ title: data.message })
   });
 };

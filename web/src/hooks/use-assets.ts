@@ -28,9 +28,14 @@ export const useCreateAsset = (portfolio: Maybe<Portfolio>) => {
         ...payload,
         portfolioId: requirePortfolio(portfolio).id
       } satisfies CreateAssetRequestPayload),
-    onSuccess: async (response, { listing }) => {
+    onSuccess: async ({ data: { asset } }, { listing }) => {
       await Promise.all([
-        announceChange(response),
+        announceChange({
+          title: 'Asset added',
+          description: portfolio
+            ? `${asset.symbol} is now in ${portfolio.name}`
+            : undefined
+        }),
         listing !== undefined &&
           queryClient.invalidateQueries({
             queryKey: queryKeys.visibleInstruments()
@@ -52,6 +57,6 @@ export const useDeleteAsset = (portfolio: Maybe<Portfolio>) => {
       api.getInstance().delete(`/v1/assets/${encodeURIComponent(symbol)}`, {
         params: { portfolioId: requirePortfolio(portfolio).id }
       }),
-    onSuccess: announceChange
+    onSuccess: ({ data }) => announceChange({ title: data.message })
   });
 };
