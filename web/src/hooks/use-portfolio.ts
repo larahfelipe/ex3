@@ -20,6 +20,7 @@ import type {
   GetPortfolioPositionResponseData,
   GetPortfolioPositionsRequestParams,
   GetPortfolioPositionsResponseData,
+  GetPositionIndicatorsResponseData,
   PerformanceParams,
   PortfolioScopeParams,
   PositionListingParams
@@ -342,6 +343,22 @@ export const usePosition = (portfolio: Maybe<Portfolio>, symbol: string) =>
         .get(`/v1/portfolio/positions/${encodeURIComponent(symbol)}`, {
           params: { portfolioId } satisfies PortfolioScopeParams
         })
+  });
+
+export const usePositionIndicators = (
+  portfolio: Maybe<Portfolio>,
+  symbol: string
+) =>
+  usePortfolioScopedQuery<GetPositionIndicatorsResponseData>({
+    queryKey: queryKeys.positionIndicators(portfolio?.id, symbol),
+    portfolio,
+    request: (portfolioId) =>
+      api
+        .getInstance()
+        .get(
+          `/v1/portfolio/positions/${encodeURIComponent(symbol)}/indicators`,
+          { params: { portfolioId } satisfies PortfolioScopeParams }
+        )
   });
 
 export const usePerformance = (

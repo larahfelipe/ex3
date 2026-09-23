@@ -121,3 +121,26 @@ export type GetPortfolioPerformanceRequestParams = PortfolioScopeParams &
   PerformanceParams;
 
 export type GetPortfolioPerformanceResponseData = PortfolioPerformance;
+
+export type PriceChangeRange = Extract<
+  PerformanceRange,
+  '1M' | '3M' | '6M' | 'YTD' | '1Y'
+>;
+
+export type PriceChange = Record<'range', PriceChangeRange> &
+  Partial<Record<'change', DecimalString>>;
+
+export type PriceIndicators = Record<'currency' | 'closedOn', string> &
+  Record<'close' | 'yearLow' | 'yearHigh', DecimalString> &
+  Record<'changes', Array<PriceChange>>;
+
+export type ReturnIndicators = Record<'currency' | 'since', string> &
+  Record<'realizedProfitLoss' | 'income' | 'trailingIncome', DecimalString> &
+  Partial<Record<'yieldOnCost', DecimalString>>;
+
+export type PositionIndicators = Partial<{
+  prices: PriceIndicators;
+  returns: ReturnIndicators;
+}>;
+
+export type GetPositionIndicatorsResponseData = PositionIndicators;

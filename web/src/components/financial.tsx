@@ -28,6 +28,12 @@ type MetricProps = Children &
 
 const NO_VALUE = '-';
 
+/** The value a card leads with, such as a total or a price. */
+export const HEADLINE_VALUE_CLASS = 'text-3xl font-bold';
+
+/** A value that stands beside the headline one. */
+export const PROMINENT_VALUE_CLASS = 'text-lg font-semibold';
+
 const SIGNED_FORMAT: Intl.NumberFormatOptions = { signDisplay: 'exceptZero' };
 
 export const UnavailableValue: FC = () => (
