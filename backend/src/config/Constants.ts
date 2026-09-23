@@ -169,7 +169,7 @@ export const PortfolioMessages = {
 export const TransactionMessages = {
   NOT_FOUND: 'Transaction not found for this asset',
   ACC_NEGATIVE_AMOUNT:
-    'Invalid transaction: resulting amount cannot be negative',
+    'Invalid transaction: a sale would exceed the units held on its date',
   CURRENCY_MISMATCH:
     'Invalid transaction: every transaction of a position must share one currency',
   POSITION_OUT_OF_RANGE:
