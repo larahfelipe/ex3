@@ -17,6 +17,7 @@ export const CALENDAR_DAY_FORMAT = 'YYYY-MM-DD';
 
 const QUOTE_TIME_FORMAT = 'MMM D, hh:mm A';
 const DAY_FORMAT = 'MMM D, YYYY';
+const SHORT_MONTH_FORMAT = 'MMM';
 
 const calendarDayOrNull = (day: string) => {
   const parsed = dayjs(day, CALENDAR_DAY_FORMAT, true);
@@ -38,6 +39,9 @@ export const formatSeriesDay = (timestamp: string) =>
 export const formatCalendarDay = (day: string) =>
   calendarDayOrNull(day)?.format(DAY_FORMAT) ?? null;
 
+export const formatShortMonth = (month: Date) =>
+  dayjs(month).format(SHORT_MONTH_FORMAT);
+
 export const currentInstant = () => dayjs().toISOString();
 
 export const currentYear = () => dayjs().year();
@@ -51,6 +55,13 @@ export const dateOfCalendarDay = (day: string) =>
 
 export const calendarDayOfDate = (date: Date) =>
   dayjs(date).format(CALENDAR_DAY_FORMAT);
+
+/** A month of the calendar: 0 for January to 11 for December. */
+export const startOfMonthNumbered = (shown: Date, month: number) =>
+  dayjs(shown).startOf('month').month(month).toDate();
+
+export const startOfMonthInYear = (shown: Date, year: number) =>
+  dayjs(shown).startOf('month').year(year).toDate();
 
 /**
  * The instant recorded for a day picked in the browser's zone: the later of
