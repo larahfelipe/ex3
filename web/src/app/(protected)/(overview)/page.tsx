@@ -35,7 +35,7 @@ export default function Overview() {
       {isPending && (
         <LoadingState
           label="Loading your portfolio"
-          className="h-64 rounded-3xl"
+          className="h-64 rounded-2xl"
         />
       )}
 

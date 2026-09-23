@@ -13,7 +13,7 @@ export const DIALOG_OVERLAY_CLASS =
 
 /** Scales and fades in place: the enter and exit keyframes animate `transform`, which composes with the `translate` that centers the content, so any slide would move it off its axis. */
 export const DIALOG_CONTENT_CLASS =
-  'fixed left-1/2 top-1/2 z-50 grid max-h-dvh w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto border bg-background p-6 shadow-elevated outline-hidden duration-200 ease-out data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:duration-150 data-[state=closed]:ease-in sm:max-h-[calc(100dvh-2rem)] sm:rounded-lg';
+  'fixed left-1/2 top-1/2 z-50 grid max-h-dvh w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto border bg-background p-6 shadow-elevated outline-hidden duration-200 ease-out data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:duration-150 data-[state=closed]:ease-in sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl';
 
 const Dialog = DialogPrimitive.Root;
 

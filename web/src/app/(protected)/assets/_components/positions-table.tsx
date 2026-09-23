@@ -324,7 +324,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
 
   return (
     <section aria-labelledby={headingId} className="min-w-0">
-      <Card className="shadow-none">
+      <Card>
         <SectionHeader
           id={headingId}
           title="Positions"

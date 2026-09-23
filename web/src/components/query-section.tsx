@@ -79,7 +79,7 @@ export const QuerySection = <Content,>({
         if (relatedTarget !== null) hasFocusWithin.current = false;
       }}
     >
-      <Card className="h-full shadow-none">
+      <Card className="h-full">
         <SectionHeader
           ref={headingRef}
           id={headingId}

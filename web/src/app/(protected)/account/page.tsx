@@ -46,7 +46,7 @@ export default function Account() {
       />
 
       <section aria-labelledby={profileHeadingId} className="min-w-0">
-        <Card className="shadow-none">
+        <Card>
           <SectionHeader
             id={profileHeadingId}
             title="Profile"
@@ -74,7 +74,7 @@ export default function Account() {
       </section>
 
       <section aria-labelledby={securityHeadingId} className="min-w-0">
-        <Card className="shadow-none">
+        <Card>
           <SectionHeader
             id={securityHeadingId}
             title="Security"

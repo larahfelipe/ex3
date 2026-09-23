@@ -117,7 +117,7 @@ export default function Portfolios() {
             <div className="space-y-4">
               <ul
                 aria-busy={portfoliosQuery.isPlaceholderData}
-                className="divide-y rounded-md border"
+                className="divide-y rounded-xl border"
               >
                 {portfolios.map((portfolio) => {
                   const isActive = portfolio.id === activePortfolio?.id;
