@@ -152,7 +152,7 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
   const heldPosition = isAssetMissing ? undefined : position;
 
   return (
-    <div className="space-y-6 px-3 py-8 sm:px-4">
+    <div className="space-y-6">
       <PageHeader
         title={heldPosition?.symbol ?? symbol.toUpperCase()}
         isPending={isPending || isPositionPending}

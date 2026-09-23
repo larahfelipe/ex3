@@ -102,7 +102,7 @@ export default function Assets() {
   }, [hasDeletedAsset, opened]);
 
   return (
-    <div className="space-y-6 px-3 py-8 sm:px-4">
+    <div className="space-y-6">
       <PageHeader
         title="Assets"
         isPending={isPending}

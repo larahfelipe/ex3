@@ -31,9 +31,11 @@ export default async function Layout({ children }: Children) {
       <main
         id={MAIN_CONTENT_ID}
         tabIndex={-1}
-        className="min-w-0 flex-1 focus:outline-none max-sm:pb-(--navigation-bar)"
+        className="min-w-0 flex-1 focus:outline-hidden max-sm:pb-(--navigation-bar)"
       >
-        {children}
+        <div className="mx-auto w-full max-w-(--breakpoint-2xl) px-4 py-8 sm:px-6 lg:px-8 xl:px-10">
+          {children}
+        </div>
       </main>
     </div>
   );

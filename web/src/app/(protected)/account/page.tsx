@@ -21,7 +21,7 @@ export default function Account() {
   const securityHeadingId = useId();
 
   return (
-    <div className="space-y-6 px-3 py-8 sm:px-4">
+    <div className="space-y-6">
       <PageHeader
         title="Account"
         description="Your profile and security details"

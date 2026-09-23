@@ -21,7 +21,7 @@ export default function Overview() {
   } = useActivePortfolio();
 
   return (
-    <div className="space-y-6 px-3 py-8 sm:px-4">
+    <div className="space-y-6">
       <PageHeader
         title="Overview"
         isPending={isPending}

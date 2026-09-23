@@ -42,7 +42,7 @@ O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma b
 | Região | Comportamento |
 | --- | --- |
 | Navegação | Barra fixa no rodapé, altura `--navigation-bar` (3.75 rem), quatro alvos de 44 px distribuídos — visão geral, ativos, conta e sair —, rótulo em `sr-only`, marca oculta |
-| Shell da página | `<main>` com `pb-(--navigation-bar)` para não ficar sob a barra; padding lateral de `px-3` |
+| Shell da página | `<main>` com `pb-(--navigation-bar)` para não ficar sob a barra; o contêiner de `(protected)/layout.tsx`, comum a toda página, dá padding lateral de 16 px (`px-4`) e vertical de 32 px (`py-8`) |
 | Dashboard | Pilha única: valor da carteira, gráfico de performance, alocação, resumo de posições, transações recentes |
 | Alocação | Container abaixo de 448 px: anel acima, legenda abaixo, em coluna |
 | Posições | Filtro, busca e ações em largura cheia; a tabela mostra ativo, valor e o menu de ações, com o resultado repetido sob o símbolo. Quantidade, preço médio, preço, alocação e as duas colunas de resultado saem de cena e seguem no detalhe do ativo, alcançável pelo link do símbolo |
@@ -59,7 +59,7 @@ O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma b
 | Região | Comportamento |
 | --- | --- |
 | Navegação | Trilho fixo à esquerda, `--navigation-rail` (10 rem), rótulo visível, marca visível; `<main>` deslocado por `ml-(--navigation-rail)` |
-| Largura útil | 608 px de conteúdo, com padding lateral de `px-4` |
+| Largura útil | 640 px de conteúdo, com padding lateral de 24 px (`sm:px-6`) |
 | Dashboard | Ainda em pilha única — a grade só divide em 1280 px |
 | Alocação | Container acima de 448 px: passa de `@md`, anel e legenda lado a lado |
 | Posições | Filtros em linha; as oito colunas voltam e a tabela pode transbordar, dentro da região rolável nomeada |
@@ -70,8 +70,8 @@ O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma b
 
 | Região | Comportamento |
 | --- | --- |
-| Largura útil | 864 px de conteúdo |
-| Dashboard | Grade de três colunas: alocação em uma, resumo de posições em duas (`lg:col-span-2`), com ~560 px para a tabela |
+| Largura útil | 752 px de conteúdo com o menu expandido e 880 px com ele recolhido, com padding lateral de 32 px (`lg:px-8`) |
+| Dashboard | Grade de três colunas: alocação em uma, resumo de posições em duas (`lg:col-span-2`), com ~490 px para a tabela com o menu expandido |
 | Detalhe do ativo | As duas grades passam a duas colunas |
 | Autenticação | Tela dividida em duas colunas iguais, formulário à esquerda e arte à direita |
 | Posições | Tabela normalmente cabe sem transbordo horizontal |
@@ -80,9 +80,9 @@ O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma b
 
 | Região | Comportamento |
 | --- | --- |
-| Largura útil | 1280 px de conteúdo |
-| Dashboard | Mesma grade de 1024 px, com ~853 px para a tabela do resumo |
-| Demais regiões | Iguais a 1024 px; nenhum container cresce além do fluxo |
+| Largura útil | 1152 px de conteúdo com o menu expandido e 1280 px com ele recolhido, com padding lateral de 40 px (`xl:px-10`) |
+| Dashboard | Mesma grade de 1024 px, com ~760 px para a tabela do resumo com o menu expandido |
+| Demais regiões | Iguais a 1024 px. O contêiner da página para de crescer em 1536 px (`max-w-(--breakpoint-2xl)`) e se centraliza à direita do menu, o que só acontece acima de 1824 px com o menu expandido |
 
 ## Lacunas conhecidas na captura
 
