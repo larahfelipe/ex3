@@ -85,9 +85,15 @@ export const Errors = {
 
 const ONE_MINUTE_IN_MS = 60_000;
 
+/**
+ * `INSTRUMENT_SEARCH` bounds how fast one session can spend the quote
+ * provider's request quota. Assumed, not measured: a debounced search box asks
+ * a few times per instrument typed, far below it.
+ */
 export const RateLimits = {
   AUTH: { windowMs: 15 * ONE_MINUTE_IN_MS, limit: 10 },
-  API: { windowMs: ONE_MINUTE_IN_MS, limit: 120 }
+  API: { windowMs: ONE_MINUTE_IN_MS, limit: 120 },
+  INSTRUMENT_SEARCH: { windowMs: ONE_MINUTE_IN_MS, limit: 30 }
 } as const;
 
 export const RequestLimits = {
@@ -110,6 +116,7 @@ export const AssetMessages = {
 
 export const InstrumentMessages = {
   NOT_FOUND: 'Instrument not found in catalog',
+  NOT_LISTED: 'Instrument not listed by the market data provider',
   ALREADY_EXISTS: 'Instrument already exists in catalog',
   PRIVATE_ALREADY_EXISTS:
     'Instrument already exists among your private instruments',
@@ -117,6 +124,10 @@ export const InstrumentMessages = {
     'Invalid instrument: the currency must be the one its market quotes in',
   CREATED: 'Instrument created successfully',
   UPDATED: 'Instrument updated successfully'
+};
+
+export const MarketDataMessages = {
+  UNAVAILABLE: 'Market data is unavailable, please try again later'
 };
 
 export const PortfolioMessages = {
@@ -232,6 +243,44 @@ export const MarketQuoteCurrencies: Record<Market, string | null> = {
   NASDAQ: 'USD',
   CRYPTO: null
 };
+
+/**
+ * The currencies a crypto symbol is looked up in when searching the quote
+ * provider, since the pair names the currency: the ones the web offers as a
+ * portfolio base currency.
+ */
+export const CryptoListingCurrencies = ['BRL', 'USD', 'EUR'] as const;
+
+/**
+ * Bounds of what a client or the quote provider can store on an instrument
+ * (OWASP API4:2023, unrestricted resource consumption). Assumed, not measured:
+ * above the longest symbol, name and sector label an exchange listing
+ * publishes.
+ */
+export const InstrumentLimits = {
+  SYMBOL_MAX_LENGTH: 6,
+  NAME_MAX_LENGTH: 120,
+  SECTOR_MAX_LENGTH: 60
+} as const;
+
+/**
+ * Letters and digits only, so a symbol can neither change the path or query of
+ * a provider URL nor carry a pattern wildcard into a search.
+ */
+export const INSTRUMENT_SYMBOL_PATTERN = /^[A-Z0-9]+$/;
+
+/**
+ * What became of the quote provider lookup of an instrument search: `SKIPPED`
+ * when the term cannot be a symbol or names one the caller already sees.
+ */
+export const MarketSearchStatuses = {
+  SEARCHED: 'SEARCHED',
+  SKIPPED: 'SKIPPED',
+  UNAVAILABLE: 'UNAVAILABLE'
+} as const;
+
+export type MarketSearchStatus =
+  (typeof MarketSearchStatuses)[keyof typeof MarketSearchStatuses];
 
 /** Whether an instrument belongs to the shared catalog or to the caller alone. */
 export const InstrumentScopes = {

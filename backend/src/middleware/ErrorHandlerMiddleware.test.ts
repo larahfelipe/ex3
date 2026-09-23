@@ -2,8 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { Errors } from '@/config/Constants';
-import { ValidationError } from '@/errors';
+import { Errors, MarketDataMessages } from '@/config/Constants';
+import { UnavailableError, ValidationError } from '@/errors';
 import type { LogEntry } from '@/infra/observability';
 
 import { createErrorHandlerMiddleware } from './ErrorHandlerMiddleware';
@@ -94,6 +94,25 @@ describe('errorHandlerMiddleware', () => {
       errorName: 'Error',
       errorMessage: 'relation "users" does not exist'
     });
+  });
+
+  it('answers an unavailable dependency without logging a failure the dependency reports itself', () => {
+    const { sent, req, entries } = run(
+      new UnavailableError(MarketDataMessages.UNAVAILABLE)
+    );
+
+    assert.deepEqual(sent, [
+      {
+        status: Errors.UNAVAILABLE.status,
+        body: {
+          code: Errors.UNAVAILABLE.code,
+          message: MarketDataMessages.UNAVAILABLE,
+          details: []
+        }
+      }
+    ]);
+    assert.equal(req.errorCode, Errors.UNAVAILABLE.code);
+    assert.deepEqual(entries, []);
   });
 
   it('describes a throw that is not an error', () => {

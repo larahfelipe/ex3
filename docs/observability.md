@@ -34,9 +34,10 @@ deixa o conteúdo testável sem capturar `stdout`.
 | `database_unreachable` | ERROR | `reason` | `Server.ts`, antes de `exit(1)` |
 | `quote_provider_key_missing` | WARNING | — | `Server.ts` |
 | `quote_provider_unavailable` | WARNING | `reason`, `retryInMs` | `YahooFinanceProvider.ts` |
+| `quote_provider_request_failed` | WARNING | `reason` | `YahooFinanceProvider.ts`, na consulta de setor, que falha sem pausar as cotações |
 | `dependency_unavailable` | WARNING | `dependency`, `reason` | readiness, em `HealthControllerHandlers.ts` |
 | `http_request` | conforme o status; sonda atendida não gera linha | `requestId`, `method`, `route`, `status`, `durationMs`, `userId?`, `errorCode?` | `RequestLogMiddleware.ts` |
-| `request_failed` | ERROR | `requestId?`, `errorName`, `errorMessage`, `stack?` | `ErrorHandlerMiddleware.ts` |
+| `request_failed` | ERROR | `requestId?`, `errorName`, `errorMessage`, `stack?` | `ErrorHandlerMiddleware.ts`, só para exceção fora de `ApplicationError`; um `503` antecipado, como provedor indisponível, já foi registrado pela dependência |
 
 `LogEvent` é uma união discriminada: uma linha nova é um membro novo do tipo,
 nunca uma mensagem livre. A severidade de `http_request` sai do status —

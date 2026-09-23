@@ -1,15 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import {
-  InstrumentScopes,
-  InstrumentTypes,
-  MarketQuoteCurrencies,
-  Markets
-} from '@/config/Constants';
+import { InstrumentScopes, InstrumentTypes, Markets } from '@/config/Constants';
 
 import {
-  INSTRUMENT_REGISTRATION_OPTIONS,
+  isListableSymbol,
   isQuotedCurrencyOf,
   toVisibleInstrument
 } from './InstrumentCatalog';
@@ -69,18 +64,14 @@ describe('isQuotedCurrencyOf', () => {
   });
 });
 
-describe('INSTRUMENT_REGISTRATION_OPTIONS', () => {
-  it('offers every instrument type and every quotable market with its currency', () => {
-    assert.deepEqual(
-      INSTRUMENT_REGISTRATION_OPTIONS.types,
-      Object.keys(InstrumentTypes)
-    );
-    assert.deepEqual(
-      INSTRUMENT_REGISTRATION_OPTIONS.markets,
-      Object.entries(MarketQuoteCurrencies).map(([market, currency]) => ({
-        market,
-        currency
-      }))
-    );
+describe('isListableSymbol', () => {
+  it('accepts letters and digits up to the longest symbol', () => {
+    for (const term of ['T', 'PETR4', 'BOVA11'])
+      assert.equal(isListableSymbol(term), true, term);
+  });
+
+  it('refuses a term longer than a symbol, with any other character or in lower case', () => {
+    for (const term of ['', 'PETROBRAS', 'BRK.B', 'BTC-USD', 'PETR 4', 'petr4'])
+      assert.equal(isListableSymbol(term), false, term);
   });
 });

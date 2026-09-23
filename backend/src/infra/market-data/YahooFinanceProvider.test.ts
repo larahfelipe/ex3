@@ -23,6 +23,11 @@ const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 const QUOTE_TIME_TO_LIVE_MS = 60_000;
 const FAILURE_COOLDOWN_MS = 30_000;
 const QUOTE_BATCH_SIZE = 10;
+const LISTING_TIME_TO_LIVE_MS = 3_600_000;
+const LISTING_CACHE_MAX_ENTRIES = 1_000;
+
+/** Mirrors `InstrumentLimits.NAME_MAX_LENGTH`. */
+const NAME_MAX_LENGTH = 120;
 
 const PETR4: PricedInstrument = {
   symbol: 'PETR4',
@@ -67,6 +72,32 @@ const quoteItem = (
 
 const quoteResponse = (...items: unknown[]) =>
   json({ quoteResponse: { result: items, error: null } });
+
+const listedItem = (symbol: string, overrides: Record<string, unknown> = {}) =>
+  quoteItem(symbol, {
+    quoteType: 'EQUITY',
+    exchange: 'NMS',
+    longName: `${symbol} Inc.`,
+    shortName: symbol,
+    ...overrides
+  });
+
+const PETR4_LISTING_ITEM = listedItem('PETR4.SA', {
+  currency: 'BRL',
+  exchange: 'SAO',
+  longName: 'Petróleo Brasileiro S.A. - Petrobras'
+});
+
+const PETR4_LISTING = {
+  symbol: 'PETR4',
+  name: 'Petróleo Brasileiro S.A. - Petrobras',
+  type: 'STOCK',
+  market: 'B3',
+  currency: 'BRL'
+};
+
+const profileResponse = (assetProfile: Record<string, unknown>) =>
+  json({ quoteSummary: { result: [{ assetProfile }], error: null } });
 
 const chartResponse = ({
   timestamps,
@@ -470,6 +501,278 @@ describe('YahooFinanceProvider', () => {
         new Map([['USD', { outcome: 'unavailable' }]])
       );
       assert.equal(calls.length, 1);
+    });
+  });
+
+  describe('findListings', () => {
+    it('looks a symbol up under every market in one request, listing it where the venue and currency are that market own', async () => {
+      const { provider, calls } = stubProvider(() =>
+        quoteResponse(
+          PETR4_LISTING_ITEM,
+          listedItem('PETR4-USD', { exchange: 'NMS' })
+        )
+      );
+
+      assert.deepEqual(await provider.findListings('PETR4'), {
+        outcome: 'searched',
+        listings: [PETR4_LISTING]
+      });
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].url.pathname, '/v6/finance/quote');
+      assert.deepEqual(requestedSymbols(calls[0]), [
+        'PETR4.SA',
+        'PETR4',
+        'PETR4-BRL',
+        'PETR4-USD',
+        'PETR4-EUR'
+      ]);
+    });
+
+    it('tells NYSE from NASDAQ by the venue and lists a crypto pair in each currency the provider quotes', async () => {
+      const { provider } = stubProvider(() =>
+        quoteResponse(
+          listedItem('AAPL', { longName: 'Apple Inc.' }),
+          listedItem('KO', {
+            exchange: 'NYQ',
+            longName: 'The Coca-Cola Company'
+          }),
+          listedItem('BTC-BRL', {
+            currency: 'BRL',
+            exchange: 'CCC',
+            quoteType: 'CRYPTOCURRENCY',
+            longName: 'Bitcoin BRL'
+          }),
+          listedItem('BTC-USD', {
+            exchange: 'CCC',
+            quoteType: 'CRYPTOCURRENCY',
+            longName: 'Bitcoin USD'
+          })
+        )
+      );
+
+      const listingsOf = async (symbol: string) => {
+        const search = await provider.findListings(symbol);
+
+        return search.outcome === 'searched'
+          ? search.listings.map(({ market, currency, type }) => ({
+              market,
+              currency,
+              type
+            }))
+          : search;
+      };
+
+      assert.deepEqual(await listingsOf('AAPL'), [
+        { market: 'NASDAQ', currency: 'USD', type: 'STOCK' }
+      ]);
+      assert.deepEqual(await listingsOf('KO'), [
+        { market: 'NYSE', currency: 'USD', type: 'STOCK' }
+      ]);
+      assert.deepEqual(await listingsOf('BTC'), [
+        { market: 'CRYPTO', currency: 'BRL', type: 'CRYPTO' },
+        { market: 'CRYPTO', currency: 'USD', type: 'CRYPTO' }
+      ]);
+    });
+
+    it('classes a listing by its quote type, a B3 real estate fund as one, and leaves out a type or venue it does not know', async () => {
+      const { provider } = stubProvider(() =>
+        quoteResponse(
+          listedItem('KNRI11.SA', {
+            currency: 'BRL',
+            exchange: 'SAO',
+            longName:
+              'Kinea Renda Imobiliária Fundo de Investimento Imobiliário'
+          }),
+          listedItem('BOVA11.SA', {
+            currency: 'BRL',
+            exchange: 'SAO',
+            quoteType: 'ETF'
+          }),
+          listedItem('VFIAX', { quoteType: 'MUTUALFUND' }),
+          listedItem('SPX', { quoteType: 'INDEX' }),
+          listedItem('OTCX', { exchange: 'PNK' })
+        )
+      );
+
+      const typesOf = async (symbol: string) => {
+        const search = await provider.findListings(symbol);
+
+        return search.outcome === 'searched'
+          ? search.listings.map(({ type }) => type)
+          : search;
+      };
+
+      assert.deepEqual(await typesOf('KNRI11'), ['REIT']);
+      assert.deepEqual(await typesOf('BOVA11'), ['ETF']);
+      assert.deepEqual(await typesOf('VFIAX'), ['FUND']);
+      assert.deepEqual(await typesOf('SPX'), []);
+      assert.deepEqual(await typesOf('OTCX'), []);
+    });
+
+    it('names a listing by its long name, else by its short one, bounded and on one line', async () => {
+      const longName = `Very\n  Long ${'N'.repeat(NAME_MAX_LENGTH)}`;
+      const { provider } = stubProvider(() =>
+        quoteResponse(
+          listedItem('AAPL', { longName: undefined, shortName: ' Apple ' }),
+          listedItem('MSFT', { longName }),
+          listedItem('NONAME', { longName: ' ', shortName: undefined })
+        )
+      );
+
+      const namesOf = async (symbol: string) => {
+        const search = await provider.findListings(symbol);
+
+        return search.outcome === 'searched'
+          ? search.listings.map(({ name }) => name)
+          : search;
+      };
+
+      assert.deepEqual(await namesOf('AAPL'), ['Apple']);
+      assert.deepEqual(await namesOf('MSFT'), [
+        `Very Long ${'N'.repeat(NAME_MAX_LENGTH)}`.slice(0, NAME_MAX_LENGTH)
+      ]);
+      assert.deepEqual(await namesOf('NONAME'), []);
+    });
+
+    it('reuses a search within its time to live and answers the last one while the provider fails', async () => {
+      const responses = [quoteResponse(PETR4_LISTING_ITEM), json({}, 503)];
+      const { provider, calls, clock } = stubProvider(
+        () => responses.shift() ?? json({}, 500)
+      );
+      const searched = { outcome: 'searched', listings: [PETR4_LISTING] };
+
+      assert.deepEqual(await provider.findListings('PETR4'), searched);
+      clock.now += LISTING_TIME_TO_LIVE_MS - 1;
+      assert.deepEqual(await provider.findListings('PETR4'), searched);
+      assert.equal(calls.length, 1);
+
+      clock.now += 1;
+      assert.deepEqual(await provider.findListings('PETR4'), searched);
+      assert.equal(calls.length, 2);
+    });
+
+    it('answers unavailable without a key or when the provider fails, and requests nothing for a symbol it cannot quote', async () => {
+      const withoutKey = stubProvider(() => quoteResponse(), {
+        hasApiKey: false
+      });
+      const failing = stubProvider(() => json({}, 503));
+
+      assert.deepEqual(await withoutKey.provider.findListings('PETR4'), {
+        outcome: 'unavailable'
+      });
+      assert.deepEqual(await failing.provider.findListings('PETR4'), {
+        outcome: 'unavailable'
+      });
+      assert.deepEqual(await failing.provider.findListings('BRK.B'), {
+        outcome: 'searched',
+        listings: []
+      });
+      assert.equal(withoutKey.calls.length, 0);
+      assert.equal(failing.calls.length, 1);
+    });
+
+    it('bounds the searches it keeps, dropping the oldest first', async () => {
+      const { provider, calls } = stubProvider(() => quoteResponse());
+      const symbols = Array.from(
+        { length: LISTING_CACHE_MAX_ENTRIES + 1 },
+        (_, index) => `S${index}`
+      );
+
+      for (const symbol of symbols) await provider.findListings(symbol);
+
+      await provider.findListings(symbols[1]);
+      assert.equal(calls.length, symbols.length);
+
+      await provider.findListings(symbols[0]);
+      assert.equal(calls.length, symbols.length + 1);
+    });
+  });
+
+  describe('describeListing', () => {
+    it('describes the listing of the market and currency given, with the sector of an equity from its profile', async () => {
+      const { provider, calls } = stubProvider((url) =>
+        url.pathname.startsWith('/v11/finance/quoteSummary/')
+          ? profileResponse({ sector: 'Energy', industry: 'Oil & Gas' })
+          : quoteResponse(PETR4_LISTING_ITEM)
+      );
+
+      assert.deepEqual(await provider.describeListing(PETR4), {
+        outcome: 'listed',
+        listing: { ...PETR4_LISTING, sector: 'Energy' }
+      });
+      assert.equal(calls.length, 2);
+      assert.equal(calls[1].url.pathname, '/v11/finance/quoteSummary/PETR4.SA');
+      assert.equal(calls[1].url.searchParams.get('modules'), 'assetProfile');
+      assert.equal(
+        new Headers(calls[1].init.headers).get('x-api-key'),
+        API_KEY
+      );
+    });
+
+    it('asks no profile for a listing without a sector and answers not found for another market or currency', async () => {
+      const { provider, calls } = stubProvider(() =>
+        quoteResponse(
+          PETR4_LISTING_ITEM,
+          listedItem('BTC-USD', {
+            exchange: 'CCC',
+            quoteType: 'CRYPTOCURRENCY',
+            longName: 'Bitcoin USD'
+          })
+        )
+      );
+
+      assert.deepEqual(await provider.describeListing(BTC), {
+        outcome: 'listed',
+        listing: {
+          symbol: 'BTC',
+          name: 'Bitcoin USD',
+          type: 'CRYPTO',
+          market: 'CRYPTO',
+          currency: 'USD',
+          sector: null
+        }
+      });
+      assert.deepEqual(
+        await provider.describeListing({
+          ...PETR4,
+          market: 'NYSE',
+          currency: 'USD'
+        }),
+        { outcome: 'not-found' }
+      );
+      assert.equal(calls.length, 2);
+    });
+
+    it('answers no sector when the profile fails, without leaving quotes alone', async () => {
+      for (const profile of [json({}, 403), json({ unexpected: true })]) {
+        const { provider, calls, logEntries } = stubProvider((url) =>
+          url.pathname.startsWith('/v11/finance/quoteSummary/')
+            ? profile
+            : quoteResponse(PETR4_LISTING_ITEM, quoteItem('AAPL'))
+        );
+
+        assert.deepEqual(await provider.describeListing(PETR4), {
+          outcome: 'listed',
+          listing: { ...PETR4_LISTING, sector: null }
+        });
+        assert.deepEqual(
+          await provider.getQuotes([AAPL]),
+          new Map([['AAPL', quoted('49', 'USD')]])
+        );
+        assert.equal(calls.length, 3);
+        assert.deepEqual(
+          logEntries.map(({ event }) => event),
+          ['quote_provider_request_failed']
+        );
+      }
+    });
+
+    it('answers unavailable when the provider cannot search', async () => {
+      const { provider } = stubProvider(() => json({}, 503));
+
+      assert.deepEqual(await provider.describeListing(PETR4), {
+        outcome: 'unavailable'
+      });
     });
   });
 

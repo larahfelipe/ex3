@@ -19,6 +19,7 @@ export type LogEvent =
   | { event: 'database_unreachable'; reason: string }
   | { event: 'quote_provider_key_missing' }
   | { event: 'quote_provider_unavailable'; reason: string; retryInMs: number }
+  | { event: 'quote_provider_request_failed'; reason: string }
   | { event: 'dependency_unavailable'; dependency: 'database'; reason: string }
   | {
       event: 'http_request';

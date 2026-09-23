@@ -311,8 +311,8 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-068 — Sem edição de instrumento privado pelo web
 
 - **Origem:** cadastro de instrumento privado · **Tipo:** produto · **Prioridade:** baixa · **Encaminhamento:** avulso
-- **Contexto:** `PATCH /v1/instrument/:symbol` já aceita o dono de um instrumento privado corrigi-lo (ver `docs/api-inventory.md`), mas o web não expõe essa rota: `web/src/app/api/v1/instruments/` só faz proxy de `GET /v1/instruments` e `GET /v1/instruments/options`.
-- **Impacto:** quem cadastra um instrumento privado com um campo errado — nome, setor, classe — não tem como corrigi-lo sem excluir o ativo e cadastrar de novo, o que também perde a série de cotações acumulada.
+- **Contexto:** `PATCH /v1/instrument/:symbol` já aceita o dono de um instrumento privado corrigi-lo (ver `docs/api-inventory.md`), mas o web não expõe essa rota: `web/src/app/api/v1/instruments/` só faz proxy de `GET /v1/instruments/search`.
+- **Impacto:** quem registra um instrumento que o provedor descreve mal — classe deduzida pela regra de FII (TD-074), setor ausente — não tem como corrigi-lo sem excluir o ativo e registrar de novo, o que também perde a série de cotações acumulada.
 - **Proposta:** adicionar a rota de proxy e uma UI de edição no detalhe do ativo, visível só quando `scope === 'PRIVATE'` e o instrumento é do usuário.
 
 ### TD-069 — Instrumento privado com o mesmo símbolo de um catálogo cadastrado depois fica invisível ao próprio admin
@@ -335,6 +335,27 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** `web/src/app/(protected)/assets/_components/positions-table.tsx` chama as colunas de "Average price", "Price", "Value", "P&L" e "P&L %"; a Overview, o cartão de valor e o detalhe do ativo usam "Average cost", "Market price", "Market value" e "Profit/Loss" para os mesmos campos da API.
 - **Impacto:** o mesmo número aparece com dois nomes conforme a tela, e "P&L" só é lido como a sigla.
 - **Proposta:** adotar os termos longos nos cabeçalhos ordenáveis depois de medir a tabela entre 640 e 1280 px, onde cada termo alarga uma coluna `whitespace-nowrap` e pode tornar rolável uma região que hoje cabe; a verificação visual ficou fora do alcance desta auditoria, que não teve navegador.
+
+### TD-073 — Busca por nome não alcança instrumento que ninguém registrou
+
+- **Origem:** busca de instrumentos pelo provedor (2026-09-23) · **Tipo:** UX · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** `GET /v1/instruments/search` consulta o provedor só com um termo que pode ser ticker (até 6 letras ou dígitos); um nome, como "Petrobras", busca apenas os instrumentos que o usuário já vê. A YH Finance tem `/v6/finance/autocomplete`, que buscaria por nome, mas o formato da resposta não foi verificado.
+- **Impacto:** quem não sabe o ticker precisa descobri-lo fora do produto.
+- **Proposta:** verificar o contrato do autocomplete com uma resposta real e somá-lo à busca do provedor, com o mesmo cache e o mesmo limite por usuário, medindo antes o custo na cota (TD-020).
+
+### TD-074 — Mercado e classe da listagem deduzidos por regras assumidas
+
+- **Origem:** busca de instrumentos pelo provedor (2026-09-23) · **Tipo:** domínio · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** `YahooFinanceProvider` traduz o código de bolsa em mercado (`SAO`, `NYQ`, `ASE`, `PCX`, `NMS`, `NGM`, `NCM`, `CCC`) e trata como `REIT` a ação da B3 com `FII` ou `imobiliári` no nome. Nenhuma das duas regras foi conferida contra a lista completa do provedor.
+- **Impacto:** listagem numa bolsa fora do mapa não aparece na busca. FII sem essas palavras no nome vira `STOCK`, e a alocação por classe herda o erro, sem correção pelo web (TD-068).
+- **Proposta:** conferir os códigos com respostas reais do provedor e, para a B3, trocar o nome por uma classificação de fundo imobiliário, do provedor ou da própria B3.
+
+### TD-075 — Cada usuário registra a sua cópia do mesmo instrumento listado
+
+- **Origem:** busca de instrumentos pelo provedor (2026-09-23) · **Tipo:** domínio · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** com a identidade `(ownerId, symbol)` e o catálogo escrito só por admin, registrar uma listagem cria um instrumento privado do chamador. Dois usuários que adicionam `AAPL` têm dois instrumentos, duas séries de fechamento gravadas e dois backfills.
+- **Impacto:** armazenamento e requisições ao provedor crescem com usuários vezes símbolos, não com símbolos.
+- **Proposta:** decidir com o produto se uma listagem confirmada pelo provedor pode entrar no catálogo, o que revê a decisão de instrumento privado e quem escreve no catálogo.
 
 ## Resolvidos
 

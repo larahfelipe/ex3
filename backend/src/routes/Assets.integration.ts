@@ -1,19 +1,22 @@
 import assert from 'node:assert/strict';
-import { before, describe, it } from 'node:test';
+import { before, describe, it, type TestContext } from 'node:test';
 
 import {
   AssetMessages,
   Errors,
   InstrumentMessages,
+  MarketDataMessages,
   PortfolioMessages
 } from '@/config';
 import { PrismaClient } from '@/infra/database/PrismaClient';
+import { YahooFinanceProvider } from '@/infra/market-data';
 import {
   apiRequest,
   bearer,
   signInSeeded,
   signInWithPortfolio
 } from '@/test/ApiClient';
+import { FakeMarketDataProvider } from '@/test/FakeMarketDataProvider';
 import {
   FIXTURE_ASSET_SYMBOL,
   MISSING_UUID,
@@ -175,16 +178,33 @@ describe('assets', () => {
     });
   });
 
-  describe('add with a private instrument', () => {
-    const PRIVATE_SYMBOL = 'XPML11';
+  describe('add from a market listing', () => {
+    const LISTED_SYMBOL = 'XPML11';
 
-    const XPML11 = {
-      name: 'XP Malls FII',
+    const XPML11_LISTING = {
+      symbol: LISTED_SYMBOL,
+      name: 'XP Malls Fundo de Investimento Imobiliário',
       type: 'REIT',
       market: 'B3',
       currency: 'BRL',
-      sector: 'Shopping malls'
-    };
+      sector: 'Real Estate'
+    } as const;
+
+    const XPML11_REFERENCE = { market: 'B3', currency: 'BRL' };
+
+    const listFrom = (
+      t: TestContext,
+      provider: FakeMarketDataProvider = new FakeMarketDataProvider(
+        {},
+        { listings: [XPML11_LISTING] }
+      )
+    ) =>
+      t.mock.method(
+        YahooFinanceProvider.getInstance(),
+        'describeListing',
+        (...args: Parameters<YahooFinanceProvider['describeListing']>) =>
+          provider.describeListing(...args)
+      );
 
     const registerAsset = (
       {
@@ -192,27 +212,29 @@ describe('assets', () => {
         portfolio
       }: Awaited<ReturnType<typeof signInWithPortfolio>>,
       symbol: string,
-      instrument: Record<string, unknown> = XPML11
+      listing: Record<string, unknown> = XPML11_REFERENCE
     ) =>
       client
         .post(CREATE_ASSET_ROUTE)
         .set(bearer(accessToken))
-        .send({ symbol, portfolioId: portfolio.id, instrument });
+        .send({ symbol, portfolioId: portfolio.id, listing });
 
-    it('registers the instrument for the caller alone and opens the position in one step', async () => {
+    it('registers the listed instrument for the caller alone, as the provider describes it, and opens the position in one step', async (t) => {
+      const describeListing = listFrom(t);
       const caller = await signInWithPortfolio();
 
-      const res = await registerAsset(caller, PRIVATE_SYMBOL.toLowerCase(), {
-        ...XPML11,
-        type: 'reit',
+      const res = await registerAsset(caller, LISTED_SYMBOL.toLowerCase(), {
         market: 'b3',
         currency: 'brl'
       });
 
       assert.equal(res.status, 201);
       assert.equal(res.body.message, AssetMessages.CREATED);
-      assert.equal(res.body.asset.symbol, PRIVATE_SYMBOL);
+      assert.equal(res.body.asset.symbol, LISTED_SYMBOL);
       assert.equal(res.body.asset.portfolioId, caller.portfolio.id);
+      assert.deepEqual(describeListing.mock.calls[0].arguments, [
+        { symbol: LISTED_SYMBOL, market: 'B3', currency: 'BRL' }
+      ]);
       assert.deepEqual(
         await prismaClient.instrument.findUniqueOrThrow({
           where: { id: res.body.asset.instrumentId },
@@ -226,32 +248,77 @@ describe('assets', () => {
             ownerId: true
           }
         }),
-        { ...XPML11, symbol: PRIVATE_SYMBOL, ownerId: caller.user.id }
+        { ...XPML11_LISTING, ownerId: caller.user.id }
       );
     });
 
-    it('refuses a symbol the catalog holds, pointing to the catalog instrument instead of duplicating it', async () => {
+    it('takes no attribute of the instrument from the request', async (t) => {
+      listFrom(t);
       const caller = await signInWithPortfolio();
-      await createInstrument({ symbol: PRIVATE_SYMBOL });
 
-      const res = await registerAsset(caller, PRIVATE_SYMBOL);
+      const res = await client
+        .post(CREATE_ASSET_ROUTE)
+        .set(bearer(caller.accessToken))
+        .send({
+          symbol: LISTED_SYMBOL,
+          portfolioId: caller.portfolio.id,
+          listing: { ...XPML11_REFERENCE, name: 'Forged', type: 'CASH' },
+          instrument: { name: 'Forged', type: 'CASH' }
+        });
+
+      assert.equal(res.status, 201);
+      assert.deepEqual(
+        await prismaClient.instrument.findUniqueOrThrow({
+          where: { id: res.body.asset.instrumentId },
+          select: { name: true, type: true }
+        }),
+        { name: XPML11_LISTING.name, type: XPML11_LISTING.type }
+      );
+    });
+
+    it('stores no sector when the provider lists none', async (t) => {
+      const { sector: _sector, ...unsectored } = XPML11_LISTING;
+      listFrom(t, new FakeMarketDataProvider({}, { listings: [unsectored] }));
+      const caller = await signInWithPortfolio();
+
+      const res = await registerAsset(caller, LISTED_SYMBOL);
+
+      assert.equal(res.status, 201);
+      assert.equal(
+        (
+          await prismaClient.instrument.findUniqueOrThrow({
+            where: { id: res.body.asset.instrumentId }
+          })
+        ).sector,
+        null
+      );
+    });
+
+    it('refuses a symbol the catalog holds without asking the provider, pointing to the catalog instrument instead of duplicating it', async (t) => {
+      const describeListing = listFrom(t);
+      const caller = await signInWithPortfolio();
+      await createInstrument({ symbol: LISTED_SYMBOL });
+
+      const res = await registerAsset(caller, LISTED_SYMBOL);
 
       assert.equal(res.status, Errors.CONFLICT.status);
       assert.equal(res.body.message, InstrumentMessages.ALREADY_EXISTS);
+      assert.equal(describeListing.mock.callCount(), 0);
       assert.equal(await prismaClient.instrument.count(), 1);
       assert.equal(await prismaClient.position.count(), 0);
     });
 
-    it('refuses a symbol the caller already registered, even from another portfolio', async () => {
+    it('refuses a symbol the caller already registered, even from another portfolio', async (t) => {
+      listFrom(t);
       const caller = await signInWithPortfolio();
       const otherPortfolio = await createPortfolio(caller.user.id, {
         name: 'Other'
       });
 
-      const first = await registerAsset(caller, PRIVATE_SYMBOL);
+      const first = await registerAsset(caller, LISTED_SYMBOL);
       const again = await registerAsset(
         { ...caller, portfolio: otherPortfolio },
-        PRIVATE_SYMBOL
+        LISTED_SYMBOL
       );
 
       assert.equal(first.status, 201);
@@ -264,17 +331,18 @@ describe('assets', () => {
       assert.equal(await prismaClient.position.count(), 1);
     });
 
-    it('lets the caller add a registered private instrument to another portfolio by symbol', async () => {
+    it('lets the caller add a registered instrument to another portfolio by symbol', async (t) => {
+      listFrom(t);
       const caller = await signInWithPortfolio();
       const otherPortfolio = await createPortfolio(caller.user.id, {
         name: 'Other'
       });
 
-      const registered = await registerAsset(caller, PRIVATE_SYMBOL);
+      const registered = await registerAsset(caller, LISTED_SYMBOL);
       const added = await client
         .post(CREATE_ASSET_ROUTE)
         .set(bearer(caller.accessToken))
-        .send({ symbol: PRIVATE_SYMBOL, portfolioId: otherPortfolio.id });
+        .send({ symbol: LISTED_SYMBOL, portfolioId: otherPortfolio.id });
 
       assert.equal(added.status, 201);
       assert.equal(
@@ -283,16 +351,17 @@ describe('assets', () => {
       );
     });
 
-    it('keeps the private instruments of two users apart, even under one symbol', async () => {
+    it('keeps the instruments two users register apart, even under one symbol', async (t) => {
+      listFrom(t);
       const owner = await signInWithPortfolio();
       const other = await signInWithPortfolio(OTHER_USER_EMAIL);
 
-      const owned = await registerAsset(owner, PRIVATE_SYMBOL);
+      const owned = await registerAsset(owner, LISTED_SYMBOL);
       const foreignPick = await client
         .post(CREATE_ASSET_ROUTE)
         .set(bearer(other.accessToken))
-        .send({ symbol: PRIVATE_SYMBOL, portfolioId: other.portfolio.id });
-      const ownRegistration = await registerAsset(other, PRIVATE_SYMBOL);
+        .send({ symbol: LISTED_SYMBOL, portfolioId: other.portfolio.id });
+      const ownRegistration = await registerAsset(other, LISTED_SYMBOL);
 
       assert.equal(foreignPick.status, Errors.NOT_FOUND.status);
       assert.equal(foreignPick.body.message, InstrumentMessages.NOT_FOUND);
@@ -303,56 +372,95 @@ describe('assets', () => {
       );
     });
 
-    it('refuses a currency the market does not quote in and registers nothing', async () => {
+    it('refuses a currency the market does not quote in without asking the provider and registers nothing', async (t) => {
+      const describeListing = listFrom(t);
       const caller = await signInWithPortfolio();
 
-      const res = await registerAsset(caller, PRIVATE_SYMBOL, {
-        ...XPML11,
+      const res = await registerAsset(caller, LISTED_SYMBOL, {
+        ...XPML11_REFERENCE,
         currency: 'USD'
       });
 
       assert.equal(res.status, Errors.DOMAIN.status);
       assert.equal(res.body.message, InstrumentMessages.CURRENCY_MISMATCH);
+      assert.equal(describeListing.mock.callCount(), 0);
       assert.equal(await prismaClient.instrument.count(), 0);
       assert.equal(await prismaClient.position.count(), 0);
     });
 
-    it('rejects attributes outside the instrument contract and registers nothing', async () => {
+    it('answers not found for what the provider does not list in that market and registers nothing', async (t) => {
+      listFrom(t);
       const caller = await signInWithPortfolio();
-      const invalidInstruments = [
-        { ...XPML11, name: undefined },
-        { ...XPML11, name: ' ' },
-        { ...XPML11, type: 'COMMODITY' },
-        { ...XPML11, market: undefined },
-        { ...XPML11, market: 'LSE' },
-        { ...XPML11, currency: 'REAL' },
-        { ...XPML11, country: 'BRA' }
+
+      const unlisted = await registerAsset(caller, 'XPML12');
+      const otherMarket = await registerAsset(caller, LISTED_SYMBOL, {
+        market: 'CRYPTO',
+        currency: 'BRL'
+      });
+
+      for (const res of [unlisted, otherMarket]) {
+        assert.equal(res.status, Errors.NOT_FOUND.status);
+        assert.equal(res.body.message, InstrumentMessages.NOT_LISTED);
+      }
+      assert.equal(await prismaClient.instrument.count(), 0);
+      assert.equal(await prismaClient.position.count(), 0);
+    });
+
+    it('answers unavailable while the provider cannot answer and registers nothing', async (t) => {
+      listFrom(
+        t,
+        new FakeMarketDataProvider(
+          {},
+          { isAvailable: false, listings: [XPML11_LISTING] }
+        )
+      );
+      const caller = await signInWithPortfolio();
+
+      const res = await registerAsset(caller, LISTED_SYMBOL);
+
+      assert.equal(res.status, Errors.UNAVAILABLE.status);
+      assert.equal(res.body.code, Errors.UNAVAILABLE.code);
+      assert.equal(res.body.message, MarketDataMessages.UNAVAILABLE);
+      assert.equal(await prismaClient.instrument.count(), 0);
+    });
+
+    it('rejects a listing outside the contract and registers nothing', async (t) => {
+      const describeListing = listFrom(t);
+      const caller = await signInWithPortfolio();
+      const invalidListings = [
+        {},
+        { ...XPML11_REFERENCE, market: undefined },
+        { ...XPML11_REFERENCE, market: 'LSE' },
+        { ...XPML11_REFERENCE, currency: undefined },
+        { ...XPML11_REFERENCE, currency: 'REAL' }
       ];
 
-      for (const instrument of invalidInstruments) {
-        const res = await registerAsset(caller, PRIVATE_SYMBOL, instrument);
+      for (const listing of invalidListings) {
+        const res = await registerAsset(caller, LISTED_SYMBOL, listing);
 
         assert.equal(
           res.status,
           Errors.VALIDATION.status,
-          JSON.stringify(instrument)
+          JSON.stringify(listing)
         );
       }
 
       const invalidSymbol = await registerAsset(caller, 'XPML.11');
 
       assert.equal(invalidSymbol.status, Errors.VALIDATION.status);
+      assert.equal(describeListing.mock.callCount(), 0);
       assert.equal(await prismaClient.instrument.count(), 0);
       assert.equal(await prismaClient.position.count(), 0);
     });
 
-    it("answers another user's portfolio like a missing one and registers nothing", async () => {
+    it("answers another user's portfolio like a missing one and registers nothing", async (t) => {
+      listFrom(t);
       const caller = await signInWithPortfolio();
       const other = await signInWithPortfolio(OTHER_USER_EMAIL);
 
       const res = await registerAsset(
         { ...caller, portfolio: other.portfolio },
-        PRIVATE_SYMBOL
+        LISTED_SYMBOL
       );
 
       assert.equal(res.status, Errors.NOT_FOUND.status);
@@ -361,11 +469,12 @@ describe('assets', () => {
     });
 
     it('registers nothing when opening the position fails', async (t) => {
+      listFrom(t);
       const caller = await signInWithPortfolio();
       injectWriteFailure(t, 'position', 'create');
       t.mock.method(console, 'error', () => undefined);
 
-      const res = await registerAsset(caller, PRIVATE_SYMBOL);
+      const res = await registerAsset(caller, LISTED_SYMBOL);
 
       assert.equal(res.status, Errors.INTERNAL.status);
       assert.equal(await prismaClient.instrument.count(), 0);

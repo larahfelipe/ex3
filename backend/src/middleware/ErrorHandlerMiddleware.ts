@@ -35,7 +35,9 @@ const toApplicationError = (e: unknown): ApplicationError => {
 /**
  * Terminal error boundary. Only `code`, `message` and `details` cross the
  * wire — an unrecognised throw is reported as a generic internal error so that
- * stack traces and driver-level details never reach the client.
+ * stack traces and driver-level details never reach the client. Only that
+ * unrecognised throw is logged here: an application error was anticipated, and
+ * a dependency that caused one logs its own failure.
  */
 export const createErrorHandlerMiddleware =
   (logEntry: LogSink = log): ErrorRequestHandler =>
@@ -49,7 +51,7 @@ export const createErrorHandlerMiddleware =
 
     req.errorCode = code;
 
-    if (status >= Errors.INTERNAL.status)
+    if (!(e instanceof ApplicationError) && status >= Errors.INTERNAL.status)
       logEntry({
         severity: LogSeverities.ERROR,
         event: 'request_failed',

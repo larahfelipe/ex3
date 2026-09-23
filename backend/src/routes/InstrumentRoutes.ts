@@ -3,10 +3,13 @@ import { Router, type Application } from 'express';
 import {
   createInstrumentControllerHandler,
   getAllInstrumentsControllerHandler,
-  getInstrumentOptionsControllerHandler,
+  searchInstrumentsControllerHandler,
   updateInstrumentControllerHandler
 } from '@/controllers/instrument';
-import { authMiddleware } from '@/middleware';
+import {
+  authMiddleware,
+  instrumentSearchRateLimitMiddleware
+} from '@/middleware';
 
 const instrumentRouter = Router();
 
@@ -16,10 +19,15 @@ instrumentRouter.get(
   getAllInstrumentsControllerHandler as Application
 );
 
+/**
+ * A search can spend the quote provider's request quota, which every user
+ * shares, so each signed-in user gets a budget of its own on top of the API's.
+ */
 instrumentRouter.get(
-  '/v1/instruments/options',
+  '/v1/instruments/search',
   authMiddleware,
-  getInstrumentOptionsControllerHandler as Application
+  instrumentSearchRateLimitMiddleware,
+  searchInstrumentsControllerHandler as Application
 );
 
 instrumentRouter.post(
