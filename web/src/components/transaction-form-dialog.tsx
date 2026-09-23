@@ -1,4 +1,4 @@
-import { useId, useState, type FC } from 'react';
+import { useId, useRef, useState, type FC, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import {
   useController,
@@ -8,10 +8,10 @@ import {
 } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus } from 'lucide-react';
+import { Minus, Plus } from 'lucide-react';
 import { z } from 'zod';
 
-import type { InstrumentType } from '@/app/api/v1/portfolio';
+import type { InstrumentType, PositionDetail } from '@/app/api/v1/portfolio';
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import type {
   ListedTransaction,
@@ -46,6 +46,7 @@ import { usePosition } from '@/hooks/use-portfolio';
 import {
   calendarDayOf,
   currentInstant,
+  formatQuoteTime,
   instantOf,
   timeOfDayOf
 } from '@/lib/dates';
@@ -54,7 +55,9 @@ import {
   INTEGER_DIGITS,
   isNonzeroDecimal,
   isStorableDecimal,
-  readDecimal
+  readDecimal,
+  roundDecimal,
+  shiftByWholeUnits
 } from '@/lib/decimal';
 import { presentSubmitError } from '@/lib/submit-error';
 import type { Maybe } from '@/types';
@@ -77,7 +80,7 @@ type TransactionFormProps = Pick<
   'target' | 'onCancel' | 'onSubmit'
 > &
   Record<'formId' | 'currency', string> &
-  Record<'instrumentType', Maybe<InstrumentType>>;
+  Record<'position', Maybe<PositionDetail>>;
 
 type TransactionFormInput = z.input<typeof TransactionFormSchema>;
 
@@ -88,10 +91,14 @@ type AmountField = Extract<
   'unitPrice' | 'fees' | 'taxes'
 >;
 
+type TransactionDetail = (typeof TRANSACTION_DETAILS)[number];
+
 type AmountFieldProps = Record<'name', AmountField> &
   Record<'label' | 'currency', string> &
   Record<'decimals', number> &
   Partial<Record<'isOptional', boolean>> &
+  Partial<Record<'hint', string>> &
+  Partial<Record<'action', ReactNode>> &
   Record<'control', Control<TransactionFormInput, unknown, TransactionDraft>>;
 
 /** The API bounds broker and notes to these lengths. */
@@ -105,6 +112,26 @@ const EXECUTION_TIME_ISSUE =
 
 const SUBMIT_FAILURE_MESSAGE = 'The transaction could not be saved';
 
+const MARKET_PRICE_HINT = 'Market price';
+
+/** One whole unit, keeping the fraction, moves a quantity of any class. */
+const QUANTITY_STEP = 1;
+
+/** Fields a transaction often goes without, added to the form one by one. */
+const TRANSACTION_DETAILS = [
+  'fees',
+  'taxes',
+  'broker',
+  'notes'
+] as const satisfies ReadonlyArray<TransactionFormField>;
+
+const TRANSACTION_DETAIL_LABELS: Record<TransactionDetail, string> = {
+  fees: 'Fees',
+  taxes: 'Taxes',
+  broker: 'Broker',
+  notes: 'Notes'
+};
+
 const TRANSACTION_TYPE_HINTS: Record<TransactionType, string> = {
   BUY: 'Adds units to the position. Price, fees and taxes go into its average cost.',
   SELL: 'Removes units from the position and realizes the profit against its average cost.',
@@ -116,6 +143,13 @@ const TRANSACTION_TYPE_HINTS: Record<TransactionType, string> = {
   BONUS:
     'Bonus units received, at the cost per unit the company attributed, which can be zero.'
 };
+
+/** A trade happens at the market, so its price is the one to start from. */
+const isTradedAtMarket = (type: TransactionType) =>
+  type === 'BUY' || type === 'SELL';
+
+/** Interest on equity is paid net of a tax withheld at source. */
+const hasWithheldTax = (type: TransactionType) => type === 'JCP';
 
 const typedDecimalIssueOf = (field: string, reading: RejectedAmount) =>
   reading.outcome === 'ambiguous'
@@ -192,6 +226,39 @@ const unitPriceDecimalsOf = (
     currencyFractionDigits(currency),
     (instrumentType && UNIT_PRICE_DECIMALS[instrumentType]) ?? 0
   );
+
+/**
+ * The position's market price, in the portfolio's base currency, at the places
+ * a unit price is typed with, or exact when those places would round it to zero.
+ */
+const marketUnitPriceOf = (
+  position: Maybe<PositionDetail>,
+  currency: string,
+  decimals: number
+) => {
+  const marketPrice =
+    position?.baseCurrency === currency ? position.marketPrice : undefined;
+
+  if (marketPrice === undefined || !isNonzeroDecimal(marketPrice)) return null;
+
+  const rounded = roundDecimal(marketPrice, decimals);
+
+  return isNonzeroDecimal(rounded) ? rounded : marketPrice;
+};
+
+const marketPriceHintOf = (quote: PositionDetail['quote']) =>
+  quote === undefined
+    ? MARKET_PRICE_HINT
+    : `${MARKET_PRICE_HINT} as of ${formatQuoteTime(quote.timestamp)}`;
+
+/** The quantity the stepper moves from, or null while the text is not a number. */
+const steppableQuantityOf = (quantity: string) => {
+  if (quantity.trim() === '') return '0';
+
+  const reading = readDecimal(quantity);
+
+  return reading.outcome === 'read' ? reading.value : null;
+};
 
 const TransactionFormFields = z.object({
   type: z.enum(TRANSACTION_TYPES),
@@ -277,13 +344,30 @@ const toTransactionFormValues = ({
   type,
   quantity,
   unitPrice,
-  fees,
-  taxes,
+  fees: isNonzeroDecimal(fees) ? fees : '',
+  taxes: isNonzeroDecimal(taxes) ? taxes : '',
   executionDay: calendarDayOf(executedAt),
   executionTime: timeOfDayOf(executedAt),
   broker: broker ?? '',
   notes: notes ?? ''
 });
+
+const shownDetailsOf = (
+  target: TransactionFormTarget
+): ReadonlySet<TransactionDetail> => {
+  if (target.kind === 'create') return new Set();
+
+  const { type, fees, taxes, broker, notes } = target.transaction;
+
+  const hasDetail: Record<TransactionDetail, boolean> = {
+    fees: isNonzeroDecimal(fees),
+    taxes: isNonzeroDecimal(taxes) || hasWithheldTax(type),
+    broker: broker !== null,
+    notes: notes !== null
+  };
+
+  return new Set(TRANSACTION_DETAILS.filter((detail) => hasDetail[detail]));
+};
 
 const AmountField: FC<AmountFieldProps> = ({
   name,
@@ -291,6 +375,8 @@ const AmountField: FC<AmountFieldProps> = ({
   currency,
   decimals,
   isOptional = false,
+  hint,
+  action,
   control: formControl
 }) => {
   const {
@@ -308,7 +394,9 @@ const AmountField: FC<AmountFieldProps> = ({
     <FormField
       isOptional={isOptional}
       label={`${label} (${currency})`}
+      hint={hint}
       error={error?.message}
+      action={action}
     >
       {(control) => (
         <MoneyInput
@@ -337,30 +425,43 @@ const TransactionForm: FC<TransactionFormProps> = ({
   formId,
   target,
   currency,
-  instrumentType,
+  position,
   onCancel,
   onSubmit
 }) => {
   const openedAt = currentInstant();
 
+  const unitPriceDecimals = unitPriceDecimalsOf(position?.type, currency);
+
+  const marketUnitPrice =
+    target.kind === 'create'
+      ? marketUnitPriceOf(position, currency, unitPriceDecimals)
+      : null;
+
   const defaultValues =
     target.kind === 'create'
       ? {
           ...EMPTY_TRANSACTION_FORM,
+          unitPrice: marketUnitPrice ?? '',
           executionDay: calendarDayOf(openedAt),
           executionTime: timeOfDayOf(openedAt)
         }
       : toTransactionFormValues(target.transaction);
 
-  const [isDetailOpen, setIsDetailOpen] = useState(
-    target.kind === 'edit' &&
-      (target.transaction.broker !== null || target.transaction.notes !== null)
+  const [shownDetails, setShownDetails] = useState(() =>
+    shownDetailsOf(target)
   );
+
+  const addDetailButtons = useRef<
+    Partial<Record<TransactionDetail, HTMLButtonElement | null>>
+  >({});
 
   const {
     control: formControl,
     register,
     handleSubmit,
+    getValues,
+    setValue,
     setError,
     setFocus,
     formState: { errors, dirtyFields, isSubmitting }
@@ -371,6 +472,8 @@ const TransactionForm: FC<TransactionFormProps> = ({
   });
 
   const selectedType = useWatch({ control: formControl, name: 'type' });
+  const unitPrice = useWatch({ control: formControl, name: 'unitPrice' });
+  const quantity = useWatch({ control: formControl, name: 'quantity' });
 
   const { field: executionDayField } = useController({
     name: 'executionDay',
@@ -379,10 +482,92 @@ const TransactionForm: FC<TransactionFormProps> = ({
 
   const amountDecimals = currencyFractionDigits(currency);
 
-  const openDetail = () => {
-    flushSync(() => setIsDetailOpen(true));
-    setFocus('broker');
+  const unitPriceHint =
+    marketUnitPrice !== null &&
+    unitPrice === marketUnitPrice &&
+    isTradedAtMarket(selectedType)
+      ? marketPriceHintOf(position?.quote)
+      : undefined;
+
+  const baseQuantity = steppableQuantityOf(quantity);
+
+  const shiftedQuantityOf = (count: number) =>
+    baseQuantity === null ? null : shiftByWholeUnits(baseQuantity, count);
+
+  const decreasedQuantity = shiftedQuantityOf(-QUANTITY_STEP);
+  const increasedQuantity = shiftedQuantityOf(QUANTITY_STEP);
+
+  /**
+   * A unit price still at the market price follows the type: a trade keeps it,
+   * and income or a bonus, priced per unit by the payer, starts empty.
+   */
+  const followSelectedType = () => {
+    const type = getValues('type');
+    const currentUnitPrice = getValues('unitPrice');
+
+    if (hasWithheldTax(type))
+      setShownDetails((shown) =>
+        shown.has('taxes') ? shown : new Set(shown).add('taxes')
+      );
+
+    if (
+      marketUnitPrice === null ||
+      (currentUnitPrice !== '' && currentUnitPrice !== marketUnitPrice)
+    )
+      return;
+
+    const nextUnitPrice = isTradedAtMarket(type) ? marketUnitPrice : '';
+
+    if (nextUnitPrice !== currentUnitPrice)
+      setValue('unitPrice', nextUnitPrice, {
+        shouldValidate: nextUnitPrice !== ''
+      });
   };
+
+  const stepQuantityTo = (nextQuantity: string | null) => {
+    if (nextQuantity === null) return;
+
+    setValue('quantity', nextQuantity, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true
+    });
+  };
+
+  const showDetail = (detail: TransactionDetail) => {
+    flushSync(() => setShownDetails((shown) => new Set(shown).add(detail)));
+    setFocus(detail);
+  };
+
+  const removeDetail = (detail: TransactionDetail) => {
+    setValue(detail, '', { shouldDirty: true, shouldValidate: true });
+    flushSync(() =>
+      setShownDetails(
+        (shown) =>
+          new Set([...shown].filter((shownDetail) => shownDetail !== detail))
+      )
+    );
+    addDetailButtons.current[detail]?.focus();
+  };
+
+  const removeDetailButton = (detail: TransactionDetail) => (
+    <Button
+      type="button"
+      variant="ghost"
+      size="xxs"
+      className="text-muted-foreground"
+      onClick={() => removeDetail(detail)}
+    >
+      Remove
+      <span className="sr-only">
+        {` ${TRANSACTION_DETAIL_LABELS[detail].toLowerCase()}`}
+      </span>
+    </Button>
+  );
+
+  const hiddenDetails = TRANSACTION_DETAILS.filter(
+    (detail) => !shownDetails.has(detail)
+  );
 
   const submitDraft = async (draft: TransactionDraft) => {
     const isOriginalExecutionTime =
@@ -421,7 +606,7 @@ const TransactionForm: FC<TransactionFormProps> = ({
                 <SegmentedControlItem
                   key={type}
                   value={type}
-                  {...register('type')}
+                  {...register('type', { onChange: followSelectedType })}
                 >
                   {TRANSACTION_TYPE_LABELS[type]}
                 </SegmentedControlItem>
@@ -431,13 +616,44 @@ const TransactionForm: FC<TransactionFormProps> = ({
 
           <FormField label="Quantity" error={errors.quantity?.message}>
             {(control) => (
-              <Input
-                {...control}
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                {...register('quantity')}
-              />
+              <div className="flex gap-2">
+                <div className="min-w-0 flex-1">
+                  <Input
+                    {...control}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    className="tabular-nums"
+                    {...register('quantity')}
+                  />
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label={`Decrease quantity by ${QUANTITY_STEP}`}
+                  aria-controls={control.id}
+                  aria-disabled={decreasedQuantity === null}
+                  className="shrink-0"
+                  onClick={() => stepQuantityTo(decreasedQuantity)}
+                >
+                  <Minus size={16} aria-hidden="true" />
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label={`Increase quantity by ${QUANTITY_STEP}`}
+                  aria-controls={control.id}
+                  aria-disabled={increasedQuantity === null}
+                  className="shrink-0"
+                  onClick={() => stepQuantityTo(increasedQuantity)}
+                >
+                  <Plus size={16} aria-hidden="true" />
+                </Button>
+              </div>
             )}
           </FormField>
 
@@ -445,25 +661,8 @@ const TransactionForm: FC<TransactionFormProps> = ({
             name="unitPrice"
             label={TRANSACTION_UNIT_PRICE_LABELS[selectedType]}
             currency={currency}
-            decimals={unitPriceDecimalsOf(instrumentType, currency)}
-            control={formControl}
-          />
-
-          <AmountField
-            isOptional
-            name="fees"
-            label="Fees"
-            currency={currency}
-            decimals={amountDecimals}
-            control={formControl}
-          />
-
-          <AmountField
-            isOptional
-            name="taxes"
-            label="Taxes"
-            currency={currency}
-            decimals={amountDecimals}
+            decimals={unitPriceDecimals}
+            hint={unitPriceHint}
             control={formControl}
           />
 
@@ -493,51 +692,96 @@ const TransactionForm: FC<TransactionFormProps> = ({
             )}
           </FormField>
 
-          {isDetailOpen ? (
-            <>
-              <FormField
-                isOptional
-                label="Broker"
-                error={errors.broker?.message}
-              >
-                {(control) => (
-                  <Input
-                    {...control}
-                    type="text"
-                    maxLength={BROKER_MAX_LENGTH}
-                    {...register('broker')}
-                  />
-                )}
-              </FormField>
+          {shownDetails.has('fees') && (
+            <AmountField
+              isOptional
+              name="fees"
+              label="Fees"
+              currency={currency}
+              decimals={amountDecimals}
+              action={removeDetailButton('fees')}
+              control={formControl}
+            />
+          )}
 
-              <FormField
-                isOptional
-                label="Notes"
-                error={errors.notes?.message}
-                className="sm:col-span-2"
-              >
-                {(control) => (
-                  <textarea
-                    {...control}
-                    rows={3}
-                    maxLength={NOTES_MAX_LENGTH}
-                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-negative md:text-sm"
-                    {...register('notes')}
-                  />
-                )}
-              </FormField>
-            </>
-          ) : (
-            <Button
-              type="button"
-              variant="link"
-              className="h-auto justify-self-start gap-1.5 p-0 sm:col-span-2"
-              onClick={openDetail}
+          {shownDetails.has('taxes') && (
+            <AmountField
+              isOptional
+              name="taxes"
+              label="Taxes"
+              currency={currency}
+              decimals={amountDecimals}
+              action={removeDetailButton('taxes')}
+              control={formControl}
+            />
+          )}
+
+          {shownDetails.has('broker') && (
+            <FormField
+              isOptional
+              label="Broker"
+              error={errors.broker?.message}
+              action={removeDetailButton('broker')}
             >
-              <Plus size={16} aria-hidden="true" />
+              {(control) => (
+                <Input
+                  {...control}
+                  type="text"
+                  maxLength={BROKER_MAX_LENGTH}
+                  {...register('broker')}
+                />
+              )}
+            </FormField>
+          )}
 
-              <span>Add broker or notes</span>
-            </Button>
+          {shownDetails.has('notes') && (
+            <FormField
+              isOptional
+              label="Notes"
+              error={errors.notes?.message}
+              action={removeDetailButton('notes')}
+              className="sm:col-span-2"
+            >
+              {(control) => (
+                <textarea
+                  {...control}
+                  rows={3}
+                  maxLength={NOTES_MAX_LENGTH}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-negative md:text-sm"
+                  {...register('notes')}
+                />
+              )}
+            </FormField>
+          )}
+
+          {hiddenDetails.length > 0 && (
+            <div
+              role="group"
+              aria-label="Optional details"
+              className="flex flex-wrap gap-2 sm:col-span-2"
+            >
+              {hiddenDetails.map((detail) => (
+                <Button
+                  key={detail}
+                  ref={(button) => {
+                    addDetailButtons.current[detail] = button;
+                  }}
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  className="gap-1.5"
+                  onClick={() => showDetail(detail)}
+                >
+                  <Plus size={14} aria-hidden="true" />
+
+                  <span>
+                    <span className="sr-only">Add </span>
+
+                    {TRANSACTION_DETAIL_LABELS[detail]}
+                  </span>
+                </Button>
+              ))}
+            </div>
           )}
 
           {errors.root?.server?.message !== undefined && (
@@ -563,8 +807,9 @@ const TransactionForm: FC<TransactionFormProps> = ({
 
 /**
  * The form waits for the position, whose class sets the decimal places a unit
- * price is typed with. When the position cannot be read, the form still opens,
- * with the currency's own decimal places.
+ * price is typed with and whose market price starts a new trade's unit price.
+ * When the position cannot be read, the form still opens, with the currency's
+ * own decimal places and no unit price.
  */
 export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
   portfolio,
@@ -607,7 +852,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
           </DialogTitle>
 
           <DialogDescription>
-            {`Amounts in ${currency}. Fees and taxes left blank are recorded as zero.`}
+            {`Amounts in ${currency}. Fees and taxes left out are recorded as zero.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -626,7 +871,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
             formId={formId}
             target={target}
             currency={currency}
-            instrumentType={positionQuery.data?.type}
+            position={positionQuery.data}
             onCancel={onCancel}
             onSubmit={save}
           />
