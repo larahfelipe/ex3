@@ -99,7 +99,7 @@ export const SignUpForm: FC = () => {
 
   return (
     <form noValidate onSubmit={handleSubmit(handleSignUp)}>
-      <div className="space-y-4">
+      <div className="space-y-5">
         <FormField label="Name" error={errors.name?.message}>
           {(control) => (
             <Input
@@ -191,7 +191,7 @@ export const SignUpForm: FC = () => {
         )}
       </div>
 
-      <SubmitButton isPending={isSubmitting} size="lg" className="mt-12 w-full">
+      <SubmitButton isPending={isSubmitting} size="lg" className="mt-8 w-full">
         Create account
       </SubmitButton>
     </form>

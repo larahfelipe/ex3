@@ -10,6 +10,7 @@ import {
   SIGN_IN_REASONS
 } from '@/common/constants';
 
+import { PublicPageHeader } from '../_components/public-page-header';
 import { SignInForm } from './_components/sign-in-form';
 
 export const metadata: Metadata = {
@@ -40,17 +41,9 @@ export default async function SignIn({ searchParams }: SignInProps) {
 
   return (
     <>
-      <section className="mx-auto space-y-1.5">
-        <p className="text-center text-lg font-semibold font-display">EX3</p>
+      <PublicPageHeader title="Sign in to your account" />
 
-        <div className="w-full h-px bg-border" />
-
-        <h1 className="text-base text-muted-foreground text-center">
-          Sign in to your account
-        </h1>
-      </section>
-
-      <section className="w-full flex flex-col justify-center mx-auto px-6 sm:w-[400px] sm:px-0">
+      <section>
         {hasSessionExpired && (
           <p className="mb-6 flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
             <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
@@ -60,11 +53,11 @@ export default async function SignIn({ searchParams }: SignInProps) {
 
         <SignInForm destination={destination} />
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
+        <p className="mt-8 text-center text-sm text-muted-foreground">
           Not registered?{' '}
           <Link
             href={APP_ROUTES.Public.SignUp}
-            className="leading-6 text-foreground underline underline-offset-4 hover:text-foreground/90"
+            className="rounded-sm font-medium text-foreground underline decoration-muted-foreground underline-offset-4 ring-offset-background transition-colors hover:decoration-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
           >
             Create account
           </Link>
