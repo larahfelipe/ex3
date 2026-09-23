@@ -3,8 +3,8 @@ import request from 'supertest';
 
 import {
   accountRateLimitKey,
-  authRateLimitMiddleware,
-  rateLimitStores
+  rateLimitStores,
+  signInPerAccountRateLimitMiddleware
 } from '@/middleware/RateLimitMiddleware';
 
 import {
@@ -40,13 +40,14 @@ export const resetRateLimits = async () => {
 };
 
 /**
- * Whether the auth limiter is counting the account the credentials name. The
- * harness test reads it to prove `resetRateLimits` clears the key the limiter
- * actually derives, instead of silently clearing nothing.
+ * Whether the per-account sign-in limiter is counting the account the
+ * credentials name. The harness test reads it to prove `resetRateLimits` clears
+ * the key the limiter actually derives, instead of silently clearing nothing.
  */
 export const isAccountRateLimited = async (email: string) =>
-  (await authRateLimitMiddleware.getKey(accountRateLimitKey(email))) !==
-  undefined;
+  (await signInPerAccountRateLimitMiddleware.getKey(
+    accountRateLimitKey(email)
+  )) !== undefined;
 
 export const bearer = (accessToken: string) => ({
   Authorization: `Bearer ${accessToken}`

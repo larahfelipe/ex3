@@ -6,6 +6,12 @@ import { z } from 'zod';
  */
 const JWT_SECRET_MIN_LENGTH = 32;
 
+/**
+ * Whoever holds it chooses the client address the API throttles a request
+ * under, so it gets the entropy asked of the JWT secret.
+ */
+const API_PROXY_SECRET_MIN_LENGTH = 32;
+
 const BCRYPT_SALT_MIN_ROUNDS = 10;
 
 const DEFAULT_PORT = 8080;
@@ -114,6 +120,15 @@ const EnvsSchema = z
       tokenLifetimeSeconds.prefault(DEFAULT_JWT_EXPIRATION)
     ),
     CORS_ALLOWED_ORIGINS: blankAsAbsent(originList.optional()),
+    API_PROXY_SECRET: blankAsAbsent(
+      z
+        .string()
+        .min(
+          API_PROXY_SECRET_MIN_LENGTH,
+          `Must have at least ${API_PROXY_SECRET_MIN_LENGTH} characters`
+        )
+        .optional()
+    ),
     YAHOO_FINANCE_API_KEY: blankAsAbsent(z.string().optional())
   })
   .superRefine((envs, ctx) => {
@@ -121,6 +136,13 @@ const EnvsSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['CORS_ALLOWED_ORIGINS'],
+        message: 'Required when NODE_ENV=production'
+      });
+
+    if (envs.NODE_ENV === 'production' && envs.API_PROXY_SECRET === undefined)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['API_PROXY_SECRET'],
         message: 'Required when NODE_ENV=production'
       });
   })
@@ -134,6 +156,7 @@ const EnvsSchema = z
     jwtSecret: envs.JWT_SECRET,
     jwtExpirationSeconds: envs.JWT_EXPIRATION,
     corsAllowedOrigins: envs.CORS_ALLOWED_ORIGINS ?? [],
+    apiProxySecret: envs.API_PROXY_SECRET,
     yahooFinanceApiKey: envs.YAHOO_FINANCE_API_KEY
   }));
 

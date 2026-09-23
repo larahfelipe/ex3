@@ -50,7 +50,7 @@ Em Linux, o usuário `node` do container (uid 1000) grava no código montado (`d
 
 ## Variáveis de ambiente
 
-O `.env` da raiz só é lido pelo Compose. O backend no container recebe `NODE_ENV`, `PORT`, `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET` e `YAHOO_FINANCE_API_KEY` do `compose.yaml`. Como o `dotenv` não sobrescreve variável já definida, esses valores prevalecem sobre um `backend/.env` presente no código montado. As demais chaves (`BCRYPT_SALT`, `JWT_EXPIRATION`, `CORS_ALLOWED_ORIGINS`) seguem o `backend/.env`, se ele existir, ou o default do `EnvsSchema`.
+O `.env` da raiz só é lido pelo Compose. O backend no container recebe `NODE_ENV`, `PORT`, `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `API_PROXY_SECRET` e `YAHOO_FINANCE_API_KEY` do `compose.yaml`, e o web recebe `API_URL` e o mesmo `API_PROXY_SECRET`. Como o `dotenv` não sobrescreve variável já definida, esses valores prevalecem sobre um `backend/.env` presente no código montado. As demais chaves (`BCRYPT_SALT`, `JWT_EXPIRATION`, `CORS_ALLOWED_ORIGINS`) seguem o `backend/.env`, se ele existir, ou o default do `EnvsSchema`.
 
 O web recebe `API_URL=http://backend:8080`, o nome do serviço na rede do Compose. O navegador só fala com o web.
 

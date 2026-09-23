@@ -10,14 +10,17 @@ const VALID_DATABASE_URL = 'postgresql://user:pass@localhost:5432/ex3';
 
 /**
  * dotenv never overrides variables already present in the environment, so
- * passing them explicitly keeps this test deterministic whether or not the
- * developer has a local `.env`.
+ * passing them explicitly, `NODE_ENV` included, keeps this test deterministic
+ * whether or not the developer has a local `.env`.
  */
 const loadEnvsModule = (envs: NodeJS.ProcessEnv) =>
   execFileAsync(
     process.execPath,
     ['--import', 'tsx', '-e', "require('./src/config/Envs');"],
-    { cwd: process.cwd(), env: { PATH: process.env.PATH, ...envs } }
+    {
+      cwd: process.cwd(),
+      env: { PATH: process.env.PATH, NODE_ENV: 'development', ...envs }
+    }
   );
 
 describe('envs startup', () => {

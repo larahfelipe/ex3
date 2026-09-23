@@ -88,6 +88,8 @@ Sem `YAHOO_FINANCE_API_KEY`, a aplicação funciona: toda cotação é reportada
 | `backend/.env.test` | a suíte de testes, via `--env-file`; está no git e aponta para o banco de teste | — |
 | `web/.env` | o build do Next, que fixa `API_URL` na aplicação | `API_URL` |
 
+`API_PROXY_SECRET`, com o mesmo valor no backend e no web, é obrigatória quando `NODE_ENV=production`: com ela o web atesta à API o endereço de quem faz sign-in e sign-up, e o throttling conta por navegador, não pelo servidor do web. Em desenvolvimento pode ficar em branco nos dois.
+
 As demais chaves do backend têm default: `NODE_ENV=development`, `PORT=8080`, `BCRYPT_SALT=12` (mínimo 10), `JWT_EXPIRATION=1d` (inteiro positivo seguido de `s`, `m`, `h` ou `d`, no máximo `30d`) e `DIRECT_URL`, que só a CLI do Prisma usa. `CORS_ALLOWED_ORIGINS` é obrigatória quando `NODE_ENV=production`.
 
 `src/config/EnvsSchema.ts` valida tudo isso na subida e recusa o boot com a lista de problemas; chave em branco, como o `.env.example` a distribui, conta como ausente e recebe o default.
@@ -142,7 +144,7 @@ O runner é o `node:test`, sem framework adicional. Os testes unitários (`src/*
 | Build e publicação das imagens | `cloudbuild.yaml` → `gcr.io/$PROJECT_ID/{backend,web}:$COMMIT_SHA` |
 | Runtime | Cloud Run, a partir do estágio `runner` de cada `Dockerfile` |
 
-`API_URL` do web entra por build-arg e fica fixada na imagem, não no ambiente do container. O `cloudbuild.yaml` não tem passo de deploy: a configuração do serviço no Cloud Run — variáveis, probes `GET /ready` e `GET /health` — vive fora do repositório (TD-060).
+`API_URL` do web entra por build-arg e fica fixada na imagem, não no ambiente do container. `API_PROXY_SECRET` faz o contrário: é variável de ambiente dos dois serviços no Cloud Run, de preferência vinda do Secret Manager, nunca build-arg, porque o web a lê em tempo de execução e numa imagem ela ficaria nas camadas. O backend não sobe em produção sem ela. O `cloudbuild.yaml` não tem passo de deploy: a configuração do serviço no Cloud Run — variáveis, probes `GET /ready` e `GET /health` — vive fora do repositório (TD-060).
 
 ## Documentação
 

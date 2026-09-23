@@ -20,6 +20,7 @@ import { registerIntegrationHooks } from './IntegrationHooks';
 import { injectWriteFailure, resetDatabase } from './TestDatabase';
 
 const PORTFOLIOS_ROUTE = '/v1/portfolios';
+const SIGN_IN_ROUTE = '/v1/user';
 
 const prismaClient = PrismaClient.getInstance();
 
@@ -84,11 +85,15 @@ describe('test harness', () => {
   it('clears the rate limit counters the limiter actually keeps', async () => {
     const { user } = await seedPortfolio();
 
-    await signIn({ email: user.email, password: FIXTURE_PASSWORD });
+    await (
+      await apiRequest()
+    )
+      .post(SIGN_IN_ROUTE)
+      .send({ email: user.email, password: `${FIXTURE_PASSWORD}-wrong` });
 
     assert.ok(
       await isAccountRateLimited(user.email),
-      'the signed-in account was not counted, so resetRateLimits clears nothing'
+      'the failed sign-in was not counted, so resetRateLimits clears nothing'
     );
 
     await resetRateLimits();

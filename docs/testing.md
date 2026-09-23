@@ -63,7 +63,7 @@ A exceção é a senha, que passa pelo mesmo `Bcrypt` da aplicação — é o qu
 
 `signIn()` autentica pelo endpoint real em vez de assinar um token localmente. A sessão é stateful (a `sessionVersion` do token precisa ser a da linha do usuário) e é o endpoint que incrementa essa versão, então o token obtido é o mesmo que um cliente real receberia. Assinar localmente fica restrito aos testes de token inválido, que precisam de claims forjadas.
 
-Os rate limiters guardam contadores em memória de processo, que sobrevivem a um teste. Os budgets são apertados de propósito (10 tentativas de autenticação por 15 min), então `resetRateLimits()` é chamado em `beforeEach`. Desde a TASK 20.4 a chave é a identidade, não o endereço — uma por conta e uma por sessão —, e o reset limpa os dois `MemoryStore` inteiros em vez de listar chaves. `Harness.integration.ts` afirma que a conta autenticada está de fato sendo contada antes de resetar, para que um reset que não limpa nada falhe em vez de passar silenciosamente.
+Os rate limiters guardam contadores em memória de processo, que sobrevivem a um teste. Os budgets são apertados de propósito (10 falhas de sign-in por conta e endereço a cada 15 min), então `resetRateLimits()` é chamado em `beforeEach` e limpa inteiros os `MemoryStore` de `rateLimitStores` em vez de listar chaves. `Harness.integration.ts` afirma que a conta de um sign-in que falhou está de fato sendo contada antes de resetar, para que um reset que não limpa nada falhe em vez de passar silenciosamente; o sign-in que acerta a senha devolve a tentativa e não serviria de prova. Os testes de endereço usam os blocos de documentação da RFC 5737, atestados pelos cabeçalhos do web com o `API_PROXY_SECRET` do `.env.test`.
 
 ## Mocks
 

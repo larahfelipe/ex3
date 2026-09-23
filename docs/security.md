@@ -13,6 +13,8 @@ e senha está em [`authentication.md`](authentication.md); o envelope de erro, e
 | Cabeçalho `Authorization` | `authMiddleware`: esquema `Bearer`, assinatura HS256, claims reparseadas, `sessionVersion` conferida na linha do usuário | `401 AUTHENTICATION` | nenhuma |
 | `x-request-id` | `PROPAGATED_REQUEST_ID` aceita 8–64 caracteres de `[A-Za-z0-9-]`; fora disso o id é gerado | id descartado em silêncio, sem erro | nenhuma: o valor só volta no cabeçalho e no log |
 | `Origin` | allowlist de `CORS_ALLOWED_ORIGINS`, obrigatória em produção | resposta sem `Access-Control-Allow-Origin` | nenhuma |
+| `x-client-address` e `x-api-proxy-secret` | `clientAddressOf` (`RateLimitMiddleware.ts`): o endereço vale só com o segredo de `API_PROXY_SECRET` e se for um IP | cabeçalho ignorado em silêncio; a requisição conta pelo endereço de quem conectou | só o web, que prova pelo segredo |
+| `X-Forwarded-For` no web | `clientAddressHeaders` (`web/src/lib/api-proxy.ts`) usa só a última entrada, a que o Cloud Run acrescenta | entradas anteriores ignoradas | nenhuma: o que o cliente envia fica antes da entrada da plataforma |
 | Corpo dos route handlers do web | `jsonPayload` (`web/src/lib/api-proxy.ts`) | `400 Bad Request` com envelope `{ message, _error }` | nenhuma |
 | Provedor de cotação (Yahoo Finance) | origem fixa e símbolo restrito a letras e dígitos, escapado na URL; resposta parseada por schema antes de virar preço ou atributo de instrumento, com nome e setor limitados em tamanho; do cliente, o registro só aceita símbolo, mercado e moeda | falha de infraestrutura; a posição é reportada pelo livro | resposta tratada como dado externo |
 
@@ -23,7 +25,8 @@ parse, e o payload acima disso responde `413`.
 
 * `EnvsSchema` recusa o processo no boot: `JWT_SECRET` com menos de 32
   caracteres, `BCRYPT_SALT` abaixo de 10 rounds, `JWT_EXPIRATION` sem unidade ou
-  acima de `30d`, `CORS_ALLOWED_ORIGINS` ausente em produção. Não há default
+  acima de `30d`, `CORS_ALLOWED_ORIGINS` ausente em produção, `API_PROXY_SECRET`
+  com menos de 32 caracteres ou ausente em produção. Não há default
   inseguro — o que falta derruba a inicialização, não degrada em silêncio.
 * Nenhum segredo é registrado. A linha de requisição identifica o usuário por id
   e nada mais; o log de falha upstream do web é montado campo a campo justamente
@@ -76,28 +79,85 @@ resposta JSON do proxy sai com `nosniff` mesmo sem CSP. `worker-src` passou a
 
 ## Rate limiting
 
-Três budgets, todos em `middleware/RateLimitMiddleware.ts`: 120 requisições por
-minuto para a API, 10 por 15 minutos para os endpoints que verificam senha
-(sign-in, sign-up, `PATCH` e `DELETE /v1/user`) e 30 por minuto para a busca de
-instrumentos, que pode gastar a cota do provedor de cotação.
+Os budgets estão em `RateLimits` (`backend/src/config/Constants.ts`) e são
+aplicados por `middleware/RateLimitMiddleware.ts`. Os números são assumidos, não
+medidos.
 
-**A chave não é o endereço do chamador.** Em produção o navegador só fala com o
-web, e o proxy encaminha à API apenas o `Authorization`: todo tráfego chega do
-mesmo container, e uma chave por endereço daria um único balde para o produto
-inteiro — um cliente esgotaria o limite de todos, e o throttling de senha
-deixaria de ser por conta. Desde a TASK 20.4:
+| Budget | Rotas | Janela | Limite | Chave | Conta |
+| --- | --- | --- | --- | --- | --- |
+| `SIGN_IN_PER_ADDRESS` | sign-in | 15 min | 50 | endereço do cliente | só falhas |
+| `SIGN_IN_PER_ACCOUNT_AND_ADDRESS` | sign-in | 15 min | 10 | digest do e-mail + endereço do cliente | só falhas |
+| `SIGN_IN_PER_ACCOUNT` | sign-in | 1 h | 50 | digest do e-mail | só falhas |
+| `SIGN_UP_PER_ADDRESS` | sign-up | 1 h | 10 | endereço do cliente | toda tentativa |
+| `ACCOUNT_CHANGE` | `PATCH` e `DELETE /v1/user` | 15 min | 10 | digest da sessão; sem ela, endereço | só falhas |
+| `API` | todas | 1 min | 120 | digest da sessão; sem ela, endereço | toda requisição |
+| `INSTRUMENT_SEARCH` | busca de instrumentos | 1 min | 30 | id do usuário | toda requisição |
 
-| Limite | Chave | Fallback |
-| --- | --- | --- |
-| API | digest da sessão apresentada | endereço do chamador, para o tráfego sem sessão |
-| Autenticação | digest da sessão; sem ela, digest do e-mail submetido | endereço do chamador |
-| Busca de instrumentos | id do usuário autenticado | nenhum: a rota exige sessão |
+"Só falhas" é o `skipSuccessfulRequests`: resposta abaixo de 400 devolve a
+tentativa, então quem acerta a senha não gasta nada. E-mail ausente ou vazio cai
+na chave do endereço. IPv6 conta pelo prefixo /56 (`ipKeyGenerator`), que um
+assinante recebe inteiro.
 
-O contador guarda digest, nunca o token nem o e-mail: um store de rate limit não
-é lugar de credencial. A contrapartida assumida é que um atacante consegue
-consumir o balde de tentativas de uma conta alheia, bloqueando-a por 15 minutos
-— preço menor que o de derrubar o produto inteiro. Os contadores continuam na
-memória de cada processo (TD-006).
+**Camadas do sign-in.** Rodam na ordem da tabela, e a requisição que uma recusa
+não é contada pelas seguintes:
+
+* por endereço: um host tentando muitas contas (password spraying, credential
+  stuffing);
+* por conta e endereço: quem esqueceu a senha. É o único limite que um usuário
+  legítimo encontra, e bloqueia a conta só para aquele endereço;
+* por conta: tentativas contra uma conta distribuídas por muitos endereços. É
+  também o custo de manter a conta de outra pessoa bloqueada: 50 falhas por
+  hora, vindas de endereços distintos, já que cada endereço para em 10.
+
+O sign-up conta toda tentativa porque cada uma custa um hash bcrypt e uma
+transação, e é o ponto de criação automatizada de contas.
+
+**Endereço do cliente.** Em produção o navegador só fala com o web, e todo
+tráfego chega à API vindo do mesmo serviço: contado pelo socket, o endereço
+seria um balde único para o produto inteiro. As rotas sem sessão (sign-in e
+sign-up) recebem do web dois cabeçalhos: `x-client-address`, a última entrada do
+`X-Forwarded-For` — a que o Cloud Run acrescenta, o mesmo salto único que o
+`trust proxy` da API conta —, e `x-api-proxy-secret`. A API só acredita no
+endereço quando o segredo confere com `API_PROXY_SECRET` e o valor é um IP; do
+contrário conta pelo endereço de quem conectou, que um cabeçalho não muda. Os
+segredos são comparados como digests SHA-256 por `timingSafeEqual`, então o
+tempo não depende do valor apresentado. `API_PROXY_SECRET` é obrigatória na API
+em produção, e o web recusa encaminhar sign-in e sign-up em produção sem ela,
+registrando `api.proxy_secret_missing`: sem o segredo, os dois voltariam a um
+balde único.
+
+**O que o cliente recebe.** `429` com o envelope genérico de `THROTTLED` e
+`Retry-After` em segundos, que o web mostra como "Too many requests. Try again
+in N minutes.". Nada diz qual budget se esgotou nem se a conta existe: e-mail
+desconhecido e senha errada respondem igual e são contados igual. Os limitadores
+de sign-in e sign-up não enviam `RateLimit` nem `RateLimit-Policy` — o que resta
+do budget de uma conta conta as falhas de todos os endereços, e contaria a um
+chamador as tentativas dos outros; só o budget geral da API, que é do próprio
+chamador, aparece nessas rotas.
+
+**Backoff.** A janela sobe de 15 minutos, por conta e endereço, para 1 hora, por
+conta, e o `Retry-After` diz quanto falta. Um contador que cresce enquanto a
+conta segue sob ataque exige estado fora da janela (TD-077).
+
+**Impacto em usuários legítimos.** Acertar a senha não consome budget, então o
+limite só aparece depois de 10 falhas em 15 minutos no mesmo endereço, e a
+mensagem diz quando tentar de novo. Uma rede atrás de um único NAT — escritório,
+universidade, operadora com CGNAT — compartilha 50 falhas de sign-in por 15
+minutos e 10 cadastros por hora; é o ponto a medir antes de apertar os números.
+Um ataque distribuído contra uma conta a bloqueia também para o dono, pelo resto
+da janela de 1 hora aberta pela primeira falha.
+
+**Outras superfícies de autenticação.**
+
+| Superfície | Tratamento |
+| --- | --- |
+| Custo do bcrypt como amplificação de DoS | Toda verificação de senha passa por um limitador antes do serviço; o sign-in com e-mail desconhecido compara contra um hash fictício, então o custo é igual e a contagem também |
+| Enumeração de e-mails (TD-004) | A vazão cai para 10 sondagens por hora por endereço, pelo budget de sign-up |
+| Bloqueio de conta alheia | Limitado a quem controla muitos endereços; o dono em outro endereço só é afetado pela camada por conta |
+| Falsificação do endereço | Cabeçalho sem o segredo, com segredo errado ou com valor que não é IP é ignorado; o `X-Forwarded-For` enviado pelo cliente fica antes da entrada que o web usa |
+| Automação sem limite de volume | Não há desafio a bots; dentro dos budgets, um script é indistinguível de uma pessoa (TD-076) |
+| Várias instâncias | Os contadores são por processo; o limite efetivo é o budget vezes o número de instâncias (TD-006) |
+| Desenvolvimento local | Sem `API_PROXY_SECRET`, o web não atesta endereço e todo navegador conta como o container do web |
 
 ## Autorização
 
@@ -127,5 +187,7 @@ no servidor: o cliente recebe `{ code, message, details }` genérico.
 | Enumeração de e-mails no sign-up (TD-004) | Responder igual para e-mail novo e existente exige confirmação por e-mail, fluxo que o produto não tem |
 | Senha nova sem checagem de vazamento e sem normalização Unicode (TD-005) | Depende de fonte externa e de migrar o hash de contas existentes no primeiro login bem-sucedido |
 | Contadores de rate limit por processo (TD-006) | Limite efetivo é o budget vezes o número de instâncias; resolver exige store compartilhado |
+| Sem desafio a bots no sign-in e no sign-up (TD-076) | Os budgets limitam o volume, não distinguem script de pessoa; um desafio depende de serviço externo |
+| Sem teto absoluto de falhas consecutivas por conta (TD-077) | A janela por conta renova a cada hora; um contador que só zera no sucesso exige estado persistente |
 | `style-src 'unsafe-inline'` (TD-007) | Componentes usam atributo `style`, que nonce não autoriza; CSS injetado altera aparência, não executa script |
 | Tráfego não autenticado contra o web não é limitado (TD-065) | O teto da API protege o backend; o servidor do Next depende da plataforma |

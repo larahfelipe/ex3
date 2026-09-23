@@ -28,6 +28,7 @@ x-backend-runtime-environment: &backend-runtime-environment
   DATABASE_URL: postgresql://ex3:${POSTGRES_PASSWORD:-}@postgres:5432/ex3
   DIRECT_URL: postgresql://ex3:${POSTGRES_PASSWORD:-}@postgres:5432/ex3
   JWT_SECRET: ${JWT_SECRET:-}
+  API_PROXY_SECRET: ${API_PROXY_SECRET:-}
   YAHOO_FINANCE_API_KEY: ${YAHOO_FINANCE_API_KEY:-}
 
 x-postgres-healthcheck: &postgres-healthcheck
@@ -99,6 +100,7 @@ services:
       - web-dev-build:/usr/src/app/web/build
     environment:
       API_URL: http://backend:8080
+      API_PROXY_SECRET: ${API_PROXY_SECRET:-}
     ports:
       - '127.0.0.1:3000:3000'
     healthcheck:

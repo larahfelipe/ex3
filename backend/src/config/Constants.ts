@@ -84,16 +84,42 @@ export const Errors = {
 } as const satisfies Record<string, ErrorDefinition>;
 
 const ONE_MINUTE_IN_MS = 60_000;
+const FIFTEEN_MINUTES_IN_MS = 15 * ONE_MINUTE_IN_MS;
+const ONE_HOUR_IN_MS = 60 * ONE_MINUTE_IN_MS;
 
 /**
- * `INSTRUMENT_SEARCH` bounds how fast one session can spend the quote
- * provider's request quota. Assumed, not measured: a debounced search box asks
- * a few times per instrument typed, far below it.
+ * Assumed, not measured. Sign-in counts only failed attempts, in three layers:
+ * per client address across accounts, against password spraying and
+ * credential stuffing from one host; per account and address, the one a person
+ * who forgot the password meets; and per account across addresses, against
+ * guessing spread over many hosts, which is also what an attacker spends to
+ * keep someone else's account locked. Each sign-up costs a bcrypt hash and a
+ * transaction, so every attempt counts, per address. `ACCOUNT_CHANGE` holds
+ * the routes that verify the password of a signed-in account to the budget of
+ * a single address. `INSTRUMENT_SEARCH` bounds how fast one session can spend
+ * the quote provider's request quota: a debounced search box asks a few times
+ * per instrument typed, far below it.
  */
 export const RateLimits = {
-  AUTH: { windowMs: 15 * ONE_MINUTE_IN_MS, limit: 10 },
+  SIGN_IN_PER_ADDRESS: { windowMs: FIFTEEN_MINUTES_IN_MS, limit: 50 },
+  SIGN_IN_PER_ACCOUNT_AND_ADDRESS: {
+    windowMs: FIFTEEN_MINUTES_IN_MS,
+    limit: 10
+  },
+  SIGN_IN_PER_ACCOUNT: { windowMs: ONE_HOUR_IN_MS, limit: 50 },
+  SIGN_UP_PER_ADDRESS: { windowMs: ONE_HOUR_IN_MS, limit: 10 },
+  ACCOUNT_CHANGE: { windowMs: FIFTEEN_MINUTES_IN_MS, limit: 10 },
   API: { windowMs: ONE_MINUTE_IN_MS, limit: 120 },
   INSTRUMENT_SEARCH: { windowMs: ONE_MINUTE_IN_MS, limit: 30 }
+} as const;
+
+/**
+ * What the web adds to each request it forwards: the address of the client it
+ * serves, and the secret without which the API ignores that address.
+ */
+export const ProxyHeaders = {
+  CLIENT_ADDRESS: 'x-client-address',
+  PROXY_SECRET: 'x-api-proxy-secret'
 } as const;
 
 export const RequestLimits = {
