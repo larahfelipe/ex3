@@ -167,12 +167,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** vermelho sem regressão, que só se distingue de defeito real reexecutando a suíte. Na CI, vira falha aleatória num merge legítimo.
 - **Proposta:** reproduzir a falha repetindo a suíte e registrando o status e o corpo da resposta no teste que falha, para saber se o dado some depois de gravado — reset ou escrita pendente de um teste anterior — ou nunca é gravado; corrigir a causa encontrada, sem novas tentativas automáticas que a escondam.
 
-### TD-035 — Detalhe do ativo sem proventos
-
-- **Origem:** TASK 9.2 · **Tipo:** produto · **Prioridade:** média · **Encaminhamento:** TASK 10.3
-- **Contexto:** o detalhe do ativo, em `/assets/[symbol]`, tem visão geral, posição, performance e transações. A seção de proventos ficou fora por decisão de produto até existir o modelo de proventos. O modelo existe, com `DIVIDEND`, `JCP` e `INTEREST` registráveis como transação, mas nenhum endpoint consolida os proventos de um ativo.
-- **Impacto:** o usuário não vê no ativo os proventos recebidos nem o rendimento deles sobre o custo.
-- **Proposta:** acrescentar a seção de proventos ao detalhe do ativo quando o modelo e a API de proventos existirem, com o recorte por ativo que a API oferecer.
 
 ### TD-039 — Configuração de containers sem validação num runtime
 
@@ -373,6 +367,11 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Proposta:** contar falhas consecutivas na linha do usuário, zerando no sucesso, com backoff crescente a partir de um limiar e teto que exige desafio (TD-076) ou redefinição de senha, fluxo que o produto ainda não tem.
 
 ## Resolvidos
+
+### TD-035 — Detalhe do ativo sem proventos
+
+- **Tipo:** produto · **Prioridade:** média
+- **Resolução:** `GET /v1/portfolio/positions/:symbol/indicators` soma os proventos da posição, de sempre e dos últimos 12 meses, e o `yield on cost`, na moeda do razão (`49f8dba`). O detalhe do ativo os mostra na seção Returns, com o resultado realizado e o dia da primeira transação, e a renda segue a classe do ativo (`82ea5fc`); ver `docs/financial-rules.md`, §Indicadores da posição.
 
 ### TD-024 — Seções da Overview sem sinal de dado desatualizado
 
