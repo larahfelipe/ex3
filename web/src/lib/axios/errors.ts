@@ -16,7 +16,7 @@ export type ApiProxyErrorData = {
   message: string;
 };
 
-export interface IApiProxyError extends WithStatusHeader, ApiProxyErrorData {}
+export type ApiProxyErrorFields = WithStatusHeader & ApiProxyErrorData;
 
 export const UNEXPECTED_ERROR_MESSAGE =
   'Something went wrong. Please try again later';
@@ -44,13 +44,13 @@ export const isConflictError = ({
 export const isDomainError = ({ _error }: Pick<ApiProxyErrorData, '_error'>) =>
   _error?.code === DOMAIN_ERROR_CODE;
 
-export class ApiProxyError extends AxiosError implements IApiProxyError {
+export class ApiProxyError extends AxiosError implements ApiProxyErrorFields {
   _error: ApiServerErrorData | null = null;
   statusText: string = 'Internal Server Error';
   override status: number = 500;
   override message: string;
 
-  constructor(message: string, init?: Partial<IApiProxyError>) {
+  constructor(message: string, init?: Partial<ApiProxyErrorFields>) {
     super(message);
     this.name = 'ApiProxyError';
     this.message = init?.message ?? message;

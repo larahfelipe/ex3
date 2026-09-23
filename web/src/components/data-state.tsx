@@ -3,9 +3,9 @@ import type { FC, ReactNode } from 'react';
 import Link from 'next/link';
 
 import { LoaderCircle, TriangleAlert } from 'lucide-react';
-import { twMerge } from 'tailwind-merge';
 
 import { Button, Skeleton } from '@/components/ui';
+import { cn } from '@/lib/utils';
 
 type StateAction = Record<'label', string> &
   (Record<'onSelect', VoidFunction> | Record<'href', string>);
@@ -59,7 +59,7 @@ export const LoadingState: FC<LoadingStateProps> = ({
     {children ?? (
       <Skeleton
         aria-hidden="true"
-        className={twMerge('h-40 w-full rounded-xl', className)}
+        className={cn('h-40 w-full rounded-xl', className)}
       />
     )}
   </output>

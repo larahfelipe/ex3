@@ -9,7 +9,7 @@ export type AssetProperties = {
   portfolioId: string;
 };
 
-export interface Asset extends WithId, AssetProperties {}
+export type Asset = WithId & AssetProperties;
 
 /** With `instrument`, the symbol is registered as a private instrument of the caller. */
 export type CreateAssetRequestPayload = Pick<
@@ -19,9 +19,7 @@ export type CreateAssetRequestPayload = Pick<
   instrument?: InstrumentRegistrationPayload;
 };
 
-export interface CreateAssetResponseData extends WithMessage {
-  asset: Asset;
-}
+export type CreateAssetResponseData = WithMessage & Record<'asset', Asset>;
 
 export type DeleteAssetRequestPayload = Pick<Asset, 'symbol'>;
 

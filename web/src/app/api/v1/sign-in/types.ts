@@ -7,13 +7,11 @@ export type UserProperties = {
   email: string;
 };
 
-export interface User
-  extends WithId, WithAccessToken, WithTimestamps, UserProperties {}
+export type User = WithId & WithAccessToken & WithTimestamps & UserProperties;
 
 export type SignInRequestPayload = {
   email: string;
   password: string;
 };
 
-export interface SignInResponseData
-  extends UserProperties, WithId, WithTimestamps {}
+export type SignInResponseData = UserProperties & WithId & WithTimestamps;

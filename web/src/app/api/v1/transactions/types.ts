@@ -28,8 +28,7 @@ export type TransactionProperties = {
   instrumentId: string;
 };
 
-export interface Transaction
-  extends WithId, WithTimestamps, TransactionProperties {}
+export type Transaction = WithId & WithTimestamps & TransactionProperties;
 
 export type ListedTransaction = Transaction & Pick<Asset, 'symbol'>;
 
@@ -53,9 +52,8 @@ export type TransactionEntryPayload = Pick<
 export type CreateTransactionRequestPayload = TransactionEntryPayload &
   Record<'assetSymbol' | 'portfolioId', string>;
 
-export interface CreateTransactionResponseData extends WithMessage {
-  transaction: Transaction;
-}
+export type CreateTransactionResponseData = WithMessage &
+  Record<'transaction', Transaction>;
 
 export type UpdateTransactionRequestPayload = TransactionEntryPayload;
 

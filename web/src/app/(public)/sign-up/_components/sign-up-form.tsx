@@ -33,7 +33,7 @@ const CURRENCY_IDS = Object.values(CURRENCIES).map(({ id }) => id);
 const signUpSchema = z
   .object({
     name: AccountNameSchema,
-    email: z.string().trim().email(),
+    email: z.string().trim().pipe(z.email()),
     password: NewPasswordSchema,
     confirmPassword: z.string().min(1, 'Confirm password is required'),
     baseCurrency: z.enum(CURRENCY_IDS, 'Select a valid base currency')
