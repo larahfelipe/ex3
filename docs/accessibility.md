@@ -132,12 +132,12 @@ Todos os 62 pares medidos passam no limite da regra que exercem, nas duas paleta
 | --- | --- | --- | --- | --- |
 | `--destructive` como texto | ação de exclusão em `transaction-details-dialog.tsx`, no menu da linha de `positions-table.tsx` e na lista de `portfolios/page.tsx` | 5.75:1 (3.76:1) | 7.31:1 (2.01:1) | 4.5:1 |
 | `--primary-foreground` sobre `--primary` | rótulo de todo botão primário; `/0.9` no hover | 16.95:1 (16.95:1) | 5.71:1, 4.74:1 no hover (3.49:1) | 4.5:1 |
-| `--border`/`--input` sobre `--background` | borda de campo, única pista visual do controle | `--input` 3.52:1 (1.24:1) | `--input` 3.50:1 (1.33:1) | 3:1 |
+| `--border`/`--input` sobre `--background` | borda de campo, única pista visual do controle | `--input` 3.52:1 (1.24:1) | `--input` 3.24:1, 3.08:1 sobre `--surface` (1.33:1) | 3:1 |
 | `--destructive-foreground` sobre `--destructive` | botão sólido de exclusão; `/0.9` no hover | 5.50:1, 4.84:1 no hover (3.60:1) | 6.53:1, 5.40:1 no hover (9.59:1) | 4.5:1 |
 | `--muted-foreground` sobre `--muted` | texto secundário em superfície de realce | 4.91:1 (4.39:1) | 6.00:1 (6.00:1) | 4.5:1 |
 | `--warning` sobre `bg-warning/10` | chip de alerta | 5.00:1 (4.40:1) | 10.28:1 (10.28:1) | 4.5:1 |
 
-`--border` continua abaixo de 3:1 nas duas paletas (1.24:1 claro, 1.33:1 escuro) por decisão: ele é só separador decorativo desde a correção, e todo controle interativo — input, select, segmented control — usa `--input` para a borda, que passa. `AlertDialog`/`Dialog` usa `bg-scrim` em vez de `bg-black` para o overlay — a 60% com desfoque, ou a 80% sem desfoque sob `prefers-reduced-transparency` —, e `Input`/`SelectTrigger`/o textarea de notas ganharam `aria-[invalid=true]:border-negative`, então o estado inválido também é visível fora do foco.
+`--border` continua abaixo de 3:1 nas duas paletas (1.24:1 claro, 1.33:1 escuro) por decisão: ele é só separador decorativo desde a correção, e todo controle interativo — input, select, segmented control — usa `--input` para a borda, que passa. No escuro, `--input` fica em 38% de luminância, o mínimo que ainda dá 3:1 sobre `--surface`, o fundo mais claro sob um campo: a borda fica o mais discreta que 1.4.11 permite. `AlertDialog`/`Dialog` usa `bg-scrim` em vez de `bg-black` para o overlay — a 60% com desfoque, ou a 80% sem desfoque sob `prefers-reduced-transparency` —, e `Input`/`SelectTrigger`/o textarea de notas ganharam `aria-invalid:border-negative`, então o estado inválido também é visível fora do foco.
 
 Os demais pares passam nas duas paletas, com folga: texto padrão 20.14:1 e 19.24:1; `--muted-foreground` sobre `--background` 5.40:1 e 7.96:1; `--negative` 4.80:1 e 7.31:1; `--positive` 5.58:1 e 9.96:1; `--info` 5.94:1 e 9.09:1; anel de foco 20.14:1 e 6.40:1.
 
