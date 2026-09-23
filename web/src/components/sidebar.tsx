@@ -7,12 +7,11 @@ import { usePathname } from 'next/navigation';
 
 import {
   ChartCandlestick,
+  ChevronLeft,
   CircleUserRound,
   LayoutDashboard,
   Loader2,
   LogOut,
-  PanelLeftClose,
-  PanelLeftOpen,
   Wallet
 } from 'lucide-react';
 
@@ -23,8 +22,6 @@ import {
 } from '@/common/constants';
 import { useCurrentUser, useSignOut } from '@/hooks/use-user';
 import { cn } from '@/lib/utils';
-
-import { Button } from './ui';
 
 type NavigationState =
   (typeof NAVIGATION_STATES)[keyof typeof NAVIGATION_STATES];
@@ -70,6 +67,13 @@ const NAVIGATION_ITEM_CLASS =
 
 const NAVIGATION_ICON_CLASS =
   'flex h-7 w-12 shrink-0 items-center justify-center rounded-full transition-colors group-hover/item:bg-accent group-aria-[current=page]/item:bg-primary/15 group-aria-[current=page]/item:text-primary navigation-expanded:h-auto navigation-expanded:w-auto navigation-expanded:bg-transparent navigation-expanded:group-hover/item:bg-transparent navigation-expanded:group-aria-[current=page]/item:bg-transparent';
+
+/**
+ * The toggle sits on the rail's border, centred on the brand's line: 24 px
+ * drawn, with a 44 px target (WCAG 2.5.5) from the pseudo-element around it.
+ */
+const NAVIGATION_TOGGLE_CLASS =
+  'absolute top-3.5 right-0 z-10 hidden size-6 translate-x-1/2 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-surface ring-offset-background transition-colors before:absolute before:-inset-2.5 hover:border-input hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-90 lg:flex';
 
 const isCurrentPath = (pathname: string, path: string) =>
   pathname === path || pathname.startsWith(`${path}/`);
@@ -120,6 +124,7 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
   const { data: user } = useCurrentUser();
 
   const isExpanded = navigationState === NAVIGATION_STATES.Expanded;
+  const toggleLabel = isExpanded ? 'Collapse navigation' : 'Expand navigation';
 
   const toggleNavigation = () => {
     const nextState = isExpanded
@@ -134,89 +139,93 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
     <nav
       aria-label="Main"
       data-navigation-state={navigationState}
-      className="fixed inset-x-0 bottom-0 z-40 flex h-(--navigation-bar) border-t bg-background px-1 sm:sticky sm:inset-auto sm:top-0 sm:h-dvh sm:w-(--navigation-rail) sm:shrink-0 sm:flex-col sm:self-start sm:overflow-y-auto sm:border-t-0 sm:border-r sm:px-2 sm:py-3 sm:transition-[width] navigation-expanded:w-(--navigation-sidebar) navigation-expanded:px-3"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-(--navigation-bar) border-t bg-background px-1 sm:sticky sm:inset-auto sm:top-0 sm:h-dvh sm:w-(--navigation-rail) sm:shrink-0 sm:self-start sm:border-t-0 sm:border-r sm:px-0 sm:transition-[width,border-color] lg:has-[>button:hover]:border-input navigation-expanded:w-(--navigation-sidebar)"
     >
-      <div className="hidden sm:flex sm:flex-col sm:items-center sm:gap-2 navigation-expanded:flex-row navigation-expanded:justify-between navigation-expanded:pl-3">
-        <p className="font-display text-lg font-bold">EX3</p>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="hidden text-muted-foreground hover:text-foreground lg:inline-flex"
-          aria-label={isExpanded ? 'Collapse navigation' : 'Expand navigation'}
-          title={isExpanded ? 'Collapse navigation' : 'Expand navigation'}
-          onClick={toggleNavigation}
-        >
-          {isExpanded ? (
-            <PanelLeftClose size={18} aria-hidden="true" />
-          ) : (
-            <PanelLeftOpen size={18} aria-hidden="true" />
+      <button
+        type="button"
+        className={NAVIGATION_TOGGLE_CLASS}
+        aria-label={toggleLabel}
+        title={toggleLabel}
+        onClick={toggleNavigation}
+      >
+        <ChevronLeft
+          size={14}
+          aria-hidden="true"
+          className={cn(
+            'motion-safe:transition-transform',
+            !isExpanded && 'rotate-180'
           )}
-        </Button>
-      </div>
+        />
+      </button>
 
-      <div className="flex flex-3 sm:mt-6 sm:flex-none sm:flex-col">
-        <p
-          id={portfolioHeadingId}
-          className="sr-only navigation-expanded:not-sr-only navigation-expanded:mb-2 navigation-expanded:px-3 navigation-expanded:text-xs navigation-expanded:font-medium navigation-expanded:text-muted-foreground"
-        >
-          Portfolio
-        </p>
+      <div className="contents sm:flex sm:min-h-0 sm:flex-1 sm:flex-col sm:overflow-y-auto sm:px-2 sm:py-3 navigation-expanded:px-3">
+        <div className="hidden sm:flex sm:justify-center navigation-expanded:justify-start navigation-expanded:pl-3">
+          <p className="font-display text-lg font-bold">EX3</p>
+        </div>
 
-        <ul
-          aria-labelledby={portfolioHeadingId}
-          className="flex flex-1 sm:flex-col sm:gap-1"
-        >
-          {PORTFOLIO_SECTIONS.map((section) => (
-            <li key={section.path} className="flex flex-1">
-              <NavigationLink
-                {...section}
-                isActive={isCurrentPath(pathname, section.path)}
-              />
-            </li>
-          ))}
+        <div className="flex flex-3 sm:mt-6 sm:flex-none sm:flex-col">
+          <p
+            id={portfolioHeadingId}
+            className="sr-only navigation-expanded:not-sr-only navigation-expanded:mb-2 navigation-expanded:px-3 navigation-expanded:text-xs navigation-expanded:font-medium navigation-expanded:text-muted-foreground"
+          >
+            Portfolio
+          </p>
+
+          <ul
+            aria-labelledby={portfolioHeadingId}
+            className="flex flex-1 sm:flex-col sm:gap-1"
+          >
+            {PORTFOLIO_SECTIONS.map((section) => (
+              <li key={section.path} className="flex flex-1">
+                <NavigationLink
+                  {...section}
+                  isActive={isCurrentPath(pathname, section.path)}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <ul className="flex flex-1 sm:mt-auto sm:flex-none sm:flex-col sm:gap-1 sm:border-t sm:pt-3">
+          <li className="flex flex-1">
+            <NavigationLink
+              {...ACCOUNT_SECTION}
+              detail={user?.name ?? undefined}
+              isActive={isCurrentPath(pathname, ACCOUNT_SECTION.path)}
+            />
+          </li>
+
+          <li className="flex flex-1 max-sm:hidden">
+            <button
+              type="button"
+              aria-disabled={isSigningOut}
+              className={cn(
+                NAVIGATION_ITEM_CLASS,
+                'hover:text-negative navigation-expanded:hover:bg-negative/10'
+              )}
+              onClick={() => {
+                if (!isSigningOut) signOut();
+              }}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  NAVIGATION_ICON_CLASS,
+                  'group-hover/item:bg-negative/10'
+                )}
+              >
+                {isSigningOut ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <LogOut size={18} />
+                )}
+              </span>
+
+              <span className="max-w-full truncate">Sign out</span>
+            </button>
+          </li>
         </ul>
       </div>
-
-      <ul className="flex flex-1 sm:mt-auto sm:flex-none sm:flex-col sm:gap-1 sm:border-t sm:pt-3">
-        <li className="flex flex-1">
-          <NavigationLink
-            {...ACCOUNT_SECTION}
-            detail={user?.name ?? undefined}
-            isActive={isCurrentPath(pathname, ACCOUNT_SECTION.path)}
-          />
-        </li>
-
-        <li className="flex flex-1 max-sm:hidden">
-          <button
-            type="button"
-            aria-disabled={isSigningOut}
-            className={cn(
-              NAVIGATION_ITEM_CLASS,
-              'hover:text-negative navigation-expanded:hover:bg-negative/10'
-            )}
-            onClick={() => {
-              if (!isSigningOut) signOut();
-            }}
-          >
-            <span
-              aria-hidden="true"
-              className={cn(
-                NAVIGATION_ICON_CLASS,
-                'group-hover/item:bg-negative/10'
-              )}
-            >
-              {isSigningOut ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <LogOut size={18} />
-              )}
-            </span>
-
-            <span className="max-w-full truncate">Sign out</span>
-          </button>
-        </li>
-      </ul>
     </nav>
   );
 };
