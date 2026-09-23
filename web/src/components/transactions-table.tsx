@@ -146,6 +146,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
 
       {selection?.action === 'edit' && (
         <TransactionFormDialog
+          portfolio={portfolio}
           target={{ kind: 'edit', transaction: selection.transaction }}
           onCancel={() => setSelection({ ...selection, action: 'details' })}
           onSubmit={async (draft) => {

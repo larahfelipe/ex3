@@ -1,11 +1,18 @@
 import { useId, useState, type FC } from 'react';
 import { flushSync } from 'react-dom';
-import { useForm, useWatch } from 'react-hook-form';
+import {
+  useController,
+  useForm,
+  useWatch,
+  type Control
+} from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
 import { z } from 'zod';
 
+import type { InstrumentType } from '@/app/api/v1/portfolio';
+import type { Portfolio } from '@/app/api/v1/portfolios';
 import type {
   ListedTransaction,
   TransactionType
@@ -14,9 +21,13 @@ import {
   CURRENCIES,
   TRANSACTION_TYPE_LABELS,
   TRANSACTION_TYPES,
-  TRANSACTION_UNIT_PRICE_LABELS
+  TRANSACTION_UNIT_PRICE_LABELS,
+  UNIT_PRICE_DECIMALS
 } from '@/common/constants';
+import { currencyFractionDigits } from '@/common/utils';
+import { LoadingState } from '@/components/data-state';
 import { ChoiceField, FormField } from '@/components/form-field';
+import { MoneyInput, type RejectedAmount } from '@/components/money-input';
 import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
@@ -30,7 +41,16 @@ import {
   SegmentedControl,
   SegmentedControlItem
 } from '@/components/ui';
+import { usePosition } from '@/hooks/use-portfolio';
+import {
+  DECIMAL_COLUMN,
+  INTEGER_DIGITS,
+  isNonzeroDecimal,
+  isStorableDecimal,
+  readDecimal
+} from '@/lib/decimal';
 import { presentSubmitError } from '@/lib/submit-error';
+import type { Maybe } from '@/types';
 
 export type TransactionFormTarget =
   | { kind: 'create'; symbol: string; currency: string }
@@ -39,35 +59,39 @@ export type TransactionFormTarget =
 export type TransactionDraft = z.output<typeof TransactionFormSchema>;
 
 type TransactionFormDialogProps = {
+  portfolio: Portfolio;
   target: TransactionFormTarget;
   onCancel: VoidFunction;
   onSubmit: (draft: TransactionDraft) => Promise<unknown>;
 };
 
+type TransactionFormProps = Pick<
+  TransactionFormDialogProps,
+  'target' | 'onCancel' | 'onSubmit'
+> &
+  Record<'formId' | 'currency', string> &
+  Record<'instrumentType', Maybe<InstrumentType>>;
+
 type TransactionFormInput = z.input<typeof TransactionFormSchema>;
 
 type TransactionFormField = keyof TransactionFormInput;
 
-/** The API stores quantities and prices as DECIMAL(38,18), rejects what the column would round and bounds broker and notes to these lengths. */
-const DECIMAL_COLUMN = { PRECISION: 38, SCALE: 18 } as const;
+type AmountField = Extract<
+  TransactionFormField,
+  'unitPrice' | 'fees' | 'taxes'
+>;
+
+type AmountFieldProps = Record<'name', AmountField> &
+  Record<'label' | 'currency', string> &
+  Record<'decimals', number> &
+  Partial<Record<'isOptional', boolean>> &
+  Record<'control', Control<TransactionFormInput, unknown, TransactionDraft>>;
+
+/** The API bounds broker and notes to these lengths. */
 const BROKER_MAX_LENGTH = 60;
 const NOTES_MAX_LENGTH = 500;
 
-const INTEGER_DIGITS = DECIMAL_COLUMN.PRECISION - DECIMAL_COLUMN.SCALE;
-
-const DECIMAL_PATTERN = new RegExp(
-  `^(0|[1-9]\\d{0,${INTEGER_DIGITS - 1}})(\\.\\d{1,${DECIMAL_COLUMN.SCALE}})?$`
-);
-
-const NONZERO_DIGIT = /[1-9]/;
-
-const DECIMAL_COMMA_PATTERN = /^\d+,\d+$/;
-
-/**
- * A comma before exactly three digits, after a nonzero lead, is a thousands
- * separator in en-US and a decimal one in pt-BR, so it is refused, not guessed.
- */
-const THOUSANDS_GROUP_PATTERN = /^[1-9]\d{0,2},\d{3}$/;
+const DECIMAL_LIMITS = `at most ${INTEGER_DIGITS} integer digits and ${DECIMAL_COLUMN.SCALE} decimal places`;
 
 const MS_PER_MINUTE = 60_000;
 
@@ -87,45 +111,52 @@ const TRANSACTION_TYPE_HINTS: Record<TransactionType, string> = {
     'Bonus units received, at the cost per unit the company attributed, which can be zero.'
 };
 
-const toDotDecimal = (value: string) =>
-  DECIMAL_COMMA_PATTERN.test(value) && !THOUSANDS_GROUP_PATTERN.test(value)
-    ? value.replace(',', '.')
-    : value;
+const typedDecimalIssueOf = (field: string, reading: RejectedAmount) =>
+  reading.outcome === 'ambiguous'
+    ? `${field} is ambiguous: write ${reading.asDecimal} for decimals or ${reading.asWhole} for a whole number`
+    : `${field} must be a number with ${DECIMAL_LIMITS}`;
 
-const decimalFormatIssueOf = (field: string, value: string) => {
-  if (DECIMAL_PATTERN.test(value)) return null;
+const pastedAmountIssueOf = (field: string, reading: RejectedAmount) =>
+  reading.outcome === 'ambiguous'
+    ? `The pasted ${field.toLowerCase()} may be ${reading.asDecimal} or ${reading.asWhole}: type its digits instead`
+    : `The pasted ${field.toLowerCase()} is not a number with ${DECIMAL_LIMITS}`;
 
-  return THOUSANDS_GROUP_PATTERN.test(value)
-    ? `${field} is ambiguous: write ${value.replace(',', '.')} for decimals or ${value.replace(',', '')} for a whole number`
-    : `${field} must be a number with at most ${INTEGER_DIGITS} integer digits and ${DECIMAL_COLUMN.SCALE} decimal places, after a dot or a comma`;
-};
+const quantityField = z
+  .string()
+  .trim()
+  .min(1, 'Quantity is required')
+  .transform((text, ctx) => {
+    const reading = readDecimal(text);
 
-const positiveDecimalField = (field: string) =>
-  z
-    .string()
-    .trim()
-    .min(1, `${field} is required`)
-    .transform(toDotDecimal)
-    .superRefine((value, ctx) => {
-      const message =
-        decimalFormatIssueOf(field, value) ??
-        (NONZERO_DIGIT.test(value)
-          ? null
-          : `${field} must be greater than zero`);
+    if (reading.outcome !== 'read') {
+      ctx.addIssue({
+        code: 'custom',
+        message: typedDecimalIssueOf('Quantity', reading)
+      });
 
-      if (message !== null) ctx.addIssue({ code: 'custom', message });
-    });
+      return z.NEVER;
+    }
+
+    if (!isNonzeroDecimal(reading.value)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Quantity must be greater than zero'
+      });
+
+      return z.NEVER;
+    }
+
+    return reading.value;
+  });
 
 const chargeField = (field: string) =>
   z
     .string()
-    .trim()
-    .transform((value) => (value === '' ? '0' : toDotDecimal(value)))
-    .superRefine((value, ctx) => {
-      const message = decimalFormatIssueOf(field, value);
-
-      if (message !== null) ctx.addIssue({ code: 'custom', message });
-    });
+    .transform((value) => (value === '' ? '0' : value))
+    .refine(
+      isStorableDecimal,
+      `${field} must be a number with ${DECIMAL_LIMITS}`
+    );
 
 const optionalTextField = (field: string, maxLength: number) =>
   z
@@ -138,19 +169,29 @@ const unitPriceIssueOf = (type: TransactionType, unitPrice: string) => {
   const label = TRANSACTION_UNIT_PRICE_LABELS[type];
 
   if (unitPrice === '') return `${label} is required`;
-  if (!DECIMAL_PATTERN.test(unitPrice))
-    return decimalFormatIssueOf(label, unitPrice);
-  if (type !== 'BONUS' && !NONZERO_DIGIT.test(unitPrice))
+  if (!isStorableDecimal(unitPrice))
+    return `${label} must be a number with ${DECIMAL_LIMITS}`;
+  if (type !== 'BONUS' && !isNonzeroDecimal(unitPrice))
     return `${label} must be greater than zero`;
 
   return null;
 };
 
+/** A class quoted finer than the currency's minor unit is typed with its own decimal places. */
+const unitPriceDecimalsOf = (
+  instrumentType: Maybe<InstrumentType>,
+  currency: string
+) =>
+  Math.max(
+    currencyFractionDigits(currency),
+    (instrumentType && UNIT_PRICE_DECIMALS[instrumentType]) ?? 0
+  );
+
 const TransactionFormSchema = z
   .object({
     type: z.enum(TRANSACTION_TYPES),
-    quantity: positiveDecimalField('Quantity'),
-    unitPrice: z.string().trim().transform(toDotDecimal),
+    quantity: quantityField,
+    unitPrice: z.string(),
     fees: chargeField('Fees'),
     taxes: chargeField('Taxes'),
     executedAt: z
@@ -213,13 +254,62 @@ const toTransactionFormValues = ({
   notes: notes ?? ''
 });
 
-export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
+const AmountField: FC<AmountFieldProps> = ({
+  name,
+  label,
+  currency,
+  decimals,
+  isOptional = false,
+  control: formControl
+}) => {
+  const {
+    field: { ref, value, onChange, onBlur },
+    fieldState: { error }
+  } = useController({ name, control: formControl });
+
+  const { setError } = formControl;
+
+  const currencySymbol =
+    Object.values(CURRENCIES).find(({ id }) => id === currency)?.symbol ??
+    currency;
+
+  return (
+    <FormField
+      isOptional={isOptional}
+      label={`${label} (${currency})`}
+      error={error?.message}
+    >
+      {(control) => (
+        <MoneyInput
+          {...control}
+          ref={ref}
+          name={name}
+          value={value}
+          decimals={decimals}
+          leftElement={
+            <span aria-hidden className="text-sm text-muted-foreground">
+              {currencySymbol}
+            </span>
+          }
+          onValueChange={onChange}
+          onBlur={onBlur}
+          onRejectedPaste={(reading) =>
+            setError(name, { message: pastedAmountIssueOf(label, reading) })
+          }
+        />
+      )}
+    </FormField>
+  );
+};
+
+const TransactionForm: FC<TransactionFormProps> = ({
+  formId,
   target,
+  currency,
+  instrumentType,
   onCancel,
   onSubmit
 }) => {
-  const formId = useId();
-
   const defaultValues =
     target.kind === 'create'
       ? {
@@ -231,19 +321,6 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
   const [isDetailOpen, setIsDetailOpen] = useState(
     target.kind === 'edit' &&
       (target.transaction.broker !== null || target.transaction.notes !== null)
-  );
-
-  const { symbol, currency } =
-    target.kind === 'create' ? target : target.transaction;
-
-  const currencySymbol =
-    Object.values(CURRENCIES).find(({ id }) => id === currency)?.symbol ??
-    currency;
-
-  const currencyAdornment = (
-    <span aria-hidden className="text-sm text-muted-foreground">
-      {currencySymbol}
-    </span>
   );
 
   const {
@@ -260,6 +337,8 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
   });
 
   const selectedType = useWatch({ control: formControl, name: 'type' });
+
+  const amountDecimals = currencyFractionDigits(currency);
 
   const openDetail = () => {
     flushSync(() => setIsDetailOpen(true));
@@ -287,10 +366,180 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
   };
 
   return (
+    <>
+      <form id={formId} noValidate onSubmit={handleSubmit(submitDraft)}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ChoiceField
+            legend="Type"
+            hint={TRANSACTION_TYPE_HINTS[selectedType]}
+            error={errors.type?.message}
+            className="sm:col-span-2"
+          >
+            <SegmentedControl className="grid grid-cols-3 sm:flex sm:w-fit">
+              {TRANSACTION_TYPES.map((type) => (
+                <SegmentedControlItem
+                  key={type}
+                  value={type}
+                  {...register('type')}
+                >
+                  {TRANSACTION_TYPE_LABELS[type]}
+                </SegmentedControlItem>
+              ))}
+            </SegmentedControl>
+          </ChoiceField>
+
+          <FormField label="Quantity" error={errors.quantity?.message}>
+            {(control) => (
+              <Input
+                {...control}
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                {...register('quantity')}
+              />
+            )}
+          </FormField>
+
+          <AmountField
+            name="unitPrice"
+            label={TRANSACTION_UNIT_PRICE_LABELS[selectedType]}
+            currency={currency}
+            decimals={unitPriceDecimalsOf(instrumentType, currency)}
+            control={formControl}
+          />
+
+          <AmountField
+            isOptional
+            name="fees"
+            label="Fees"
+            currency={currency}
+            decimals={amountDecimals}
+            control={formControl}
+          />
+
+          <AmountField
+            isOptional
+            name="taxes"
+            label="Taxes"
+            currency={currency}
+            decimals={amountDecimals}
+            control={formControl}
+          />
+
+          <FormField label="Executed at" error={errors.executedAt?.message}>
+            {(control) => (
+              <Input
+                {...control}
+                type="datetime-local"
+                step={1}
+                {...register('executedAt')}
+              />
+            )}
+          </FormField>
+
+          {isDetailOpen ? (
+            <>
+              <FormField
+                isOptional
+                label="Broker"
+                error={errors.broker?.message}
+              >
+                {(control) => (
+                  <Input
+                    {...control}
+                    type="text"
+                    maxLength={BROKER_MAX_LENGTH}
+                    {...register('broker')}
+                  />
+                )}
+              </FormField>
+
+              <FormField
+                isOptional
+                label="Notes"
+                error={errors.notes?.message}
+                className="sm:col-span-2"
+              >
+                {(control) => (
+                  <textarea
+                    {...control}
+                    rows={3}
+                    maxLength={NOTES_MAX_LENGTH}
+                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-negative md:text-sm"
+                    {...register('notes')}
+                  />
+                )}
+              </FormField>
+            </>
+          ) : (
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto justify-self-start gap-1.5 p-0 sm:col-span-2"
+              onClick={openDetail}
+            >
+              <Plus size={16} aria-hidden="true" />
+
+              <span>Add broker or notes</span>
+            </Button>
+          )}
+
+          {errors.root?.server?.message !== undefined && (
+            <p role="alert" className="text-sm text-negative sm:col-span-2">
+              {errors.root.server.message}
+            </p>
+          )}
+        </div>
+      </form>
+
+      <DialogFooter>
+        <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
+          Cancel
+        </Button>
+
+        <SubmitButton form={formId} isPending={isSubmitting}>
+          {target.kind === 'create' ? 'Add transaction' : 'Save changes'}
+        </SubmitButton>
+      </DialogFooter>
+    </>
+  );
+};
+
+/**
+ * The form waits for the position, whose class sets the decimal places a unit
+ * price is typed with. When the position cannot be read, the form still opens,
+ * with the currency's own decimal places.
+ */
+export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
+  portfolio,
+  target,
+  onCancel,
+  onSubmit
+}) => {
+  const formId = useId();
+
+  const [isSaving, setIsSaving] = useState(false);
+
+  const { symbol, currency } =
+    target.kind === 'create' ? target : target.transaction;
+
+  const positionQuery = usePosition(portfolio, symbol);
+
+  const save = async (draft: TransactionDraft) => {
+    setIsSaving(true);
+
+    try {
+      await onSubmit(draft);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
     <Dialog
       open
       onOpenChange={() => {
-        if (!isSubmitting) onCancel();
+        if (!isSaving) onCancel();
       }}
     >
       <DialogContent>
@@ -306,166 +555,26 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <form id={formId} noValidate onSubmit={handleSubmit(submitDraft)}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <ChoiceField
-              legend="Type"
-              hint={TRANSACTION_TYPE_HINTS[selectedType]}
-              error={errors.type?.message}
-              className="sm:col-span-2"
-            >
-              <SegmentedControl className="grid grid-cols-3 sm:flex sm:w-fit">
-                {TRANSACTION_TYPES.map((type) => (
-                  <SegmentedControlItem
-                    key={type}
-                    value={type}
-                    {...register('type')}
-                  >
-                    {TRANSACTION_TYPE_LABELS[type]}
-                  </SegmentedControlItem>
-                ))}
-              </SegmentedControl>
-            </ChoiceField>
+        {positionQuery.isPending ? (
+          <>
+            <LoadingState label={`Loading ${symbol}`} className="h-72" />
 
-            <FormField label="Quantity" error={errors.quantity?.message}>
-              {(control) => (
-                <Input
-                  {...control}
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  {...register('quantity')}
-                />
-              )}
-            </FormField>
-
-            <FormField
-              label={`${TRANSACTION_UNIT_PRICE_LABELS[selectedType]} (${currency})`}
-              error={errors.unitPrice?.message}
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  leftElement={currencyAdornment}
-                  {...register('unitPrice')}
-                />
-              )}
-            </FormField>
-
-            <FormField
-              isOptional
-              label={`Fees (${currency})`}
-              error={errors.fees?.message}
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  placeholder="0"
-                  leftElement={currencyAdornment}
-                  {...register('fees')}
-                />
-              )}
-            </FormField>
-
-            <FormField
-              isOptional
-              label={`Taxes (${currency})`}
-              error={errors.taxes?.message}
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="text"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  placeholder="0"
-                  leftElement={currencyAdornment}
-                  {...register('taxes')}
-                />
-              )}
-            </FormField>
-
-            <FormField label="Executed at" error={errors.executedAt?.message}>
-              {(control) => (
-                <Input
-                  {...control}
-                  type="datetime-local"
-                  step={1}
-                  {...register('executedAt')}
-                />
-              )}
-            </FormField>
-
-            {isDetailOpen ? (
-              <>
-                <FormField
-                  isOptional
-                  label="Broker"
-                  error={errors.broker?.message}
-                >
-                  {(control) => (
-                    <Input
-                      {...control}
-                      type="text"
-                      maxLength={BROKER_MAX_LENGTH}
-                      {...register('broker')}
-                    />
-                  )}
-                </FormField>
-
-                <FormField
-                  isOptional
-                  label="Notes"
-                  error={errors.notes?.message}
-                  className="sm:col-span-2"
-                >
-                  {(control) => (
-                    <textarea
-                      {...control}
-                      rows={3}
-                      maxLength={NOTES_MAX_LENGTH}
-                      className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-negative md:text-sm"
-                      {...register('notes')}
-                    />
-                  )}
-                </FormField>
-              </>
-            ) : (
-              <Button
-                type="button"
-                variant="link"
-                className="h-auto justify-self-start gap-1.5 p-0 sm:col-span-2"
-                onClick={openDetail}
-              >
-                <Plus size={16} aria-hidden="true" />
-
-                <span>Add broker or notes</span>
+            <DialogFooter>
+              <Button variant="outline" onClick={onCancel}>
+                Cancel
               </Button>
-            )}
-
-            {errors.root?.server?.message !== undefined && (
-              <p role="alert" className="text-sm text-negative sm:col-span-2">
-                {errors.root.server.message}
-              </p>
-            )}
-          </div>
-        </form>
-
-        <DialogFooter>
-          <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
-            Cancel
-          </Button>
-
-          <SubmitButton form={formId} isPending={isSubmitting}>
-            {target.kind === 'create' ? 'Add transaction' : 'Save changes'}
-          </SubmitButton>
-        </DialogFooter>
+            </DialogFooter>
+          </>
+        ) : (
+          <TransactionForm
+            formId={formId}
+            target={target}
+            currency={currency}
+            instrumentType={positionQuery.data?.type}
+            onCancel={onCancel}
+            onSubmit={save}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

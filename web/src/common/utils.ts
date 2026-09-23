@@ -1,3 +1,4 @@
+import { decimalPlacesOf } from '@/lib/decimal';
 import type { DecimalString } from '@/types';
 
 const LOCALE = 'en-US';
@@ -49,10 +50,8 @@ const formatNumber = (
   options?: Intl.NumberFormatOptions
 ) => numberFormatOf(options).format(value);
 
-const decimalPlacesOf = (value: DecimalString) =>
-  value.split('.').at(1)?.length ?? 0;
-
-const currencyFractionDigits = (currency: string) =>
+/** The digits of the currency's minor unit: 2 for USD and BRL, 0 for JPY. */
+export const currencyFractionDigits = (currency: string) =>
   numberFormatOf({ style: 'currency', currency }).resolvedOptions()
     .maximumFractionDigits ?? 0;
 
@@ -75,6 +74,12 @@ export const formatUnitAmount = (amount: DecimalString, currency: string) =>
   formatMoney(amount, currency, {
     maximumSignificantDigits: UNIT_AMOUNT_SIGNIFICANT_DIGITS,
     roundingPriority: 'morePrecision'
+  });
+
+export const formatDecimal = (value: DecimalString, fractionDigits: number) =>
+  formatNumber(value, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
   });
 
 export const formatQuantity = (quantity: DecimalString) =>
