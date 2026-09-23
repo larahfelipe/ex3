@@ -10,6 +10,7 @@ Toda aritmética usa decimal de base 10 (`Prisma.Decimal`), nunca ponto flutuant
 * **Precisão intermediária.** O replay do razão calcula com `2 × 38 + 1 = 77` dígitos e a valoração com `4 × 38 = 152`, o bastante para que nenhuma operação intermediária arredonde antes do truncamento final.
 * **Percentuais são frações.** `profitLossPercent = 0.1` significa 10%. A formatação em percentual é do frontend.
 * **Campo ausente ≠ zero.** Quando falta a cotação, o câmbio ou o divisor é zero, o campo **não vem no corpo** — a resposta continua `200`. Um zero afirmaria que o valor é zero; a ausência afirma que ele não é calculável agora.
+* **Entrada no web.** O web nunca converte quantidade ou valor para `number`: o formulário guarda a string decimal que a API recebe, e o que ele calcula conta unidades de `10^-escala` em `bigint` (`web/src/lib/decimal.ts`). As casas por classe de instrumento (`UNIT_PRICE_DECIMALS`) só definem como o preço é digitado; a API aceita 18 casas em qualquer classe, então nada que o web envia é recusado por precisão e nada gravado perde casas ao ser editado.
 * **Moedas.** Um razão vive em uma única moeda. Totais de carteira são convertidos para a `baseCurrency` da carteira pela cotação mais recente de cada moeda, não pela cotação do dia de cada transação.
 
 Notação: `q` quantidade, `p` preço unitário, `f` taxas (fees), `t` impostos, `P` preço de mercado, `c` custo médio, `x` taxa de câmbio para a moeda base.

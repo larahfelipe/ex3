@@ -82,6 +82,7 @@ export const AssetTransactions: FC<AssetTransactionsProps> = ({
 
       {isAddingTransaction && (
         <TransactionFormDialog
+          portfolio={portfolio}
           target={{
             kind: 'create',
             symbol,

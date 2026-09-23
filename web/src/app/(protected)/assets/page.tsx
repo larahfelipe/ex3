@@ -167,6 +167,7 @@ export default function Assets() {
         dialogAction === ASSET_DIALOG_ACTIONS.AddTransaction &&
         typeof selectedSymbol === 'string' && (
           <TransactionFormDialog
+            portfolio={portfolio}
             target={{
               kind: 'create',
               symbol: selectedSymbol,

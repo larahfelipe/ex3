@@ -103,6 +103,17 @@ export const INSTRUMENT_TYPE_LABELS: Record<InstrumentType, string> = {
   OTHER: 'Other'
 };
 
+/**
+ * Decimal places a unit price is typed with when the class is quoted finer
+ * than the currency's minor unit. Assumed from market practice, not measured:
+ * crypto units and fund shares are quoted to 8 places. The API stores 18 for
+ * every class, so a price written with more places keeps them.
+ */
+export const UNIT_PRICE_DECIMALS: Partial<Record<InstrumentType, number>> = {
+  CRYPTO: 8,
+  FUND: 8
+};
+
 export const INSTRUMENT_TYPES: Array<InstrumentType> = [
   'STOCK',
   'ETF',
