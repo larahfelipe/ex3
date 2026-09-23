@@ -1,10 +1,10 @@
 'use client';
 
-import { useId, type FC } from 'react';
+import { useId, useState, type FC } from 'react';
 
 import Link from 'next/link';
 
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Plus } from 'lucide-react';
 
 import type {
   InstrumentType,
@@ -29,12 +29,14 @@ import { PageHeader } from '@/components/page-header';
 import { PerformanceChart } from '@/components/performance-chart';
 import { QuerySection } from '@/components/query-section';
 import { SectionHeader } from '@/components/section-header';
+import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import { Button, Card, CardContent, Skeleton } from '@/components/ui';
 import {
   usePosition,
   usePositionIndicators,
   useActivePortfolio
 } from '@/hooks/use-portfolio';
+import { useCreateTransaction } from '@/hooks/use-transactions';
 import { isNotFoundError } from '@/lib/axios';
 import {
   formatExecutionDay,
@@ -387,6 +389,8 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
   } = useActivePortfolio();
   const positionQuery = usePosition(portfolio, symbol);
   const indicatorsQuery = usePositionIndicators(portfolio, symbol);
+  const { mutateAsync: createTransaction } = useCreateTransaction(portfolio);
+  const [isAddingTransaction, setIsAddingTransaction] = useState(false);
   const { data: position, error: positionError } = positionQuery;
 
   const isPositionPending =
@@ -401,6 +405,19 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
         title={heldPosition?.symbol ?? symbol.toUpperCase()}
         isPending={isPending || isPositionPending}
         description={heldPosition?.name}
+        action={
+          portfolio &&
+          heldPosition && (
+            <Button
+              size="sm"
+              className="gap-1.5 max-sm:w-full"
+              onClick={() => setIsAddingTransaction(true)}
+            >
+              <Plus size={16} aria-hidden="true" />
+              Add transaction
+            </Button>
+          )
+        }
         navigation={
           <Button
             asChild
@@ -493,6 +510,25 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
             portfolio={portfolio}
             symbol={heldPosition.symbol}
           />
+
+          {isAddingTransaction && (
+            <TransactionFormDialog
+              portfolio={portfolio}
+              target={{
+                kind: 'create',
+                symbol: heldPosition.symbol,
+                currency: portfolio.baseCurrency
+              }}
+              onCancel={() => setIsAddingTransaction(false)}
+              onSubmit={async (draft) => {
+                await createTransaction({
+                  ...draft,
+                  assetSymbol: heldPosition.symbol
+                });
+                setIsAddingTransaction(false);
+              }}
+            />
+          )}
         </>
       )}
     </div>

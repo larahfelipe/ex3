@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 
+import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
@@ -83,9 +84,10 @@ export default function Portfolios() {
           <Button
             ref={newPortfolioButtonRef}
             size="sm"
-            className="max-sm:w-full"
+            className="gap-1.5 max-sm:w-full"
             onClick={openCreateDialog}
           >
+            <Plus size={16} aria-hidden="true" />
             New portfolio
           </Button>
         }
