@@ -14,10 +14,7 @@ export const metadata: Metadata = {
 export default function SignUp() {
   return (
     <>
-      <PublicPageHeader
-        title="Create your account"
-        description="Track every position across B3, NYSE, NASDAQ and crypto in one place."
-      />
+      <PublicPageHeader title="Create your account" />
 
       <section>
         <SignUpForm />

@@ -20,6 +20,10 @@ import {
   SegmentedControl,
   SegmentedControlItem
 } from '@/components/ui';
+import {
+  PORTFOLIO_NAME_MAX_LENGTH,
+  PortfolioNameSchema
+} from '@/lib/portfolio-schema';
 import { presentSubmitError } from '@/lib/submit-error';
 
 export type PortfolioFormTarget =
@@ -37,9 +41,6 @@ type PortfolioFormInput = z.input<typeof PortfolioFormSchema>;
 
 type PortfolioFormField = keyof PortfolioFormInput;
 
-/** Mirrors `CreatePortfolioSchema` in the API. */
-const NAME_MAX_LENGTH = 60;
-
 const CURRENCY_CODE_PATTERN = /^[A-Z]{3}$/;
 
 const OFFERED_CURRENCIES = Object.values(CURRENCIES).map(({ id }) => id);
@@ -47,14 +48,7 @@ const OFFERED_CURRENCIES = Object.values(CURRENCIES).map(({ id }) => id);
 const DEFAULT_CURRENCY = CURRENCIES.BRL.id;
 
 const PortfolioFormSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, 'Name is required')
-    .max(
-      NAME_MAX_LENGTH,
-      `Name must have at most ${NAME_MAX_LENGTH} characters`
-    ),
+  name: PortfolioNameSchema,
   baseCurrency: z
     .string()
     .regex(CURRENCY_CODE_PATTERN, 'Choose the base currency')
@@ -134,7 +128,7 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
                   {...control}
                   type="text"
                   autoComplete="off"
-                  maxLength={NAME_MAX_LENGTH}
+                  maxLength={PORTFOLIO_NAME_MAX_LENGTH}
                   {...register('name')}
                 />
               )}

@@ -37,35 +37,28 @@ export const PasswordRequirements: FC<PasswordRequirementsProps> = ({
   ];
 
   return (
-    <div className="space-y-2">
-      <ul className="space-y-1">
-        {requirements.map(({ label, isMet }) => (
-          <li
-            key={label}
-            className={cn(
-              'flex items-center gap-2 transition-colors',
-              isMet && 'text-positive'
-            )}
-          >
-            {isMet ? (
-              <Check aria-hidden="true" className="size-3.5 shrink-0" />
-            ) : (
-              <Circle aria-hidden="true" className="size-3.5 shrink-0" />
-            )}
+    <ul className="space-y-1">
+      {requirements.map(({ label, isMet }) => (
+        <li
+          key={label}
+          className={cn(
+            'flex items-center gap-2 transition-colors',
+            isMet && 'text-positive'
+          )}
+        >
+          {isMet ? (
+            <Check aria-hidden="true" className="size-3.5 shrink-0" />
+          ) : (
+            <Circle aria-hidden="true" className="size-3.5 shrink-0" />
+          )}
 
-            <span>
-              <span className="sr-only">{isMet ? 'Met: ' : 'Not met: '}</span>
+          <span>
+            <span className="sr-only">{isMet ? 'Met: ' : 'Not met: '}</span>
 
-              {label}
-            </span>
-          </li>
-        ))}
-      </ul>
-
-      <p>
-        Longer is stronger: a few unrelated words make a password easy to
-        remember and hard to guess.
-      </p>
-    </div>
+            {label}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 };
