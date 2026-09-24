@@ -14,7 +14,11 @@ import type { Maybe } from '@/types';
 
 import { requirePortfolio, useAnnouncePortfolioChange } from './use-portfolio';
 
-export const useCreateAsset = (portfolio: Maybe<Portfolio>) => {
+/** `addTransactionFor`, when given, is offered in the toast for the asset just added. */
+export const useCreateAsset = (
+  portfolio: Maybe<Portfolio>,
+  addTransactionFor?: (symbol: string) => void
+) => {
   const queryClient = useQueryClient();
   const announceChange = useAnnouncePortfolioChange(portfolio);
 
@@ -28,19 +32,22 @@ export const useCreateAsset = (portfolio: Maybe<Portfolio>) => {
         ...payload,
         portfolioId: requirePortfolio(portfolio).id
       } satisfies CreateAssetRequestPayload),
-    onSuccess: async ({ data: { asset } }, { listing }) => {
-      await Promise.all([
-        announceChange({
-          title: 'Asset added',
-          description: portfolio
-            ? `${asset.symbol} is now in ${portfolio.name}`
-            : undefined
-        }),
-        listing !== undefined &&
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.visibleInstruments()
-          })
-      ]);
+    onSuccess: ({ data: { asset } }, { listing }) => {
+      announceChange({
+        title: 'Asset added',
+        description: portfolio
+          ? `${asset.symbol} is now in ${portfolio.name}`
+          : undefined,
+        action: addTransactionFor && {
+          label: 'Add transaction',
+          onSelect: () => addTransactionFor(asset.symbol)
+        }
+      });
+
+      if (listing !== undefined)
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.visibleInstruments()
+        });
     }
   });
 };

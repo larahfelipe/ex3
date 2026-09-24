@@ -7,17 +7,13 @@ import {
   type FormEvent
 } from 'react';
 
-import { useSearchParams } from 'next/navigation';
-
-import { ArrowDownUp, Plus, Search } from 'lucide-react';
+import { ArrowDownUp, Search } from 'lucide-react';
 
 import type { CreateAssetRequestPayload } from '@/app/api/v1/assets';
 import type {
   SearchInstrumentsResponseData,
   MarketSearchStatus
 } from '@/app/api/v1/instruments';
-import { ASSET_DIALOG_ACTIONS, ASSET_DIALOG_PARAMS } from '@/common/constants';
-import { replaceUrlQuery } from '@/common/utils';
 import { ErrorState } from '@/components/data-state';
 import { SubmitButton } from '@/components/submit-button';
 import {
@@ -143,10 +139,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
   const [search, setSearch] = useState<string | null>(null);
   const [chosenKey, setChosenKey] = useState<Maybe<string>>(null);
   const [submitIssue, setSubmitIssue] = useState<Maybe<string>>(null);
-  const [addedSymbol, setAddedSymbol] = useState<Maybe<string>>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const searchParams = useSearchParams();
 
   const {
     data: results,
@@ -233,28 +226,11 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
 
     try {
       await onConfirm(selectedChoice.addition);
-      setAddedSymbol(selectedChoice.symbol);
-      setSearchInput('');
-      applySearch(null);
-      searchInputRef.current?.focus();
     } catch (failure) {
       setSubmitIssue(submitFailureMessageOf(failure, selectedChoice));
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleAddTransaction = () => {
-    if (!addedSymbol) return;
-
-    onCancel();
-
-    const params = new URLSearchParams(searchParams);
-
-    params.set(ASSET_DIALOG_PARAMS.Symbol, addedSymbol);
-    params.set(ASSET_DIALOG_PARAMS.Action, ASSET_DIALOG_ACTIONS.AddTransaction);
-
-    replaceUrlQuery(params);
   };
 
   return (
@@ -402,18 +378,6 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
         )}
 
         <DialogFooter>
-          {addedSymbol && (
-            <Button
-              variant="ghost"
-              className="gap-2 sm:absolute sm:left-6 max-sm:mt-6"
-              onClick={handleAddTransaction}
-            >
-              <Plus size={16} aria-hidden="true" />
-
-              <span>{`Add a ${addedSymbol} transaction?`}</span>
-            </Button>
-          )}
-
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
             Cancel
           </Button>

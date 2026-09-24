@@ -70,7 +70,7 @@ Nenhuma tela encadeia um segundo nível: `usePosition`, `usePerformance` e `useT
 
 ## Invalidação
 
-`useRefreshPortfolio` invalida o prefixo `['portfolio', portfolioId]`, o que alcança overview, alocação, performance, posições, posição e transações numa chamada. É o que roda depois de criar ativo, criar, editar e excluir transação, e excluir ativo — toda escrita do produto.
+`useRefreshPortfolio` invalida o prefixo `['portfolio', portfolioId]`, o que alcança overview, alocação, performance, posições, posição e transações numa chamada. É o que roda depois de criar ativo, criar, editar e excluir transação, e excluir ativo — toda escrita do produto —, sem ser esperado: a mutation resolve com a resposta da API, o diálogo que a disparou fecha, e a revalidação corre atrás, com os dados em cache à vista até ela chegar.
 
 Duas escolhas deliberadas:
 

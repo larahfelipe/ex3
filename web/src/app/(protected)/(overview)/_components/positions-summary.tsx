@@ -3,11 +3,7 @@ import type { FC } from 'react';
 import Link from 'next/link';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
-import {
-  APP_ROUTES,
-  ASSET_DIALOG_ACTIONS,
-  assetDetailRoute
-} from '@/common/constants';
+import { APP_ROUTES, assetDetailRoute } from '@/common/constants';
 import { EmptyState, LoadingState } from '@/components/data-state';
 import {
   Money,
@@ -32,16 +28,16 @@ import { usePageParam } from '@/hooks/use-page-param';
 import { usePositions } from '@/hooks/use-portfolio';
 
 type PositionsSummaryProps = Record<'portfolio', Portfolio> &
+  Record<'onAddAsset', VoidFunction> &
   Partial<Record<'className', string>>;
 
 const FIRST_PAGE = 1;
 const POSITIONS_PAGE_SIZE = 10;
 const POSITIONS_PAGE_PARAM = 'positionsPage';
 
-const ADD_ASSET_HREF = `${APP_ROUTES.Protected.Assets}?action=${ASSET_DIALOG_ACTIONS.Add}`;
-
 export const PositionsSummary: FC<PositionsSummaryProps> = ({
   portfolio,
+  onAddAsset,
   className
 }) => {
   const [requestedPage, goToPage] = usePageParam(POSITIONS_PAGE_PARAM);
@@ -61,7 +57,7 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
       empty={
         <EmptyState
           message="No positions yet"
-          action={{ label: 'Add asset', href: ADD_ASSET_HREF }}
+          action={{ label: 'Add asset', onSelect: onAddAsset }}
         />
       }
       action={
