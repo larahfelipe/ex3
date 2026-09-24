@@ -1,3 +1,4 @@
+import type { FundamentalMetric, ReportedFundamentals } from './Fundamentals';
 import type { Instrument } from './models';
 
 export type PricedInstrument = Pick<
@@ -45,6 +46,12 @@ export type ListingLookup =
   | { outcome: 'listed'; listing: Listing & Pick<Instrument, 'sector'> }
   | MarketDataFailure;
 
+export type FundamentalsLookup =
+  | (Record<'outcome', 'reported'> &
+      Record<'fundamentals', ReportedFundamentals> &
+      Record<'source', string>)
+  | MarketDataFailure;
+
 /**
  * Where the domain gets market prices without depending on a provider SDK. An
  * instrument is priced by its catalog symbol, market and quote currency, which
@@ -65,8 +72,9 @@ export type ListingLookup =
  * currency is the market's or, where the pair names it, one of the currencies
  * crypto is looked up in; `describeListing` answers the one listed under the
  * symbol, market and currency given, with its sector when the provider has
- * one. Everything the provider returns is untrusted input, validated before it
- * is answered.
+ * one. `getFundamentals` answers what the provider reports of each metric asked
+ * for, leaving out one it does not report. Everything the provider returns is
+ * untrusted input, validated before it is answered.
  */
 export interface MarketDataProvider {
   getQuotes: (
@@ -88,4 +96,8 @@ export interface MarketDataProvider {
   ) => Promise<PriceHistoryLookup>;
   findListings: (symbol: string) => Promise<ListingSearch>;
   describeListing: (instrument: PricedInstrument) => Promise<ListingLookup>;
+  getFundamentals: (
+    instrument: PricedInstrument,
+    metrics: ReadonlyArray<FundamentalMetric>
+  ) => Promise<FundamentalsLookup>;
 }

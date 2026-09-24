@@ -129,6 +129,41 @@ describe('FakeMarketDataProvider', () => {
     );
   });
 
+  it('answers the seeded fundamentals of a symbol, only of the metrics asked for', async () => {
+    const withFundamentals = new FakeMarketDataProvider(
+      {},
+      {
+        fundamentals: {
+          PETR4: {
+            priceToEarnings: '4.2',
+            dividendYield: '0.14',
+            freeCashFlow: { amount: '9000000000', currency: 'BRL' }
+          }
+        }
+      }
+    );
+
+    assert.deepEqual(
+      await withFundamentals.getFundamentals(PETR4, [
+        'dividendYield',
+        'freeCashFlow',
+        'returnOnEquity'
+      ]),
+      {
+        outcome: 'reported',
+        source: FAKE_MARKET_DATA_SOURCE,
+        fundamentals: {
+          dividendYield: '0.14',
+          freeCashFlow: { amount: '9000000000', currency: 'BRL' }
+        }
+      }
+    );
+    assert.deepEqual(
+      await withFundamentals.getFundamentals(VALE3, ['dividendYield']),
+      { outcome: 'not-found' }
+    );
+  });
+
   it('reports itself unavailable, even for an instrument with prices', async () => {
     const unavailableProvider: MarketDataProvider = new FakeMarketDataProvider(
       { PETR4: [{ price: '37.1', currency: 'BRL', timestamp: MARKET_OPEN }] },
@@ -145,6 +180,10 @@ describe('FakeMarketDataProvider', () => {
         { from: MARKET_OPEN, to: NEXT_MARKET_CLOSE },
         DAILY
       ),
+      { outcome: 'unavailable' }
+    );
+    assert.deepEqual(
+      await unavailableProvider.getFundamentals(PETR4, ['dividendYield']),
       { outcome: 'unavailable' }
     );
   });

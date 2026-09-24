@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import type { FundamentalMetric } from '@/domain/Fundamentals';
 import type {
   PricedInstrument,
   QuoteLookup
@@ -27,6 +28,7 @@ const LISTING_TIME_TO_LIVE_MS = 3_600_000;
 const LISTING_CACHE_MAX_ENTRIES = 1_000;
 const EMPTY_HISTORY_TIME_TO_LIVE_MS = 3_600_000;
 const EMPTY_HISTORY_CACHE_MAX_ENTRIES = 10_000;
+const FUNDAMENTALS_TIME_TO_LIVE_MS = 3_600_000;
 
 /** Mirrors `InstrumentLimits.NAME_MAX_LENGTH`. */
 const NAME_MAX_LENGTH = 120;
@@ -98,8 +100,13 @@ const PETR4_LISTING = {
   currency: 'BRL'
 };
 
+const summaryResponse = (modules: Record<string, unknown>) =>
+  json({ quoteSummary: { result: [modules], error: null } });
+
 const profileResponse = (assetProfile: Record<string, unknown>) =>
-  json({ quoteSummary: { result: [{ assetProfile }], error: null } });
+  summaryResponse({ assetProfile });
+
+const reportedNumber = (raw: number) => ({ raw, fmt: String(raw) });
 
 const chartResponse = ({
   timestamps,
@@ -775,6 +782,192 @@ describe('YahooFinanceProvider', () => {
       assert.deepEqual(await provider.describeListing(PETR4), {
         outcome: 'unavailable'
       });
+    });
+  });
+
+  describe('getFundamentals', () => {
+    const COMPANY_METRICS: ReadonlyArray<FundamentalMetric> = [
+      'priceToEarnings',
+      'dividendYield',
+      'returnOnEquity',
+      'profitMargin',
+      'debtToEquity',
+      'revenueGrowth',
+      'earningsGrowth',
+      'freeCashFlow'
+    ];
+
+    const COMPANY_SUMMARY = {
+      financialData: {
+        financialCurrency: 'USD',
+        returnOnEquity: reportedNumber(1.5081),
+        profitMargins: reportedNumber(0.243),
+        debtToEquity: reportedNumber(151.862),
+        revenueGrowth: reportedNumber(0.061),
+        earningsGrowth: reportedNumber(-0.017),
+        freeCashflow: reportedNumber(94873747456)
+      },
+      summaryDetail: {
+        trailingPE: reportedNumber(37.21),
+        trailingAnnualDividendYield: reportedNumber(0.0041),
+        yield: {}
+      }
+    };
+
+    const isSummaryRequest = ({ pathname }: URL) =>
+      pathname.startsWith('/v11/finance/quoteSummary/');
+
+    it('reads each metric asked for from its module in one request, debt to equity as a multiple', async () => {
+      const { provider, calls } = stubProvider(() =>
+        summaryResponse(COMPANY_SUMMARY)
+      );
+
+      assert.deepEqual(await provider.getFundamentals(AAPL, COMPANY_METRICS), {
+        outcome: 'reported',
+        source: YAHOO_FINANCE_SOURCE,
+        fundamentals: {
+          priceToEarnings: '37.21',
+          dividendYield: '0.0041',
+          returnOnEquity: '1.5081',
+          profitMargin: '0.243',
+          debtToEquity: '1.51862',
+          revenueGrowth: '0.061',
+          earningsGrowth: '-0.017',
+          freeCashFlow: { amount: '94873747456', currency: 'USD' }
+        }
+      });
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].url.pathname, '/v11/finance/quoteSummary/AAPL');
+      assert.equal(
+        calls[0].url.searchParams.get('modules'),
+        'financialData,summaryDetail'
+      );
+      assert.equal(
+        new Headers(calls[0].init.headers).get('x-api-key'),
+        API_KEY
+      );
+    });
+
+    it('asks for the summary alone when only the yield is asked for, reading a fund yield and nothing else', async () => {
+      const { provider, calls } = stubProvider(() =>
+        summaryResponse({
+          summaryDetail: {
+            trailingPE: reportedNumber(25.4),
+            yield: reportedNumber(0.0123)
+          }
+        })
+      );
+
+      assert.deepEqual(
+        await provider.getFundamentals(
+          { symbol: 'IVV', market: 'NYSE', currency: 'USD' },
+          ['dividendYield']
+        ),
+        {
+          outcome: 'reported',
+          source: YAHOO_FINANCE_SOURCE,
+          fundamentals: { dividendYield: '0.0123' }
+        }
+      );
+      assert.equal(calls[0].url.searchParams.get('modules'), 'summaryDetail');
+    });
+
+    it('leaves out a figure it does not report or cannot read, and free cash flow without an ISO currency', async () => {
+      const { provider } = stubProvider(() =>
+        summaryResponse({
+          financialData: {
+            financialCurrency: 'GBp',
+            returnOnEquity: {},
+            profitMargins: reportedNumber(0.1),
+            debtToEquity: 'high',
+            revenueGrowth: 0.05,
+            freeCashflow: reportedNumber(1000)
+          }
+        })
+      );
+
+      assert.deepEqual(await provider.getFundamentals(AAPL, COMPANY_METRICS), {
+        outcome: 'reported',
+        source: YAHOO_FINANCE_SOURCE,
+        fundamentals: { profitMargin: '0.1', revenueGrowth: '0.05' }
+      });
+    });
+
+    it('reuses the fundamentals of a symbol, known or not, within their time to live', async () => {
+      const { provider, calls, clock } = stubProvider((url) =>
+        url.pathname.endsWith('/KO')
+          ? json({}, 404)
+          : summaryResponse(COMPANY_SUMMARY)
+      );
+      const lookUpBoth = () =>
+        Promise.all([
+          provider.getFundamentals(AAPL, ['priceToEarnings']),
+          provider.getFundamentals(KO, ['priceToEarnings'])
+        ]);
+      const answered = [
+        {
+          outcome: 'reported',
+          source: YAHOO_FINANCE_SOURCE,
+          fundamentals: { priceToEarnings: '37.21' }
+        },
+        { outcome: 'not-found' }
+      ];
+
+      assert.deepEqual(await lookUpBoth(), answered);
+      clock.now += FUNDAMENTALS_TIME_TO_LIVE_MS - 1;
+      assert.deepEqual(await lookUpBoth(), answered);
+      assert.equal(calls.length, 2);
+
+      clock.now += 1;
+      assert.deepEqual(await lookUpBoth(), answered);
+      assert.equal(calls.length, 4);
+    });
+
+    it('answers an instrument it cannot translate as not found, requesting nothing', async () => {
+      const { provider, calls } = stubProvider(() =>
+        summaryResponse(COMPANY_SUMMARY)
+      );
+
+      for (const instrument of [
+        { symbol: 'BRK.B', market: 'NYSE', currency: 'USD' },
+        { symbol: 'HOUSE', market: null, currency: null }
+      ])
+        assert.deepEqual(
+          await provider.getFundamentals(instrument, COMPANY_METRICS),
+          { outcome: 'not-found' }
+        );
+
+      assert.equal(calls.length, 0);
+    });
+
+    it('answers unavailable when the request fails or its response is outside the expected shape, asking again next time without leaving quotes alone', async () => {
+      for (const summary of [
+        () => json({}, 503),
+        () => json({ unexpected: true })
+      ]) {
+        const { provider, calls, logEntries } = stubProvider((url) =>
+          isSummaryRequest(url) ? summary() : quoteResponse(quoteItem('AAPL'))
+        );
+
+        for (let attempt = 0; attempt < 2; attempt += 1)
+          assert.deepEqual(
+            await provider.getFundamentals(AAPL, ['priceToEarnings']),
+            { outcome: 'unavailable' }
+          );
+
+        assert.deepEqual(
+          await provider.getQuotes([AAPL]),
+          new Map([['AAPL', quoted('49', 'USD')]])
+        );
+        assert.equal(
+          calls.filter(({ url }) => isSummaryRequest(url)).length,
+          2
+        );
+        assert.deepEqual(
+          logEntries.map(({ event }) => event),
+          ['quote_provider_request_failed', 'quote_provider_request_failed']
+        );
+      }
     });
   });
 

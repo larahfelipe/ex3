@@ -84,6 +84,7 @@ const PROTECTED_ROUTES: ReadonlyArray<readonly [HttpMethod, string]> = [
   ['get', '/v1/portfolio/overview'],
   ['get', '/v1/portfolio/positions'],
   ['get', '/v1/portfolio/positions/PETR4/indicators'],
+  ['get', '/v1/portfolio/positions/PETR4/fundamentals'],
   ['get', '/v1/portfolios'],
   ['post', '/v1/portfolio'],
   ['patch', '/v1/portfolio'],

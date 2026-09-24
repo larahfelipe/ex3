@@ -1,4 +1,9 @@
 import type {
+  FundamentalMetric,
+  ReportedFundamentals
+} from '@/domain/Fundamentals';
+import type {
+  FundamentalsLookup,
   Listing,
   ListingLookup,
   ListingSearch,
@@ -20,21 +25,28 @@ export const FAKE_MARKET_DATA_SOURCE = 'fake';
 /**
  * An exchange rate is seeded under the codes of its pair, as `USDBRL` for one
  * dollar in reais. A listing is seeded apart from prices, since a search
- * answers what the provider lists and not what it quotes.
+ * answers what the provider lists and not what it quotes, and so are the
+ * fundamentals of a symbol.
  */
 export class FakeMarketDataProvider implements MarketDataProvider {
   private readonly pricesBySymbol: ReadonlyMap<string, Quote[]>;
   private readonly listings: ReadonlyArray<SeededListing>;
+  private readonly fundamentalsBySymbol: ReadonlyMap<
+    string,
+    ReportedFundamentals
+  >;
   private readonly isAvailable: boolean;
 
   constructor(
     seededPrices: Record<string, [SeededPrice, ...SeededPrice[]]>,
     {
       isAvailable = true,
-      listings = []
+      listings = [],
+      fundamentals = {}
     }: Partial<
       Record<'isAvailable', boolean> &
-        Record<'listings', ReadonlyArray<SeededListing>>
+        Record<'listings', ReadonlyArray<SeededListing>> &
+        Record<'fundamentals', Record<string, ReportedFundamentals>>
     > = {}
   ) {
     this.pricesBySymbol = new Map<string, Quote[]>(
@@ -46,6 +58,7 @@ export class FakeMarketDataProvider implements MarketDataProvider {
       ])
     );
     this.listings = listings;
+    this.fundamentalsBySymbol = new Map(Object.entries(fundamentals));
     this.isAvailable = isAvailable;
   }
 
@@ -80,6 +93,36 @@ export class FakeMarketDataProvider implements MarketDataProvider {
           listing: { ...listing, sector: listing.sector ?? null }
         }
       : { outcome: 'not-found' };
+  }
+
+  async getFundamentals(
+    { symbol }: PricedInstrument,
+    metrics: ReadonlyArray<FundamentalMetric>
+  ): Promise<FundamentalsLookup> {
+    if (!this.isAvailable) return { outcome: 'unavailable' };
+
+    const seeded = this.fundamentalsBySymbol.get(symbol);
+
+    if (!seeded) return { outcome: 'not-found' };
+
+    const fundamentals: ReportedFundamentals = {};
+
+    for (const metric of metrics) {
+      if (metric === 'freeCashFlow') {
+        if (seeded.freeCashFlow)
+          fundamentals.freeCashFlow = seeded.freeCashFlow;
+      } else {
+        const ratio = seeded[metric];
+
+        if (ratio !== undefined) fundamentals[metric] = ratio;
+      }
+    }
+
+    return {
+      outcome: 'reported',
+      fundamentals,
+      source: FAKE_MARKET_DATA_SOURCE
+    };
   }
 
   async getQuotes(

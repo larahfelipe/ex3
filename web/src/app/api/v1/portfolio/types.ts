@@ -153,3 +153,33 @@ export type PositionIndicators = Partial<{
 }>;
 
 export type GetPositionIndicatorsResponseData = PositionIndicators;
+
+/** A multiple, as `12.5` for 12.5 times, or a share of one, as `0.12` for 12%. */
+export type FundamentalRatio =
+  | 'priceToEarnings'
+  | 'dividendYield'
+  | 'returnOnEquity'
+  | 'profitMargin'
+  | 'debtToEquity'
+  | 'revenueGrowth'
+  | 'earningsGrowth';
+
+/** A figure without a value is one the source does not report for the instrument. */
+export type FundamentalFigure =
+  | (Record<'metric', FundamentalRatio> &
+      Partial<Record<'value', DecimalString>>)
+  | (Record<'metric', 'freeCashFlow'> &
+      (
+        | Partial<Record<'value' | 'currency', never>>
+        | (Record<'value', DecimalString> & Record<'currency', string>)
+      ));
+
+export type ReportedFundamentals = Record<'outcome', 'reported'> &
+  Record<'source', string> &
+  Record<'figures', Array<FundamentalFigure>>;
+
+export type PositionFundamentals =
+  | Record<'outcome', 'not-applicable' | 'not-found' | 'unavailable'>
+  | ReportedFundamentals;
+
+export type GetPositionFundamentalsResponseData = PositionFundamentals;

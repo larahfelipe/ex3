@@ -86,7 +86,7 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 ### TD-020 — Consumo da cota do provedor de cotação não medido
 
 - **Origem:** integração com a YH Finance API · **Tipo:** integração · **Prioridade:** média · **Encaminhamento:** avulso
-- **Contexto:** a cota e o preço dos planos da YH Finance API não foram confirmados. O lote de 10 símbolos, o cache de 60 segundos, o timeout de 5 segundos e a pausa de 30 segundos depois de falha são assumidos, não medidos (`backend/src/infra/market-data/YahooFinanceProvider.ts`). Cache e pausa ficam na memória de cada processo, como o rate limit de TD-006. A visão geral da carteira consome a mesma cota com um par de câmbio por moeda estrangeira das posições, e a lista de posições cota, a cada página pedida, todas as posições com unidades, porque a alocação depende do total.
+- **Contexto:** a cota e o preço dos planos da YH Finance API não foram confirmados. O lote de 10 símbolos, o cache de 60 segundos, o timeout de 5 segundos e a pausa de 30 segundos depois de falha são assumidos, não medidos (`backend/src/infra/market-data/YahooFinanceProvider.ts`). Cache e pausa ficam na memória de cada processo, como o rate limit de TD-006. A visão geral da carteira consome a mesma cota com um par de câmbio por moeda estrangeira das posições, e a lista de posições cota, a cada página pedida, todas as posições com unidades, porque a alocação depende do total. A página de um ativo de classe com fundamentos pede-os uma vez por hora por símbolo.
 - **Impacto:** acima da cota, o provedor recusa as requisições e as cotações passam à última recebida ou a `unavailable` até a cota renovar. Com mais de uma instância do backend, cada uma consulta o provedor por conta própria e multiplica o consumo.
 - **Proposta:** confirmar nos termos do plano contratado a cota, o limite por minuto e o máximo de símbolos por requisição; medir as requisições por carregamento da tela de ativos e ajustar as constantes; cache compartilhado quando houver mais de uma instância.
 
@@ -365,6 +365,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Contexto:** desde `69bbfb6` os dois pacotes compilam com `strict`, `noImplicitReturns`, `noImplicitOverride` e `noFallthroughCasesInSwitch`, mas sem `noUncheckedIndexedAccess` nem `exactOptionalPropertyTypes`. Ligadas, as duas acusam 28 e 19 erros no backend e 14 e 68 no web. Cada acesso por índice pede uma decisão sobre o valor ausente (guarda, erro ou valor padrão), e cada propriedade opcional, uma escolha entre `undefined` explícito e propriedade omitida.
 - **Impacto:** `array[i]` e `record[key]` são tipados como presentes quando podem faltar, e uma propriedade opcional aceita `undefined` explícito onde o contrato quer omissão; o compilador não aponta nenhum dos dois.
 - **Proposta:** ligar `noUncheckedIndexedAccess` primeiro, um pacote por vez, tratando cada acesso com guarda e sem asserção não nula; avaliar `exactOptionalPropertyTypes` depois, contra os tipos das bibliotecas que o web usa.
+
+### TD-079 — Contrato dos fundamentos do provedor não conferido
+
+- **Origem:** indicadores fundamentalistas na página do ativo (2026-09-24) · **Tipo:** integração · **Prioridade:** média · **Encaminhamento:** avulso
+- **Contexto:** `YahooFinanceProvider.getFundamentals` lê os módulos `summaryDetail` e `financialData` do `quoteSummary` pelos nomes de campo conhecidos do formato (`trailingPE`, `trailingAnnualDividendYield`, `yield`, `returnOnEquity`, `profitMargins`, `debtToEquity` em percentual, `revenueGrowth`, `earningsGrowth`, `freeCashflow`, `financialCurrency`), sem resposta real conferida: o desenvolvimento não usou a chave do provedor. As definições dos `InfoTip` (últimos 12 meses, último trimestre contra o do ano anterior, fluxo de caixa após juros) seguem o que o Yahoo Finance publica, também sem conferência contra o plano da YH Finance API. A cobertura de `financialData` para FII da B3 é desconhecida.
+- **Impacto:** campo renomeado ou ausente aparece como "Not reported" em todo instrumento, sem erro nem log. Módulo que o símbolo não tem pode responder 404 e virar `not-found`. `debtToEquity` noutra unidade exibiria um múltiplo cem vezes errado.
+- **Proposta:** conferir com respostas reais de uma ação da B3, uma dos EUA, um FII, um REIT dos EUA e um ETF; fixá-las como fixtures do teste do adaptador; ajustar as definições dos `InfoTip` ao que a fonte calcula.
 
 ## Resolvidos
 

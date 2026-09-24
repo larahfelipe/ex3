@@ -69,6 +69,13 @@ export const queryKeys = {
     [...portfolioScope(portfolioId), 'position', symbol] as const,
   positionIndicators: (portfolioId: PortfolioId, symbol: string) =>
     [...portfolioScope(portfolioId), 'position', symbol, 'indicators'] as const,
+  positionFundamentals: (portfolioId: PortfolioId, symbol: string) =>
+    [
+      ...portfolioScope(portfolioId),
+      'position',
+      symbol,
+      'fundamentals'
+    ] as const,
   allocation: (portfolioId: PortfolioId) =>
     [...portfolioScope(portfolioId), 'allocation'] as const,
   performance: (portfolioId: PortfolioId, params: PerformanceParams) =>

@@ -12,6 +12,12 @@ import {
 } from '@/config/Constants';
 import { envs } from '@/config/Envs';
 import type {
+  FundamentalMetric,
+  FundamentalRatio,
+  ReportedFundamentals
+} from '@/domain/Fundamentals';
+import type {
+  FundamentalsLookup,
   Listing,
   ListingLookup,
   ListingSearch,
@@ -31,8 +37,10 @@ export const YAHOO_FINANCE_SOURCE = 'yahoo-finance';
 const YAHOO_FINANCE_ORIGIN = 'https://yfapi.net';
 const QUOTE_PATH = '/v6/finance/quote';
 const CHART_PATH = '/v8/finance/chart/';
-const PROFILE_PATH = '/v11/finance/quoteSummary/';
+const QUOTE_SUMMARY_PATH = '/v11/finance/quoteSummary/';
 const PROFILE_MODULE = 'assetProfile';
+const FINANCIAL_DATA_MODULE = 'financialData';
+const SUMMARY_DETAIL_MODULE = 'summaryDetail';
 
 /** Assumed, not measured: well above a quote round trip, short enough not to hold a page load. */
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -80,7 +88,16 @@ const EMPTY_HISTORY_TIME_TO_LIVE_MS = 3_600_000;
  */
 const EMPTY_HISTORY_CACHE_MAX_ENTRIES = 10_000;
 
+/**
+ * Assumed, not measured: statements change once a quarter, and within the hour
+ * the price moves the multiples and the yield by less than a reader of
+ * fundamentals acts on; a page reloaded within it spends none of the plan's
+ * request quota.
+ */
+const FUNDAMENTALS_TIME_TO_LIVE_MS = 3_600_000;
+
 const HTTP_NOT_FOUND = 404;
+const PERCENT = 100;
 const MILLISECONDS_PER_SECOND = 1_000;
 const MILLISECONDS_PER_DAY = 86_400_000;
 
@@ -136,6 +153,21 @@ const SECTORED_TYPES: ReadonlySet<InstrumentType> = new Set([
   InstrumentTypes.STOCK,
   InstrumentTypes.REIT
 ]);
+
+/** A fund has no statements, so a request for its yield alone asks for its summary alone. */
+const FUNDAMENTALS_MODULE_BY_METRIC: Record<
+  FundamentalMetric,
+  typeof FINANCIAL_DATA_MODULE | typeof SUMMARY_DETAIL_MODULE
+> = {
+  priceToEarnings: SUMMARY_DETAIL_MODULE,
+  dividendYield: SUMMARY_DETAIL_MODULE,
+  returnOnEquity: FINANCIAL_DATA_MODULE,
+  profitMargin: FINANCIAL_DATA_MODULE,
+  debtToEquity: FINANCIAL_DATA_MODULE,
+  revenueGrowth: FINANCIAL_DATA_MODULE,
+  earningsGrowth: FINANCIAL_DATA_MODULE,
+  freeCashFlow: FINANCIAL_DATA_MODULE
+};
 
 /**
  * B3 lists its real estate funds (FII) as equities, and only the legal name,
@@ -202,6 +234,46 @@ const ProfileSchema = z.object({
   })
 });
 
+/**
+ * The API wraps a number as `{ raw, fmt }` and answers `{}` for a figure it does
+ * not report; a bare number is read as well. A figure outside either shape is
+ * not reported, so it never takes the other figures down with it.
+ */
+const ReportedNumberSchema = z
+  .union([
+    z.number(),
+    z.object({ raw: z.number() }).transform(({ raw }) => raw)
+  ])
+  .optional()
+  .catch(undefined);
+
+const FundamentalsSchema = z.object({
+  quoteSummary: z.object({
+    result: z.tuple([
+      z.object({
+        [FINANCIAL_DATA_MODULE]: z
+          .object({
+            financialCurrency: CurrencySchema.optional().catch(undefined),
+            returnOnEquity: ReportedNumberSchema,
+            profitMargins: ReportedNumberSchema,
+            debtToEquity: ReportedNumberSchema,
+            revenueGrowth: ReportedNumberSchema,
+            earningsGrowth: ReportedNumberSchema,
+            freeCashflow: ReportedNumberSchema
+          })
+          .optional(),
+        [SUMMARY_DETAIL_MODULE]: z
+          .object({
+            trailingPE: ReportedNumberSchema,
+            trailingAnnualDividendYield: ReportedNumberSchema,
+            yield: ReportedNumberSchema
+          })
+          .optional()
+      })
+    ])
+  })
+});
+
 const ChartSchema = z.object({
   chart: z.object({
     result: z.tuple([
@@ -248,6 +320,18 @@ type CachedListings = {
 
 type CachedEmptyHistory = {
   outcome: 'quoted' | 'not-found';
+  cachedAt: number;
+};
+
+type FundamentalsModules = z.infer<
+  typeof FundamentalsSchema
+>['quoteSummary']['result'][0];
+
+type FundamentalsResponse =
+  { outcome: 'found'; modules: FundamentalsModules } | typeof NOT_FOUND;
+
+type CachedFundamentals = {
+  response: FundamentalsResponse;
   cachedAt: number;
 };
 
@@ -343,6 +427,52 @@ const toDecimalPrice = (
   decimalPlaces: number = DecimalColumn.SCALE
 ) => new Prisma.Decimal(price).toDecimalPlaces(decimalPlaces).toFixed();
 
+const decimalOf = (value: number | undefined) =>
+  value === undefined ? undefined : new Prisma.Decimal(value);
+
+/**
+ * Yahoo reports debt to equity in percent, as `150.2` for 1.502 times, so it is
+ * answered as the multiple the price to earnings is. A fund reports its yield
+ * as `yield` and a company as `trailingAnnualDividendYield`, both what the last
+ * 12 months paid over the price. Free cash flow is in the currency of the
+ * statements, which may not be the quote's, so it is left out without one.
+ */
+const toReportedFundamentals = (
+  { financialData, summaryDetail }: FundamentalsModules,
+  metrics: ReadonlyArray<FundamentalMetric>
+) => {
+  const ratios: Record<FundamentalRatio, Prisma.Decimal | undefined> = {
+    priceToEarnings: decimalOf(summaryDetail?.trailingPE),
+    dividendYield: decimalOf(
+      summaryDetail?.trailingAnnualDividendYield ?? summaryDetail?.yield
+    ),
+    returnOnEquity: decimalOf(financialData?.returnOnEquity),
+    profitMargin: decimalOf(financialData?.profitMargins),
+    debtToEquity: decimalOf(financialData?.debtToEquity)?.dividedBy(PERCENT),
+    revenueGrowth: decimalOf(financialData?.revenueGrowth),
+    earningsGrowth: decimalOf(financialData?.earningsGrowth)
+  };
+  const freeCashFlow = decimalOf(financialData?.freeCashflow);
+  const statementCurrency = financialData?.financialCurrency;
+  const reported: ReportedFundamentals = {};
+
+  for (const metric of metrics) {
+    if (metric === 'freeCashFlow') {
+      if (freeCashFlow !== undefined && statementCurrency !== undefined)
+        reported.freeCashFlow = {
+          amount: freeCashFlow.toFixed(),
+          currency: statementCurrency
+        };
+    } else {
+      const ratio = ratios[metric];
+
+      if (ratio !== undefined) reported[metric] = ratio.toFixed();
+    }
+  }
+
+  return reported;
+};
+
 const inBatches = <Item>(items: ReadonlyArray<Item>, size: number) =>
   Array.from({ length: Math.ceil(items.length / size) }, (_, index) =>
     items.slice(index * size, (index + 1) * size)
@@ -373,10 +503,11 @@ const cacheWithinBound = <Entry>(
  * already being requested joins that request; when the provider fails, the
  * last quote received is answered, with the timestamp it was observed at. A
  * history range already being requested joins that request, and one answered
- * with no prices is answered so again for `EMPTY_HISTORY_TIME_TO_LIVE_MS`. The
- * quote cache holds only symbols translated from stored instruments and from
- * pairs of stored currency codes, so it is bounded by what is stored; the
- * listing and empty-history caches hold what callers ask for, so they are
+ * with no prices is answered so again for `EMPTY_HISTORY_TIME_TO_LIVE_MS`.
+ * Fundamentals are cached for `FUNDAMENTALS_TIME_TO_LIVE_MS`. The quote and
+ * fundamentals caches hold only symbols translated from stored instruments and
+ * from pairs of stored currency codes, so they are bounded by what is stored;
+ * the listing and empty-history caches hold what callers ask for, so they are
  * bounded by count. All of them live in this process.
  */
 export class YahooFinanceProvider implements MarketDataProvider {
@@ -389,6 +520,7 @@ export class YahooFinanceProvider implements MarketDataProvider {
   private readonly inFlightQuotes = new Map<string, Promise<QuoteLookup>>();
   private readonly listingCache = new Map<string, CachedListings>();
   private readonly emptyHistoryCache = new Map<string, CachedEmptyHistory>();
+  private readonly fundamentalsCache = new Map<string, CachedFundamentals>();
   private readonly inFlightHistories = new Map<
     string,
     Promise<PriceHistoryLookup>
@@ -535,6 +667,38 @@ export class YahooFinanceProvider implements MarketDataProvider {
     return { outcome: 'listed', listing: { ...listing, sector } };
   }
 
+  async getFundamentals(
+    instrument: PricedInstrument,
+    metrics: ReadonlyArray<FundamentalMetric>
+  ): Promise<FundamentalsLookup> {
+    const yahooSymbol = toYahooSymbol(instrument);
+
+    if (yahooSymbol === null) return NOT_FOUND;
+
+    const modules = [
+      ...new Set(metrics.map((metric) => FUNDAMENTALS_MODULE_BY_METRIC[metric]))
+    ]
+      .toSorted()
+      .join(',');
+
+    if (modules === '')
+      return {
+        outcome: 'reported',
+        fundamentals: {},
+        source: YAHOO_FINANCE_SOURCE
+      };
+
+    const response = await this.lookUpFundamentals(yahooSymbol, modules);
+
+    if (response.outcome !== 'found') return response;
+
+    return {
+      outcome: 'reported',
+      fundamentals: toReportedFundamentals(response.modules, metrics),
+      source: YAHOO_FINANCE_SOURCE
+    };
+  }
+
   private async requestListings(symbol: string): Promise<ListingSearch> {
     const candidates = listingCandidatesOf(symbol);
     const response = await this.request(QUOTE_PATH, {
@@ -572,7 +736,7 @@ export class YahooFinanceProvider implements MarketDataProvider {
   /** The sector is optional, so a profile the provider does not answer is none. */
   private async lookUpSector(yahooSymbol: string) {
     const response = await this.request(
-      `${PROFILE_PATH}${encodeURIComponent(yahooSymbol)}`,
+      `${QUOTE_SUMMARY_PATH}${encodeURIComponent(yahooSymbol)}`,
       { modules: PROFILE_MODULE },
       'report'
     );
@@ -587,6 +751,48 @@ export class YahooFinanceProvider implements MarketDataProvider {
     }
 
     return profile.data.quoteSummary.result[0][PROFILE_MODULE].sector ?? null;
+  }
+
+  private async lookUpFundamentals(yahooSymbol: string, modules: string) {
+    const fundamentalsKey = `${yahooSymbol} ${modules}`;
+    const cached = this.fundamentalsCache.get(fundamentalsKey);
+
+    if (
+      cached !== undefined &&
+      this.now() - cached.cachedAt < FUNDAMENTALS_TIME_TO_LIVE_MS
+    )
+      return cached.response;
+
+    const response = await this.requestFundamentals(yahooSymbol, modules);
+
+    if (response.outcome !== 'unavailable')
+      this.fundamentalsCache.set(fundamentalsKey, {
+        response,
+        cachedAt: this.now()
+      });
+
+    return response;
+  }
+
+  /** The figures are optional, so a failure is reported without leaving quotes alone. */
+  private async requestFundamentals(
+    yahooSymbol: string,
+    modules: string
+  ): Promise<FundamentalsResponse | typeof UNAVAILABLE> {
+    const response = await this.request(
+      `${QUOTE_SUMMARY_PATH}${encodeURIComponent(yahooSymbol)}`,
+      { modules },
+      'report'
+    );
+
+    if (response.outcome !== 'responded') return response;
+
+    const summary = FundamentalsSchema.safeParse(response.body);
+
+    if (!summary.success)
+      return this.reportFailure('invalid fundamentals response', 'report');
+
+    return { outcome: 'found', modules: summary.data.quoteSummary.result[0] };
   }
 
   private async lookUpPriceHistory(

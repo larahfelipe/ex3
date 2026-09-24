@@ -37,6 +37,7 @@ import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import { Button, Card, CardContent, Skeleton } from '@/components/ui';
 import {
   usePosition,
+  usePositionFundamentals,
   usePositionIndicators,
   useActivePortfolio
 } from '@/hooks/use-portfolio';
@@ -51,6 +52,7 @@ import { APPEAR_CLASS } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import type { Children, Maybe } from '@/types';
 
+import { FundamentalsSection } from './asset-fundamentals';
 import { AssetTransactions } from './asset-transactions';
 
 type AssetDetailProps = Record<'symbol', string>;
@@ -547,6 +549,7 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
   } = useActivePortfolio();
   const positionQuery = usePosition(portfolio, symbol);
   const indicatorsQuery = usePositionIndicators(portfolio, symbol);
+  const fundamentalsQuery = usePositionFundamentals(portfolio, symbol);
   const { mutateAsync: createTransaction } = useCreateTransaction(portfolio);
   const [isAddingTransaction, setIsAddingTransaction] = useState(false);
   const { data: position, error: positionError } = positionQuery;
@@ -658,6 +661,8 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
 
             <ReturnsSection type={heldPosition.type} query={indicatorsQuery} />
           </div>
+
+          <FundamentalsSection query={fundamentalsQuery} />
 
           <PerformanceChart
             portfolio={portfolio}
