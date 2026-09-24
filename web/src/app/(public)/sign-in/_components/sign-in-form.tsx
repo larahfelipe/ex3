@@ -36,9 +36,11 @@ export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
     register,
     handleSubmit,
     setError,
+    trigger,
     formState: { errors, isSubmitting }
   } = useForm<SignInFormValues>({
-    mode: 'onChange',
+    mode: 'onSubmit',
+    reValidateMode: 'onSubmit',
     resolver: zodResolver(signInSchema),
     defaultValues: {
       email: '',
@@ -66,7 +68,7 @@ export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
               {...control}
               type="email"
               autoComplete="username"
-              {...register('email')}
+              {...register('email', { onChange: () => void trigger('email') })}
             />
           )}
         </FormField>

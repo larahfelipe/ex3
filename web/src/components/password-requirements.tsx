@@ -9,19 +9,29 @@ import {
 } from '@/lib/account-schema';
 import { cn } from '@/lib/utils';
 
-type PasswordRequirementsProps = {
-  password: string;
-  email?: string;
-};
+type PasswordRequirementsProps = Partial<Record<'password' | 'email', string>>;
+
+const EMAIL_REQUIREMENT = 'Does not include your email';
 
 /**
- * The password rules a person can see met while typing, as the password field's
- * description. An empty password meets none, so nothing is ticked before typing.
+ * The password rules as the password field's description. Given the password,
+ * a person sees each rule met while typing, and an empty password meets none,
+ * so nothing is ticked before typing. Without it the rules are only listed,
+ * for forms that judge the password once it is submitted.
  */
 export const PasswordRequirements: FC<PasswordRequirementsProps> = ({
   password,
   email
 }) => {
+  if (password === undefined)
+    return (
+      <ul className="list-disc space-y-1 ps-4">
+        <li>{PASSWORD_MIN_LENGTH_REQUIREMENT}</li>
+
+        <li>{EMAIL_REQUIREMENT}</li>
+      </ul>
+    );
+
   const isTyped = password.length > 0;
 
   const requirements = [
@@ -30,7 +40,7 @@ export const PasswordRequirements: FC<PasswordRequirementsProps> = ({
       isMet: hasPasswordMinLength(password)
     },
     {
-      label: 'Does not include your email',
+      label: EMAIL_REQUIREMENT,
       isMet:
         isTyped && (email === undefined || !isDerivedFromEmail(password, email))
     }
