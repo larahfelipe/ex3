@@ -278,7 +278,8 @@ O falso ignora mercado, moeda e intervalo: traduzir o instrumento e respeitar o 
 * resposta fora do formato e cotação inválida (moeda em unidade menor, como `BRp`, preço negativo ou fora de `DECIMAL(38,18)`, horário ausente) respondem `unavailable`, sem afetar as válidas do mesmo lote;
 * fechamento anterior arredondado como o preço, e descartado quando inválido sem recusar a cotação;
 * câmbio: par `USDBRL=X` no cache das cotações, código inválido ou igual à base como `not-found` sem requisição, taxa cotada em moeda diferente da base como `unavailable` e pausa compartilhada com a falha de cotação;
-* histórico: `period1`, `period2` e `interval` da requisição, fechamentos nulos descartados, intervalo semiaberto em ordem crescente, `range-not-served` sem requisição para início além do alcance do intervalo, intervalo vazio, 404 como `not-found` e série com tamanhos divergentes como `unavailable`.
+* histórico: `period1`, `period2` e `interval` da requisição, fechamentos nulos descartados, intervalo semiaberto em ordem crescente, `range-not-served` sem requisição para início além do alcance do intervalo, intervalo vazio, 404 como `not-found` e série com tamanhos divergentes como `unavailable`;
+* cache do histórico: janela vazia e 404 respondidos sem requisição até `EMPTY_HISTORY_TIME_TO_LIVE_MS` e pedidos de novo quando expira; janela com preço e falha pedidas de novo; consulta simultânea da mesma janela aproveitando a requisição em curso; no máximo `EMPTY_HISTORY_CACHE_MAX_ENTRIES` janelas, descartando a mais antiga.
 
 O teste espelha no topo as constantes do adaptador de que depende.
 
