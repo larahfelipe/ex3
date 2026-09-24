@@ -44,8 +44,6 @@ export const formatShortMonth = (month: Date) =>
 
 export const currentInstant = () => dayjs().toISOString();
 
-export const currentYear = () => dayjs().year();
-
 export const calendarDayOf = (instant: string) =>
   dayjs(instant).format(CALENDAR_DAY_FORMAT);
 
