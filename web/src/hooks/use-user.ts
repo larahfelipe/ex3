@@ -25,6 +25,7 @@ import api, {
   UNEXPECTED_ERROR_MESSAGE
 } from '@/lib/axios';
 import { queryKeys } from '@/lib/react-query';
+import type { Maybe } from '@/types';
 
 import { selectActivePortfolio } from './use-portfolio';
 
@@ -94,20 +95,55 @@ export const useSignOut = () => {
   });
 };
 
+type CurrentUserResponse = AxiosResponse<GetCurrentUserResponseData>;
+
+/**
+ * The new name shows everywhere as soon as it is submitted: the form checks it
+ * by the API's own rule, so a refusal is rare, and renaming again undoes it.
+ * A failure restores the name the cache held and asks the API for the one it
+ * kept, since a request that timed out may still have applied. On success the
+ * response already carries the saved profile, so nothing is fetched again.
+ */
 export const useUpdateProfile = () => {
   const queryClient = useQueryClient();
+  const currentUserKey = queryKeys.currentUser();
 
   return useMutation<
     AxiosResponse<UpdateCurrentUserResponseData>,
     ApiProxyErrorData,
-    UpdateProfileRequestPayload
+    UpdateProfileRequestPayload,
+    Maybe<CurrentUserResponse>
   >({
     mutationFn: (payload) => api.getInstance().patch('/v1/user', payload),
-    onSuccess: async ({ data }) => {
+    onMutate: async ({ name }) => {
+      await queryClient.cancelQueries({ queryKey: currentUserKey });
+
+      const previousUser =
+        queryClient.getQueryData<CurrentUserResponse>(currentUserKey);
+
+      if (previousUser)
+        queryClient.setQueryData<CurrentUserResponse>(currentUserKey, {
+          ...previousUser,
+          data: { user: { ...previousUser.data.user, name } }
+        });
+
+      return previousUser;
+    },
+    onError: (_error, _payload, previousUser) => {
+      if (previousUser)
+        queryClient.setQueryData<CurrentUserResponse>(
+          currentUserKey,
+          previousUser
+        );
+
+      void queryClient.invalidateQueries({ queryKey: currentUserKey });
+    },
+    onSuccess: ({ data }) => {
+      queryClient.setQueryData<CurrentUserResponse>(
+        currentUserKey,
+        (current) => current && { ...current, data: { user: data.user } }
+      );
       toast.success(data.message);
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.currentUser()
-      });
     }
   });
 };
