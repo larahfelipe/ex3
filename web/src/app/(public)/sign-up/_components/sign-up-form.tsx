@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState, type FC, type FormEvent } from 'react';
+import { useId, useState, type FC, type SubmitEvent } from 'react';
 import { flushSync } from 'react-dom';
 import {
   useForm,
@@ -192,7 +192,7 @@ export const SignUpForm: FC = () => {
   };
 
   /** Enter and "Continue" both submit, so each step advances the same way. */
-  const submitStep = async (event: FormEvent<HTMLFormElement>) => {
+  const submitStep = async (event: SubmitEvent<HTMLFormElement>) => {
     if (isLastStep)
       return handleSubmit(handleSignUp, revealFirstInvalidField)(event);
 
