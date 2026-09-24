@@ -26,6 +26,7 @@ import { FIRST_PAGE } from '@/lib/pagination';
 import type { Maybe } from '@/types';
 
 import { PortfolioFormDialog } from './_components/portfolio-form-dialog';
+import { PortfolioTotalValue } from './_components/portfolio-total-value';
 
 type PortfolioDialog =
   | { kind: 'create' }
@@ -126,7 +127,7 @@ export default function Portfolios() {
               <div className="overflow-hidden rounded-xl border">
                 <ul
                   aria-busy={portfoliosQuery.isPlaceholderData}
-                  className="divide-y"
+                  className="divide-y sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto]"
                 >
                   {portfolios.map((portfolio) => {
                     const isActive = portfolio.id === activePortfolio?.id;
@@ -134,7 +135,7 @@ export default function Portfolios() {
                     return (
                       <li
                         key={portfolio.id}
-                        className="flex flex-wrap items-center gap-3 px-3 py-3"
+                        className="flex flex-wrap items-center gap-3 px-3 py-3 sm:col-span-3 sm:grid sm:grid-cols-subgrid"
                       >
                         <div className="min-w-0 flex-1 space-y-0.5">
                           <p className="flex flex-wrap items-center gap-2 font-medium wrap-anywhere">
@@ -152,7 +153,9 @@ export default function Portfolios() {
                           </p>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 max-sm:w-full">
+                        <PortfolioTotalValue portfolio={portfolio} />
+
+                        <div className="flex flex-wrap gap-2 max-sm:w-full sm:justify-end">
                           {!isActive && (
                             <Button
                               variant="secondary"
