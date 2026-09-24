@@ -193,8 +193,11 @@ export const SignUpForm: FC = () => {
 
   /** Enter and "Continue" both submit, so each step advances the same way. */
   const submitStep = async (event: SubmitEvent<HTMLFormElement>) => {
-    if (isLastStep)
-      return handleSubmit(handleSignUp, revealFirstInvalidField)(event);
+    if (isLastStep) {
+      await handleSubmit(handleSignUp, revealFirstInvalidField)(event);
+
+      return;
+    }
 
     event.preventDefault();
 
