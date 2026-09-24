@@ -86,6 +86,7 @@ const PETR4_QUOTE = quoted('47.11', 'BRL', '40');
 
 const PETR4_OVERVIEW = {
   baseCurrency: BASE_CURRENCY,
+  heldPositionCount: 1,
   totalValue: '4711',
   investedValue: '4000',
   profitLoss: '711',
@@ -104,6 +105,7 @@ describe('summarizePortfolio', () => {
       }),
       {
         baseCurrency: BASE_CURRENCY,
+        heldPositionCount: 2,
         totalValue: '5311',
         investedValue: '5000',
         profitLoss: '311',
@@ -153,6 +155,7 @@ describe('summarizePortfolio', () => {
       ),
       {
         baseCurrency: BASE_CURRENCY,
+        heldPositionCount: 2,
         totalValue: '162295',
         investedValue: '160000',
         profitLoss: '2295',
@@ -175,6 +178,7 @@ describe('summarizePortfolio', () => {
       ),
       {
         baseCurrency: BASE_CURRENCY,
+        heldPositionCount: 1,
         totalValue: '2.250000000000000002',
         investedValue: '1.5',
         profitLoss: '0.750000000000000002',
@@ -207,6 +211,7 @@ describe('summarizePortfolio', () => {
       ),
       {
         baseCurrency: BASE_CURRENCY,
+        heldPositionCount: 2,
         totalValue: fromScaled(totalValue),
         investedValue: fromScaled(investedValue),
         profitLoss: fromScaled(profitLoss),
@@ -223,7 +228,11 @@ describe('summarizePortfolio', () => {
         { PETR4: PETR4_QUOTE, KO: { outcome: 'unavailable' } },
         { USD: quoted('5', 'BRL') }
       ),
-      { baseCurrency: BASE_CURRENCY, investedValue: '5750' }
+      {
+        baseCurrency: BASE_CURRENCY,
+        heldPositionCount: 2,
+        investedValue: '5750'
+      }
     );
   });
 
@@ -234,7 +243,7 @@ describe('summarizePortfolio', () => {
         { PETR4: PETR4_QUOTE, AAPL: quoted('229.5', 'USD', '225') },
         { USD: { outcome: 'not-found' } }
       ),
-      { baseCurrency: BASE_CURRENCY }
+      { baseCurrency: BASE_CURRENCY, heldPositionCount: 2 }
     );
   });
 
@@ -245,6 +254,7 @@ describe('summarizePortfolio', () => {
       }),
       {
         baseCurrency: BASE_CURRENCY,
+        heldPositionCount: 1,
         totalValue: '4711',
         dayChange: '711',
         dayChangePercent: '0.17775',
@@ -261,6 +271,7 @@ describe('summarizePortfolio', () => {
       }),
       {
         baseCurrency: BASE_CURRENCY,
+        heldPositionCount: 2,
         totalValue: '5311',
         investedValue: '5000',
         profitLoss: '311',
@@ -270,7 +281,7 @@ describe('summarizePortfolio', () => {
     );
   });
 
-  it('adds nothing for a position without units, which needs no quote', () => {
+  it('adds nothing for a position without units, which needs no quote and is not held', () => {
     assert.deepEqual(
       summarize([PETR4, holding('OIBR3', '0', '0', null)], {
         PETR4: PETR4_QUOTE
@@ -279,9 +290,10 @@ describe('summarizePortfolio', () => {
     );
   });
 
-  it('describes a portfolio without positions with zero totals and no percentages', () => {
+  it('describes a portfolio without positions as holding none, with zero totals and no percentages', () => {
     assert.deepEqual(summarize([], {}), {
       baseCurrency: BASE_CURRENCY,
+      heldPositionCount: 0,
       totalValue: '0',
       investedValue: '0',
       profitLoss: '0',

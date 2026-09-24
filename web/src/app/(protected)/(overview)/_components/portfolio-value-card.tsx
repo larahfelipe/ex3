@@ -38,9 +38,7 @@ export const PortfolioValueCard: FC<PortfolioValueCardProps> = ({
         </LoadingState>
       }
       empty={<EmptyState message="No holdings to value yet" />}
-      isEmpty={({ totalValue, quotedAt }) =>
-        totalValue === '0' && quotedAt === undefined
-      }
+      isEmpty={({ heldPositionCount }) => heldPositionCount === 0}
     >
       {({
         baseCurrency,

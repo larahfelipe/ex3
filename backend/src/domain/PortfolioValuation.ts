@@ -19,6 +19,8 @@ export type PortfolioHoldings = {
 
 export type PortfolioOverview = {
   baseCurrency: Portfolio['baseCurrency'];
+  /** Positions with units: zero tells a portfolio that holds nothing from one whose holdings are worth zero. */
+  heldPositionCount: number;
   totalValue?: string;
   investedValue?: string;
   profitLoss?: string;
@@ -220,6 +222,7 @@ export const summarizePortfolio = (
 
   return {
     baseCurrency,
+    heldPositionCount: heldPositions.length,
     ...(totalValue && { totalValue: totalValue.toFixed() }),
     ...(investedValue && { investedValue: investedValue.toFixed() }),
     ...(profitLoss && { profitLoss: profitLoss.toFixed() }),

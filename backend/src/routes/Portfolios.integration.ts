@@ -737,6 +737,7 @@ describe('portfolios', () => {
       assert.equal(res.status, 200);
       assert.deepEqual(res.body, {
         baseCurrency: 'BRL',
+        heldPositionCount: 2,
         totalValue: '7006',
         investedValue: '8000',
         profitLoss: '-994',
@@ -770,6 +771,7 @@ describe('portfolios', () => {
       assert.equal(res.status, 200);
       assert.deepEqual(res.body, {
         baseCurrency: 'BRL',
+        heldPositionCount: 1,
         investedValue: '4000'
       });
     });
@@ -784,6 +786,7 @@ describe('portfolios', () => {
       assert.equal(res.status, 200);
       assert.deepEqual(res.body, {
         baseCurrency: 'EUR',
+        heldPositionCount: 0,
         totalValue: '0',
         investedValue: '0',
         profitLoss: '0',

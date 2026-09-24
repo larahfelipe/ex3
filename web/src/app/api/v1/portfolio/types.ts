@@ -18,6 +18,7 @@ export type PortfolioScopeParams = Record<'portfolioId', Portfolio['id']>;
 type WithBaseCurrency = Pick<Portfolio, 'baseCurrency'>;
 
 export type PortfolioOverview = WithBaseCurrency &
+  Record<'heldPositionCount', number> &
   Partial<
     Record<
       | 'totalValue'

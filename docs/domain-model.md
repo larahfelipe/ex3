@@ -128,6 +128,7 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em
 
 | Indicador | Cálculo |
 | --- | --- |
+| `heldPositionCount` | posições com unidades, sempre presente: `0` separa a carteira que não detém nada da que detém ativos avaliados em zero |
 | `totalValue` | soma de `quantity × price × taxa` da moeda da cotação |
 | `investedValue` | soma de `investedValue × taxa` da moeda das transações |
 | `profitLoss` | `totalValue − investedValue` |
@@ -140,7 +141,7 @@ Nada disso é armazenado como fonte de verdade, e o cálculo fica no backend, em
 * Um indicador só é devolvido quando todas as posições com unidades têm o que ele usa: cotação, taxa da moeda e, na variação do dia, `previousClose`. Faltando algo, ele e os que dependem dele ficam fora da resposta, sem erro; custo diferente de zero sem moeda conhecida deixa `investedValue` de fora.
 * Posição sem unidades não entra na soma nem na consulta ao provedor.
 * Percentual de base zero fica de fora. Totais e percentuais são truncados em direção a zero em 18 casas, e as diferenças são exatas.
-* Carteira sem posições responde os totais `0`, sem percentuais.
+* Carteira sem posições responde os totais `0`, sem percentuais, e `heldPositionCount` `0`.
 * `quotedAt` acompanha `totalValue`: fica fora quando ele fica e quando a carteira não tem posição com unidades. A taxa usada só pelo custo, na moeda das transações, não entra. Cotação que o provedor repete depois de uma falha (ver Yahoo Finance) mantém o instante em que foi observada, então `quotedAt` pode ser anterior à consulta sem que a resposta indique a falha.
 
 ### Posições da carteira
