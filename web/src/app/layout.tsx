@@ -3,6 +3,7 @@ import { connection } from 'next/server';
 
 import {
   APP_THEME,
+  APP_THEME_COLOR,
   APP_TITLE,
   APP_TITLE_TEMPLATE,
   inter,
@@ -41,7 +42,7 @@ export default async function RootLayout({ children }: Children) {
       className={`${APP_THEME} ${inter.variable} ${raleway.variable}`}
     >
       <head>
-        <meta name="theme-color" content="#070707" />
+        <meta name="theme-color" content={APP_THEME_COLOR} />
 
         <link rel="shortcut icon" href="favicon.png" type="image/png" />
       </head>

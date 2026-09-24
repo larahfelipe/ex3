@@ -58,7 +58,7 @@ const FallbackContent: FC<FallbackContentProps> = ({
 
 export const AppProvider: FC<Children> = ({ children }) => (
   <QueryClientProvider client={queryClient}>
-    <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
+    <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-right" />
 
     <AppProgressBar
       shallowRouting

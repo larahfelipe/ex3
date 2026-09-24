@@ -393,7 +393,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                 type="button"
                 onClick={() => sortBy(field)}
                 className={cn(
-                  'group inline-flex items-center gap-1 rounded-sm font-medium transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2',
+                  'group inline-flex items-center gap-1 rounded-sm font-medium transition-colors ring-offset-background hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2',
                   isSorted && 'text-foreground'
                 )}
               >
