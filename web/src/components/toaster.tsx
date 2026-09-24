@@ -10,8 +10,8 @@ import { TOAST_LIFETIME_MS, toastLifetimeOf } from '@/lib/toast-lifetime';
 
 /**
  * sonner's styles are injected unlayered after the app's, so the classes that
- * override them carry the important modifier. The countdown bar is drawn in
- * `globals.css`.
+ * override them carry the important modifier. The status-toned bottom edge,
+ * which counts the toast down, is drawn in `globals.css`.
  */
 const FOCUS_RING_CLASSES =
   'focus-visible:outline-hidden! focus-visible:ring-2! focus-visible:ring-focus!';
@@ -82,16 +82,12 @@ export function Toaster() {
       toastOptions={{
         ...toastLifetimeOf(TOAST_LIFETIME_MS),
         classNames: {
-          toast: 'items-start! gap-3! border-l-4! shadow-elevated!',
+          toast: 'items-start! gap-3! shadow-elevated!',
           icon: 'size-[22px]!',
           title: 'text-sm font-medium',
           description: 'text-sm text-surface-elevated-foreground/80!',
           actionButton: FOCUS_RING_CLASSES,
-          closeButton: FOCUS_RING_CLASSES,
-          error: 'border-l-negative!',
-          success: 'border-l-positive!',
-          warning: 'border-l-warning!',
-          info: 'border-l-info!'
+          closeButton: FOCUS_RING_CLASSES
         }
       }}
     />
