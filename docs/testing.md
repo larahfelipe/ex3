@@ -118,7 +118,7 @@ Os achados da task foram corrigidos, e os testes que os fixavam passaram a prote
 * `src/routes/Assets.integration.ts`: símbolo fora da allowlist, fronteira de 100 no tamanho de página e rename (caixa, símbolo legado, allowlist, ativo de outra carteira como inexistente, transações levadas junto).
 * `src/routes/Transactions.integration.ts`, razão: `BUY` soma e `SELL` subtrai da posição; `SELL` além da posição recusado sem gravar; edição substitui o impacto em vez de somar; edição ou exclusão que levaria a posição abaixo de zero recusada sem alterar nada; de três `SELL`s concorrentes sobre posição 1, só um passa. Validação: `type` em qualquer caixa e com espaços aceito, em branco ou desconhecido recusado sem gravar; id que não é UUID → 400 em `GET`, `PATCH` e `DELETE`.
 * `src/config/App.integration.ts`: falha não prevista responde 500 genérico, sem detalhe interno, e é registrada uma única vez.
-* `src/routes/Authentication.integration.ts`: sign-ups concorrentes para o mesmo e-mail e exclusão de conta (ver `docs/authentication.md`).
+* `src/routes/Authentication.integration.ts`: sign-ups concorrentes para o mesmo e-mail, nome da primeira carteira pedido no sign-up, aparado ou recusado em branco e acima de 60 caracteres, e exclusão de conta (ver `docs/authentication.md`).
 
 ## Transações atuais — TASK 3.4
 
