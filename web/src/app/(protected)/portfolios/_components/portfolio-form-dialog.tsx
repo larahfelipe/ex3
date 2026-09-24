@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
-import { CURRENCIES } from '@/common/constants';
+import { DEFAULT_CURRENCY, OFFERED_CURRENCIES } from '@/common/constants';
 import { ChoiceField, FormField } from '@/components/form-field';
 import { SubmitButton } from '@/components/submit-button';
 import {
@@ -42,10 +42,6 @@ type PortfolioFormInput = z.input<typeof PortfolioFormSchema>;
 type PortfolioFormField = keyof PortfolioFormInput;
 
 const CURRENCY_CODE_PATTERN = /^[A-Z]{3}$/;
-
-const OFFERED_CURRENCIES = Object.values(CURRENCIES).map(({ id }) => id);
-
-const DEFAULT_CURRENCY = CURRENCIES.BRL.id;
 
 const PortfolioFormSchema = z.object({
   name: PortfolioNameSchema,

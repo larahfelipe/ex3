@@ -12,7 +12,7 @@ import {
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
-import { CURRENCIES } from '@/common/constants';
+import { DEFAULT_CURRENCY, OFFERED_CURRENCIES } from '@/common/constants';
 import { ChoiceField, FormField } from '@/components/form-field';
 import { PasswordRequirements } from '@/components/password-requirements';
 import { SlideTransition } from '@/components/slide-transition';
@@ -45,8 +45,6 @@ type SignUpFormValues = z.infer<typeof signUpSchema>;
 
 type SignUpField = keyof SignUpFormValues;
 
-const CURRENCY_IDS = Object.values(CURRENCIES).map(({ id }) => id);
-
 /** The name the API gives the first portfolio when the sign-up sends none. */
 const FIRST_PORTFOLIO_NAME = 'Main';
 
@@ -57,7 +55,7 @@ const signUpSchema = z
     password: NewPasswordSchema,
     confirmPassword: z.string().min(1, 'Confirm your password'),
     portfolioName: PortfolioNameSchema,
-    baseCurrency: z.enum(CURRENCY_IDS, 'Select a valid base currency')
+    baseCurrency: z.enum(OFFERED_CURRENCIES, 'Select a valid base currency')
   })
   .refine(({ email, password }) => !isDerivedFromEmail(password, email), {
     message: PASSWORD_DERIVED_FROM_EMAIL_MESSAGE,
@@ -115,7 +113,7 @@ export const SignUpForm: FC = () => {
       password: '',
       confirmPassword: '',
       portfolioName: FIRST_PORTFOLIO_NAME,
-      baseCurrency: CURRENCIES.BRL.id
+      baseCurrency: DEFAULT_CURRENCY
     }
   });
 
@@ -336,7 +334,7 @@ export const SignUpForm: FC = () => {
                   error={errors.baseCurrency?.message}
                 >
                   <SegmentedControl className="grid grid-cols-3">
-                    {CURRENCY_IDS.map((currency) => (
+                    {OFFERED_CURRENCIES.map((currency) => (
                       <SegmentedControlItem
                         key={currency}
                         value={currency}

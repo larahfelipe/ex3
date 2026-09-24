@@ -36,6 +36,12 @@ export const currencyFractionDigits = (currency: string) =>
   numberFormatOf({ style: 'currency', currency }).resolvedOptions()
     .maximumFractionDigits ?? 0;
 
+/** The symbol `formatMoney` writes, so an amount field shows the one its figures do. */
+export const currencySymbolOf = (currency: string) =>
+  numberFormatOf({ style: 'currency', currency })
+    .formatToParts(0)
+    .find(({ type }) => type === 'currency')?.value ?? currency;
+
 export const formatMoney = (
   value: DecimalString,
   currency: string,

@@ -18,13 +18,16 @@ import type {
   TransactionType
 } from '@/app/api/v1/transactions';
 import {
-  CURRENCIES,
   TRANSACTION_TYPE_LABELS,
   TRANSACTION_TYPES,
   TRANSACTION_UNIT_PRICE_LABELS,
   UNIT_PRICE_DECIMALS
 } from '@/common/constants';
-import { currencyFractionDigits, formatQuantity } from '@/common/utils';
+import {
+  currencyFractionDigits,
+  currencySymbolOf,
+  formatQuantity
+} from '@/common/utils';
 import { LoadingState } from '@/components/data-state';
 import { DatePicker } from '@/components/date-picker';
 import { ChoiceField, FormField } from '@/components/form-field';
@@ -397,10 +400,6 @@ const AmountField: FC<AmountFieldProps> = ({
 
   const { setError } = formControl;
 
-  const currencySymbol =
-    Object.values(CURRENCIES).find(({ id }) => id === currency)?.symbol ??
-    currency;
-
   return (
     <FormField
       isOptional={isOptional}
@@ -419,7 +418,7 @@ const AmountField: FC<AmountFieldProps> = ({
           decimals={decimals}
           leftElement={
             <span aria-hidden className="text-sm text-muted-foreground">
-              {currencySymbol}
+              {currencySymbolOf(currency)}
             </span>
           }
           onValueChange={onChange}
