@@ -111,13 +111,6 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** nenhum hoje. Se uma tela passar a buscar no servidor (`prefetchQuery`, `useSuspenseQuery` ou hidratação), o mesmo cache atende requisições de usuários diferentes, e dado de um usuário pode ser servido a outro.
 - **Proposta:** criar um `QueryClient` por requisição no servidor e um único no navegador, como a documentação do TanStack Query orienta para o App Router, antes de a primeira busca no servidor entrar.
 
-### TD-025 — Cores do gráfico de alocação fora dos tokens e repetidas acima de 10 grupos
-
-- **Origem:** TASK 8.4 · **Tipo:** UX · **Prioridade:** baixa · **Encaminhamento:** TASK 12.1
-- **Contexto:** `AllocationChart` (`web/src/app/(protected)/(overview)/_components/allocation-chart.tsx`) pinta o anel e a legenda com uma paleta local de 10 classes do Tailwind, a primeira `primary`, atribuída pela posição do grupo na lista. O tema não tem tokens de gráfico, e a alocação por ativo lista todas as posições com unidades, sem agrupar as menores.
-- **Impacto:** a partir do 11º grupo as cores se repetem, e dois ativos de mesma cor no anel só se distinguem pela ordem; a legenda em tabela continua exata.
-- **Proposta:** criar tokens de gráfico na consolidação de tokens e decidir com o produto se a alocação por ativo agrupa as menores posições num grupo "Other", calculado no domínio para o web não somar alocações.
-
 ### TD-026 — Cotações gravadas sem política de retenção
 
 - **Origem:** TASK 5.2 · **Tipo:** dados · **Prioridade:** baixa · **Encaminhamento:** avulso
@@ -374,6 +367,11 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Proposta:** ligar `noUncheckedIndexedAccess` primeiro, um pacote por vez, tratando cada acesso com guarda e sem asserção não nula; avaliar `exactOptionalPropertyTypes` depois, contra os tipos das bibliotecas que o web usa.
 
 ## Resolvidos
+
+### TD-025 — Cores do gráfico de alocação fora dos tokens e repetidas acima de 10 grupos
+
+- **Tipo:** UX · **Prioridade:** baixa
+- **Resolução:** o anel e a legenda usam os tokens `--chart-1` a `--chart-10`, e os grupos vêm do maior percentual para o menor, os sem percentual por último. Do 11º grupo em diante a cor é o neutro `--muted-foreground`, uma faixa só no fim do anel, e a legenda em tabela lista cada grupo; nenhuma cor da paleta se repete. Agrupar as menores posições num "Other" calculado no domínio não foi necessário.
 
 ### TD-035 — Detalhe do ativo sem proventos
 
