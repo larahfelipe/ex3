@@ -366,6 +366,13 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 - **Impacto:** uma conta com senha fraca, fora da lista de senhas comuns, pode ser adivinhada ao longo de dias, uma janela por vez.
 - **Proposta:** contar falhas consecutivas na linha do usuário, zerando no sucesso, com backoff crescente a partir de um limiar e teto que exige desafio (TD-076) ou redefinição de senha, fluxo que o produto ainda não tem.
 
+### TD-078 — Acesso por índice e propriedade opcional sem checagem estrita do compilador
+
+- **Origem:** revisão de modernização da codebase (2026-09-23) · **Tipo:** qualidade · **Prioridade:** baixa · **Encaminhamento:** avulso
+- **Contexto:** desde `69bbfb6` os dois pacotes compilam com `strict`, `noImplicitReturns`, `noImplicitOverride` e `noFallthroughCasesInSwitch`, mas sem `noUncheckedIndexedAccess` nem `exactOptionalPropertyTypes`. Ligadas, as duas acusam 28 e 19 erros no backend e 14 e 68 no web. Cada acesso por índice pede uma decisão sobre o valor ausente (guarda, erro ou valor padrão), e cada propriedade opcional, uma escolha entre `undefined` explícito e propriedade omitida.
+- **Impacto:** `array[i]` e `record[key]` são tipados como presentes quando podem faltar, e uma propriedade opcional aceita `undefined` explícito onde o contrato quer omissão; o compilador não aponta nenhum dos dois.
+- **Proposta:** ligar `noUncheckedIndexedAccess` primeiro, um pacote por vez, tratando cada acesso com guarda e sem asserção não nula; avaliar `exactOptionalPropertyTypes` depois, contra os tipos das bibliotecas que o web usa.
+
 ## Resolvidos
 
 ### TD-035 — Detalhe do ativo sem proventos
