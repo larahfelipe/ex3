@@ -207,7 +207,7 @@ export const SeriesChart: FC<SeriesChartProps> = ({
           <div
             aria-hidden="true"
             className={cn(
-              'pointer-events-none absolute top-0 space-y-0.5 rounded-md border bg-background px-3 py-2 text-xs shadow-elevated',
+              'pointer-events-none absolute top-0 space-y-0.5 rounded-md border bg-surface-elevated px-3 py-2 text-xs text-surface-elevated-foreground shadow-elevated',
               activePoint.x > CHART_WIDTH / 2 ? 'left-0' : 'right-0'
             )}
           >

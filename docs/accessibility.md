@@ -41,7 +41,7 @@ Automação cobre parte do conjunto; nenhum item abaixo é considerado atendido 
 
 | # | Regra | Verificação |
 | --- | --- | --- |
-| F1 | Indicador visível em todo elemento focável, com o par `focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2` | 2.4.7 · `components/ui/button.tsx`, `input.tsx`, `checkbox.tsx` e todo controle próprio |
+| F1 | Indicador visível em todo elemento focável, com o par `focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2` e `ring-offset-background`, sem o qual o Tailwind 4 pinta o vão de branco | 2.4.7 · `components/ui/button.tsx`, `input.tsx`, `checkbox.tsx` e todo controle próprio |
 | F2 | Abrir overlay move o foco para dentro dele | 2.4.3 · Radix; nenhum `autoFocus` concorrente |
 | F3 | Fechar overlay devolve o foco ao elemento de origem | 2.4.3 · Radix, desde que o gatilho continue montado ao fechar |
 | F4 | Nenhum elemento focado é removido da árvore sem o foco ir para um destino previsível | 2.4.3 · trocar de página, limpar filtros, excluir linha; `QuerySection` devolve o foco ao `<h2>` da seção quando o conteúdo troca e o foco cai no `body` |
@@ -67,7 +67,7 @@ Automação cobre parte do conjunto; nenhum item abaixo é considerado atendido 
 | C1 | Texto normal ≥ 4.5:1 e texto grande ≥ 3:1 contra o próprio fundo | 1.4.3 · medição por par token/superfície |
 | C2 | Borda, estado e indicador de foco ≥ 3:1 contra o adjacente | 1.4.11 · `--border`, `--focus`, `--input` |
 | C3 | Cor é o único vetor de nenhuma informação: sinal, rótulo ou ícone acompanham o tom | 1.4.1 · `signedValueTone`, `Trend`, `ProfitLoss` |
-| C4 | Nenhuma cor literal no código: tudo sai dos tokens de `globals.css` | 1.4.3 · varredura de `#`, `rgb(` e `hsl(` fora de `globals.css` |
+| C4 | Nenhuma cor literal no código: tudo sai dos tokens de `globals.css` | 1.4.3 · varredura de `#`, `rgb(` e `hsl(` fora de `globals.css`; única exceção, `APP_THEME_COLOR`, o `--background` do tema em hex para o `theme-color`, que o navegador lê sem resolver token |
 | C5 | Texto redimensionável até 200% e refluxo em 320 px sem perda de conteúdo | 1.4.4, 1.4.10 · unidades relativas; verificado junto da FASE 15 |
 
 A paleta clara dos tokens semânticos não tem consumidor em runtime — ver TD-048; C1 e C2 valem hoje sobre a paleta escura, mas as duas paletas passam por computação desde a correção registrada em TD-053. `color-scheme` é declarado por tema em `:root` e `.dark`, para que rolagem, seleção e os controles nativos (`<select>`, checkbox, scrollbar) sigam a paleta ativa em vez do padrão do navegador. As razões medidas estão em §Contraste medido.
@@ -126,22 +126,39 @@ Encerradas desde a captura: o link de pulo e os landmarks em `8a3ef68`; a regiã
 
 Medição determinística dos tokens de `app/globals.css`, nas duas paletas, restrita aos pares que o código produz de fato — cada `text-*` sobre a superfície em que ele aparece em `web/src`. Método: HSL do token convertido para sRGB, luminância relativa e razão de contraste da WCAG 2.x, com 4.5:1 para texto normal (1.4.3) e 3:1 para limite de componente e indicador de estado (1.4.11); fundo com alpha, como `bg-warning/10`, composto sobre `--background` antes da medição. Nenhum navegador é necessário para repetir a medição — as entradas são os próprios tokens.
 
-Todos os 62 pares medidos passam no limite da regra que exercem, nas duas paletas (script `scratchpad/contrast.mjs`, refeito com os tokens atuais). Os seis pares que reprovavam foram corrigidos só no valor do token — nenhuma classe de uso mudou:
+Os 78 pares medidos em cada paleta passam no limite da regra que exercem desde a revisão da paleta de 2026-09-24 (abaixo): texto de cada tom sobre fundo, superfície e superfície elevada, rótulo de botão sólido também no hover, texto sobre o tom a 10%, borda de campo, anel de foco e cada cor de gráfico sobre o card. O script fica fora do repositório; as entradas são só os tokens. Na correção do TD-053, os seis pares que reprovavam foram corrigidos só no valor do token, sem mudar classe de uso. Os valores são os atuais, e entre parênteses os de antes do TD-053:
 
 | Par | Onde aparece | Claro (era) | Escuro (era) | Limite |
 | --- | --- | --- | --- | --- |
-| `--destructive` como texto | ação de exclusão em `transaction-details-dialog.tsx`, no menu da linha de `positions-table.tsx` e na lista de `portfolios/page.tsx` | 5.75:1 (3.76:1) | 7.31:1 (2.01:1) | 4.5:1 |
-| `--primary-foreground` sobre `--primary` | rótulo de todo botão primário; `/0.9` no hover | 16.95:1 (16.95:1) | 5.71:1, 4.74:1 no hover (3.49:1) | 4.5:1 |
-| `--border`/`--input` sobre `--background` | borda de campo, única pista visual do controle | `--input` 3.52:1 (1.24:1) | `--input` 3.24:1, 3.08:1 sobre `--surface` (1.33:1) | 3:1 |
-| `--destructive-foreground` sobre `--destructive` | botão sólido de exclusão; `/0.9` no hover | 5.50:1, 4.84:1 no hover (3.60:1) | 6.53:1, 5.40:1 no hover (9.59:1) | 4.5:1 |
-| `--muted-foreground` sobre `--muted` | texto secundário em superfície de realce | 4.91:1 (4.39:1) | 6.00:1 (6.00:1) | 4.5:1 |
-| `--warning` sobre `bg-warning/10` | chip de alerta | 5.00:1 (4.40:1) | 10.28:1 (10.28:1) | 4.5:1 |
+| `--destructive` como texto | ação de exclusão em `transaction-details-dialog.tsx`, no menu da linha de `positions-table.tsx` e na lista de `portfolios/page.tsx` | 5.75:1 (3.76:1) | 7.02:1, 5.97:1 sobre `--surface-elevated` (2.01:1) | 4.5:1 |
+| `--primary-foreground` sobre `--primary` | rótulo de todo botão primário; `/0.9` no hover | 5.57:1, 4.66:1 no hover (16.95:1, com o `--primary` azul-marinho) | 5.71:1, 4.78:1 no hover (3.49:1) | 4.5:1 |
+| `--border`/`--input` sobre `--background` | borda de campo, única pista visual do controle | `--input` 3.52:1 (1.24:1) | `--input` 3.63:1, 3.08:1 sobre `--surface-elevated` (1.33:1) | 3:1 |
+| `--destructive-foreground` sobre `--destructive` | botão sólido de exclusão; `/0.9` no hover | 5.50:1, 4.84:1 no hover (3.60:1) | 6.53:1, 5.44:1 no hover (9.59:1) | 4.5:1 |
+| `--muted-foreground` sobre `--muted` | texto secundário em superfície de realce | 4.91:1 (4.39:1) | 5.37:1 (6.00:1) | 4.5:1 |
+| `--warning` sobre `bg-warning/10` | chip de alerta | 5.00:1 (4.40:1) | 9.63:1 (10.28:1) | 4.5:1 |
 
-`--border` continua abaixo de 3:1 nas duas paletas (1.24:1 claro, 1.33:1 escuro) por decisão: ele é só separador decorativo desde a correção, e todo controle interativo — input, select, segmented control — usa `--input` para a borda, que passa. No escuro, `--input` fica em 38% de luminância, o mínimo que ainda dá 3:1 sobre `--surface`, o fundo mais claro sob um campo: a borda fica o mais discreta que 1.4.11 permite. `AlertDialog`/`Dialog` usa `bg-scrim` em vez de `bg-black` para o overlay — a 60% com desfoque, ou a 80% sem desfoque sob `prefers-reduced-transparency` —, e `Input`/`SelectTrigger`/o textarea de notas ganharam `aria-invalid:border-negative`, então o estado inválido também é visível fora do foco.
+`--border` continua abaixo de 3:1 nas duas paletas (1.24:1 claro, 1.42:1 escuro) por decisão: ele é só separador decorativo desde a correção, e todo controle interativo — input, select, segmented control — usa `--input` para a borda, que passa. No escuro, `--input` fica em 42% de luminosidade, o mínimo que ainda dá 3:1 sobre `--surface-elevated`, o fundo mais claro sob um campo, o de todo dialog: a borda fica o mais discreta que 1.4.11 permite. `AlertDialog`/`Dialog` usa `bg-scrim` em vez de `bg-black` para o overlay — a 60% com desfoque, ou a 80% sem desfoque sob `prefers-reduced-transparency` —, e `Input`/`SelectTrigger`/o textarea de notas ganharam `aria-invalid:border-negative`, então o estado inválido também é visível fora do foco.
 
-Os demais pares passam nas duas paletas, com folga: texto padrão 20.14:1 e 19.24:1; `--muted-foreground` sobre `--background` 5.40:1 e 7.96:1; `--negative` 4.80:1 e 7.31:1; `--positive` 5.58:1 e 9.96:1; `--info` 5.94:1 e 9.09:1; anel de foco 20.14:1 e 6.40:1.
+Os demais pares passam nas duas paletas, com folga: texto padrão 20.14:1 e 18.48:1; `--muted-foreground` sobre `--background` 5.40:1 e 7.65:1; `--negative` 5.42:1 e 7.02:1; `--positive` 5.96:1 e 10.05:1; `--info` 5.94:1 e 9.17:1; anel de foco 20.14:1 e 6.15:1, 5.23:1 sobre `--surface-elevated`; a cor de gráfico mais fraca, 3.02:1 (`--chart-9`, claro) e 4.68:1 (`--chart-1`, escuro), sobre o card.
 
 A paleta clara ainda não tem consumidor em runtime (TD-048): a medição prova que ela passaria se ativada, não que foi vista renderizada. TD-053 está resolvido — os seis pares passam por computação nas duas paletas — mas a paleta clara segue sem auditoria visual real até TD-048 ser endereçado.
+
+### Revisão da paleta — 2026-09-24
+
+Cada mudança corrige um defeito medido ou uma regra da paleta; nenhuma é só de gosto.
+
+| Mudança | Motivo |
+| --- | --- |
+| Escuro: `--background` 2.9% → 5.5%, `--surface` 6% → 9.2%, `--surface-elevated` 3.9% → 12.3%, em L* (CIELAB) 4, 8 e 12 | a superfície elevada era mais escura que o card, então menu, select, popover e toast abertos sobre um card pareciam afundados, e só a borda os separava; sombra quase não aparece sobre fundo escuro, e a elevação precisa vir da luminosidade, em passos iguais. O fundo deixa o preto quase absoluto (`#070707`), que não deixava degrau abaixo do card: 2.4 pontos de L* entre os dois |
+| Escuro: `--muted`, `--secondary`, `--accent` e `--border` 14.9% → 18.1% (L* 19) | hover, foco e seleção de item de menu (`--accent`) e realce (`--muted`) ficam 7 pontos de L* acima da superfície elevada, a mais clara em que aparecem; em 14.9% seriam 3. A borda acompanha, para o divisor do `DialogFooter` seguir visível sobre o dialog |
+| Escuro: `--input` 38% → 42% | o mínimo que dá 3:1 sobre a nova superfície elevada, a de todo dialog |
+| `DialogContent` e a leitura do `SeriesChart`: `bg-background` → `bg-surface-elevated` | eram a camada mais alta da tela e a mais escura; o dialog ficava quase igual à página escurecida pelo scrim |
+| Claro: `--primary` azul-marinho → `21 100% 35%` | o laranja é a cor de identidade, a do tema escuro e das linhas da imagem do login; o azul era o padrão da shadcn. É o laranja mais claro do matiz em que o rótulo do botão passa 4.5:1 também no hover; o `21 100% 50%` do escuro daria 3.14:1 como texto sobre branco |
+| Claro: `--positive` 24% → 23% e `--negative` 51% → 47% | reprovavam em pares que o código produz: rótulo do botão `success` no hover, 4.40:1, e texto negativo sobre `bg-negative/10`, no aviso de autenticação e no hover de "Sign out", 4.11:1 |
+| `ring-offset-background` no botão de ordenação de `positions-table.tsx` e no `summary` de `performance-chart.tsx` | o Tailwind 4.3 pinta o vão de `ring-offset-2` com `--tw-ring-offset-color`, `#fff` por padrão: os dois pintavam uma faixa branca entre o controle e o anel laranja no tema escuro |
+| `theme-color` de `#070707` para `APP_THEME_COLOR` (`#0e0e0e`) | acompanha o novo `--background`; nome e comentário ligam o literal ao token |
+
+Ficaram como estavam: as cores de gráfico, que passam 3:1 sobre o card nas duas paletas; os neutros acromáticos, porque tingi-los seria só estética; `positive` e `negative` como tokens de sucesso e erro, que o toast e os avisos já usam, sem os aliases `success` e `error`, que não teriam consumidor próprio; e o desabilitado em `opacity-50`, fora do 1.4.3. A revisão é por cálculo e leitura do código: nenhum navegador renderizou a paleta nova.
 
 ## Auditoria automatizada — TASK 20.6
 

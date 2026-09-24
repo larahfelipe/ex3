@@ -263,7 +263,7 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
                 setIsTableOpen(currentTarget.open)
               }
             >
-              <summary className="cursor-pointer rounded-sm text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2">
+              <summary className="cursor-pointer rounded-sm text-sm font-medium text-muted-foreground ring-offset-background transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2">
                 Performance as a table
               </summary>
 
