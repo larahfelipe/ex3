@@ -42,6 +42,7 @@ type ChartPoint = Record<'x' | 'y', number>;
 
 const RANGE_PARAM = 'range';
 const DEFAULT_RANGE: PerformanceRange = '1Y';
+const HISTORY_RANGE: PerformanceRange = 'MAX';
 
 const PERFORMANCE_RANGES: PerformanceRange[] = [
   '1W',
@@ -264,6 +265,28 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
     range: selectedRange,
     symbol
   });
+  const { data: performance, isError, isPlaceholderData } = performanceQuery;
+  const isSelectedRangeEmpty =
+    performance !== undefined &&
+    !isPlaceholderData &&
+    performance.series.length === 0;
+
+  /**
+   * Every period ends today, so one comes back empty while the history does not
+   * only when no trading day of it has a value yet, as the year to date early in
+   * January. The whole history is asked for then, and only then.
+   */
+  const historyQuery = usePerformance(
+    isSelectedRangeEmpty && selectedRange !== HISTORY_RANGE ? portfolio : null,
+    { range: HISTORY_RANGE, symbol }
+  );
+
+  /** A failed period keeps the selector, so another one can still be chosen. */
+  const hasRangesToChoose =
+    isError ||
+    (performance !== undefined && performance.series.length > 0) ||
+    (historyQuery.data !== undefined && historyQuery.data.series.length > 0);
+
   const rangeInputName = useId();
 
   const selectRange = (range: PerformanceRange) => {
@@ -281,23 +304,25 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
       query={performanceQuery}
       errorMessage="The performance could not be loaded"
       action={
-        <fieldset>
-          <legend className="sr-only">Period</legend>
+        hasRangesToChoose && (
+          <fieldset>
+            <legend className="sr-only">Period</legend>
 
-          <SegmentedControl className="flex-wrap">
-            {PERFORMANCE_RANGES.map((range) => (
-              <SegmentedControlItem
-                key={range}
-                name={rangeInputName}
-                value={range}
-                checked={range === selectedRange}
-                onChange={() => selectRange(range)}
-              >
-                {PERFORMANCE_RANGE_LABELS[range].name}
-              </SegmentedControlItem>
-            ))}
-          </SegmentedControl>
-        </fieldset>
+            <SegmentedControl className="flex-wrap">
+              {PERFORMANCE_RANGES.map((range) => (
+                <SegmentedControlItem
+                  key={range}
+                  name={rangeInputName}
+                  value={range}
+                  checked={range === selectedRange}
+                  onChange={() => selectRange(range)}
+                >
+                  {PERFORMANCE_RANGE_LABELS[range].name}
+                </SegmentedControlItem>
+              ))}
+            </SegmentedControl>
+          </fieldset>
+        )
       }
       loading={
         <LoadingState label="Loading the performance">
@@ -308,7 +333,15 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
           </div>
         </LoadingState>
       }
-      empty={<EmptyState message="No performance to display for this period" />}
+      empty={
+        <EmptyState
+          message={
+            hasRangesToChoose
+              ? 'No performance to display for this period'
+              : 'No performance to display yet'
+          }
+        />
+      }
       isEmpty={({ series }) => series.length === 0}
     >
       {({ series, baseCurrency }) => {
