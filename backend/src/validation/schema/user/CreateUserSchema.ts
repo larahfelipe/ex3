@@ -15,7 +15,8 @@ export const CreateUserSchema = z
       .max(255, 'Email must have at most 255 characters')
       .transform((value) => value.trim().toLowerCase()),
     password: NewPasswordSchema,
-    baseCurrency: CreatePortfolioSchema.shape.baseCurrency
+    baseCurrency: CreatePortfolioSchema.shape.baseCurrency,
+    portfolioName: CreatePortfolioSchema.shape.name.optional()
   })
   .superRefine(({ email, password }, ctx) => {
     if (isDerivedFromEmail(password, email))

@@ -30,6 +30,9 @@ const AUTHENTICATED_ROUTE = '/v1/portfolios';
 /** Mirrors the name `CreateUserService` gives the portfolio every account starts with. */
 const FIRST_PORTFOLIO_NAME = 'Main';
 
+/** `CreatePortfolioSchema` bounds a portfolio name to this many characters. */
+const PORTFOLIO_NAME_MAX_LENGTH = 60;
+
 /**
  * Enough requests to pass an existence check together; below the sign-up rate
  * limit, which would otherwise decide the outcome instead of the database.
@@ -158,6 +161,44 @@ describe('authentication', () => {
         ),
         [{ name: FIRST_PORTFOLIO_NAME, baseCurrency: NEW_USER.baseCurrency }]
       );
+    });
+
+    it('names the first portfolio as the sign-up asks, trimmed', async () => {
+      const res = await client
+        .post(SIGN_UP_ROUTE)
+        .send({ ...NEW_USER, portfolioName: '  Long term  ' });
+
+      assert.equal(res.status, 201);
+
+      const listed = await client
+        .get(AUTHENTICATED_ROUTE)
+        .set(bearer(res.body.user.accessToken));
+
+      assert.deepEqual(
+        listed.body.portfolios.map(({ name }: Record<'name', string>) => name),
+        ['Long term']
+      );
+    });
+
+    it('rejects a blank or overlong portfolio name and creates nothing', async () => {
+      for (const portfolioName of [
+        '',
+        '   ',
+        'x'.repeat(PORTFOLIO_NAME_MAX_LENGTH + 1)
+      ]) {
+        const res = await client
+          .post(SIGN_UP_ROUTE)
+          .send({ ...NEW_USER, portfolioName });
+
+        assert.equal(
+          res.status,
+          Errors.VALIDATION.status,
+          `"${portfolioName}"`
+        );
+      }
+
+      assert.equal(await prismaClient.user.count(), 0);
+      assert.equal(await prismaClient.portfolio.count(), 0);
     });
 
     it('stores a password digest that still verifies', async () => {

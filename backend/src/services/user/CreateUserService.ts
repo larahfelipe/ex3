@@ -5,8 +5,9 @@ import type { Jwt } from '@/infra/cryptography';
 import type { UserRepository } from '@/infra/database';
 
 /**
- * The portfolio every account starts with, and the name the migration gave to
- * the ones created before an account could hold more than one.
+ * The portfolio every account starts with when the sign-up names none, and the
+ * name the migration gave to the ones created before an account could hold
+ * more than one.
  */
 const FIRST_PORTFOLIO_NAME = 'Main';
 
@@ -31,13 +32,14 @@ export class CreateUserService {
     name,
     email,
     password,
-    baseCurrency
+    baseCurrency,
+    portfolioName
   }: CreateUserService.DTO): Promise<CreateUserService.Result> {
     const account = await this.userRepository.add({
       email,
       password,
       name: name ?? '',
-      portfolio: { name: FIRST_PORTFOLIO_NAME, baseCurrency }
+      portfolio: { name: portfolioName ?? FIRST_PORTFOLIO_NAME, baseCurrency }
     });
 
     if (!account) throw new ConflictError(UserMessages.ALREADY_EXISTS);
@@ -59,7 +61,8 @@ export class CreateUserService {
 
 namespace CreateUserService {
   export type DTO = Pick<User, 'name' | 'email' | 'password'> &
-    Pick<Portfolio, 'baseCurrency'>;
+    Pick<Portfolio, 'baseCurrency'> &
+    Partial<Record<'portfolioName', Portfolio['name']>>;
   export type Result = {
     user: Omit<User, 'password' | 'isAdmin' | 'sessionVersion' | 'portfolios'> &
       Record<'accessToken', string>;
