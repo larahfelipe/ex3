@@ -76,11 +76,22 @@ export const formatPercent = (
     ...options
   });
 
-export const signedValueTone = (value: DecimalString) => {
-  if (value === '0') return 'text-muted-foreground';
+export type ValueSign = 'negative' | 'zero' | 'positive';
 
-  return value.startsWith('-') ? 'text-negative' : 'text-positive';
+export const signOf = (value: DecimalString): ValueSign => {
+  if (value === '0') return 'zero';
+
+  return value.startsWith('-') ? 'negative' : 'positive';
 };
+
+const SIGNED_VALUE_TONES: Record<ValueSign, string> = {
+  negative: 'text-negative',
+  zero: 'text-muted-foreground',
+  positive: 'text-positive'
+};
+
+export const signedValueTone = (value: DecimalString) =>
+  SIGNED_VALUE_TONES[signOf(value)];
 
 export const updateUrlQuery = (params: URLSearchParams) =>
   window.history.pushState(
