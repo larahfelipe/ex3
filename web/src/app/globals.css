@@ -227,24 +227,35 @@
 }
 
 /*
- * The toast's countdown: a bar along the bottom edge that empties over the
- * toast's lifetime. It pauses whenever sonner holds the toast's timer — the
- * list expanded by the pointer or the hotkey, pressed, or the document hidden —
- * so what it shows is the time left. sonner's styles are unlayered and come
- * later, so these are unlayered and more specific. A toast swiping out gives
- * its animation back to sonner.
+ * The toast's bottom edge is its countdown: a bar in the status tone that
+ * empties over the toast's lifetime, above a faint track of the same tone. It
+ * pauses whenever sonner holds the toast's timer — the list expanded by the
+ * pointer or the hotkey, pressed, or the document hidden — so what it shows is
+ * the time left. sonner's styles are unlayered and come later, so these are
+ * unlayered and more specific. A toast swiping out gives its animation back to
+ * sonner, and a loading toast, which has no lifetime, keeps the plain border.
  */
 @keyframes toast-countdown {
   from {
-    background-size: 100% 3px;
+    background-size:
+      100% var(--toast-countdown-height),
+      100% var(--toast-countdown-height);
   }
   to {
-    background-size: 0 3px;
+    background-size:
+      0 var(--toast-countdown-height),
+      100% var(--toast-countdown-height);
   }
 }
 
 [data-sonner-toaster] [data-sonner-toast] {
+  --toast-countdown-height: 3px;
   --toast-countdown-tone: hsl(var(--muted-foreground));
+  --toast-countdown-track: color-mix(
+    in srgb,
+    var(--toast-countdown-tone) 25%,
+    transparent
+  );
 }
 
 [data-sonner-toaster] [data-sonner-toast][data-type='success'] {
@@ -267,12 +278,16 @@
   [data-sonner-toast][data-styled='true'][data-swipe-out='false']:not(
     [data-type='loading']
   ) {
-  background-image: linear-gradient(
-    var(--toast-countdown-tone),
-    var(--toast-countdown-tone)
-  );
+  border-bottom-color: transparent;
+  background-image:
+    linear-gradient(var(--toast-countdown-tone), var(--toast-countdown-tone)),
+    linear-gradient(var(--toast-countdown-track), var(--toast-countdown-track));
+  background-origin: border-box;
   background-position: left bottom;
   background-repeat: no-repeat;
+  background-size:
+    100% var(--toast-countdown-height),
+    100% var(--toast-countdown-height);
   animation-name: toast-countdown;
   animation-duration: var(--toast-lifetime);
   animation-timing-function: linear;
