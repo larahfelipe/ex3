@@ -100,12 +100,12 @@ export const SignUpForm: FC = () => {
     handleSubmit,
     setError,
     setFocus,
-    getValues,
     getFieldState,
     trigger,
     formState: { errors, isSubmitting }
   } = useForm<SignUpFormValues>({
-    mode: 'onChange',
+    mode: 'onSubmit',
+    reValidateMode: 'onSubmit',
     resolver: zodResolver(signUpSchema),
     defaultValues: {
       name: '',
@@ -117,10 +117,7 @@ export const SignUpForm: FC = () => {
     }
   });
 
-  const [email, password] = useWatch({
-    control: formControl,
-    name: ['email', 'password']
-  });
+  const email = useWatch({ control: formControl, name: 'email' });
 
   const { title, fields } = SIGN_UP_STEPS[step];
   const stepNumber = step + 1;
@@ -146,14 +143,10 @@ export const SignUpForm: FC = () => {
       goToStep(stepOf(field), field);
   };
 
-  /**
-   * A field's error depends on another field here, and only the changed field
-   * is validated on change; the dependent one is re-validated once it has a
-   * value, so an untouched field still shows nothing.
-   */
-  const revalidateOnceTyped = (field: 'password' | 'confirmPassword') => () => {
-    if (getValues(field)) void trigger(field);
-  };
+  /** The password fields are left out, so typing a password never shows or clears an error until the step is submitted. */
+  const validateOnChange = (field: 'name' | 'email' | 'portfolioName') => ({
+    onChange: () => void trigger(field)
+  });
 
   const handleSignUp: SubmitHandler<SignUpFormValues> = async ({
     name,
@@ -245,7 +238,7 @@ export const SignUpForm: FC = () => {
                       {...control}
                       autoComplete="name"
                       autoCorrect="off"
-                      {...register('name')}
+                      {...register('name', validateOnChange('name'))}
                     />
                   )}
                 </FormField>
@@ -256,9 +249,7 @@ export const SignUpForm: FC = () => {
                       {...control}
                       type="email"
                       autoComplete="username"
-                      {...register('email', {
-                        onChange: revalidateOnceTyped('password')
-                      })}
+                      {...register('email', validateOnChange('email'))}
                     />
                   )}
                 </FormField>
@@ -277,9 +268,7 @@ export const SignUpForm: FC = () => {
 
                 <FormField
                   label="Password"
-                  hint={
-                    <PasswordRequirements password={password} email={email} />
-                  }
+                  hint={<PasswordRequirements />}
                   error={errors.password?.message}
                 >
                   {(control) => (
@@ -287,9 +276,7 @@ export const SignUpForm: FC = () => {
                       {...control}
                       type="password"
                       autoComplete="new-password"
-                      {...register('password', {
-                        onChange: revalidateOnceTyped('confirmPassword')
-                      })}
+                      {...register('password')}
                     />
                   )}
                 </FormField>
@@ -323,7 +310,10 @@ export const SignUpForm: FC = () => {
                       type="text"
                       autoComplete="off"
                       maxLength={PORTFOLIO_NAME_MAX_LENGTH}
-                      {...register('portfolioName')}
+                      {...register(
+                        'portfolioName',
+                        validateOnChange('portfolioName')
+                      )}
                     />
                   )}
                 </FormField>
