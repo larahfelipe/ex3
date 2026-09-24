@@ -244,3 +244,26 @@ A TASK 20.5 deixou LCP, CLS e INP como lacuna por falta de navegador. Um Firefox
 O orçamento do LCP é 2,5 s; a pior rota fica em um décimo disso. A distância entre FCP e LCP nas rotas protegidas — cerca de 170 ms — é o intervalo entre o esqueleto e o dado da API, exatamente o waterfall de TD-055. O elemento de LCP é a lista de métricas do cartão de patrimônio nas telas com dado e o parágrafo do formulário nas demais; a arte do sign-in não é candidata em nenhuma largura desde a TASK 20.5.
 
 O que continua sem número: o **CLS**, porque o Firefox não implementa o tipo de entrada `layout-shift` — só Chromium expõe —, e o **INP**, que exige interação real numa janela ativa, que o arnês headless nunca tem. Ambos seguem em TD-054, junto do Lighthouse.
+
+## Código do app sem efeitos colaterais — 2026-09-24
+
+`web/package.json` declara `"sideEffects": ["*.css"]`. Sem a declaração, o bundler trata todo módulo do app como capaz de efeito ao ser importado e não pode descartar o que um barrel reexporta sem uso: `import { Button } from '@/components/ui'`, no provider do layout raiz, levava a todas as rotas o `Calendar` e, com ele, o `react-day-picker`, além dos componentes Radix que a rota não usa. O sign-in baixava o calendário sem ter data nenhuma.
+
+A declaração vale porque o único import feito só pelo efeito é o `globals.css`, que o padrão cobre. Os módulos com efeito no topo, `lib/axios/axios.ts` (interceptadores) e `lib/dates.ts` (`dayjs.extend`), só são alcançados pelos próprios exports: nenhum arquivo importa `dayjs` ou `axios` diretamente para usar o que eles configuram.
+
+Medida: soma dos bytes dos chunks que a rota carrega de saída — os `rootMainFiles` de `build/build-manifest.json` mais os `entryJSFiles` do `page_client-reference-manifest.js` da rota —, na build de produção (Turbopack). É mais fina que a soma de `build/static/chunks` das tasks anteriores, que não muda quando código só troca de chunk.
+
+| Rota | Antes | Depois | Diferença |
+| --- | --- | --- | --- |
+| `/sign-in` | 1.368.590 | 1.164.783 | −203.807 (−14,9 %) |
+| `/sign-up` | 1.373.727 | 1.170.942 | −202.785 |
+| `/account` | 1.382.891 | 1.180.051 | −202.840 |
+| `/portfolios` | 1.388.436 | 1.227.937 | −160.499 |
+| `/` | 1.429.595 | 1.418.351 | −11.244 |
+| `/assets/[symbol]` | 1.424.343 | 1.413.114 | −11.229 |
+| `/assets` | 1.422.138 | 1.429.069 | +6.931 |
+| Soma de `build/static/chunks` | 1.739.931 | 1.706.746 | −33.185 |
+
+As rotas com o formulário de transação mantêm o calendário, que usam. Os 6.931 bytes a mais em `/assets` são reagrupamento de chunks pelo Turbopack, não código novo.
+
+**Avaliado e não feito: carregar os diálogos sob demanda (`next/dynamic`).** Nas rotas que abrem o formulário de transação, o calendário e o formulário somam cerca de 100 KB. Adiar esse código tira bytes do carregamento e os põe no primeiro clique em "New transaction" ou "Edit", a interação principal dessas telas, e o diálogo abriria vazio até o chunk chegar. Sem medição de INP em navegador (TD-054), a troca não se justifica.
