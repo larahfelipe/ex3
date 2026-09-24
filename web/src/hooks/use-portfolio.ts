@@ -43,13 +43,14 @@ import api, {
   isValidationError,
   type ApiProxyErrorData
 } from '@/lib/axios';
+import { FIRST_PAGE } from '@/lib/pagination';
 import { queryKeys } from '@/lib/react-query';
 import { toastLifetimeOf } from '@/lib/toast-lifetime';
 import type { Maybe, WithMessage } from '@/types';
 
 /** Portfolios are listed in creation order, so this page holds the one the account was created with. */
 const PRIMARY_PORTFOLIO_PAGE: GetPortfoliosRequestParams = {
-  page: 1,
+  page: FIRST_PAGE,
   limit: 1
 };
 

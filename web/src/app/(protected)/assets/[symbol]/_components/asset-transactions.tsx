@@ -7,11 +7,11 @@ import { QuerySection } from '@/components/query-section';
 import { TransactionsTable } from '@/components/transactions-table';
 import { usePageParam } from '@/hooks/use-page-param';
 import { useTransactions } from '@/hooks/use-transactions';
+import { FIRST_PAGE } from '@/lib/pagination';
 
 type AssetTransactionsProps = Record<'portfolio', Portfolio> &
   Record<'symbol', string>;
 
-const FIRST_PAGE = 1;
 const TRANSACTIONS_PAGE_SIZE = 10;
 const TRANSACTIONS_PAGE_PARAM = 'transactionsPage';
 
