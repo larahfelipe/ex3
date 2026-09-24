@@ -115,6 +115,19 @@ const MARKET_PRICE_HINT = 'Market price';
 /** One whole unit, keeping the fraction, moves a quantity of any class. */
 const QUANTITY_STEP = 1;
 
+/** A new transaction starts at one unit, the stepper's own step. */
+const INITIAL_QUANTITY = '1';
+
+/** A quantity is never negative, so its sign is never typed. */
+const NEGATIVE_SIGNS = /[-\u2212]/g;
+
+/**
+ * Side by side, the unit price and the quantity start their inputs at the same
+ * height: a label row may hold an `xxs` action, so both rows take its height.
+ */
+const PAIRED_FIELD_CLASS =
+  '[&>:first-child]:flex [&>:first-child]:min-h-6 [&>:first-child]:items-center';
+
 /** Fields a transaction often goes without, added to the form one by one. */
 const TRANSACTION_DETAILS = [
   'fees',
@@ -441,6 +454,7 @@ const TransactionForm: FC<TransactionFormProps> = ({
     target.kind === 'create'
       ? {
           ...EMPTY_TRANSACTION_FORM,
+          quantity: INITIAL_QUANTITY,
           unitPrice: marketUnitPrice ?? '',
           executionDay: calendarDayOf(openedAt)
         }
@@ -475,6 +489,11 @@ const TransactionForm: FC<TransactionFormProps> = ({
 
   const { field: executionDayField } = useController({
     name: 'executionDay',
+    control: formControl
+  });
+
+  const { field: quantityInput } = useController({
+    name: 'quantity',
     control: formControl
   });
 
@@ -618,24 +637,20 @@ const TransactionForm: FC<TransactionFormProps> = ({
             </SegmentedControl>
           </ChoiceField>
 
-          <FormField label="Date" error={errors.executionDay?.message}>
-            {(control) => (
-              <DatePicker
-                id={control.id}
-                ref={executionDayField.ref}
-                name={executionDayField.name}
-                value={executionDayField.value}
-                aria-invalid={control['aria-invalid']}
-                aria-describedby={control['aria-describedby']}
-                onValueChange={executionDayField.onChange}
-                onBlur={executionDayField.onBlur}
-              />
-            )}
-          </FormField>
+          <AmountField
+            name="unitPrice"
+            label={TRANSACTION_UNIT_PRICE_LABELS[selectedType]}
+            currency={currency}
+            decimals={unitPriceDecimals}
+            hint={unitPriceHint}
+            className={PAIRED_FIELD_CLASS}
+            control={formControl}
+          />
 
           <FormField
             label="Quantity"
             error={errors.quantity?.message}
+            className={PAIRED_FIELD_CLASS}
             action={
               heldQuantity !== null && isQuantityOfHeldUnits(selectedType) ? (
                 <Button
@@ -658,11 +673,19 @@ const TransactionForm: FC<TransactionFormProps> = ({
                 <div className="min-w-0 flex-1">
                   <Input
                     {...control}
+                    ref={quantityInput.ref}
                     type="text"
                     inputMode="decimal"
                     autoComplete="off"
                     className="tabular-nums"
-                    {...register('quantity')}
+                    name={quantityInput.name}
+                    value={quantityInput.value}
+                    onChange={(event) =>
+                      quantityInput.onChange(
+                        event.target.value.replace(NEGATIVE_SIGNS, '')
+                      )
+                    }
+                    onBlur={quantityInput.onBlur}
                   />
                 </div>
 
@@ -695,15 +718,24 @@ const TransactionForm: FC<TransactionFormProps> = ({
             )}
           </FormField>
 
-          <AmountField
-            name="unitPrice"
-            label={TRANSACTION_UNIT_PRICE_LABELS[selectedType]}
-            currency={currency}
-            decimals={unitPriceDecimals}
-            hint={unitPriceHint}
+          <FormField
+            label="Date"
+            error={errors.executionDay?.message}
             className="sm:col-span-2"
-            control={formControl}
-          />
+          >
+            {(control) => (
+              <DatePicker
+                id={control.id}
+                ref={executionDayField.ref}
+                name={executionDayField.name}
+                value={executionDayField.value}
+                aria-invalid={control['aria-invalid']}
+                aria-describedby={control['aria-describedby']}
+                onValueChange={executionDayField.onChange}
+                onBlur={executionDayField.onBlur}
+              />
+            )}
+          </FormField>
 
           {shownDetails.has('fees') && (
             <AmountField
@@ -858,7 +890,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent>
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
             {target.kind === 'create'
