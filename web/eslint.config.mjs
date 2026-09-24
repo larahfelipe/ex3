@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 
 import js from '@eslint/js';
 import nextPlugin from '@next/eslint-plugin-next';
+import { defineConfig, globalIgnores } from 'eslint/config';
 import importHelpers from 'eslint-plugin-import-helpers';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import prettierRecommended from 'eslint-plugin-prettier/recommended';
@@ -14,17 +15,15 @@ const { version: reactVersion } = createRequire(import.meta.url)(
   'react/package.json'
 );
 
-export default tseslint.config(
-  {
-    ignores: [
-      '.next/**',
-      'build/**',
-      'out/**',
-      'next-env.d.ts',
-      'public/sw.js',
-      'public/workbox-*.js'
-    ]
-  },
+export default defineConfig(
+  globalIgnores([
+    '.next/**',
+    'build/**',
+    'out/**',
+    'next-env.d.ts',
+    'public/sw.js',
+    'public/workbox-*.js'
+  ]),
   js.configs.recommended,
   tseslint.configs.recommended,
   react.configs.flat.recommended,
@@ -37,7 +36,7 @@ export default tseslint.config(
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: { ...globals.browser, ...globals.node },
-      parserOptions: { ecmaFeatures: { jsx: true } }
+      parserOptions: { ecmaFeatures: { jsx: true }, projectService: true }
     },
     plugins: {
       '@next/next': nextPlugin,
@@ -48,6 +47,7 @@ export default tseslint.config(
       ...nextPlugin.configs.recommended.rules,
       ...nextPlugin.configs['core-web-vitals'].rules,
       'no-console': ['error', { allow: ['error', 'warn'] }],
+      '@typescript-eslint/no-deprecated': 'error',
       '@typescript-eslint/consistent-type-imports': [
         'warn',
         { fixStyle: 'inline-type-imports' }
