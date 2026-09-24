@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 
 import {
   keepPreviousData,
@@ -139,16 +139,50 @@ export const usePortfolioScopedQuery = <Data>({
       : undefined
   });
 
-type PortfolioChangeAnnouncement = Record<'title', string> &
-  Partial<Record<'description', string>>;
+type PortfolioChangeAction = Record<'label', string> &
+  Record<'onSelect', VoidFunction>;
 
+type PortfolioChangeAnnouncement = Record<'title', string> &
+  Partial<Record<'description', string>> &
+  Partial<Record<'action', PortfolioChangeAction>>;
+
+/**
+ * Time to read the change and reach the step it offers, above sonner's 4 s;
+ * the pointer over the toasts pauses it.
+ */
+const ACTIONABLE_TOAST_DURATION_MS = 10_000;
+
+/**
+ * The toast confirms the write as soon as it succeeds, so the dialog that made
+ * it closes then, and the scope refetches behind it. An action acts on the
+ * component that announced it, so its toast leaves when that component does.
+ */
 export const useAnnouncePortfolioChange = (portfolio: Maybe<Portfolio>) => {
   const refreshPortfolio = useRefreshPortfolio(portfolio);
+  const actionableToasts = useRef(new Set<string | number>());
+
+  useEffect(() => {
+    const announcedToasts = actionableToasts.current;
+
+    return () => announcedToasts.forEach((toastId) => toast.dismiss(toastId));
+  }, []);
 
   return useCallback(
-    async ({ title, description }: PortfolioChangeAnnouncement) => {
-      toast.success(title, { description });
-      await refreshPortfolio();
+    ({ title, description, action }: PortfolioChangeAnnouncement) => {
+      const toastId = toast.success(
+        title,
+        action === undefined
+          ? { description }
+          : {
+              description,
+              duration: ACTIONABLE_TOAST_DURATION_MS,
+              action: { label: action.label, onClick: action.onSelect }
+            }
+      );
+
+      if (action !== undefined) actionableToasts.current.add(toastId);
+
+      void refreshPortfolio();
     },
     [refreshPortfolio]
   );

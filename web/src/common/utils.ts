@@ -83,11 +83,9 @@ export const signedValueTone = (value: DecimalString) => {
   return value.startsWith('-') ? 'text-negative' : 'text-positive';
 };
 
-const urlWithQuery = (params: URLSearchParams) =>
-  params.size ? `?${params}` : window.location.pathname;
-
 export const updateUrlQuery = (params: URLSearchParams) =>
-  window.history.pushState({}, '', urlWithQuery(params));
-
-export const replaceUrlQuery = (params: URLSearchParams) =>
-  window.history.replaceState({}, '', urlWithQuery(params));
+  window.history.pushState(
+    {},
+    '',
+    params.size ? `?${params}` : window.location.pathname
+  );
