@@ -1,10 +1,11 @@
-import type { FC } from 'react';
+import { useId, type FC } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 import { FormField } from '@/components/form-field';
+import { InfoNote } from '@/components/info-note';
 import { PasswordRequirements } from '@/components/password-requirements';
 import { SubmitButton } from '@/components/submit-button';
 import { CardContent, CardFooter, Input } from '@/components/ui';
@@ -43,6 +44,8 @@ const isWrongCurrentPassword = (error: unknown) =>
 
 export const PasswordForm: FC<PasswordFormProps> = ({ email }) => {
   const { mutateAsync: changePassword } = useChangePassword();
+
+  const signOutNoteId = useId();
 
   const {
     control,
@@ -145,11 +148,16 @@ export const PasswordForm: FC<PasswordFormProps> = ({ email }) => {
         )}
       </CardContent>
 
-      <CardFooter className="flex justify-end">
+      <CardFooter className="flex-col items-stretch gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <InfoNote id={signOutNoteId}>
+          Changing your password signs you out everywhere, including here.
+        </InfoNote>
+
         <SubmitButton
           isPending={isSubmitting}
           size="sm"
-          className="max-sm:w-full"
+          aria-describedby={signOutNoteId}
+          className="shrink-0"
         >
           Change password
         </SubmitButton>
