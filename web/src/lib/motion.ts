@@ -36,7 +36,6 @@ const TAB_PANEL_EXIT_TRANSITION = {
   opacity: { duration: 0.12, ease: 'easeIn' }
 } as const satisfies Transition;
 
-/** The panel arrives from the side of the tab chosen and leaves to the other. */
 export const TAB_PANEL_VARIANTS = {
   enter: (direction: SlideDirection) => ({
     x: direction * TAB_PANEL_OFFSET_PX,

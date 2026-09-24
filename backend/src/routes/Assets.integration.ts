@@ -482,12 +482,6 @@ describe('assets', () => {
     });
   });
 
-  /**
-   * The API has no search. The web filters the page it already fetched by
-   * symbol substring (`assets-table.tsx`), so it never finds a match on another
-   * page (baseline #25, TASK 9.1). That filter relies on the listing not being
-   * narrowed by anything in the query besides paging and sorting.
-   */
   describe('rename', () => {
     const RENAMED_SYMBOL = 'XBT';
 
