@@ -78,7 +78,7 @@ export default function Account() {
           <SectionHeader
             id={securityHeadingId}
             title="Security"
-            description="Changing your password signs you out everywhere, including here"
+            description="The password you sign in with"
           />
 
           <PasswordForm email={user?.email} />
