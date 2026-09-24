@@ -387,6 +387,7 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 
 - **Tipo:** UX · **Prioridade:** baixa
 - **Resolução:** `action` fora de `ASSET_DIALOG_ACTIONS` já era ignorado; `add-transaction` e `delete-asset` sem `symbol` também passaram a ser. Os parâmetros de diálogo são escritos com `replaceUrlQuery` (`history.replaceState`): fechar não cria entrada no histórico, e Voltar sai da tela em vez de reabrir o diálogo. A History API nativa é sincronizada com `useSearchParams` pelo App Router desde o Next 14.1, então a troca pelo router deixou de ser necessária.
+- **Revisão:** desde `3ed8111`, nenhum diálogo passa pela URL. A sincronização acima chegava depois do fechamento e reabria o diálogo, e o Cancel só fechava no segundo clique. Cada tela guarda o diálogo aberto em estado, pela união de `components/asset-dialogs.tsx`, e `ASSET_DIALOG_ACTIONS` e `replaceUrlQuery` saíram.
 
 ### TD-064 — Diálogo de confirmação de exclusão montado duas vezes
 
