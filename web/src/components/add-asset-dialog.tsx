@@ -4,7 +4,7 @@ import {
   useRef,
   useState,
   type FC,
-  type FormEvent
+  type SubmitEvent
 } from 'react';
 
 import { ArrowDownUp, Search } from 'lucide-react';
@@ -206,7 +206,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
     setSubmitIssue(null);
   };
 
-  const submitChoice = async (event: FormEvent<HTMLFormElement>) => {
+  const submitChoice = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (requestedSearch !== search) {
