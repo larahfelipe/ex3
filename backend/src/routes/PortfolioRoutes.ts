@@ -10,6 +10,7 @@ import {
   getPortfolioPerformanceControllerHandler,
   getPortfolioPositionControllerHandler,
   getPortfolioPositionsControllerHandler,
+  getPositionFundamentalsControllerHandler,
   getPositionIndicatorsControllerHandler,
   updatePortfolioControllerHandler
 } from '@/controllers/portfolio';
@@ -57,6 +58,12 @@ portfolioRouter.get(
   '/v1/portfolio/positions/:symbol/indicators',
   authMiddleware,
   getPositionIndicatorsControllerHandler as Application
+);
+
+portfolioRouter.get(
+  '/v1/portfolio/positions/:symbol/fundamentals',
+  authMiddleware,
+  getPositionFundamentalsControllerHandler as Application
 );
 
 portfolioRouter.get(

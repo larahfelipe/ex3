@@ -19,7 +19,10 @@ import {
   signInUser,
   signInWithPortfolio
 } from '@/test/ApiClient';
-import { FakeMarketDataProvider } from '@/test/FakeMarketDataProvider';
+import {
+  FAKE_MARKET_DATA_SOURCE,
+  FakeMarketDataProvider
+} from '@/test/FakeMarketDataProvider';
 import {
   FIXTURE_EXECUTED_AT,
   MISSING_UUID,
@@ -38,6 +41,8 @@ const PORTFOLIO_PERFORMANCE_ROUTE = '/v1/portfolio/performance';
 const PORTFOLIO_POSITIONS_ROUTE = '/v1/portfolio/positions';
 const positionIndicatorsRoute = (symbol: string) =>
   `${PORTFOLIO_POSITIONS_ROUTE}/${encodeURIComponent(symbol)}/indicators`;
+const positionFundamentalsRoute = (symbol: string) =>
+  `${PORTFOLIO_POSITIONS_ROUTE}/${encodeURIComponent(symbol)}/fundamentals`;
 const PORTFOLIOS_ROUTE = '/v1/portfolios';
 
 /** Mirror `CreatePortfolioSchema` and `Pagination`. */
@@ -2100,6 +2105,172 @@ describe('portfolios', () => {
         foreign.id
       );
       const invalidRes = await requestIndicators(accessToken, 'PETR4');
+
+      assert.equal(foreignRes.status, Errors.NOT_FOUND.status);
+      assert.equal(foreignRes.body.message, PortfolioMessages.NOT_FOUND);
+      assert.equal(invalidRes.status, Errors.VALIDATION.status);
+    });
+  });
+
+  describe('fundamentals', () => {
+    const STOCK_PETR4 = { ...PETR4, type: InstrumentTypes.STOCK };
+
+    const requestFundamentals = (
+      accessToken: string,
+      symbol: string,
+      portfolioId?: string
+    ) =>
+      client
+        .get(positionFundamentalsRoute(symbol))
+        .query({ portfolioId })
+        .set(bearer(accessToken));
+
+    const fundamentalsFrom = (
+      t: TestContext,
+      provider: FakeMarketDataProvider
+    ) =>
+      t.mock.method(
+        YahooFinanceProvider.getInstance(),
+        'getFundamentals',
+        (...args: Parameters<YahooFinanceProvider['getFundamentals']>) =>
+          provider.getFundamentals(...args)
+      );
+
+    const holdStock = async (portfolioId: string) => {
+      await createInstrument(STOCK_PETR4);
+      await createAsset({ portfolioId, symbol: STOCK_PETR4.symbol });
+    };
+
+    it('answers a figure for every metric the class reads, in order, valueless where the source reports none', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await holdStock(portfolio.id);
+      const getFundamentals = fundamentalsFrom(
+        t,
+        new FakeMarketDataProvider(
+          {},
+          {
+            fundamentals: {
+              PETR4: {
+                priceToEarnings: '4.2',
+                dividendYield: '0.14',
+                debtToEquity: '0.78',
+                freeCashFlow: { amount: '9000000000', currency: 'BRL' }
+              }
+            }
+          }
+        )
+      );
+
+      const res = await requestFundamentals(accessToken, 'petr4', portfolio.id);
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, {
+        outcome: 'reported',
+        source: FAKE_MARKET_DATA_SOURCE,
+        figures: [
+          { metric: 'priceToEarnings', value: '4.2' },
+          { metric: 'dividendYield', value: '0.14' },
+          { metric: 'returnOnEquity' },
+          { metric: 'profitMargin' },
+          { metric: 'debtToEquity', value: '0.78' },
+          { metric: 'revenueGrowth' },
+          { metric: 'earningsGrowth' },
+          { metric: 'freeCashFlow', value: '9000000000', currency: 'BRL' }
+        ]
+      });
+
+      const [instrument] = getFundamentals.mock.calls[0].arguments;
+
+      assert.deepEqual(
+        {
+          symbol: instrument.symbol,
+          market: instrument.market,
+          currency: instrument.currency
+        },
+        PETR4
+      );
+    });
+
+    it('answers a class no metric reads as not applicable, without asking the provider', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await createInstrument({ symbol: 'BTC', type: InstrumentTypes.CRYPTO });
+      await createAsset({ portfolioId: portfolio.id, symbol: 'BTC' });
+      const getFundamentals = fundamentalsFrom(
+        t,
+        new FakeMarketDataProvider({})
+      );
+
+      const res = await requestFundamentals(accessToken, 'BTC', portfolio.id);
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, { outcome: 'not-applicable' });
+      assert.equal(getFundamentals.mock.callCount(), 0);
+    });
+
+    it('tells a symbol the provider does not know from a provider that cannot answer', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      await holdStock(portfolio.id);
+      const getFundamentals = fundamentalsFrom(
+        t,
+        new FakeMarketDataProvider({})
+      );
+
+      const notFoundRes = await requestFundamentals(
+        accessToken,
+        'PETR4',
+        portfolio.id
+      );
+
+      const unavailableProvider = new FakeMarketDataProvider(
+        {},
+        { isAvailable: false }
+      );
+      getFundamentals.mock.mockImplementation((...args) =>
+        unavailableProvider.getFundamentals(...args)
+      );
+
+      const unavailableRes = await requestFundamentals(
+        accessToken,
+        'PETR4',
+        portfolio.id
+      );
+
+      assert.equal(notFoundRes.status, 200);
+      assert.deepEqual(notFoundRes.body, { outcome: 'not-found' });
+      assert.equal(unavailableRes.status, 200);
+      assert.deepEqual(unavailableRes.body, { outcome: 'unavailable' });
+    });
+
+    it('answers 404 for a symbol the portfolio does not hold, without asking the provider', async (t) => {
+      const { user, accessToken } = await signInUser();
+      const portfolio = await createPortfolio(user.id);
+      const getFundamentals = fundamentalsFrom(
+        t,
+        new FakeMarketDataProvider({})
+      );
+
+      const res = await requestFundamentals(accessToken, 'PETR4', portfolio.id);
+
+      assert.equal(res.status, Errors.NOT_FOUND.status);
+      assert.equal(res.body.message, AssetMessages.NOT_FOUND);
+      assert.equal(getFundamentals.mock.callCount(), 0);
+    });
+
+    it("answers 404 for another user's portfolio and 400 for an invalid query", async () => {
+      const { accessToken } = await signInUser();
+      const other = await createUser({ email: OTHER_USER_EMAIL });
+      const foreign = await createPortfolio(other.id);
+      await holdStock(foreign.id);
+
+      const foreignRes = await requestFundamentals(
+        accessToken,
+        'PETR4',
+        foreign.id
+      );
+      const invalidRes = await requestFundamentals(accessToken, 'PETR4');
 
       assert.equal(foreignRes.status, Errors.NOT_FOUND.status);
       assert.equal(foreignRes.body.message, PortfolioMessages.NOT_FOUND);

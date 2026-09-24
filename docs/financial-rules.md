@@ -171,6 +171,43 @@ O resultado de cada venda é truncado em 18 casas antes da soma, e o custo médi
 
 `describePositionIndicators`, em `backend/src/domain/PositionIndicators.ts`, e `realizeProfitLoss`, em `backend/src/domain/PositionLedger.ts`
 
+## Fundamentos
+
+`GET /v1/portfolio/positions/:symbol/fundamentals` descreve o instrumento de uma posição pelos indicadores fundamentalistas que a classe dele comporta. Nenhum é calculado aqui: cada valor é o que a fonte de mercado informa, e a resposta diz qual fonte é, em `source`, porque outra fonte pode calcular o mesmo indicador de outro jeito (janela, ajuste, moeda). O web diz isso no rodapé da seção.
+
+| Classe | Indicadores, na ordem exibida |
+| --- | --- |
+| `STOCK` | P/E, dividend yield (12M), ROE, margem líquida, dívida/patrimônio, crescimento de receita, crescimento de lucro, fluxo de caixa livre (12M) |
+| `REIT` | dividend yield (12M), dívida/patrimônio, crescimento de receita |
+| `ETF`, `FUND` | dividend yield (12M) |
+| `CRYPTO`, `BOND`, `TREASURY`, `CASH`, `OTHER` | nenhum: `not-applicable`, sem consultar o provedor |
+
+* REIT: a depreciação dos imóveis distorce o lucro, então P/E, ROE, margem e crescimento de lucro leem mal a classe (o múltiplo usual é sobre FFO, que a fonte não informa).
+* ETF e fundo: os múltiplos seriam os da carteira do fundo, não dele; só o rendimento é do próprio fundo.
+* "Growth" genérico ficou representado por crescimento de receita e de lucro, que dizem o que cresce.
+
+```text
+priceToEarnings = preço ÷ lucro por ação dos últimos 12 meses (múltiplo)
+dividendYield   = proventos pagos nos últimos 12 meses ÷ preço (fração)
+returnOnEquity  = lucro líquido dos últimos 12 meses ÷ patrimônio líquido (fração)
+profitMargin    = lucro líquido ÷ receita, últimos 12 meses (fração)
+debtToEquity    = dívida total ÷ patrimônio líquido, último trimestre (múltiplo)
+revenueGrowth   = receita do último trimestre ÷ a do mesmo trimestre do ano anterior − 1 (fração)
+earningsGrowth  = lucro do último trimestre ÷ o do mesmo trimestre do ano anterior − 1 (fração)
+freeCashFlow    = caixa gerado nos últimos 12 meses após investimentos e juros (valor, na moeda das demonstrações)
+```
+
+Frações vêm como `0.12` para 12%, múltiplos como `1.5` para 1,5 vez, e o web os exibe como percentual e como `1.50×`; os crescimentos levam sinal e cor. O fluxo de caixa livre vem com `currency`, a moeda das demonstrações, que pode diferir da moeda de cotação, e é exibido abreviado (`R$9B`). Cada `figures[i]` sem `value` é indicador que a fonte não informa para o instrumento, exibido como "Not reported"; P/E com lucro negativo costuma cair aqui.
+
+| `outcome` | Significado | Web |
+| --- | --- | --- |
+| `reported` | a fonte respondeu; `figures` traz um item por indicador da classe | a grade, com um `InfoTip` por indicador |
+| `not-applicable` | a classe não comporta indicador | "Company fundamentals do not apply to this asset's class" |
+| `not-found` | a fonte não conhece o instrumento, ou ele não tem mercado para ser traduzido | "The market data source has no fundamentals for this asset" |
+| `unavailable` | a fonte falhou ou está sem chave | erro com nova tentativa |
+
+`fundamentalMetricsOf` e `describeFundamentals`, em `backend/src/domain/Fundamentals.ts`
+
 ## Benchmarks
 
 Uma série de comparação opcional em `GET /v1/portfolio/performance`, por símbolo do catálogo:
