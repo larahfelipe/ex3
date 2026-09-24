@@ -246,8 +246,20 @@ export default function Portfolios() {
       {dialog?.kind === 'delete' && (
         <ConfirmDeletionDialog
           title={`Delete ${dialog.portfolio.name}?`}
-          description={`Every asset and transaction in ${dialog.portfolio.name} is deleted with it, and this cannot be undone.${dialog.portfolio.id === activePortfolio?.id ? ' The app then shows your oldest portfolio.' : ''}`}
+          description={
+            <>
+              {`Every asset and transaction in ${dialog.portfolio.name} is deleted with it. `}
+
+              <strong className="font-medium text-foreground">
+                This is permanent and cannot be undone.
+              </strong>
+
+              {dialog.portfolio.id === activePortfolio?.id &&
+                ' The app then shows your oldest portfolio.'}
+            </>
+          }
           confirmLabel="Delete portfolio"
+          confirmationPhrase={dialog.portfolio.name}
           failureMessage="The portfolio could not be deleted"
           onCancel={closeDialog}
           onConfirm={async () => {
