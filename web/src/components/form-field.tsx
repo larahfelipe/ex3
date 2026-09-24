@@ -6,6 +6,7 @@ import {
 } from 'react';
 
 import { Label } from '@/components/ui';
+import { APPEAR_CLASS } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 export type FieldControlProps = Pick<
@@ -53,7 +54,7 @@ const useFieldDescription = ({ hint, error }: FieldDescription) => {
         )}
 
         {error !== undefined && (
-          <p id={errorId} className="text-sm text-negative">
+          <p id={errorId} className={cn('text-sm text-negative', APPEAR_CLASS)}>
             {error}
           </p>
         )}

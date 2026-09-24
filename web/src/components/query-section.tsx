@@ -10,6 +10,7 @@ import {
 import { SectionHeader } from '@/components/section-header';
 import { Card, CardContent } from '@/components/ui';
 import type { ApiProxyErrorData } from '@/lib/axios';
+import { APPEAR_CLASS } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 type QuerySectionProps<Content> = {
@@ -104,7 +105,12 @@ export const QuerySection = <Content,>({
             <ErrorState message={errorMessage} onRetry={refetch} />
           )}
 
-          {data !== undefined && (isEmpty(data) ? empty : children(data))}
+          {data !== undefined &&
+            (isEmpty(data) ? (
+              empty
+            ) : (
+              <div className={APPEAR_CLASS}>{children(data)}</div>
+            ))}
         </CardContent>
       </Card>
     </section>

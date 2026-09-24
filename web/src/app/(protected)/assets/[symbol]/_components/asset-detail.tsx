@@ -47,6 +47,7 @@ import {
   formatQuoteTime,
   formatSeriesDay
 } from '@/lib/dates';
+import { APPEAR_CLASS } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import type { Children, Maybe } from '@/types';
 
@@ -199,7 +200,7 @@ const PriceChart: FC<PriceChartProps> = ({
   const active = closes.at(activeIndex ?? -1) ?? last;
 
   return (
-    <figure className={cn('space-y-2', className)}>
+    <figure className={cn('space-y-2', APPEAR_CLASS, className)}>
       <SeriesChart
         values={values}
         activeIndex={activeIndex}
@@ -267,7 +268,7 @@ const PriceMovement: FC<PriceIndicatorsProps> = ({ prices }) => {
   );
 
   return (
-    <div className="space-y-4 border-t pt-5">
+    <div className={cn('space-y-4 border-t pt-5', APPEAR_CLASS)}>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <fieldset className="min-w-0 lg:col-start-1 lg:row-start-1">
           <legend className="mb-3 text-sm text-muted-foreground">
