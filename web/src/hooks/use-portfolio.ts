@@ -151,8 +151,7 @@ type PortfolioChangeAnnouncement = Record<'title', string> &
 
 /**
  * Time to read the change and reach the step it offers, above the 4 s of
- * `TOAST_LIFETIME_MS`;
- * the pointer over the toasts pauses it.
+ * `TOAST_LIFETIME_MS`; the pointer over the toasts pauses it.
  */
 const ACTIONABLE_TOAST_DURATION_MS = 10_000;
 

@@ -109,7 +109,6 @@ export const FormField: FC<FormFieldProps> = ({
   );
 };
 
-/** A group of radios under one legend, described by its hint and error like a single field. */
 export const ChoiceField: FC<ChoiceFieldProps> = ({
   legend,
   hint,
