@@ -164,3 +164,9 @@ O restante do manifesto tem consumidor verificado, inclusive os casos que uma bu
 ### Divergência de peer conhecida
 
 `pnpm peers check` acusa `eslint-plugin-jsx-a11y@6.10.2` e `eslint-plugin-react@7.37.5` declarando `eslint` até a 9, com a 10.10.0 instalada. As regras carregam e `pnpm lint` passa com `--max-warnings=0` nos dois pacotes; é defasagem de declaração dos plugins, não incompatibilidade observada.
+
+## `framer-motion` — 2026-09-24
+
+Dependência nova, pedida para animar as abas: o deslize do indicador do `SegmentedControl` e dos painéis de `SlideTransition` precisa de animação de layout entre elementos e de saída de um elemento desmontado, que o CSS e o `tw-animate-css` não fazem. Fixada em versão exata, `13.4.2`, a mais recente fora da janela de `minimumReleaseAge` do pnpm no dia da instalação.
+
+O pacote `motion`, o nome atual da biblioteca, não entrou: `motion/react` reexporta o `framer-motion` inteiro por `import * as`, e o Turbopack não poda um namespace reexportado. Importando de `framer-motion`, com `LazyMotion` e `m`, o sign-up levou 58 KB crus a mais em vez de 154 KB (`docs/performance.md`, "Abas animadas"). O resto do app continua animando por CSS: diálogos, popovers, menus e o toque dos botões já têm entrada e saída pelo `tw-animate-css` sobre a presença do Radix.

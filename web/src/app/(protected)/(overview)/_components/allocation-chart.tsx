@@ -6,6 +6,7 @@ import { INSTRUMENT_TYPE_LABELS } from '@/common/constants';
 import { EmptyState, LoadingState } from '@/components/data-state';
 import { Money, Percentage } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
+import { SlideTransition } from '@/components/slide-transition';
 import {
   SegmentedControl,
   SegmentedControlItem,
@@ -20,11 +21,15 @@ import {
   TableRowHeader
 } from '@/components/ui';
 import { useAllocation } from '@/hooks/use-portfolio';
+import type { SlideDirection } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 type AllocationChartProps = Record<'portfolio', Portfolio>;
 
 type AllocationView = 'type' | 'asset';
+
+type AllocationViewSelection = Record<'view', AllocationView> &
+  Record<'direction', SlideDirection>;
 
 type AllocationColor = Record<'arc' | 'swatch', string>;
 
@@ -151,7 +156,11 @@ const AllocationRing: FC<Record<'groups', AllocationGroup[]>> = ({
 
 export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
   const allocationQuery = useAllocation(portfolio);
-  const [selectedView, setSelectedView] = useState<AllocationView>('type');
+  const [viewSelection, setViewSelection] = useState<AllocationViewSelection>({
+    view: 'type',
+    direction: 1
+  });
+  const { view: selectedView } = viewSelection;
   const viewInputName = useId();
   const hasGroups =
     allocationQuery.data !== undefined &&
@@ -174,7 +183,16 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
                   name={viewInputName}
                   value={view}
                   checked={view === selectedView}
-                  onChange={() => setSelectedView(view)}
+                  onChange={() =>
+                    setViewSelection({
+                      view,
+                      direction:
+                        ALLOCATION_VIEWS.indexOf(view) >
+                        ALLOCATION_VIEWS.indexOf(selectedView)
+                          ? 1
+                          : -1
+                    })
+                  }
                 >
                   {ALLOCATION_VIEW_LABELS[view].name}
                 </SegmentedControlItem>
@@ -208,73 +226,78 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
         const { name, caption } = ALLOCATION_VIEW_LABELS[selectedView];
 
         return (
-          <div className="@container">
-            <div className={CHART_LAYOUT_CLASS_NAME}>
-              <AllocationRing groups={groups} />
+          <SlideTransition
+            panelKey={viewSelection.view}
+            direction={viewSelection.direction}
+          >
+            <div className="@container">
+              <div className={CHART_LAYOUT_CLASS_NAME}>
+                <AllocationRing groups={groups} />
 
-              <Table label={caption}>
-                <TableCaption className="sr-only">{caption}</TableCaption>
+                <Table label={caption}>
+                  <TableCaption className="sr-only">{caption}</TableCaption>
 
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{name}</TableHead>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{name}</TableHead>
 
-                    <TableHead className="text-right">Share</TableHead>
+                      <TableHead className="text-right">Share</TableHead>
 
-                    <TableHead className="text-right">Value</TableHead>
-                  </TableRow>
-                </TableHeader>
+                      <TableHead className="text-right">Value</TableHead>
+                    </TableRow>
+                  </TableHeader>
 
-                <TableBody>
-                  {groups.map(
-                    ({
-                      key,
-                      label,
-                      description,
-                      marketValue,
-                      allocation,
-                      color
-                    }) => (
-                      <TableRow key={key}>
-                        <TableRowHeader>
-                          <div className="flex items-center gap-2">
-                            <span
-                              aria-hidden="true"
-                              className={cn(
-                                'size-2.5 shrink-0 rounded-full',
-                                allocation !== undefined && color.swatch
-                              )}
-                            />
+                  <TableBody>
+                    {groups.map(
+                      ({
+                        key,
+                        label,
+                        description,
+                        marketValue,
+                        allocation,
+                        color
+                      }) => (
+                        <TableRow key={key}>
+                          <TableRowHeader>
+                            <div className="flex items-center gap-2">
+                              <span
+                                aria-hidden="true"
+                                className={cn(
+                                  'size-2.5 shrink-0 rounded-full',
+                                  allocation !== undefined && color.swatch
+                                )}
+                              />
 
-                            <div className="flex min-w-0 flex-col">
-                              <span className="font-medium">{label}</span>
+                              <div className="flex min-w-0 flex-col">
+                                <span className="font-medium">{label}</span>
 
-                              {description !== undefined && (
-                                <span className="text-xs text-muted-foreground">
-                                  {description}
-                                </span>
-                              )}
+                                {description !== undefined && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {description}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </TableRowHeader>
+                          </TableRowHeader>
 
-                        <TableCell className="text-right font-medium">
-                          <Percentage value={allocation} />
-                        </TableCell>
+                          <TableCell className="text-right font-medium">
+                            <Percentage value={allocation} />
+                          </TableCell>
 
-                        <TableCell className="text-right">
-                          <Money
-                            value={marketValue}
-                            currency={portfolioAllocation.baseCurrency}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    )
-                  )}
-                </TableBody>
-              </Table>
+                          <TableCell className="text-right">
+                            <Money
+                              value={marketValue}
+                              currency={portfolioAllocation.baseCurrency}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      )
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
-          </div>
+          </SlideTransition>
         );
       }}
     </QuerySection>
