@@ -55,6 +55,26 @@ const SEARCH_MAX_LENGTH = 120;
  */
 const SEARCH_DEBOUNCE_MS = 500;
 
+/**
+ * Rewrites the input's own value before React reads it, so the caret stays
+ * where the person was typing or pasting instead of jumping to the end.
+ */
+const upperCaseInPlace = (input: HTMLInputElement) => {
+  const { value, selectionStart, selectionEnd } = input;
+  const upperCased = value.toUpperCase();
+
+  if (upperCased !== value) {
+    input.value = upperCased;
+    input.setSelectionRange(selectionStart, selectionEnd);
+  }
+
+  return upperCased;
+};
+
+/** A composition in progress (an accent or an IME) is left alone until it ends, or its pending text would be replaced mid-way. */
+const isComposing = (event: Event) =>
+  event instanceof InputEvent && event.isComposing;
+
 const CATALOG_SEARCH_PATTERN = /^[\p{L}\p{N} .&'-]+$/u;
 
 const SEARCH_PATTERN_MESSAGE =
@@ -279,7 +299,16 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
                   ? searchStatusId
                   : `${searchIssueId} ${searchStatusId}`
               }
-              onChange={({ target }) => setSearchInput(target.value)}
+              onChange={({ target, nativeEvent }) =>
+                setSearchInput(
+                  isComposing(nativeEvent)
+                    ? target.value
+                    : upperCaseInPlace(target)
+                )
+              }
+              onCompositionEnd={({ currentTarget }) =>
+                setSearchInput(upperCaseInPlace(currentTarget))
+              }
               leftElement={
                 <Search
                   aria-hidden="true"
