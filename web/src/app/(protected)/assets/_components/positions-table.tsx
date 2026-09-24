@@ -13,11 +13,17 @@ import { useSearchParams } from 'next/navigation';
 
 import {
   ArrowDown,
+  ArrowDownWideNarrow,
   ArrowUp,
   ArrowUpDown,
+  ArrowUpNarrowWide,
+  ArrowUpRight,
   Ellipsis,
+  Plus,
   RefreshCw,
   Search,
+  Trash2,
+  X,
   type LucideIcon
 } from 'lucide-react';
 
@@ -47,8 +53,7 @@ import {
   Percentage,
   Price,
   ProfitLoss,
-  Quantity,
-  Trend
+  Quantity
 } from '@/components/financial';
 import { PageNavigation } from '@/components/page-navigation';
 import { SectionHeader } from '@/components/section-header';
@@ -59,6 +64,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
   Label,
@@ -67,6 +73,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Skeleton,
   Table,
   TableBody,
   TableCaption,
@@ -89,8 +96,7 @@ type PositionListing = Required<
   Pick<PositionListingParams, 'search' | 'type' | 'status'>;
 
 type PositionColumn = Record<'field', PositionSortField> &
-  Record<'label', string> &
-  Partial<Record<'isSecondary', boolean>>;
+  Record<'label' | 'className', string>;
 
 const FIRST_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 10;
@@ -118,24 +124,70 @@ const ALL_OPTION = 'all';
 const POSITION_STATUSES: Array<PositionStatus> = ['open', 'closed'];
 
 const POSITION_STATUS_LABELS: Record<PositionStatus, string> = {
-  open: 'Open',
-  closed: 'Closed'
+  open: 'Open positions',
+  closed: 'Closed positions'
+};
+
+const POSITION_SORT_FIELDS: Array<PositionSortField> = [
+  'symbol',
+  'quantity',
+  'averageCost',
+  'marketPrice',
+  'marketValue',
+  'allocation',
+  'profitLoss',
+  'profitLossPercent'
+];
+
+const SORT_FIELD_LABELS: Record<PositionSortField, string> = {
+  symbol: 'Symbol',
+  quantity: 'Quantity',
+  averageCost: 'Average cost',
+  marketPrice: 'Price',
+  marketValue: 'Value',
+  allocation: 'Allocation',
+  profitLoss: 'Profit/Loss',
+  profitLossPercent: 'Profit/Loss %'
 };
 
 /**
- * A secondary column leaves the table below `sm`, where only the asset, its
- * value and its result fit; the asset detail page keeps every hidden number.
+ * Columns leave from the widest breakpoint down, so a phone keeps the asset,
+ * its value and, under the name, its profit or loss; the asset detail page
+ * keeps every hidden number.
+ */
+const COLUMN_VISIBILITY = {
+  price: 'max-lg:hidden',
+  allocation: 'max-md:hidden',
+  profitLoss: 'max-sm:hidden'
+} as const;
+
+/**
+ * Each column pairs a figure with the one read under it and sorts by the
+ * first; the sort control reaches every field.
  */
 const POSITION_COLUMNS: Array<PositionColumn> = [
-  { field: 'symbol', label: 'Asset' },
-  { field: 'quantity', label: 'Quantity', isSecondary: true },
-  { field: 'averageCost', label: 'Average price', isSecondary: true },
-  { field: 'marketPrice', label: 'Price', isSecondary: true },
-  { field: 'marketValue', label: 'Value' },
-  { field: 'allocation', label: 'Allocation', isSecondary: true },
-  { field: 'profitLoss', label: 'P&L', isSecondary: true },
-  { field: 'profitLossPercent', label: 'P&L %', isSecondary: true }
+  { field: 'symbol', label: 'Asset', className: '' },
+  { field: 'marketPrice', label: 'Price', className: COLUMN_VISIBILITY.price },
+  { field: 'marketValue', label: 'Value', className: '' },
+  {
+    field: 'allocation',
+    label: 'Allocation',
+    className: COLUMN_VISIBILITY.allocation
+  },
+  {
+    field: 'profitLoss',
+    label: 'Profit/Loss',
+    className: COLUMN_VISIBILITY.profitLoss
+  }
 ];
+
+/** The first page holds this many rows, so its skeleton does too. */
+const SKELETON_ROWS = Array.from(
+  { length: DEFAULT_PAGE_SIZE },
+  (_, row) => row
+);
+
+const ACTIVE_FILTER_CLASS = 'border-primary/50 bg-primary/5 text-foreground';
 
 const REVERSED_ORDER: Record<SortOrder, SortOrder> = {
   asc: 'desc',
@@ -167,9 +219,9 @@ const pageFrom = (value: string | null) => {
 
 const listingFrom = (params: URLSearchParams): PositionListing => {
   const sortBy =
-    POSITION_COLUMNS.find(
-      ({ field }) => field === params.get(LISTING_PARAMS.SortBy)
-    )?.field ?? DEFAULT_SORT_FIELD;
+    POSITION_SORT_FIELDS.find(
+      (field) => field === params.get(LISTING_PARAMS.SortBy)
+    ) ?? DEFAULT_SORT_FIELD;
 
   const search = params
     .get(LISTING_PARAMS.Search)
@@ -266,6 +318,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
   const searchId = useId();
   const typeId = useId();
   const statusId = useId();
+  const sortId = useId();
   const pageSizeId = useId();
 
   const searchTerm = searchInput.trim();
@@ -318,8 +371,56 @@ export const PositionsTable: FC<PositionsTableProps> = ({
     searchInputRef.current?.focus();
   };
 
-  const sortedColumn = POSITION_COLUMNS.find(
-    ({ field }) => field === listing.sortBy
+  const SortOrderIcon =
+    listing.sortOrder === 'asc' ? ArrowUpNarrowWide : ArrowDownWideNarrow;
+
+  const tableHeader = (
+    <TableHeader>
+      <TableRow className="hover:bg-transparent">
+        {POSITION_COLUMNS.map(({ field, label, className }) => {
+          const isSorted = field === listing.sortBy;
+          const SortIcon = isSorted
+            ? SORT_ICONS[listing.sortOrder]
+            : ArrowUpDown;
+
+          return (
+            <TableHead
+              key={field}
+              aria-sort={isSorted ? ARIA_SORT[listing.sortOrder] : undefined}
+              className={cn(
+                'whitespace-nowrap',
+                field !== 'symbol' && 'text-right',
+                className
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => sortBy(field)}
+                className={cn(
+                  'group inline-flex items-center gap-1 rounded-sm font-medium transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2',
+                  isSorted && 'text-foreground'
+                )}
+              >
+                {label}
+
+                <SortIcon
+                  aria-hidden="true"
+                  className={cn(
+                    'size-3.5 transition-opacity',
+                    !isSorted &&
+                      'opacity-0 group-hover:opacity-60 group-focus-visible:opacity-60'
+                  )}
+                />
+              </button>
+            </TableHead>
+          );
+        })}
+
+        <TableHead className="w-10">
+          <span className="sr-only">Actions</span>
+        </TableHead>
+      </TableRow>
+    </TableHeader>
   );
 
   return (
@@ -348,23 +449,25 @@ export const PositionsTable: FC<PositionsTableProps> = ({
         />
 
         <CardContent className="space-y-4">
-          <div
-            role="search"
-            aria-label="Filter positions"
-            className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
-          >
-            <div className="grid gap-1.5">
-              <Label htmlFor={searchId}>Search</Label>
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div
+              role="search"
+              aria-label="Filter positions"
+              className="flex flex-col gap-2 sm:flex-row sm:items-center"
+            >
+              <Label htmlFor={searchId} className="sr-only">
+                Search
+              </Label>
 
               <Input
                 ref={searchInputRef}
                 id={searchId}
                 type="search"
-                placeholder="Symbol or name"
+                placeholder="Search symbol or name"
                 maxLength={SEARCH_MAX_LENGTH}
                 value={searchInput}
                 onChange={({ target }) => setSearchInput(target.value)}
-                className="h-9"
+                className="h-9 sm:w-64"
                 leftElement={
                   <Search
                     aria-hidden="true"
@@ -373,69 +476,180 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                   />
                 }
               />
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Label htmlFor={typeId} className="sr-only">
+                  Class
+                </Label>
+
+                <Select
+                  value={listing.type ?? ALL_OPTION}
+                  onValueChange={(value) =>
+                    refine({
+                      type: INSTRUMENT_TYPES.find((type) => type === value)
+                    })
+                  }
+                >
+                  <SelectTrigger
+                    id={typeId}
+                    className={cn(
+                      'h-9 w-auto gap-2',
+                      listing.type !== undefined && ACTIVE_FILTER_CLASS
+                    )}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value={ALL_OPTION}>All classes</SelectItem>
+
+                    {INSTRUMENT_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {INSTRUMENT_TYPE_LABELS[type]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Label htmlFor={statusId} className="sr-only">
+                  Status
+                </Label>
+
+                <Select
+                  value={listing.status ?? ALL_OPTION}
+                  onValueChange={(value) =>
+                    refine({
+                      status: POSITION_STATUSES.find(
+                        (status) => status === value
+                      )
+                    })
+                  }
+                >
+                  <SelectTrigger
+                    id={statusId}
+                    className={cn(
+                      'h-9 w-auto gap-2',
+                      listing.status !== undefined && ACTIVE_FILTER_CLASS
+                    )}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value={ALL_OPTION}>All positions</SelectItem>
+
+                    {POSITION_STATUSES.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {POSITION_STATUS_LABELS[status]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {hasRefinement && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 gap-1.5 text-muted-foreground"
+                    onClick={clearRefinements}
+                  >
+                    <X aria-hidden="true" className="size-4" />
+                    Clear
+                  </Button>
+                )}
+              </div>
             </div>
 
-            <div className="grid gap-1.5">
-              <Label htmlFor={typeId}>Class</Label>
+            <div
+              role="group"
+              aria-label="Sort positions"
+              className="flex items-center gap-2"
+            >
+              <Label htmlFor={sortId} className="sr-only">
+                Sort by
+              </Label>
 
               <Select
-                value={listing.type ?? ALL_OPTION}
-                onValueChange={(value) =>
-                  refine({
-                    type: INSTRUMENT_TYPES.find((type) => type === value)
-                  })
-                }
+                value={listing.sortBy}
+                onValueChange={(value) => {
+                  const field = POSITION_SORT_FIELDS.find(
+                    (sortField) => sortField === value
+                  );
+
+                  if (field !== undefined)
+                    refine({ sortBy: field, sortOrder: firstOrderOf(field) });
+                }}
               >
-                <SelectTrigger id={typeId} className="h-9 sm:w-40">
+                <SelectTrigger
+                  id={sortId}
+                  className="h-9 w-auto gap-1.5 max-sm:flex-1"
+                >
+                  <span aria-hidden="true" className="text-muted-foreground">
+                    Sort by
+                  </span>
+
                   <SelectValue />
                 </SelectTrigger>
 
                 <SelectContent>
-                  <SelectItem value={ALL_OPTION}>All classes</SelectItem>
-
-                  {INSTRUMENT_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {INSTRUMENT_TYPE_LABELS[type]}
+                  {POSITION_SORT_FIELDS.map((field) => (
+                    <SelectItem key={field} value={field}>
+                      {SORT_FIELD_LABELS[field]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
 
-            <div className="grid gap-1.5">
-              <Label htmlFor={statusId}>Status</Label>
-
-              <Select
-                value={listing.status ?? ALL_OPTION}
-                onValueChange={(value) =>
-                  refine({
-                    status: POSITION_STATUSES.find((status) => status === value)
-                  })
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-9 shrink-0"
+                aria-label="Descending order"
+                aria-pressed={listing.sortOrder === 'desc'}
+                title="Descending order"
+                onClick={() =>
+                  refine({ sortOrder: REVERSED_ORDER[listing.sortOrder] })
                 }
               >
-                <SelectTrigger id={statusId} className="h-9 sm:w-40">
-                  <SelectValue />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value={ALL_OPTION}>All positions</SelectItem>
-
-                  {POSITION_STATUSES.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {POSITION_STATUS_LABELS[status]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <SortOrderIcon aria-hidden="true" className="size-4" />
+              </Button>
             </div>
           </div>
 
           <div aria-busy={isLoading || isPlaceholderData} className="space-y-4">
             {isLoading && (
-              <LoadingState
-                label="Loading positions"
-                className="h-64 rounded-none"
-              />
+              <LoadingState label="Loading positions">
+                <div aria-hidden="true" className="divide-y border-b">
+                  {SKELETON_ROWS.map((row) => (
+                    <div
+                      key={row}
+                      className="flex items-center gap-4 px-2 py-3"
+                    >
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-16" />
+
+                        <Skeleton className="h-3 w-32" />
+                      </div>
+
+                      <Skeleton
+                        className={cn('h-4 w-20', COLUMN_VISIBILITY.price)}
+                      />
+
+                      <Skeleton className="h-4 w-24" />
+
+                      <Skeleton
+                        className={cn('h-4 w-12', COLUMN_VISIBILITY.allocation)}
+                      />
+
+                      <Skeleton
+                        className={cn('h-4 w-20', COLUMN_VISIBILITY.profitLoss)}
+                      />
+
+                      <Skeleton className="size-8 rounded-md" />
+                    </div>
+                  ))}
+                </div>
+              </LoadingState>
             )}
 
             {data === undefined && isError && (
@@ -488,77 +702,28 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                 )}
               >
                 <TableCaption className="sr-only">
-                  {`Positions valued in ${portfolio.baseCurrency}, sorted by ${sortedColumn?.label ?? listing.sortBy}, ${ARIA_SORT[listing.sortOrder]}`}
+                  {`Positions valued in ${portfolio.baseCurrency}, sorted by ${SORT_FIELD_LABELS[listing.sortBy]}, ${ARIA_SORT[listing.sortOrder]}`}
                 </TableCaption>
 
-                <TableHeader>
-                  <TableRow>
-                    {POSITION_COLUMNS.map(({ field, label, isSecondary }) => {
-                      const isSorted = field === listing.sortBy;
-                      const SortIcon = isSorted
-                        ? SORT_ICONS[listing.sortOrder]
-                        : ArrowUpDown;
-
-                      return (
-                        <TableHead
-                          key={field}
-                          aria-sort={
-                            isSorted ? ARIA_SORT[listing.sortOrder] : undefined
-                          }
-                          className={cn(
-                            'whitespace-nowrap',
-                            field !== 'symbol' && 'text-right',
-                            isSecondary && 'max-sm:hidden'
-                          )}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => sortBy(field)}
-                            className={cn(
-                              'inline-flex items-center gap-1 rounded-sm font-medium transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2',
-                              isSorted && 'text-foreground'
-                            )}
-                          >
-                            {label}
-
-                            <SortIcon
-                              aria-hidden="true"
-                              className={cn(
-                                'size-3.5',
-                                !isSorted && 'opacity-40'
-                              )}
-                            />
-                          </button>
-                        </TableHead>
-                      );
-                    })}
-
-                    <TableHead>
-                      <span className="sr-only">Actions</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
+                {tableHeader}
 
                 <TableBody>
                   {data.items.map((position) => (
                     <TableRow key={position.symbol}>
-                      <TableRowHeader>
-                        <div className="flex flex-col items-start">
-                          <Button
-                            asChild
-                            variant="link"
-                            className="h-auto p-0 font-medium"
+                      <TableRowHeader className="relative py-3">
+                        <div className="flex min-w-0 flex-col items-start gap-0.5">
+                          <Link
+                            href={assetDetailRoute(position.symbol)}
+                            className="rounded-sm font-semibold ring-offset-background after:absolute after:inset-0 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
                           >
-                            <Link href={assetDetailRoute(position.symbol)}>
-                              {position.symbol}
-                            </Link>
-                          </Button>
+                            {position.symbol}
+                          </Link>
 
-                          <span className="text-xs text-muted-foreground">
+                          <span className="line-clamp-1 max-w-56 text-xs text-muted-foreground">
                             {position.name}
                           </span>
 
-                          <span className="sm:hidden">
+                          <span className="text-sm tabular-nums sm:hidden">
                             <ProfitLoss
                               value={position.profitLoss}
                               percent={position.profitLossPercent}
@@ -568,44 +733,66 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                         </div>
                       </TableRowHeader>
 
-                      <TableCell className="text-right max-sm:hidden">
-                        <Quantity value={position.quantity} />
+                      <TableCell
+                        className={cn(
+                          'text-right tabular-nums',
+                          COLUMN_VISIBILITY.price
+                        )}
+                      >
+                        <div className="flex flex-col items-end gap-0.5 whitespace-nowrap">
+                          <Price
+                            value={position.marketPrice}
+                            currency={position.baseCurrency}
+                          />
+
+                          <span className="text-xs text-muted-foreground">
+                            {'Avg cost '}
+
+                            <Price
+                              value={position.averageCost}
+                              currency={position.baseCurrency}
+                            />
+                          </span>
+                        </div>
                       </TableCell>
 
-                      <TableCell className="whitespace-nowrap text-right max-sm:hidden">
-                        <Price
-                          value={position.averageCost}
-                          currency={position.baseCurrency}
-                        />
+                      <TableCell className="text-right tabular-nums">
+                        <div className="flex flex-col items-end gap-0.5 whitespace-nowrap">
+                          <span className="font-medium">
+                            <Money
+                              value={position.marketValue}
+                              currency={position.baseCurrency}
+                            />
+                          </span>
+
+                          <span className="text-xs text-muted-foreground">
+                            <Quantity value={position.quantity} />
+
+                            {' held'}
+                          </span>
+                        </div>
                       </TableCell>
 
-                      <TableCell className="whitespace-nowrap text-right max-sm:hidden">
-                        <Price
-                          value={position.marketPrice}
-                          currency={position.baseCurrency}
-                        />
-                      </TableCell>
-
-                      <TableCell className="whitespace-nowrap text-right font-medium">
-                        <Money
-                          value={position.marketValue}
-                          currency={position.baseCurrency}
-                        />
-                      </TableCell>
-
-                      <TableCell className="text-right max-sm:hidden">
+                      <TableCell
+                        className={cn(
+                          'text-right tabular-nums',
+                          COLUMN_VISIBILITY.allocation
+                        )}
+                      >
                         <Percentage value={position.allocation} />
                       </TableCell>
 
-                      <TableCell className="whitespace-nowrap text-right max-sm:hidden">
+                      <TableCell
+                        className={cn(
+                          'whitespace-nowrap text-right tabular-nums',
+                          COLUMN_VISIBILITY.profitLoss
+                        )}
+                      >
                         <ProfitLoss
                           value={position.profitLoss}
+                          percent={position.profitLossPercent}
                           currency={position.baseCurrency}
                         />
-                      </TableCell>
-
-                      <TableCell className="text-right max-sm:hidden">
-                        <Trend value={position.profitLossPercent} />
                       </TableCell>
 
                       <TableCell className="text-right">
@@ -621,17 +808,35 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                             </Button>
                           </DropdownMenuTrigger>
 
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onSelect={() => onAddTransaction(position.symbol)}
-                            >
-                              New transaction
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem asChild className="gap-2">
+                              <Link href={assetDetailRoute(position.symbol)}>
+                                <ArrowUpRight
+                                  aria-hidden="true"
+                                  className="size-4 text-muted-foreground"
+                                />
+                                View details
+                              </Link>
                             </DropdownMenuItem>
 
                             <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
+                              className="gap-2"
+                              onSelect={() => onAddTransaction(position.symbol)}
+                            >
+                              <Plus
+                                aria-hidden="true"
+                                className="size-4 text-muted-foreground"
+                              />
+                              New transaction
+                            </DropdownMenuItem>
+
+                            <DropdownMenuSeparator />
+
+                            <DropdownMenuItem
+                              className="gap-2 text-destructive focus:text-destructive"
                               onSelect={() => onDeleteAsset(position.symbol)}
                             >
+                              <Trash2 aria-hidden="true" className="size-4" />
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
