@@ -14,7 +14,6 @@ import type { Maybe } from '@/types';
 
 import { requirePortfolio, useAnnouncePortfolioChange } from './use-portfolio';
 
-/** `addTransactionFor`, when given, is offered in the toast for the asset just added. */
 export const useCreateAsset = (
   portfolio: Maybe<Portfolio>,
   addTransactionFor?: (symbol: string) => void

@@ -32,7 +32,6 @@ const formatNumber = (
   options?: Intl.NumberFormatOptions
 ) => numberFormatOf(options).format(value);
 
-/** The digits of the currency's minor unit: 2 for USD and BRL, 0 for JPY. */
 export const currencyFractionDigits = (currency: string) =>
   numberFormatOf({ style: 'currency', currency }).resolvedOptions()
     .maximumFractionDigits ?? 0;

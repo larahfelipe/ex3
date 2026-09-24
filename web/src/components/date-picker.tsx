@@ -29,9 +29,8 @@ type DatePickerProps = Omit<FieldControlProps, 'required'> & {
 const PLACEHOLDER = 'Pick a date';
 
 /**
- * A button that opens a calendar, after shadcn/ui's date picker. A label names
- * a button in place of its content, so the chosen day, which the button shows,
- * also describes it for a screen reader.
+ * A label names a button in place of its content, so the chosen day, which
+ * the button shows, also describes it for a screen reader.
  */
 export const DatePicker: FC<DatePickerProps> = ({
   id,
