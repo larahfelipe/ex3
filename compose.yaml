@@ -105,8 +105,8 @@ services:
       - '127.0.0.1:3000:3000'
     healthcheck:
       <<: *app-healthcheck
-      # O `next dev` compila a página pedida, então a sonda abre a conexão e
-      # encerra: o que se verifica é o servidor ouvindo, não uma rota.
+      # `next dev` compiles a page when it is first requested, so the probe only
+      # opens a connection: it checks that the server listens, not a route.
       test:
         [
           'CMD',

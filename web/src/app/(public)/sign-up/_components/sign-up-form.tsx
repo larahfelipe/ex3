@@ -68,7 +68,6 @@ const signUpSchema = z
 
 const SIGN_UP_FIELDS = signUpSchema.keyof().options;
 
-/** Who signs up, then how they sign in, then where their positions go. */
 const SIGN_UP_STEPS = [
   { title: 'Your details', fields: ['name', 'email'] },
   { title: 'Security', fields: ['password', 'confirmPassword'] },
@@ -87,12 +86,6 @@ const stepOf = (field: SignUpField) =>
     fields.some((stepField) => stepField === field)
   );
 
-/**
- * One step at a time, each validated before the next, over a single form that
- * keeps every value across steps. An error that lands on a field of another
- * step, from the API or from a rule spanning steps, brings that step back with
- * the field focused.
- */
 export const SignUpForm: FC = () => {
   const { mutateAsync: signUp } = useSignUp();
 
@@ -191,7 +184,6 @@ export const SignUpForm: FC = () => {
     }
   };
 
-  /** Enter and "Continue" both submit, so each step advances the same way. */
   const submitStep = async (event: SubmitEvent<HTMLFormElement>) => {
     if (isLastStep) {
       await handleSubmit(handleSignUp, revealFirstInvalidField)(event);

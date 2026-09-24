@@ -19,9 +19,9 @@ type AssetDialogsProps = Record<'portfolio', Portfolio> &
   Partial<Record<'onAssetDeleted', VoidFunction>>;
 
 /**
- * The asset dialog a page holds open, one at a time and only in its state, so
- * closing one never waits on anything else. Adding an asset closes its dialog
- * and offers, in the toast, a first transaction for it.
+ * Only page state holds the open dialog: the router's search params trail a
+ * `replaceState` by a render, so a dialog also mirrored in the URL reopens as
+ * the user closes it.
  */
 export const AssetDialogs: FC<AssetDialogsProps> = ({
   portfolio,

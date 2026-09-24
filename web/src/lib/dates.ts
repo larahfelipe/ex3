@@ -12,7 +12,6 @@ import utc from 'dayjs/plugin/utc';
 dayjs.extend(customParseFormat);
 dayjs.extend(utc);
 
-/** How the form keeps a calendar day. */
 export const CALENDAR_DAY_FORMAT = 'YYYY-MM-DD';
 
 const QUOTE_TIME_FORMAT = 'MMM D, hh:mm A';

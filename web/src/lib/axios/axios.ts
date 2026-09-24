@@ -13,7 +13,7 @@ import { ApiProxyError, UNEXPECTED_ERROR_MESSAGE } from './errors';
 const baseAxiosConfig: CreateAxiosDefaults = {
   headers: { 'Content-Type': 'application/json' },
   timeoutErrorMessage: 'Axios: Request timeout reached',
-  timeout: 20_000 // 20s,
+  timeout: 20_000
 };
 
 const proxyApi = axios.create({

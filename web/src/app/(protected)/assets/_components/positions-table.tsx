@@ -116,7 +116,6 @@ const LISTING_PARAMS = {
 /** The API rejects a longer search, and no instrument name is longer. */
 const SEARCH_MAX_LENGTH = 120;
 
-/** Requests a search once typing pauses, not once per keystroke. */
 const SEARCH_DEBOUNCE_MS = 300;
 
 const ALL_OPTION = 'all';
@@ -161,10 +160,6 @@ const COLUMN_VISIBILITY = {
   profitLoss: 'max-sm:hidden'
 } as const;
 
-/**
- * Each column pairs a figure with the one read under it and sorts by the
- * first; the sort control reaches every field.
- */
 const POSITION_COLUMNS: Array<PositionColumn> = [
   { field: 'symbol', label: 'Asset', className: '' },
   { field: 'marketPrice', label: 'Price', className: COLUMN_VISIBILITY.price },
@@ -181,7 +176,6 @@ const POSITION_COLUMNS: Array<PositionColumn> = [
   }
 ];
 
-/** The first page holds this many rows, so its skeleton does too. */
 const SKELETON_ROWS = Array.from(
   { length: DEFAULT_PAGE_SIZE },
   (_, row) => row
