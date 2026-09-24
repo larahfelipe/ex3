@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { APP_STORAGE_KEYS } from '@/common/constants';
 import api from '@/lib/axios';
+import { clearSessionCookies } from '@/lib/session';
 
 import type { SignOutResponseData } from './types';
 
@@ -11,7 +12,7 @@ export const POST = async () => {
   const accessToken = cookieStore.get(APP_STORAGE_KEYS.Token)?.value;
 
   /**
-   * The cookie is cleared whatever the API answers: a client that cannot reach
+   * The cookies are cleared whatever the API answers: a client that cannot reach
    * the API must still be able to end its own session locally. A token the API
    * failed to revoke stops being accepted once it expires.
    */
@@ -23,7 +24,7 @@ export const POST = async () => {
       })
       .catch(() => null);
 
-  cookieStore.delete(APP_STORAGE_KEYS.Token);
+  await clearSessionCookies();
 
   const res: SignOutResponseData = {
     success: true

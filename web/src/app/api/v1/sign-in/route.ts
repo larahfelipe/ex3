@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { toApiProxyErrorResponse } from '@/lib/api-error-response';
 import { clientAddressHeaders, jsonPayload } from '@/lib/api-proxy';
 import api from '@/lib/axios';
-import { setSessionCookie } from '@/lib/session';
+import { setSessionCookies } from '@/lib/session';
 
 import type { SignInRequestPayload, SignInResponseData, User } from './types';
 
@@ -19,7 +19,7 @@ export const POST = async (req: NextRequest) => {
 
     const { accessToken, ...user } = data;
 
-    if (accessToken) await setSessionCookie(accessToken);
+    if (accessToken) await setSessionCookies(accessToken);
 
     const res: SignInResponseData = user;
 

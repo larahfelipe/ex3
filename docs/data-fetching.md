@@ -17,7 +17,7 @@ Em `web/src/lib/react-query.ts`, valendo para toda query:
 | `staleTime` | 60 s | `YahooFinanceProvider` serve a mesma cotação por `QUOTE_TIME_TO_LIVE_MS` (60 s). Repetir o request dentro da janela devolve os mesmos números e gasta cota do plano à toa. Escrita não depende disso: toda mutação invalida o escopo da carteira |
 | `refetchOnWindowFocus` | `false` | Alternar de aba não é sinal de que o mercado mudou; a janela de 60 s já cobre a volta |
 | `refetchOnReconnect` | default (`true`) | Reconectar é sinal de que o cliente ficou fora do ar por tempo indeterminado; o `staleTime` ainda filtra o que está fresco |
-| `retry` | até 2, exceto requisição rejeitada | Erro 4xx é rejeição da própria requisição: repetir dá o mesmo resultado, atrasa o estado de erro e, no caso de 401, corre com o sign-out do interceptor |
+| `retry` | até 2, exceto requisição rejeitada | Erro 4xx é rejeição da própria requisição: repetir dá o mesmo resultado, atrasa o estado de erro e, no caso de 401, corre com a expiração do interceptor |
 | `gcTime` | default (5 min) | Navegar entre as três telas e voltar não refaz o que continua em cache |
 
 Para o `retry` distinguir 4xx de 5xx, o interceptor de `web/src/lib/axios/axios.ts` passou a copiar `status` e `statusText` da resposta para o `ApiProxyError`; antes o corpo `{ message, _error }` chegava sem status e todo erro virava 500 no cliente.
@@ -75,7 +75,7 @@ Nenhuma tela encadeia um segundo nível: `usePosition`, `usePerformance` e `useT
 Duas escolhas deliberadas:
 
 * **Não invalidar `['portfolios']` nem `['user']`.** Nenhuma escrita do produto altera a lista de carteiras ou o usuário.
-* **`queryClient.removeQueries()` sem filtro no sign-in, sign-up e sign-out.** Descartar o cache inteiro na troca de sessão é requisito de segurança, não de performance: nenhum dado de uma conta pode sobreviver para a próxima.
+* **`queryClient.clear()` ao montar o layout público.** Descartar o cache inteiro na troca de sessão é requisito de segurança, não de performance: nenhum dado de uma conta pode sobreviver para a próxima. É feito ao montar, não no sign-out, porque remover queries ainda observadas as refaz sem sessão.
 
 ## Limite conhecido
 
