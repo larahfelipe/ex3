@@ -15,7 +15,6 @@ const QUOTE_CURRENCY_BY_MARKET: ReadonlyMap<string, string | null> = new Map(
   Object.entries(MarketQuoteCurrencies)
 );
 
-/** Whether a search term could be the symbol of a new instrument, and so be looked up in the market. */
 export const isListableSymbol = (term: string) =>
   term.length <= InstrumentLimits.SYMBOL_MAX_LENGTH &&
   INSTRUMENT_SYMBOL_PATTERN.test(term);

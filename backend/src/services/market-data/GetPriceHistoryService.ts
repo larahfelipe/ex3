@@ -13,7 +13,6 @@ import type {
   MarketQuoteRepository
 } from '@/infra/database';
 
-/** The stored series is daily closes, so the provider is asked for the daily interval. */
 const DAILY_INTERVAL: PriceInterval = '1d';
 
 type BackfilledInstrument = PricedInstrument & Pick<Instrument, 'id'>;

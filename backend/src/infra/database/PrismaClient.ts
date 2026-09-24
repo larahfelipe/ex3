@@ -13,7 +13,6 @@ import { LogSeverities, log } from '@/infra/observability';
 const TRANSACTION_WRITE_CONFLICT = 'P2034';
 const ADAPTER_WRITE_CONFLICT = 'TransactionWriteConflict';
 
-/** Prisma's code for a write rejected by a unique index. */
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
 /**
