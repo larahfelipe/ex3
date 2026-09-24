@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type FC, type PointerEvent } from 'react';
+import { useId, useMemo, useState, type FC } from 'react';
 
 import { useSearchParams } from 'next/navigation';
 
@@ -13,6 +13,7 @@ import { EmptyState, LoadingState } from '@/components/data-state';
 import { Money, Trend } from '@/components/financial';
 import { InfoTip } from '@/components/info-tip';
 import { QuerySection } from '@/components/query-section';
+import { MAX_PLOTTED_POINTS, SeriesChart } from '@/components/series-chart';
 import {
   SegmentedControl,
   SegmentedControlItem,
@@ -28,7 +29,6 @@ import {
 } from '@/components/ui';
 import { usePerformance } from '@/hooks/use-portfolio';
 import { formatSeriesDay } from '@/lib/dates';
-import { cn } from '@/lib/utils';
 
 type PerformanceChartProps = Record<'portfolio', Portfolio> &
   Partial<Record<'symbol', string>>;
@@ -38,8 +38,6 @@ type PerformanceSeriesProps = Pick<
   'series' | 'baseCurrency'
 > &
   Record<'period', string>;
-
-type ChartPoint = Record<'x' | 'y', number>;
 
 const RANGE_PARAM = 'range';
 const DEFAULT_RANGE: PerformanceRange = '1Y';
@@ -68,14 +66,6 @@ const PERFORMANCE_RANGE_LABELS: Record<
   MAX: { name: 'All', period: 'since the first transaction' }
 };
 
-const CHART_WIDTH = 600;
-const CHART_HEIGHT = 200;
-const CHART_VIEW_BOX = `0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`;
-const CHART_PADDING = 6;
-
-/** Two points closer than one unit of the drawing box land on the same pixel. */
-const MAX_PLOTTED_POINTS = CHART_WIDTH;
-
 /**
  * Keeps the last point whatever the stride: it is the current value, the one
  * the headline reads while the pointer is away.
@@ -95,45 +85,8 @@ const plottedSeriesOf = (
 };
 
 /**
- * Amounts become numbers here only to be scaled into the drawing box: every
- * value the reader sees is formatted from the decimal string the API sent.
- */
-const chartPointsOf = (
-  series: ReadonlyArray<PerformancePoint>
-): ChartPoint[] => {
-  const values = series.map(({ value }) => Number(value));
-  const lowest = Math.min(...values);
-  const span = Math.max(...values) - lowest;
-  const plotHeight = CHART_HEIGHT - 2 * CHART_PADDING;
-  const step = values.length > 1 ? CHART_WIDTH / (values.length - 1) : 0;
-
-  return values.map((value, index) => ({
-    x: values.length > 1 ? index * step : CHART_WIDTH / 2,
-    y:
-      span === 0
-        ? CHART_HEIGHT / 2
-        : CHART_PADDING + plotHeight * (1 - (value - lowest) / span)
-  }));
-};
-
-const linePathOf = (points: ReadonlyArray<ChartPoint>) =>
-  points
-    .map(({ x, y }, index) => `${index === 0 ? 'M' : 'L'}${x} ${y}`)
-    .join(' ');
-
-const areaPathOf = (points: ReadonlyArray<ChartPoint>) => {
-  const first = points.at(0);
-  const last = points.at(-1);
-
-  if (first === undefined || last === undefined) return '';
-
-  return `${linePathOf(points)} L${last.x} ${CHART_HEIGHT} L${first.x} ${CHART_HEIGHT} Z`;
-};
-
-/**
- * Holds the hovered point so that moving the pointer redraws the line and the
- * tooltip alone, leaving the period selector and the table untouched; the paths
- * are built once per series instead of once per pointer event.
+ * Holds the hovered point so that moving the pointer redraws the headline and
+ * the chart alone, leaving the period selector and the table untouched.
  */
 const PerformanceSeries: FC<PerformanceSeriesProps> = ({
   series,
@@ -143,27 +96,9 @@ const PerformanceSeries: FC<PerformanceSeriesProps> = ({
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const plotted = useMemo(() => plottedSeriesOf(series), [series]);
-  const points = useMemo(() => chartPointsOf(plotted), [plotted]);
-  const linePath = useMemo(() => linePathOf(points), [points]);
-  const areaPath = useMemo(() => areaPathOf(points), [points]);
+  const values = useMemo(() => plotted.map(({ value }) => value), [plotted]);
 
-  const activePoint = activeIndex === null ? null : points.at(activeIndex);
   const readPoint = plotted.at(activeIndex ?? -1) ?? plotted[0];
-
-  const trackPointer = ({
-    clientX,
-    currentTarget
-  }: PointerEvent<HTMLDivElement>) => {
-    const { left, width } = currentTarget.getBoundingClientRect();
-
-    if (width === 0 || points.length === 0) return;
-
-    const position = Math.round(
-      ((clientX - left) / width) * (points.length - 1)
-    );
-
-    setActiveIndex(Math.min(points.length - 1, Math.max(0, position)));
-  };
 
   return (
     <>
@@ -186,73 +121,25 @@ const PerformanceSeries: FC<PerformanceSeriesProps> = ({
         </p>
       </div>
 
-      <div
-        className="relative"
-        onPointerMove={trackPointer}
-        onPointerLeave={() => setActiveIndex(null)}
-      >
-        <svg
-          aria-hidden="true"
-          viewBox={CHART_VIEW_BOX}
-          preserveAspectRatio="none"
-          className="block h-48 w-full"
-        >
-          <path d={areaPath} className="fill-primary/10" />
-
-          <path
-            d={linePath}
-            fill="none"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            vectorEffect="non-scaling-stroke"
-            className="stroke-primary"
-          />
-
-          {activePoint !== undefined && activePoint !== null && (
-            <line
-              x1={activePoint.x}
-              y1={0}
-              x2={activePoint.x}
-              y2={CHART_HEIGHT}
-              strokeWidth={1}
-              vectorEffect="non-scaling-stroke"
-              className="stroke-muted-foreground/40"
-            />
-          )}
-        </svg>
-
-        {activePoint !== undefined && activePoint !== null && (
+      <SeriesChart
+        values={values}
+        activeIndex={activeIndex}
+        onActiveIndexChange={setActiveIndex}
+        className="h-48"
+        tooltip={
           <>
-            <span
-              aria-hidden="true"
-              style={{
-                left: `${(activePoint.x / CHART_WIDTH) * 100}%`,
-                top: `${(activePoint.y / CHART_HEIGHT) * 100}%`
-              }}
-              className="pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-background"
-            />
+            <p className="font-medium">{formatSeriesDay(readPoint.date)}</p>
 
-            <div
-              aria-hidden="true"
-              className={cn(
-                'pointer-events-none absolute top-0 space-y-0.5 rounded-md border bg-background px-3 py-2 text-xs shadow-elevated',
-                activePoint.x > CHART_WIDTH / 2 ? 'left-0' : 'right-0'
-              )}
-            >
-              <p className="font-medium">{formatSeriesDay(readPoint.date)}</p>
+            <p>
+              <Money value={readPoint.value} currency={baseCurrency} />
+            </p>
 
-              <p>
-                <Money value={readPoint.value} currency={baseCurrency} />
-              </p>
-
-              <p>
-                <Trend value={readPoint.twr} />
-              </p>
-            </div>
+            <p>
+              <Trend value={readPoint.twr} />
+            </p>
           </>
-        )}
-      </div>
+        }
+      />
     </>
   );
 };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState, type FC } from 'react';
+import { useId, useMemo, useState, type FC } from 'react';
 
 import Link from 'next/link';
 
@@ -9,10 +9,13 @@ import { ArrowLeft, Plus } from 'lucide-react';
 import type {
   InstrumentType,
   PositionDetail,
+  PriceChange,
+  PriceClose,
   PriceIndicators,
   ReturnIndicators
 } from '@/app/api/v1/portfolio';
 import { APP_ROUTES, INSTRUMENT_TYPE_LABELS } from '@/common/constants';
+import { signOf, type ValueSign } from '@/common/utils';
 import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
 import {
   HEADLINE_VALUE_CLASS,
@@ -29,6 +32,7 @@ import { PageHeader } from '@/components/page-header';
 import { PerformanceChart } from '@/components/performance-chart';
 import { QuerySection } from '@/components/query-section';
 import { SectionHeader } from '@/components/section-header';
+import { SeriesChart, type SeriesTone } from '@/components/series-chart';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import { Button, Card, CardContent, Skeleton } from '@/components/ui';
 import {
@@ -43,6 +47,7 @@ import {
   formatQuoteTime,
   formatSeriesDay
 } from '@/lib/dates';
+import { cn } from '@/lib/utils';
 import type { Children, Maybe } from '@/types';
 
 import { AssetTransactions } from './asset-transactions';
@@ -60,6 +65,13 @@ type IndicatorsQueryProps = Record<'query', IndicatorsQuery>;
 type MarketSectionProps = PositionSectionProps & IndicatorsQueryProps;
 
 type PriceIndicatorsProps = Record<'prices', PriceIndicators>;
+
+type OpenedPriceChange = Extract<PriceChange, Record<'openedOn', string>>;
+
+type PriceChartProps = Record<'closes', ReadonlyArray<PriceClose>> &
+  Record<'currency', string> &
+  Record<'tone', SeriesTone> &
+  Partial<Record<'className', string>>;
 
 type ReturnsSectionProps = Pick<PositionDetail, 'type'> & IndicatorsQueryProps;
 
@@ -88,6 +100,14 @@ const WHOLE_BAR_PERCENT = 100;
 
 /** A year whose closes never moved has no span to place the close in. */
 const FLAT_YEAR_PLACEMENT = 0.5;
+
+const CHANGE_TONES: Record<ValueSign, SeriesTone> = {
+  negative: 'negative',
+  zero: 'primary',
+  positive: 'positive'
+};
+
+const WHOLE_HISTORY_KEY = 'whole-history';
 
 const DetailSection: FC<DetailSectionProps> = ({ title, children }) => {
   const headingId = useId();
@@ -147,30 +167,158 @@ const YearRange: FC<PriceIndicatorsProps> = ({ prices }) => {
   );
 };
 
+/**
+ * The window that opens earliest, one year whenever the history reaches it.
+ * ISO instants in UTC, as the API sends them, order as text.
+ */
+const longestChangeOf = (changes: ReadonlyArray<PriceChange>) =>
+  changes.reduce<OpenedPriceChange | undefined>(
+    (longest, change) =>
+      change.openedOn !== undefined &&
+      (longest === undefined || change.openedOn <= longest.openedOn)
+        ? change
+        : longest,
+    undefined
+  );
+
+/**
+ * Closes, not candles: the history keeps one price per day, and a line reads
+ * the direction of a window at a glance in the room the card leaves it.
+ */
+const PriceChart: FC<PriceChartProps> = ({
+  closes,
+  currency,
+  tone,
+  className
+}) => {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const values = useMemo(() => closes.map(({ close }) => close), [closes]);
+
+  const first = closes[0];
+  const last = closes[closes.length - 1];
+  const active = closes.at(activeIndex ?? -1) ?? last;
+
+  return (
+    <figure className={cn('space-y-2', className)}>
+      <SeriesChart
+        values={values}
+        activeIndex={activeIndex}
+        onActiveIndexChange={setActiveIndex}
+        tone={tone}
+        baseline={first.close}
+        className="h-36"
+        tooltip={
+          <>
+            <p className="font-medium">{formatSeriesDay(active.closedOn)}</p>
+
+            <p>
+              <Price value={active.close} currency={currency} />
+            </p>
+          </>
+        }
+      />
+
+      <figcaption className="flex justify-between gap-4 text-xs text-muted-foreground">
+        <span className="sr-only">
+          {'Daily closes from '}
+
+          <Price value={first.close} currency={currency} />
+
+          {' on '}
+        </span>
+
+        <time dateTime={first.closedOn}>{formatSeriesDay(first.closedOn)}</time>
+
+        <span className="sr-only">
+          {' to '}
+
+          <Price value={last.close} currency={currency} />
+
+          {' on '}
+        </span>
+
+        <time dateTime={last.closedOn}>{formatSeriesDay(last.closedOn)}</time>
+      </figcaption>
+    </figure>
+  );
+};
+
+/**
+ * The windows' changes select what the chart draws: from the window's opening
+ * close, the dashed line, to the latest. Without any change, the chart draws
+ * every close the history has.
+ */
 const PriceMovement: FC<PriceIndicatorsProps> = ({ prices }) => {
-  const { currency, close, closedOn, changes } = prices;
+  const { currency, close, closedOn, changes, closes } = prices;
+  const rangeInputName = useId();
+  const [selectedRange, setSelectedRange] = useState(
+    () => longestChangeOf(changes)?.range
+  );
+  const selected = changes.find(
+    (change): change is OpenedPriceChange =>
+      change.range === selectedRange && change.openedOn !== undefined
+  );
+  const chartCloses = useMemo(
+    () =>
+      selected === undefined
+        ? closes
+        : closes.filter((dayClose) => dayClose.closedOn >= selected.openedOn),
+    [closes, selected]
+  );
 
   return (
     <div className="space-y-4 border-t pt-5">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div className="space-y-3">
-          <h3 className="text-sm text-muted-foreground">Price change</h3>
+        <fieldset className="min-w-0 lg:col-start-1 lg:row-start-1">
+          <legend className="mb-3 text-sm text-muted-foreground">
+            Price change
+          </legend>
 
-          <dl className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
             {changes.map(({ range, change }) => (
-              <Metric
+              <label
                 key={range}
-                label={range}
-                className="rounded-lg bg-muted px-3 py-2"
-                valueClassName="font-semibold"
+                className="block cursor-pointer space-y-1 rounded-lg border border-transparent bg-muted px-3 py-2 ring-offset-background transition-colors hover:border-input has-checked:border-primary/40 has-checked:bg-primary/10 has-focus-visible:ring-2 has-focus-visible:ring-focus has-focus-visible:ring-offset-2 has-disabled:cursor-not-allowed has-disabled:opacity-50 has-disabled:hover:border-transparent"
               >
-                <Trend value={change} />
-              </Metric>
-            ))}
-          </dl>
-        </div>
+                <input
+                  type="radio"
+                  name={rangeInputName}
+                  value={range}
+                  checked={range === selectedRange}
+                  disabled={change === undefined}
+                  onChange={() => setSelectedRange(range)}
+                  className="sr-only"
+                />
 
-        <YearRange prices={prices} />
+                <span className="block text-sm text-muted-foreground">
+                  {range}
+                </span>
+
+                <span className="block font-semibold">
+                  <Trend value={change} />
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        {chartCloses.length > 1 && (
+          <PriceChart
+            key={selectedRange ?? WHOLE_HISTORY_KEY}
+            closes={chartCloses}
+            currency={currency}
+            tone={
+              selected === undefined
+                ? 'primary'
+                : CHANGE_TONES[signOf(selected.change)]
+            }
+            className="lg:col-span-2 lg:row-start-2"
+          />
+        )}
+
+        <div className="lg:col-start-2 lg:row-start-1">
+          <YearRange prices={prices} />
+        </div>
       </div>
 
       <p className="text-xs text-muted-foreground">
@@ -198,7 +346,13 @@ const PriceHistory: FC<IndicatorsQueryProps> = ({
             onRetry={refetch}
           />
         ) : (
-          <LoadingState label="Loading the price history" className="h-24" />
+          <LoadingState label="Loading the price history">
+            <div className="space-y-4">
+              <Skeleton aria-hidden="true" className="h-16 w-full" />
+
+              <Skeleton aria-hidden="true" className="h-36 w-full" />
+            </div>
+          </LoadingState>
         )}
       </div>
     );

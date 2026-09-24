@@ -127,12 +127,20 @@ export type PriceChangeRange = Extract<
   '1M' | '3M' | '6M' | 'YTD' | '1Y'
 >;
 
+/** A window's change is read from its opening close, so both come or neither does. */
 export type PriceChange = Record<'range', PriceChangeRange> &
-  Partial<Record<'change', DecimalString>>;
+  (
+    | Partial<Record<'change' | 'openedOn', never>>
+    | (Record<'change', DecimalString> & Record<'openedOn', string>)
+  );
+
+export type PriceClose = Record<'close', DecimalString> &
+  Record<'closedOn', string>;
 
 export type PriceIndicators = Record<'currency' | 'closedOn', string> &
   Record<'close' | 'yearLow' | 'yearHigh', DecimalString> &
-  Record<'changes', Array<PriceChange>>;
+  Record<'changes', Array<PriceChange>> &
+  Record<'closes', Array<PriceClose>>;
 
 export type ReturnIndicators = Record<'currency' | 'since', string> &
   Record<'realizedProfitLoss' | 'income' | 'trailingIncome', DecimalString> &
