@@ -65,10 +65,6 @@ export class GetPriceHistoryService {
     from,
     to
   }: GetPriceHistoryService.DTO): Promise<GetPriceHistoryService.Result> {
-    const instrument = await this.instrumentRepository.getById(instrumentId);
-
-    if (!instrument) throw new NotFoundError(InstrumentMessages.NOT_FOUND);
-
     const storedCloses = () =>
       this.marketQuoteRepository.getDailyCloses({ instrumentId, from, to });
 
@@ -76,6 +72,10 @@ export class GetPriceHistoryService {
     const missingRanges = missingRangesOf(stored, { from, to }, this.now());
 
     if (missingRanges.length === 0) return stored;
+
+    const instrument = await this.instrumentRepository.getById(instrumentId);
+
+    if (!instrument) throw new NotFoundError(InstrumentMessages.NOT_FOUND);
 
     await Promise.all(
       missingRanges.map((missing) => this.backfill(instrument, missing))
