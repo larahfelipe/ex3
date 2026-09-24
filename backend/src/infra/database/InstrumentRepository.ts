@@ -4,8 +4,6 @@ import type { Instrument, InstrumentRegistration } from '@/domain/models';
 
 import { PrismaClient } from './PrismaClient';
 
-const DEFAULT_PAGE_LIMIT = 10;
-
 export class InstrumentRepository {
   private static INSTANCE: InstrumentRepository;
   private prismaClient: PrismaClient;
@@ -26,7 +24,7 @@ export class InstrumentRepository {
    * catalog instruments whose symbol the user has not registered are listed.
    */
   async getAllVisible(params: InstrumentRepository.GetAllVisibleParams) {
-    const { userId, page = 1, limit = DEFAULT_PAGE_LIMIT, search } = params;
+    const { userId, page, limit, search } = params;
 
     const privateInstruments = await this.prismaClient.instrument.findMany({
       where: { ownerId: userId },
@@ -126,11 +124,9 @@ export class InstrumentRepository {
 }
 
 namespace InstrumentRepository {
-  export type GetAllVisibleParams = Record<'userId', string> & {
-    page?: number;
-    limit?: number;
-    search?: string;
-  };
+  export type GetAllVisibleParams = Record<'userId', string> &
+    Record<'page' | 'limit', number> &
+    Partial<Record<'search', string>>;
   export type GetVisibleParams = Pick<Instrument, 'symbol'> &
     Record<'userId', string>;
   export type AddParams = InstrumentRegistration;

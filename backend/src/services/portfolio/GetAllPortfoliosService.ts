@@ -31,10 +31,7 @@ export class GetAllPortfoliosService {
 }
 
 namespace GetAllPortfoliosService {
-  export type DTO = Record<'userId', string> & {
-    page?: number;
-    limit?: number;
-  };
+  export type DTO = Record<'userId', string> & Record<'page' | 'limit', number>;
   export type Result = {
     portfolios: Array<Omit<Portfolio, 'positions'>>;
     pagination: Record<'page' | 'limit' | 'total' | 'totalPages', number>;

@@ -292,6 +292,18 @@ export const InstrumentLimits = {
 } as const;
 
 /**
+ * Listings number their pages from one and answer `DEFAULT_SIZE` rows when the
+ * query names no size. `MAX_SIZE` bounds the rows one response can carry (OWASP
+ * API4:2023, unrestricted resource consumption), above every page size the web
+ * offers.
+ */
+export const Pagination = {
+  FIRST_PAGE: 1,
+  DEFAULT_SIZE: 10,
+  MAX_SIZE: 100
+} as const;
+
+/**
  * Letters and digits only, so a symbol can neither change the path or query of
  * a provider URL nor carry a pattern wildcard into a search.
  */

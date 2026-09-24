@@ -135,7 +135,7 @@ Contrato de toda resposta de erro da API e de todo endpoint novo que lista.
 
 O proxy do web mantém `{ message, _error }`, com o corpo da API em `_error`.
 
-**Listagem paginada.** Query `page`, inteiro a partir de 1 com padrão 1, e `pageSize`, inteiro de 1 a 100 (`MAX_PAGE_LIMIT`) com padrão 10. Resposta `{ items, page, pageSize, total, totalPages }`, com `totalPages = ⌈total / pageSize⌉`, zero quando não há itens; página além da última responde `items` vazio com os mesmos totais. A ordenação de cada listagem é explícita e documentada com o endpoint. `GET /v1/portfolios` e `GET /v1/instruments` são anteriores ao padrão e continuam com `limit` e `pagination` (TD-021).
+**Listagem paginada.** Query `page`, inteiro a partir de 1 com padrão 1, e `pageSize`, inteiro de 1 a 100 (`Pagination.MAX_SIZE`) com padrão 10 (`Pagination.DEFAULT_SIZE`). Resposta `{ items, page, pageSize, total, totalPages }`, com `totalPages = ⌈total / pageSize⌉`, zero quando não há itens; página além da última responde `items` vazio com os mesmos totais. A ordenação de cada listagem é explícita e documentada com o endpoint. `GET /v1/portfolios` e `GET /v1/instruments` são anteriores ao padrão e continuam com `limit` e `pagination` (TD-021).
 
 ---
 
@@ -146,7 +146,7 @@ O proxy do web mantém `{ message, _error }`, com o corpo da API em `_error`.
 | Sessão validada contra o token gravado em `users.accessToken` | Claim `sessionVersion` comparada a `users.sessionVersion`, em token com expiração | `docs/authentication.md` |
 | Sign-in responde `404 User not found`, também para senha errada | `401 Invalid email or password`, idêntico para e-mail inexistente | `docs/authentication.md` |
 | Cada controller captura a própria exceção; não há error handler global | Os controllers propagam e `errorHandlerMiddleware` responde `{ code, message, details }`; erro não previsto vira `500` genérico e é registrado. Rota inexistente e rate limit respondem no mesmo formato ([Padrão de resposta](#padrão-de-resposta)) | `backend/src/middleware/ErrorHandlerMiddleware.ts` |
-| Defaults de `page`/`limit` residem no repositório, sem validação | `page` e `limit` são inteiros positivos e `limit` vai até 100, validados no schema; os defaults continuam no repositório | `backend/src/validation/schema/PaginationQuerySchema.ts` |
+| Defaults de `page`/`limit` residem no repositório, sem validação | `page` e `limit` são inteiros positivos e `limit` vai até 100, validados no schema, que também aplica os padrões `Pagination.FIRST_PAGE` e `Pagination.DEFAULT_SIZE` (`backend/src/config/Constants.ts`) | `backend/src/validation/schema/PaginationQuerySchema.ts` |
 | Nenhuma operação é atômica | O sign-up cria usuário e carteira na mesma transação de banco. Escrita de transação (linha do razão e posição do ativo), edição e exclusão de carteira, exclusão de ativo e exclusão de conta rodam cada uma em uma transação serializável, e a falha de qualquer etapa desfaz a operação inteira | `backend/src/infra/database/PrismaClient.ts`, `docs/testing.md` |
 | `PATCH /v1/transaction/:id` soma o novo impacto à posição sem desfazer o anterior e responde `Transaction created` | Reconstrói a posição a partir do razão, com a linha editada no lugar da original, e responde `Transaction updated` | `docs/testing.md` |
 | Só o `SELL` é comparado à posição, e a exclusão não compara | Criação, edição e exclusão recusam com `400`, sem gravar, o razão em que algum `SELL` venderia mais do que a posição detém naquele ponto, inclusive excluir um `BUY` do qual um `SELL` depende | `docs/testing.md` |
