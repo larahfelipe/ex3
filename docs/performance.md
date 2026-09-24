@@ -267,3 +267,28 @@ Medida: soma dos bytes dos chunks que a rota carrega de saída — os `rootMainF
 As rotas com o formulário de transação mantêm o calendário, que usam. Os 6.931 bytes a mais em `/assets` são reagrupamento de chunks pelo Turbopack, não código novo.
 
 **Avaliado e não feito: carregar os diálogos sob demanda (`next/dynamic`).** Nas rotas que abrem o formulário de transação, o calendário e o formulário somam cerca de 100 KB. Adiar esse código tira bytes do carregamento e os põe no primeiro clique em "New transaction" ou "Edit", a interação principal dessas telas, e o diálogo abriria vazio até o chunk chegar. Sem medição de INP em navegador (TD-054), a troca não se justifica.
+
+## Abas animadas — 2026-09-24
+
+O `framer-motion` entrou para o deslize do `SegmentedControl` e dos painéis de `SlideTransition` (`docs/toolchain.md`). Três escolhas mantêm o custo nas rotas que animam:
+
+* **`framer-motion`, não `motion/react`.** O segundo reexporta o primeiro por `import * as fm`, que o Turbopack não poda: com ele, o sign-up subia de 1.171.069 para 1.324.882 bytes (+153.813).
+* **`MotionScope` em cada primitiva, não no provider raiz.** Com `LazyMotion` e `MotionConfig` no provider do layout, sign-in e account, que não animam nada, levavam 37 KB a mais (sign-in em 1.201.977). Dentro das primitivas, sobem 344 bytes, o `import()` do pacote de recursos.
+* **Recursos por `import()`.** `domMax`, 88.176 bytes crus e 28.437 com gzip, chega num chunk separado quando a primeira primitiva monta, não no carregamento da rota. O conteúdo da primeira renderização não depende dele: painel e indicador renderizam com `initial={false}` e o CSS preenche o item marcado até o rádio ser lido.
+
+Mesma medida da seção anterior, na build de produção:
+
+| Rota | Antes | Depois | Diferença |
+| --- | --- | --- | --- |
+| `/sign-in` | 1.164.910 | 1.165.254 | +344 |
+| `/sign-up` | 1.171.069 | 1.229.960 | +58.891 |
+| `/account` | 1.180.178 | 1.180.522 | +344 |
+| `/portfolios` | 1.229.036 | 1.281.696 | +52.660 |
+| `/` | 1.419.295 | 1.478.387 | +59.092 |
+| `/assets` | 1.430.013 | 1.482.673 | +52.660 |
+| `/assets/[symbol]` | 1.414.058 | 1.466.718 | +52.660 |
+
+**Avaliado e não feito.** As outras microinterações já existem por CSS e não ganham nada ao trocar de biblioteca: diálogo e alerta entram e saem com fade e escala de 95%, popover, menu e lista do `Select` com fade e zoom, o botão encolhe ao toque, e `APPEAR_CLASS` dá o fade do que substitui um carregamento. O período do gráfico de desempenho só desliza o indicador: o painel não troca, os dados novos chegam depois, sobre o anterior esmaecido, e deslizá-lo mostraria o gráfico velho indo embora para o mesmo gráfico voltar. A altura do erro de campo animada foi descartada porque o erro aparece e some enquanto se digita, e o formulário tremeria a cada tecla. Os chips de janela do detalhe do ativo são cartões de métrica, não abas.
+
+Nada disso foi verificado em navegador nesta sessão.
+

@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { CURRENCIES } from '@/common/constants';
 import { ChoiceField, FormField } from '@/components/form-field';
 import { PasswordRequirements } from '@/components/password-requirements';
+import { SlideTransition } from '@/components/slide-transition';
 import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
@@ -31,6 +32,7 @@ import {
   PASSWORD_DERIVED_FROM_EMAIL_MESSAGE
 } from '@/lib/account-schema';
 import { ApiProxyError, isConflictError } from '@/lib/axios';
+import type { SlideDirection } from '@/lib/motion';
 import {
   PORTFOLIO_NAME_MAX_LENGTH,
   PortfolioNameSchema
@@ -90,6 +92,7 @@ export const SignUpForm: FC = () => {
   const { mutateAsync: signUp } = useSignUp();
 
   const [step, setStep] = useState(0);
+  const [stepDirection, setStepDirection] = useState<SlideDirection>(1);
 
   const stepTitleId = useId();
 
@@ -131,7 +134,10 @@ export const SignUpForm: FC = () => {
    * when `setFocus` looks it up.
    */
   const goToStep = (nextStep: number, field?: SignUpField) => {
-    flushSync(() => setStep(nextStep));
+    flushSync(() => {
+      setStepDirection(nextStep > step ? 1 : -1);
+      setStep(nextStep);
+    });
     setFocus(field ?? SIGN_UP_STEPS[nextStep].fields[0]);
   };
 
@@ -230,124 +236,127 @@ export const SignUpForm: FC = () => {
         </div>
       </div>
 
-      <div
-        key={step}
-        className="mt-8 space-y-5 duration-300 ease-out animate-in fade-in-0 motion-reduce:animate-none"
-      >
-        {step === stepOf('name') && (
-          <>
-            <FormField label="Name" error={errors.name?.message}>
-              {(control) => (
-                <Input
-                  {...control}
-                  autoComplete="name"
-                  autoCorrect="off"
-                  {...register('name')}
-                />
-              )}
-            </FormField>
+      <div className="mt-8">
+        <SlideTransition panelKey={step} direction={stepDirection}>
+          <div className="space-y-5">
+            {step === stepOf('name') && (
+              <>
+                <FormField label="Name" error={errors.name?.message}>
+                  {(control) => (
+                    <Input
+                      {...control}
+                      autoComplete="name"
+                      autoCorrect="off"
+                      {...register('name')}
+                    />
+                  )}
+                </FormField>
 
-            <FormField label="Email" error={errors.email?.message}>
-              {(control) => (
-                <Input
-                  {...control}
+                <FormField label="Email" error={errors.email?.message}>
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="email"
+                      autoComplete="username"
+                      {...register('email', {
+                        onChange: revalidateOnceTyped('password')
+                      })}
+                    />
+                  )}
+                </FormField>
+              </>
+            )}
+
+            {step === stepOf('password') && (
+              <>
+                <input
+                  hidden
+                  readOnly
                   type="email"
                   autoComplete="username"
-                  {...register('email', {
-                    onChange: revalidateOnceTyped('password')
-                  })}
+                  value={email}
                 />
-              )}
-            </FormField>
-          </>
-        )}
 
-        {step === stepOf('password') && (
-          <>
-            <input
-              hidden
-              readOnly
-              type="email"
-              autoComplete="username"
-              value={email}
-            />
+                <FormField
+                  label="Password"
+                  hint={
+                    <PasswordRequirements password={password} email={email} />
+                  }
+                  error={errors.password?.message}
+                >
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="password"
+                      autoComplete="new-password"
+                      {...register('password', {
+                        onChange: revalidateOnceTyped('confirmPassword')
+                      })}
+                    />
+                  )}
+                </FormField>
 
-            <FormField
-              label="Password"
-              hint={<PasswordRequirements password={password} email={email} />}
-              error={errors.password?.message}
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="password"
-                  autoComplete="new-password"
-                  {...register('password', {
-                    onChange: revalidateOnceTyped('confirmPassword')
-                  })}
-                />
-              )}
-            </FormField>
+                <FormField
+                  label="Confirm password"
+                  error={errors.confirmPassword?.message}
+                >
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="password"
+                      autoComplete="new-password"
+                      {...register('confirmPassword')}
+                    />
+                  )}
+                </FormField>
+              </>
+            )}
 
-            <FormField
-              label="Confirm password"
-              error={errors.confirmPassword?.message}
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="password"
-                  autoComplete="new-password"
-                  {...register('confirmPassword')}
-                />
-              )}
-            </FormField>
-          </>
-        )}
+            {step === stepOf('portfolioName') && (
+              <>
+                <FormField
+                  label="Portfolio name"
+                  hint="You can rename it and add other portfolios later."
+                  error={errors.portfolioName?.message}
+                >
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="text"
+                      autoComplete="off"
+                      maxLength={PORTFOLIO_NAME_MAX_LENGTH}
+                      {...register('portfolioName')}
+                    />
+                  )}
+                </FormField>
 
-        {step === stepOf('portfolioName') && (
-          <>
-            <FormField
-              label="Portfolio name"
-              hint="You can rename it and add other portfolios later."
-              error={errors.portfolioName?.message}
-            >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="text"
-                  autoComplete="off"
-                  maxLength={PORTFOLIO_NAME_MAX_LENGTH}
-                  {...register('portfolioName')}
-                />
-              )}
-            </FormField>
+                <ChoiceField
+                  legend="Base currency"
+                  hint="The portfolio reports every value in this currency."
+                  error={errors.baseCurrency?.message}
+                >
+                  <SegmentedControl className="grid grid-cols-3">
+                    {CURRENCY_IDS.map((currency) => (
+                      <SegmentedControlItem
+                        key={currency}
+                        value={currency}
+                        {...register('baseCurrency')}
+                      >
+                        {currency}
+                      </SegmentedControlItem>
+                    ))}
+                  </SegmentedControl>
+                </ChoiceField>
+              </>
+            )}
 
-            <ChoiceField
-              legend="Base currency"
-              hint="The portfolio reports every value in this currency."
-              error={errors.baseCurrency?.message}
-            >
-              <SegmentedControl className="grid grid-cols-3">
-                {CURRENCY_IDS.map((currency) => (
-                  <SegmentedControlItem
-                    key={currency}
-                    value={currency}
-                    {...register('baseCurrency')}
-                  >
-                    {currency}
-                  </SegmentedControlItem>
-                ))}
-              </SegmentedControl>
-            </ChoiceField>
-          </>
-        )}
-
-        {errors.root?.server?.message !== undefined && (
-          <AuthNotice tone="negative" role="alert">
-            {errors.root.server.message}
-          </AuthNotice>
-        )}
+            {errors.root?.server?.message !== undefined && (
+              <AuthNotice tone="negative" role="alert">
+                {errors.root.server.message}
+              </AuthNotice>
+            )}
+          </div>
+        </SlideTransition>
       </div>
 
       <div className="mt-8 flex gap-3">
