@@ -310,7 +310,6 @@ export const MarketSearchStatuses = {
 export type MarketSearchStatus =
   (typeof MarketSearchStatuses)[keyof typeof MarketSearchStatuses];
 
-/** Whether an instrument belongs to the shared catalog or to the caller alone. */
 export const InstrumentScopes = {
   CATALOG: 'CATALOG',
   PRIVATE: 'PRIVATE'

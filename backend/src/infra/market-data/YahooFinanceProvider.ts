@@ -80,7 +80,6 @@ const LOOKBACK_DAYS: ReadonlyMap<PriceInterval, number> = new Map([
   ['1h', 730]
 ]);
 
-/** Rates are stored as daily closes, so a pair is only ever asked at the daily interval. */
 const DAILY_RATE_INTERVAL: PriceInterval = '1d';
 
 /** Letters and digits only, so neither can change the path or query of the provider URL. */
