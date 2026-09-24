@@ -7,6 +7,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type InvalidateOptions,
   type QueryKey
 } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
@@ -103,10 +104,11 @@ export const useRefreshPortfolio = (portfolio: Maybe<Portfolio>) => {
   const portfolioId = portfolio?.id;
 
   return useCallback(
-    () =>
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.portfolio(portfolioId)
-      }),
+    (options?: InvalidateOptions) =>
+      queryClient.invalidateQueries(
+        { queryKey: queryKeys.portfolio(portfolioId) },
+        options
+      ),
     [queryClient, portfolioId]
   );
 };
