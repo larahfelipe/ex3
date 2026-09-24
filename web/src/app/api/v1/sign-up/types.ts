@@ -6,6 +6,7 @@ export type SignUpRequestPayload = {
   name: string;
   email: string;
   password: string;
+  portfolioName: string;
   baseCurrency: string;
 };
 

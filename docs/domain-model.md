@@ -23,7 +23,7 @@ User
 
 ## Carteira
 
-Toda conta tem ao menos uma carteira: o sign-up cria `Main`, e a exclusão da última responde `422`. Excluir uma carteira remove as posições e as transações dela na mesma transação serializável; os instrumentos continuam cadastrados. `name` muda a qualquer momento, e `baseCurrency` só enquanto a carteira não tem transação (`422`), porque o web registra transação nova na moeda base e uma posição já aberta em outra moeda recusaria a escrita (`CURRENCY_MISMATCH`). Não há teto de carteiras por conta (TD-011).
+Toda conta tem ao menos uma carteira: o sign-up cria a primeira, com o nome que o cadastro der ou `Main`, e a exclusão da última responde `422`. Excluir uma carteira remove as posições e as transações dela na mesma transação serializável; os instrumentos continuam cadastrados. `name` muda a qualquer momento, e `baseCurrency` só enquanto a carteira não tem transação (`422`), porque o web registra transação nova na moeda base e uma posição já aberta em outra moeda recusaria a escrita (`CURRENCY_MISMATCH`). Não há teto de carteiras por conta (TD-011).
 
 **Carteira ativa.** O web opera uma carteira por vez: a escolhida na tela de carteiras, guardada no `localStorage` do navegador (`ex3:active-portfolio`), ou a mais antiga enquanto não há escolha. Escolha que a API não resolve mais, porque a carteira foi excluída ou é de outra conta, é descartada, e o sign-out a apaga. A escolha é só preferência de exibição: a API resolve cada carteira pelo usuário autenticado.
 
