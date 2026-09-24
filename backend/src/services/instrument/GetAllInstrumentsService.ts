@@ -39,11 +39,9 @@ export class GetAllInstrumentsService {
 }
 
 namespace GetAllInstrumentsService {
-  export type DTO = Record<'userId', string> & {
-    page?: number;
-    limit?: number;
-    search?: string;
-  };
+  export type DTO = Record<'userId', string> &
+    Record<'page' | 'limit', number> &
+    Partial<Record<'search', string>>;
   export type Result = {
     instruments: Array<VisibleInstrument>;
     pagination: Record<'page' | 'limit' | 'total' | 'totalPages', number>;

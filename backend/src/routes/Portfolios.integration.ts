@@ -40,7 +40,7 @@ const positionIndicatorsRoute = (symbol: string) =>
   `${PORTFOLIO_POSITIONS_ROUTE}/${encodeURIComponent(symbol)}/indicators`;
 const PORTFOLIOS_ROUTE = '/v1/portfolios';
 
-/** Mirror `CreatePortfolioSchema`, `PaginationQuerySchema`, `PageQuerySchema` and the default page size in `PortfolioRepository.getAll`. */
+/** Mirror `CreatePortfolioSchema` and `Pagination`. */
 const NAME_MAX_LENGTH = 60;
 const DEFAULT_PAGE_LIMIT = 10;
 const MAX_PAGE_LIMIT = 100;

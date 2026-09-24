@@ -1,5 +1,6 @@
 import {
   MarketSearchStatuses,
+  Pagination,
   type MarketSearchStatus
 } from '@/config/Constants';
 import {
@@ -55,6 +56,7 @@ export class SearchInstrumentsService {
       this.instrumentRepository.getAllVisible({
         userId,
         search: query,
+        page: Pagination.FIRST_PAGE,
         limit: SEARCH_RESULT_LIMIT
       }),
       isSymbolTerm

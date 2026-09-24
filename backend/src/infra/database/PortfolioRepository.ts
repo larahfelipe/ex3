@@ -2,8 +2,6 @@ import type { Portfolio } from '@/domain/models';
 
 import { PrismaClient } from './PrismaClient';
 
-const DEFAULT_PAGE_LIMIT = 10;
-
 /**
  * Every lookup is filtered by the owner, so a portfolio id taken from a request
  * never reaches another user's portfolio.
@@ -24,7 +22,7 @@ export class PortfolioRepository {
   }
 
   async getAll(params: PortfolioRepository.GetAllParams) {
-    const { userId, page = 1, limit = DEFAULT_PAGE_LIMIT } = params;
+    const { userId, page, limit } = params;
 
     const [total, docs] = await Promise.all([
       this.prismaClient.portfolio.count({ where: { userId } }),
@@ -117,10 +115,8 @@ export class PortfolioRepository {
 }
 
 namespace PortfolioRepository {
-  export type GetAllParams = Pick<Portfolio, 'userId'> & {
-    page?: number;
-    limit?: number;
-  };
+  export type GetAllParams = Pick<Portfolio, 'userId'> &
+    Record<'page' | 'limit', number>;
   export type GetByIdParams = Pick<Portfolio, 'id' | 'userId'>;
   export type AddParams = Pick<Portfolio, 'userId' | 'name' | 'baseCurrency'>;
   export type UpdateParams = GetByIdParams &

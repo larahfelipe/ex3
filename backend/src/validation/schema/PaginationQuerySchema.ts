@@ -1,37 +1,32 @@
 import { z } from 'zod';
 
-/**
- * Bounds the rows one response can carry (OWASP API4:2023, unrestricted
- * resource consumption). Above every page size the web offers.
- */
-export const MAX_PAGE_LIMIT = 100;
-
-/** The page size the listings before the page query default to. */
-const DEFAULT_PAGE_SIZE = 10;
-
-const FIRST_PAGE = 1;
+import { Pagination } from '@/config/Constants';
 
 const PageNumberSchema = z.coerce
   .number()
   .int('Page must be an integer')
-  .positive('Page must be greater than zero');
+  .positive('Page must be greater than zero')
+  .default(Pagination.FIRST_PAGE);
 
 export const PaginationQuerySchema = z.object({
-  page: PageNumberSchema.optional(),
+  page: PageNumberSchema,
   limit: z.coerce
     .number()
     .int('Limit must be an integer')
     .positive('Limit must be greater than zero')
-    .max(MAX_PAGE_LIMIT, `Limit must be at most ${MAX_PAGE_LIMIT}`)
-    .optional()
+    .max(Pagination.MAX_SIZE, `Limit must be at most ${Pagination.MAX_SIZE}`)
+    .default(Pagination.DEFAULT_SIZE)
 });
 
 export const PageQuerySchema = z.object({
-  page: PageNumberSchema.default(FIRST_PAGE),
+  page: PageNumberSchema,
   pageSize: z.coerce
     .number()
     .int('Page size must be an integer')
     .positive('Page size must be greater than zero')
-    .max(MAX_PAGE_LIMIT, `Page size must be at most ${MAX_PAGE_LIMIT}`)
-    .default(DEFAULT_PAGE_SIZE)
+    .max(
+      Pagination.MAX_SIZE,
+      `Page size must be at most ${Pagination.MAX_SIZE}`
+    )
+    .default(Pagination.DEFAULT_SIZE)
 });

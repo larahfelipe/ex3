@@ -6,6 +6,7 @@ import {
   AssetMessages,
   DecimalColumn,
   Errors,
+  Pagination,
   PortfolioMessages,
   TransactionMessages,
   TransactionTypes
@@ -29,7 +30,6 @@ import {
 } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
 import { injectWriteFailure } from '@/test/TestDatabase';
-import { MAX_PAGE_LIMIT } from '@/validation/schema';
 
 const CREATE_TRANSACTION_ROUTE = '/v1/transaction';
 const TRANSACTIONS_ROUTE = '/v1/transactions';
@@ -381,9 +381,6 @@ describe('transactions', () => {
     const UNHELD_SYMBOL = 'SOL';
     const PAGE_SIZE = 2;
 
-    /** Mirrors the default page size in `PageQuerySchema`. */
-    const DEFAULT_PAGE_SIZE = 10;
-
     /** The largest page the schema accepts, far past any stored transaction. */
     const FARTHEST_PAGE = Number.MAX_SAFE_INTEGER;
 
@@ -550,7 +547,7 @@ describe('transactions', () => {
         { dateFrom: '2026-01-05' },
         { dateTo: '2026-01-05T13:00:00' },
         { page: 0 },
-        { pageSize: MAX_PAGE_LIMIT + 1 }
+        { pageSize: Pagination.MAX_SIZE + 1 }
       ];
 
       for (const query of malformedQueries) {
