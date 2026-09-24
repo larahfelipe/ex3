@@ -71,10 +71,11 @@ const DialogHeader = ({ className, ...props }: React.ComponentProps<'div'>) => (
   />
 );
 
+/** A direct child of `DialogContent`: its divider spans the content's `p-6` edge to edge, and its `pt-4` mirrors the content's `gap-4` above it. */
 const DialogFooter = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
     className={cn(
-      'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end',
+      '-mx-6 flex flex-col-reverse gap-2 border-t px-6 pt-4 sm:flex-row sm:justify-end',
       className
     )}
     {...props}
