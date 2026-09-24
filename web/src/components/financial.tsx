@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 
 import {
   formatMoney,
@@ -8,6 +8,7 @@ import {
   formatUnitAmount,
   signedValueTone
 } from '@/common/utils';
+import { InfoTip } from '@/components/info-tip';
 import { cn } from '@/lib/utils';
 import type { Children, DecimalString } from '@/types';
 
@@ -24,7 +25,8 @@ type ProfitLossProps = CurrencyValueProps &
 
 type MetricProps = Children &
   Record<'label', string> &
-  Partial<Record<'className' | 'valueClassName', string>>;
+  Partial<Record<'className' | 'valueClassName', string>> &
+  Partial<Record<'info', ReactNode>>;
 
 const NO_VALUE = '-';
 
@@ -102,10 +104,20 @@ export const Metric: FC<MetricProps> = ({
   label,
   className,
   valueClassName,
+  info,
   children
 }) => (
   <div className={cn('min-w-0 space-y-1', className)}>
-    <dt className="text-sm text-muted-foreground">{label}</dt>
+    <dt
+      className={cn(
+        'text-sm text-muted-foreground',
+        info !== undefined && 'flex items-center gap-0.5'
+      )}
+    >
+      {label}
+
+      {info !== undefined && <InfoTip label={`About ${label}`}>{info}</InfoTip>}
+    </dt>
 
     <dd className={cn('font-medium wrap-anywhere', valueClassName)}>
       {children}
