@@ -11,6 +11,7 @@ import type { Portfolio } from '@/app/api/v1/portfolios';
 import { updateUrlQuery } from '@/common/utils';
 import { EmptyState, LoadingState } from '@/components/data-state';
 import { Money, Trend } from '@/components/financial';
+import { InfoTip } from '@/components/info-tip';
 import { QuerySection } from '@/components/query-section';
 import {
   SegmentedControl,
@@ -171,8 +172,13 @@ const PerformanceSeries: FC<PerformanceSeriesProps> = ({
           <Money value={readPoint.value} currency={baseCurrency} />
         </p>
 
-        <p className="text-sm font-medium">
+        <p className="flex items-center gap-0.5 text-sm font-medium">
           <Trend value={readPoint.twr} />
+
+          <InfoTip label="About this return">
+            Time-weighted return: money added or withdrawn does not count as a
+            gain or a loss, so it can differ from profit/loss.
+          </InfoTip>
         </p>
 
         <p className="text-sm text-muted-foreground">

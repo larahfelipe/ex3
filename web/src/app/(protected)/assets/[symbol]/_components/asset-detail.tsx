@@ -350,7 +350,10 @@ const PositionReturns: FC<PositionReturnsProps> = ({
               <Money value={trailingIncome} currency={currency} />
             </Metric>
 
-            <Metric label="Yield on cost (12M)">
+            <Metric
+              label="Yield on cost (12M)"
+              info="Income received in the last 12 months divided by what the position cost."
+            >
               <Percentage value={yieldOnCost} />
             </Metric>
           </>
