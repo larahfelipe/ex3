@@ -151,10 +151,13 @@ const SORT_FIELD_LABELS: Record<PositionSortField, string> = {
 
 /**
  * Columns leave from the widest breakpoint down, so a phone keeps the asset,
- * its value and, under the name, its profit or loss; the asset detail page
- * keeps every hidden number.
+ * its value and, under the name, its profit or loss; the quantity and the
+ * average cost fall back under the value and the price, and the asset detail
+ * page keeps every hidden number.
  */
 const COLUMN_VISIBILITY = {
+  quantity: 'max-xl:hidden',
+  averageCost: 'max-xl:hidden',
   price: 'max-lg:hidden',
   allocation: 'max-md:hidden',
   profitLoss: 'max-sm:hidden'
@@ -162,6 +165,12 @@ const COLUMN_VISIBILITY = {
 
 const POSITION_COLUMNS: Array<PositionColumn> = [
   { field: 'symbol', label: 'Asset', className: '' },
+  { field: 'quantity', label: 'Qty', className: COLUMN_VISIBILITY.quantity },
+  {
+    field: 'averageCost',
+    label: 'Avg. cost',
+    className: COLUMN_VISIBILITY.averageCost
+  },
   { field: 'marketPrice', label: 'Price', className: COLUMN_VISIBILITY.price },
   { field: 'marketValue', label: 'Value', className: '' },
   {
@@ -626,6 +635,17 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                       </div>
 
                       <Skeleton
+                        className={cn('h-4 w-12', COLUMN_VISIBILITY.quantity)}
+                      />
+
+                      <Skeleton
+                        className={cn(
+                          'h-4 w-20',
+                          COLUMN_VISIBILITY.averageCost
+                        )}
+                      />
+
+                      <Skeleton
                         className={cn('h-4 w-20', COLUMN_VISIBILITY.price)}
                       />
 
@@ -729,6 +749,27 @@ export const PositionsTable: FC<PositionsTableProps> = ({
 
                       <TableCell
                         className={cn(
+                          'whitespace-nowrap text-right tabular-nums',
+                          COLUMN_VISIBILITY.quantity
+                        )}
+                      >
+                        <Quantity value={position.quantity} />
+                      </TableCell>
+
+                      <TableCell
+                        className={cn(
+                          'whitespace-nowrap text-right tabular-nums',
+                          COLUMN_VISIBILITY.averageCost
+                        )}
+                      >
+                        <Price
+                          value={position.averageCost}
+                          currency={position.baseCurrency}
+                        />
+                      </TableCell>
+
+                      <TableCell
+                        className={cn(
                           'text-right tabular-nums',
                           COLUMN_VISIBILITY.price
                         )}
@@ -739,8 +780,8 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                             currency={position.baseCurrency}
                           />
 
-                          <span className="text-xs text-muted-foreground">
-                            {'Avg cost '}
+                          <span className="text-xs text-muted-foreground xl:hidden">
+                            {'Avg. cost '}
 
                             <Price
                               value={position.averageCost}
@@ -759,7 +800,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                             />
                           </span>
 
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-muted-foreground xl:hidden">
                             <Quantity value={position.quantity} />
 
                             {' held'}
