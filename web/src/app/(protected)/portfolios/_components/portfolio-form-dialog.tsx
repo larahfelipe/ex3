@@ -1,4 +1,4 @@
-import { useId, type FC } from 'react';
+import { useId, useState, type FC } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,9 +20,12 @@ import {
   SegmentedControl,
   SegmentedControlItem
 } from '@/components/ui';
+import { ApiProxyError, isConflictError } from '@/lib/axios';
 import {
   PORTFOLIO_NAME_MAX_LENGTH,
-  PortfolioNameSchema
+  PORTFOLIO_NAME_TAKEN_MESSAGE,
+  PortfolioNameSchema,
+  portfolioNameKey
 } from '@/lib/portfolio-schema';
 import { presentSubmitError } from '@/lib/submit-error';
 
@@ -33,6 +36,8 @@ export type PortfolioDraft = z.output<typeof PortfolioFormSchema>;
 
 type PortfolioFormDialogProps = {
   target: PortfolioFormTarget;
+  /** The names of the caller's other portfolios the page has loaded; the API holds the rest. */
+  takenNames: ReadonlyArray<string>;
   onCancel: VoidFunction;
   onSubmit: (draft: PortfolioDraft) => Promise<unknown>;
 };
@@ -57,10 +62,19 @@ const isPortfolioFormField = (path: string): path is PortfolioFormField =>
 
 export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
   target,
+  takenNames,
   onCancel,
   onSubmit
 }) => {
   const formId = useId();
+  const [rejectedNameKeys, setRejectedNameKeys] = useState<ReadonlySet<string>>(
+    new Set()
+  );
+
+  const takenNameKeys = new Set([
+    ...takenNames.map(portfolioNameKey),
+    ...rejectedNameKeys
+  ]);
 
   const isEditing = target.kind === 'edit';
 
@@ -82,7 +96,13 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
     formState: { errors, isDirty, isSubmitting }
   } = useForm<PortfolioFormInput, unknown, PortfolioDraft>({
     mode: 'onChange',
-    resolver: zodResolver(PortfolioFormSchema),
+    /** `useForm` takes its options anew on every render, so validation always sees the latest taken names. */
+    resolver: zodResolver(
+      PortfolioFormSchema.refine(
+        ({ name }) => !takenNameKeys.has(portfolioNameKey(name)),
+        { message: PORTFOLIO_NAME_TAKEN_MESSAGE, path: ['name'] }
+      )
+    ),
     defaultValues
   });
 
@@ -90,6 +110,11 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
     try {
       await onSubmit(draft);
     } catch (error) {
+      if (error instanceof ApiProxyError && isConflictError(error))
+        setRejectedNameKeys(
+          (keys) => new Set([...keys, portfolioNameKey(draft.name)])
+        );
+
       presentSubmitError(error, {
         setError,
         fieldOf: (path) => (isPortfolioFormField(path) ? path : undefined)

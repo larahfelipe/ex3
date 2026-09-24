@@ -705,7 +705,9 @@ describe('authentication', () => {
 
     it('removes the account with every portfolio it holds and ends its session', async () => {
       const { user } = await seedPortfolio();
-      const secondPortfolio = await createPortfolio(user.id);
+      const secondPortfolio = await createPortfolio(user.id, {
+        name: 'Second'
+      });
       await createTransaction(
         await createAsset({ portfolioId: secondPortfolio.id })
       );

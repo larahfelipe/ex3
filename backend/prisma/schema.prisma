@@ -27,6 +27,9 @@ model User {
 model Portfolio {
   id           String        @id @default(uuid())
   name         String
+  /// The name as the unique index compares it: `portfolioNameKey(name)`, in
+  /// `src/domain/PortfolioName.ts`.
+  nameKey      String
   baseCurrency String
   positions    Position[]
   transactions Transaction[]
@@ -35,6 +38,7 @@ model Portfolio {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
+  @@unique([userId, nameKey])
   @@index([userId])
   @@map("portfolios")
 }

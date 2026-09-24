@@ -66,6 +66,11 @@ export default function Portfolios() {
     newPortfolioButtonRef.current?.focus();
   }, [deletedId, listedPortfolios]);
 
+  const namesOtherThan = (portfolioId: Maybe<Portfolio['id']>) =>
+    (listedPortfolios ?? [])
+      .filter(({ id }) => id !== portfolioId)
+      .map(({ name }) => name);
+
   const closeDialog = () => setDialog(null);
 
   const openCreateDialog = () => setDialog({ kind: 'create' });
@@ -221,6 +226,7 @@ export default function Portfolios() {
       {dialog?.kind === 'create' && (
         <PortfolioFormDialog
           target={dialog}
+          takenNames={namesOtherThan(null)}
           onCancel={closeDialog}
           onSubmit={async (draft) => {
             await createPortfolio(draft);
@@ -232,6 +238,7 @@ export default function Portfolios() {
       {dialog?.kind === 'edit' && (
         <PortfolioFormDialog
           target={dialog}
+          takenNames={namesOtherThan(dialog.portfolio.id)}
           onCancel={closeDialog}
           onSubmit={async (draft) => {
             await updatePortfolio({

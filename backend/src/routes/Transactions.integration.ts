@@ -323,7 +323,9 @@ describe('transactions', () => {
 
     it('reaches a transaction by id in whichever portfolio of its owner holds it', async () => {
       const { holder, holderToken } = await seedHolderAndIntruder();
-      const secondPortfolio = await createPortfolio(holder.user.id);
+      const secondPortfolio = await createPortfolio(holder.user.id, {
+        name: 'Second'
+      });
       const asset = await createAsset({
         portfolioId: secondPortfolio.id,
         quantity: '2',
@@ -421,7 +423,9 @@ describe('transactions', () => {
     const seedLedger = async () => {
       const { portfolio, accessToken } =
         await signInWithPortfolio(FIXTURE_USER_EMAIL);
-      const otherPortfolio = await createPortfolio(portfolio.userId);
+      const otherPortfolio = await createPortfolio(portfolio.userId, {
+        name: 'Other'
+      });
       const btc = await createAsset({ portfolioId: portfolio.id });
       const eth = await createAsset({
         portfolioId: portfolio.id,

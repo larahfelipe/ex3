@@ -6,6 +6,7 @@ import type {
   Transaction,
   User
 } from '@/domain/models';
+import { portfolioNameKey } from '@/domain/PortfolioName';
 import { Bcrypt } from '@/infra/cryptography';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 
@@ -61,15 +62,19 @@ export const createPortfolio = async (
   overrides: Partial<
     Pick<Portfolio, 'name' | 'baseCurrency' | 'createdAt'>
   > = {}
-) =>
-  prismaClient.portfolio.create({
+) => {
+  const { name = FIXTURE_PORTFOLIO_NAME, ...attributes } = overrides;
+
+  return prismaClient.portfolio.create({
     data: {
       userId,
-      name: FIXTURE_PORTFOLIO_NAME,
+      name,
+      nameKey: portfolioNameKey(name),
       baseCurrency: FIXTURE_BASE_CURRENCY,
-      ...overrides
+      ...attributes
     }
   });
+};
 
 export const createInstrument = async (
   overrides: Partial<
