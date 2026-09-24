@@ -10,6 +10,7 @@ import {
   ProfitLoss
 } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
+import { RefreshPortfolioButton } from '@/components/refresh-portfolio-button';
 import { Skeleton } from '@/components/ui';
 import { usePortfolioOverview } from '@/hooks/use-portfolio';
 import { formatQuoteTime } from '@/lib/dates';
@@ -24,6 +25,7 @@ export const PortfolioValueCard: FC<PortfolioValueCardProps> = ({
   return (
     <QuerySection
       title="Portfolio value"
+      action={<RefreshPortfolioButton portfolio={portfolio} />}
       query={overviewQuery}
       errorMessage="The portfolio value could not be loaded"
       loading={

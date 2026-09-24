@@ -20,7 +20,6 @@ import {
   ArrowUpRight,
   Ellipsis,
   Plus,
-  RefreshCw,
   Search,
   Trash2,
   X,
@@ -56,6 +55,7 @@ import {
   Quantity
 } from '@/components/financial';
 import { PageNavigation } from '@/components/page-navigation';
+import { RefreshPortfolioButton } from '@/components/refresh-portfolio-button';
 import { SectionHeader } from '@/components/section-header';
 import {
   Button,
@@ -83,7 +83,7 @@ import {
   TableRow,
   TableRowHeader
 } from '@/components/ui';
-import { usePositions, useRefreshPortfolio } from '@/hooks/use-portfolio';
+import { usePositions } from '@/hooks/use-portfolio';
 import { cn } from '@/lib/utils';
 
 type PositionsTableProps = Record<'portfolio', Portfolio> &
@@ -315,7 +315,6 @@ export const PositionsTable: FC<PositionsTableProps> = ({
     isPlaceholderData,
     refetch
   } = usePositions(portfolio, listing);
-  const refreshPortfolio = useRefreshPortfolio(portfolio);
 
   const headingId = useId();
   const searchId = useId();
@@ -433,21 +432,10 @@ export const PositionsTable: FC<PositionsTableProps> = ({
           id={headingId}
           title="Positions"
           action={
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 max-sm:w-full"
-              aria-disabled={isFetching}
-              onClick={() => {
-                if (!isFetching) void refreshPortfolio();
-              }}
-            >
-              <RefreshCw
-                aria-hidden="true"
-                className={cn('size-4', isFetching && 'animate-spin')}
-              />
-              Refresh
-            </Button>
+            <RefreshPortfolioButton
+              portfolio={portfolio}
+              className="max-sm:w-full"
+            />
           }
         />
 
