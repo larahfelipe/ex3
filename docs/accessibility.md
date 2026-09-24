@@ -102,7 +102,7 @@ A paleta clara dos tokens semânticos não tem consumidor em runtime — ver TD-
 | N2 | Falha recuperável usa `ErrorState`/`StaleState` com `role="alert"` e ação de nova tentativa | 4.1.3, 3.3.1 · `data-state.tsx` |
 | N3 | Contagem, paginação e total mudam dentro de `aria-live="polite"` | 4.1.3 · `PageNavigation`, em `page-navigation.tsx`, nas quatro listagens paginadas |
 | N4 | Toast nunca é o único canal de um erro que bloqueia a tarefa | 4.1.3 · o estado também aparece na região afetada |
-| N5 | Dado obsoleto exibido durante refetch é marcado com `aria-busy` no container | 4.1.3 · `isPlaceholderData` em `positions-table.tsx` |
+| N5 | Dado obsoleto exibido durante refetch é marcado com `aria-busy` no container | 4.1.3 · `isPlaceholderData` em `positions-table.tsx` e `performance-chart.tsx` |
 | N6 | Sob `prefers-reduced-motion`, animação e transição não essenciais são neutralizadas em `globals.css`; o indicador de ocupado segue girando, mais devagar. Sob `prefers-reduced-transparency`, o overlay dos diálogos perde o desfoque e fica mais opaco | 2.3.3 · bloco `@media (prefers-reduced-motion: reduce)`; transform de toque sob `motion-safe:` |
 | N7 | Nenhuma atualização automática de conteúdo sem controle do usuário | 2.2.2 · refetch é disparado por ação ou por invalidação de mutação |
 

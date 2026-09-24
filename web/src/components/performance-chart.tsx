@@ -29,6 +29,7 @@ import {
 } from '@/components/ui';
 import { usePerformance } from '@/hooks/use-portfolio';
 import { formatSeriesDay } from '@/lib/dates';
+import { cn } from '@/lib/utils';
 
 type PerformanceChartProps = Record<'portfolio', Portfolio> &
   Partial<Record<'symbol', string>>;
@@ -242,7 +243,13 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
         const caption = `${symbol ?? 'Portfolio'} value and return on each trading day ${period}`;
 
         return (
-          <div className="space-y-4">
+          <div
+            aria-busy={isPlaceholderData}
+            className={cn(
+              'space-y-4 transition-opacity',
+              isPlaceholderData && 'opacity-60'
+            )}
+          >
             <PerformanceSeries
               key={selectedRange}
               series={series}

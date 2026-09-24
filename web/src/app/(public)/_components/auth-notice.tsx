@@ -2,6 +2,7 @@ import type { ComponentProps, FC } from 'react';
 
 import { CircleAlert, TriangleAlert } from 'lucide-react';
 
+import { APPEAR_CLASS } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 type AuthNoticeProps = ComponentProps<'p'> &
@@ -30,6 +31,7 @@ export const AuthNotice: FC<AuthNoticeProps> = ({
       className={cn(
         'flex items-start gap-2 rounded-xl border p-3 text-sm',
         TONE_CLASSES[tone],
+        APPEAR_CLASS,
         className
       )}
       {...props}

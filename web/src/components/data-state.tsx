@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { LoaderCircle, TriangleAlert } from 'lucide-react';
 
 import { Button, Skeleton } from '@/components/ui';
+import { APPEAR_CLASS } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 type StateAction = Record<'label', string> &
@@ -66,7 +67,7 @@ export const LoadingState: FC<LoadingStateProps> = ({
 );
 
 export const EmptyState: FC<EmptyStateProps> = ({ message, action }) => (
-  <div className="flex flex-col items-start gap-3">
+  <div className={cn('flex flex-col items-start gap-3', APPEAR_CLASS)}>
     <p className="text-sm text-muted-foreground">{message}</p>
 
     {action && <StateActionButton {...action} />}
@@ -84,7 +85,10 @@ export const NoResultsState: FC<NoResultsStateProps> = ({
 );
 
 export const ErrorState: FC<ErrorStateProps> = ({ message, onRetry }) => (
-  <div role="alert" className="flex flex-col items-start gap-3">
+  <div
+    role="alert"
+    className={cn('flex flex-col items-start gap-3', APPEAR_CLASS)}
+  >
     <p className="text-sm text-negative">{message}</p>
 
     <StateActionButton label={RETRY_LABEL} onSelect={onRetry} />
