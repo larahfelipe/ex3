@@ -15,7 +15,7 @@ User
 | Entidade | Responsabilidade | Dono | Identidade |
 | --- | --- | --- | --- |
 | `User` | Identidade, credenciais e sessão. | — | `id`; `email` único |
-| `Portfolio` | Agrupa o razão e as posições de um usuário sob uma moeda base. É a fronteira de acesso: todo recurso financeiro é resolvido pela carteira do usuário autenticado. | um `User`, que pode ter várias | `id` |
+| `Portfolio` | Agrupa o razão e as posições de um usuário sob uma moeda base. É a fronteira de acesso: todo recurso financeiro é resolvido pela carteira do usuário autenticado. | um `User`, que pode ter várias | `id`; `(userId, nameKey)` único |
 | `Instrument` | O ativo de mercado negociável: ação, ETF, fundo, FII, cripto, título, caixa. Do catálogo global, compartilhado por todos os usuários, ou privado de quem o cadastrou. | nenhum no catálogo; um `User` quando privado | `(ownerId, symbol)`, com o catálogo contado como um único dono |
 | `Transaction` | Um evento financeiro de uma carteira sobre um instrumento. Fonte de verdade de toda movimentação. | um `Portfolio` | `id` |
 | `Position` | Quanto uma carteira detém de um instrumento e a que custo. Projeção derivada das transações, nunca editada diretamente. | um `Portfolio` | `(portfolioId, instrumentId)` |
@@ -24,6 +24,8 @@ User
 ## Carteira
 
 Toda conta tem ao menos uma carteira: o sign-up cria a primeira, com o nome que o cadastro der ou `Main`, e a exclusão da última responde `422`. Excluir uma carteira remove as posições e as transações dela na mesma transação serializável; os instrumentos continuam cadastrados. `name` muda a qualquer momento, e `baseCurrency` só enquanto a carteira não tem transação (`422`), porque o web registra transação nova na moeda base e uma posição já aberta em outra moeda recusaria a escrita (`CURRENCY_MISMATCH`). Não há teto de carteiras por conta (TD-011).
+
+**Nome único por dono.** O nome é gravado normalizado por `normalizePortfolioName` (`backend/src/domain/PortfolioName.ts`): forma NFC, cada sequência de espaços vira um espaço, sem espaços nas pontas; a caixa digitada é mantida. `nameKey`, o nome normalizado em minúsculas (`portfolioNameKey`), é único por `userId`: dois nomes que só diferem em caixa ou espaçamento são o mesmo nome para o dono, e usuários diferentes podem repetir nomes. O índice único é a única autoridade — de criações ou renomeações simultâneas com o mesmo nome, exatamente uma passa —, e a violação vira `409` com `details` em `name`. Renomear para o próprio nome em outra caixa mantém a chave e passa. O web confere, antes de enviar, os nomes das carteiras que a tela carregou e os que a API já recusou no diálogo aberto; os demais só a API conhece.
 
 **Carteira ativa.** O web opera uma carteira por vez: a escolhida na tela de carteiras, guardada no `localStorage` do navegador (`ex3:active-portfolio`), ou a mais antiga enquanto não há escolha. Escolha que a API não resolve mais, porque a carteira foi excluída ou é de outra conta, é descartada, e o sign-out a apaga. A escolha é só preferência de exibição: a API resolve cada carteira pelo usuário autenticado.
 

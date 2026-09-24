@@ -158,6 +158,7 @@ export const MarketDataMessages = {
 
 export const PortfolioMessages = {
   NOT_FOUND: 'Portfolio not found for this user',
+  NAME_TAKEN: 'You already have a portfolio with this name',
   LAST_PORTFOLIO: 'The last portfolio of an account cannot be deleted',
   BASE_CURRENCY_LOCKED:
     'The base currency cannot change once the portfolio has transactions',

@@ -4,6 +4,7 @@ import { DomainError, NotFoundError } from '@/errors';
 import type { PortfolioRepository } from '@/infra/database';
 
 import type { PortfolioScope } from '../PortfolioAccess';
+import { portfolioNameTakenError } from './PortfolioNameTaken';
 
 export class UpdatePortfolioService {
   private static INSTANCE: UpdatePortfolioService;
@@ -40,6 +41,8 @@ export class UpdatePortfolioService {
 
     if (result.outcome === 'base-currency-locked')
       throw new DomainError(PortfolioMessages.BASE_CURRENCY_LOCKED);
+
+    if (result.outcome === 'name-taken') throw portfolioNameTakenError();
 
     return {
       portfolio: result.portfolio,

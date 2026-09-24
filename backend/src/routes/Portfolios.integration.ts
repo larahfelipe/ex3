@@ -58,6 +58,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const HELD_PORTFOLIO_NAMES = ['First', 'Second', 'Third'];
 
+const NAME_TAKEN_BODY = {
+  code: Errors.CONFLICT.code,
+  message: PortfolioMessages.NAME_TAKEN,
+  details: [{ path: 'name', message: PortfolioMessages.NAME_TAKEN }]
+};
+
 /** The smallest positive value a quantity or monetary column holds. */
 const COLUMN_UNIT = `0.${'0'.repeat(DecimalColumn.SCALE - 1)}1`;
 
@@ -117,6 +123,68 @@ describe('portfolios', () => {
       });
 
       assert.equal(res.status, 201);
+    });
+
+    it('folds each run of whitespace in the name into one space', async () => {
+      const { accessToken } = await signInUser();
+
+      const res = await requestCreation(accessToken, {
+        name: ' Long \t  term ',
+        baseCurrency: 'BRL'
+      });
+
+      assert.equal(res.status, 201);
+      assert.equal(res.body.portfolio.name, 'Long term');
+    });
+
+    it('refuses a name the caller already uses in any letter case or spacing, while another user may take it', async () => {
+      const { user, accessToken } = await signInUser();
+      const taken = await requestCreation(accessToken, {
+        name: 'Long Term',
+        baseCurrency: 'BRL'
+      });
+
+      assert.equal(taken.status, 201);
+
+      for (const name of ['Long Term', 'long term', '  LONG   term ']) {
+        const res = await requestCreation(accessToken, {
+          name,
+          baseCurrency: 'USD'
+        });
+
+        assert.equal(res.status, Errors.CONFLICT.status, name);
+        assert.deepEqual(res.body, NAME_TAKEN_BODY);
+      }
+
+      assert.equal(
+        await prismaClient.portfolio.count({ where: { userId: user.id } }),
+        1
+      );
+
+      const other = await signInUser(OTHER_USER_EMAIL);
+      const res = await requestCreation(other.accessToken, {
+        name: 'Long Term',
+        baseCurrency: 'BRL'
+      });
+
+      assert.equal(res.status, 201);
+    });
+
+    it('creates one portfolio of concurrent creations under one name', async () => {
+      const { accessToken } = await signInUser();
+
+      const responses = await Promise.all(
+        ['Retirement', 'retirement', 'RETIREMENT'].map((name) =>
+          requestCreation(accessToken, { name, baseCurrency: 'BRL' })
+        )
+      );
+
+      assert.deepEqual(responses.map(({ status }) => status).toSorted(), [
+        201,
+        Errors.CONFLICT.status,
+        Errors.CONFLICT.status
+      ]);
+      assert.equal(await prismaClient.portfolio.count(), 1);
     });
 
     it('rejects an invalid name or base currency and creates nothing', async () => {
@@ -326,6 +394,41 @@ describe('portfolios', () => {
         name: 'Renamed',
         baseCurrency: portfolio.baseCurrency
       });
+    });
+
+    it("refuses another portfolio's name of the caller, while its own name in another letter case and another user's name go through", async () => {
+      const { user, portfolio, accessToken } = await signInWithPortfolio();
+      const second = await createPortfolio(user.id, { name: 'Second' });
+      const holder = await createUser({ email: OTHER_USER_EMAIL });
+      const foreign = await createPortfolio(holder.id, { name: 'Foreign' });
+
+      const taken = await requestUpdate(accessToken, {
+        portfolioId: portfolio.id,
+        name: ' second '
+      });
+
+      assert.equal(taken.status, Errors.CONFLICT.status);
+      assert.deepEqual(taken.body, NAME_TAKEN_BODY);
+      assert.deepEqual(await storedPortfolio(portfolio.id), {
+        name: portfolio.name,
+        baseCurrency: portfolio.baseCurrency
+      });
+
+      const recased = await requestUpdate(accessToken, {
+        portfolioId: second.id,
+        name: 'SECOND'
+      });
+
+      assert.equal(recased.status, 200);
+      assert.equal((await storedPortfolio(second.id)).name, 'SECOND');
+
+      const foreignName = await requestUpdate(accessToken, {
+        portfolioId: portfolio.id,
+        name: foreign.name
+      });
+
+      assert.equal(foreignName.status, 200);
+      assert.equal((await storedPortfolio(portfolio.id)).name, foreign.name);
     });
 
     it("answers another user's portfolio exactly like one that does not exist, changing nothing", async () => {

@@ -862,7 +862,9 @@ describe('assets', () => {
 
     it('keeps apart the positions two portfolios of one caller hold in the same instrument', async () => {
       const { user, portfolio, asset, accessToken } = await signInSeeded();
-      const secondPortfolio = await createPortfolio(user.id);
+      const secondPortfolio = await createPortfolio(user.id, {
+        name: 'Second'
+      });
 
       const opened = await client
         .post(CREATE_ASSET_ROUTE)

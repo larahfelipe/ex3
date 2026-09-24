@@ -2,6 +2,8 @@ import { PortfolioMessages } from '@/config';
 import type { Portfolio } from '@/domain/models';
 import type { PortfolioRepository } from '@/infra/database';
 
+import { portfolioNameTakenError } from './PortfolioNameTaken';
+
 export class CreatePortfolioService {
   private static INSTANCE: CreatePortfolioService;
   private readonly portfolioRepository: PortfolioRepository;
@@ -24,14 +26,16 @@ export class CreatePortfolioService {
     name,
     baseCurrency
   }: CreatePortfolioService.DTO): Promise<CreatePortfolioService.Result> {
-    const portfolio = await this.portfolioRepository.add({
+    const result = await this.portfolioRepository.add({
       userId,
       name,
       baseCurrency
     });
 
+    if (result.outcome === 'name-taken') throw portfolioNameTakenError();
+
     return {
-      portfolio,
+      portfolio: result.portfolio,
       message: PortfolioMessages.CREATED
     };
   }
