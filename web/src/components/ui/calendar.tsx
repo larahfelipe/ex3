@@ -74,7 +74,7 @@ const CalendarDropdown = ({
     >
       <SelectTrigger
         aria-label={label}
-        className="h-8 w-auto gap-1 border-transparent px-2 font-medium hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
+        className="h-8 w-auto gap-1 border-transparent px-2 font-medium hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&>svg]:transition-opacity hover:[&>svg]:opacity-100 data-[state=open]:[&>svg]:opacity-100"
       >
         <SelectValue />
       </SelectTrigger>
@@ -137,14 +137,16 @@ const Calendar = ({
         root: defaultClassNames.root,
         months: 'relative flex flex-col gap-4',
         month: 'flex w-full flex-col gap-3',
-        nav: 'absolute inset-x-0 top-0 flex h-9 items-center justify-between',
+        // The nav spans the caption row, over the month and year triggers, so
+        // only its arrows take the pointer.
+        nav: 'pointer-events-none absolute inset-x-0 top-0 flex h-9 items-center justify-between',
         button_previous: cn(
           buttonVariants({ variant: 'ghost', size: 'icon' }),
-          'size-9 aria-disabled:opacity-50'
+          'pointer-events-auto size-9 aria-disabled:opacity-50'
         ),
         button_next: cn(
           buttonVariants({ variant: 'ghost', size: 'icon' }),
-          'size-9 aria-disabled:opacity-50'
+          'pointer-events-auto size-9 aria-disabled:opacity-50'
         ),
         month_caption: 'flex h-9 items-center justify-center px-10',
         caption_label:
