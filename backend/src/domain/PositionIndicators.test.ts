@@ -44,8 +44,9 @@ describe('indicatorClosesRangeOf', () => {
 });
 
 describe('describePositionIndicators', () => {
-  it('changes the latest close over the last close on or before the first day of each window, and ranges it over the year', () => {
+  it('changes the latest close over the last close on or before the first day of each window, ranges it over the year and lists the closes from the one that opens the year', () => {
     const closes = [
+      closeOn('2025-09-12T20:00:00.000Z', '55'),
       closeOn('2025-09-20T20:00:00.000Z', '60'),
       closeOn('2025-12-31T20:00:00.000Z', '100'),
       closeOn('2026-02-10T20:00:00.000Z', '70'),
@@ -63,28 +64,100 @@ describe('describePositionIndicators', () => {
         yearLow: '70',
         yearHigh: '150',
         changes: [
-          { range: '1M', change: '0.2' },
-          { range: '3M', change: '0.25' },
-          { range: '6M', change: '0.666666666666666666' },
-          { range: 'YTD', change: '0.5' },
-          { range: '1Y', change: '1.5' }
+          {
+            range: '1M',
+            change: '0.2',
+            openedOn: new Date('2026-08-23T00:00:00.000Z')
+          },
+          {
+            range: '3M',
+            change: '0.25',
+            openedOn: new Date('2026-06-20T00:00:00.000Z')
+          },
+          {
+            range: '6M',
+            change: '0.666666666666666666',
+            openedOn: new Date('2026-03-23T00:00:00.000Z')
+          },
+          {
+            range: 'YTD',
+            change: '0.5',
+            openedOn: new Date('2025-12-31T00:00:00.000Z')
+          },
+          {
+            range: '1Y',
+            change: '1.5',
+            openedOn: new Date('2025-09-20T00:00:00.000Z')
+          }
+        ],
+        closes: [
+          { close: '60', closedOn: new Date('2025-09-20T00:00:00.000Z') },
+          { close: '100', closedOn: new Date('2025-12-31T00:00:00.000Z') },
+          { close: '70', closedOn: new Date('2026-02-10T00:00:00.000Z') },
+          { close: '90', closedOn: new Date('2026-03-23T00:00:00.000Z') },
+          { close: '120', closedOn: new Date('2026-06-20T00:00:00.000Z') },
+          { close: '125', closedOn: new Date('2026-08-23T00:00:00.000Z') },
+          { close: '150', closedOn: new Date('2026-09-22T00:00:00.000Z') }
         ]
       }
     });
   });
 
-  it('leaves out the change of a window the history does not reach back to', () => {
+  it('reads one close per day, the latest, when more than one source observed it', () => {
+    const closes = [
+      closeOn('2026-09-22T20:00:00.000Z', '12'),
+      closeOn('2026-08-20T21:00:00.000Z', '11'),
+      closeOn('2026-09-22T19:00:00.000Z', '13'),
+      closeOn('2026-08-20T20:00:00.000Z', '10')
+    ];
+
+    assert.deepEqual(indicatorsOf({ closes }), {
+      prices: {
+        currency: 'BRL',
+        close: '12',
+        closedOn: new Date('2026-09-22T00:00:00.000Z'),
+        yearLow: '11',
+        yearHigh: '12',
+        changes: [
+          {
+            range: '1M',
+            change: '0.090909090909090909',
+            openedOn: new Date('2026-08-20T00:00:00.000Z')
+          },
+          { range: '3M' },
+          { range: '6M' },
+          { range: 'YTD' },
+          { range: '1Y' }
+        ],
+        closes: [
+          { close: '11', closedOn: new Date('2026-08-20T00:00:00.000Z') },
+          { close: '12', closedOn: new Date('2026-09-22T00:00:00.000Z') }
+        ]
+      }
+    });
+  });
+
+  it('leaves out the change of a window the history does not reach back to, and lists the closes from the first', () => {
     const closes = [
       closeOn('2026-07-01T20:00:00.000Z', '40'),
       closeOn('2026-09-22T20:00:00.000Z', '50')
     ];
+    const prices = indicatorsOf({ closes }).prices;
 
-    assert.deepEqual(indicatorsOf({ closes }).prices?.changes, [
-      { range: '1M', change: '0.25' },
+    assert.deepEqual(prices?.changes, [
+      {
+        range: '1M',
+        change: '0.25',
+        openedOn: new Date('2026-07-01T00:00:00.000Z')
+      },
       { range: '3M' },
       { range: '6M' },
       { range: 'YTD' },
       { range: '1Y' }
+    ]);
+    assert.deepEqual(prices?.closes, [
+      { close: '40', closedOn: new Date('2026-07-01T00:00:00.000Z') },
+      { close: '50', closedOn: new Date('2026-09-22T00:00:00.000Z') }
     ]);
   });
 

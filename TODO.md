@@ -136,7 +136,7 @@ Backlog de pendências técnicas e de produto encontradas durante a execução d
 
 - **Origem:** TASK 5.4 · **Tipo:** dados · **Prioridade:** baixa · **Encaminhamento:** backlog
 - **Contexto:** `MarketQuoteRepository.getDailyCloses` devolve os fechamentos de todas as fontes no intervalo, e `GetPriceHistoryService` repassa a série como veio; `ExchangeRateRepository.getDailyRates` faz o mesmo com o câmbio. O service não sabe qual provedor está em uso — `source` chega dentro de cada preço que a porta devolve —, e filtrar por fonte nessa camada vazaria a identidade do provedor para o domínio. Hoje só `yahoo-finance` grava.
-- **Impacto:** com uma segunda fonte gravando, cada dia aparece duas vezes na série. A série de performance indexa os fechamentos por dia e fica com o último que a consulta devolveu para aquele dia, sem critério declarado entre as fontes.
+- **Impacto:** com uma segunda fonte gravando, cada dia aparece duas vezes na série. A série de performance indexa os fechamentos por dia e fica com o último que a consulta devolveu para aquele dia, sem critério declarado entre as fontes. Os indicadores de preço da posição ficam com o fechamento de instante mais recente de cada dia, critério local até a precedência ser decidida.
 - **Proposta:** decidir a precedência entre fontes — uma preferida, ou a mais recente por dia — e aplicá-la na consulta das duas tabelas, mantendo `source` em cada ponto do resultado.
 
 ### TD-030 — Retorno do benchmark na moeda dele, sem conversão para a base

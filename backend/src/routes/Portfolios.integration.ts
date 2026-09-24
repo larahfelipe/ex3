@@ -1897,7 +1897,7 @@ describe('portfolios', () => {
       });
     };
 
-    it('ranges the last year of closes and returns what the ledger realized and paid', async (t) => {
+    it('ranges the last year of closes, lists them from the one that opens the year and returns what the ledger realized and paid', async (t) => {
       const { user, accessToken } = await signInUser();
       const portfolio = await createPortfolio(user.id);
       await holdTradedPosition(portfolio.id);
@@ -1920,7 +1920,8 @@ describe('portfolios', () => {
 
       assert.equal(res.status, 200);
 
-      const { changes, ...prices } = res.body.prices;
+      const { changes, closes, ...prices } = res.body.prices;
+      const openedOn = closedOn(OPENING_DAYS_BEFORE).toISOString();
 
       assert.deepEqual(prices, {
         currency: 'BRL',
@@ -1932,12 +1933,17 @@ describe('portfolios', () => {
       assert.deepEqual(
         changes.filter(({ range }: { range: string }) => range !== 'YTD'),
         [
-          { range: '1M', change: '0.375' },
-          { range: '3M', change: '0.375' },
-          { range: '6M', change: '0.375' },
-          { range: '1Y', change: '0.375' }
+          { range: '1M', change: '0.375', openedOn },
+          { range: '3M', change: '0.375', openedOn },
+          { range: '6M', change: '0.375', openedOn },
+          { range: '1Y', change: '0.375', openedOn }
         ]
       );
+      assert.deepEqual(closes, [
+        { close: '40', closedOn: openedOn },
+        { close: '50', closedOn: closedOn(2).toISOString() },
+        { close: '55', closedOn: closedOn(1).toISOString() }
+      ]);
       assert.deepEqual(res.body.returns, {
         currency: 'BRL',
         since: FIXTURE_EXECUTED_AT.toISOString(),
