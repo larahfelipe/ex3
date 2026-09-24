@@ -1,7 +1,8 @@
-import { useState, type FC } from 'react';
+import { useRef, useState, type FC, type ReactNode } from 'react';
 
 import { Loader2 } from 'lucide-react';
 
+import { FormField } from '@/components/form-field';
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -10,14 +11,17 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Button
+  Button,
+  Input
 } from '@/components/ui';
 import type { Maybe } from '@/types';
 
 type ConfirmDeletionDialogProps = Record<
-  'title' | 'description' | 'confirmLabel' | 'failureMessage',
+  'title' | 'confirmLabel' | 'failureMessage',
   string
 > & {
+  description: ReactNode;
+  confirmationPhrase?: string;
   onCancel: VoidFunction;
   onConfirm: () => Promise<unknown>;
 };
@@ -32,11 +36,20 @@ export const ConfirmDeletionDialog: FC<ConfirmDeletionDialogProps> = ({
   description,
   confirmLabel,
   failureMessage,
+  confirmationPhrase,
   onCancel,
   onConfirm
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<Maybe<string>>(null);
+  const [typedPhrase, setTypedPhrase] = useState('');
+  const [isMismatchShown, setIsMismatchShown] = useState(false);
+  const phraseInputRef = useRef<HTMLInputElement>(null);
+
+  /** NFC on both sides, so a name typed with decomposed accents still matches what it looks like. */
+  const isPhraseTyped =
+    confirmationPhrase === undefined ||
+    typedPhrase.normalize() === confirmationPhrase.normalize();
 
   const confirmDeletion = async () => {
     setIsDeleting(true);
@@ -50,6 +63,18 @@ export const ConfirmDeletionDialog: FC<ConfirmDeletionDialogProps> = ({
     }
   };
 
+  const requestDeletion = () => {
+    if (isDeleting) return;
+
+    if (!isPhraseTyped) {
+      setIsMismatchShown(true);
+      phraseInputRef.current?.focus();
+      return;
+    }
+
+    void confirmDeletion();
+  };
+
   return (
     <AlertDialog
       open
@@ -57,37 +82,88 @@ export const ConfirmDeletionDialog: FC<ConfirmDeletionDialogProps> = ({
         if (!isDeleting) onCancel();
       }}
     >
-      <AlertDialogContent>
+      <AlertDialogContent
+        onOpenAutoFocus={
+          confirmationPhrase === undefined
+            ? undefined
+            : (event) => {
+                event.preventDefault();
+                phraseInputRef.current?.focus();
+              }
+        }
+      >
         <AlertDialogHeader>
           <AlertDialogTitle className="wrap-anywhere">{title}</AlertDialogTitle>
 
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
 
-        {deleteError !== null && (
-          <p role="alert" className="text-sm text-negative">
-            {deleteError}
-          </p>
-        )}
+        <form
+          noValidate
+          className="grid gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            requestDeletion();
+          }}
+        >
+          {confirmationPhrase !== undefined && (
+            <FormField
+              label={
+                <>
+                  {'Type '}
 
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                  <span className="whitespace-pre-wrap wrap-anywhere font-semibold">
+                    {confirmationPhrase}
+                  </span>
 
-          <Button
-            variant="destructive"
-            aria-disabled={isDeleting}
-            className="gap-2"
-            onClick={() => {
-              if (!isDeleting) void confirmDeletion();
-            }}
-          >
-            {isDeleting && (
-              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-            )}
+                  {' to confirm'}
+                </>
+              }
+              error={
+                isMismatchShown && !isPhraseTyped
+                  ? 'This does not match the name above'
+                  : undefined
+              }
+            >
+              {(control) => (
+                <Input
+                  {...control}
+                  ref={phraseInputRef}
+                  value={typedPhrase}
+                  readOnly={isDeleting}
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  onChange={(event) => setTypedPhrase(event.target.value)}
+                />
+              )}
+            </FormField>
+          )}
 
-            {confirmLabel}
-          </Button>
-        </AlertDialogFooter>
+          {deleteError !== null && (
+            <p role="alert" className="text-sm text-negative">
+              {deleteError}
+            </p>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+
+            <Button
+              type="submit"
+              variant="destructive"
+              aria-disabled={isDeleting || !isPhraseTyped}
+              className="gap-2"
+            >
+              {isDeleting && (
+                <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+              )}
+
+              {confirmLabel}
+            </Button>
+          </AlertDialogFooter>
+        </form>
       </AlertDialogContent>
     </AlertDialog>
   );

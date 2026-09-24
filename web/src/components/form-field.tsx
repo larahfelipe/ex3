@@ -20,7 +20,7 @@ type FieldDescription = {
 };
 
 type FormFieldProps = FieldDescription & {
-  label: string;
+  label: ReactNode;
   className?: string;
   isOptional?: boolean;
   action?: ReactNode;

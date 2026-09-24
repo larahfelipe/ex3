@@ -188,7 +188,7 @@ Em 1280×800 a regra `color-contrast` volta como **incompleta com zero nós** em
 | --- | --- |
 | Ordem de tabulação em `/assets` com dados | pular para o conteúdo → navegação → conta → sair → adicionar ativo → atualizar → busca → dois filtros → oito cabeçalhos ordenáveis → link do símbolo → ações da linha → paginação; nenhum `tabIndex` positivo e nenhuma armadilha (K1, K5) |
 | Menu de ações da linha | `Enter` abre, `aria-expanded` acompanha, `Arrow` percorre os itens, `Enter` seleciona (K4) |
-| `AlertDialog` de exclusão | rotulado e descrito por id, irmãos ocultos, `Tab` cicla entre `Cancel` e `Confirm` sem sair, `Esc` fecha sem excluir (D2, D3, D4) |
+| `AlertDialog` de exclusão | rotulado e descrito por id, irmãos ocultos, `Tab` cicla entre `Cancel` e `Confirm` sem sair, `Esc` fecha sem excluir (D2, D3, D4); na exclusão de carteira, o foco abre no campo do nome, rotulado pela instrução, e o `Confirm` fica `aria-disabled` e focável até o nome bater, com o erro do campo ligado por `aria-describedby` |
 | Alternativa textual do gráfico | `summary` "Performance as a table" é focável e abre uma tabela de 247 linhas com `caption` em `sr-only`; axe segue limpo com ela aberta (1.1.1) |
 | Estrutura anunciada | um `h1` por rota, `h2` por seção com `aria-labelledby`, nenhum controle sem nome acessível, `lang="en"` (S1, S2, S6) |
 
