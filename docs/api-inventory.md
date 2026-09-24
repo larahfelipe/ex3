@@ -93,8 +93,9 @@ Sem paginação e sem filtros. Um usuário possui no máximo um portfolio (`Port
 | Método | Path | Auth | Comportamento |
 | --- | --- | --- | --- |
 | POST | `/api/v1/sign-up` | não | encaminha para `POST /v1/user/create` |
-| POST | `/api/v1/sign-in` | não | encaminha para `POST /v1/user`; grava `accessToken` no cookie `ex3:token` (`httpOnly`, `sameSite: strict`, `secure` em produção); devolve o usuário sem o token |
-| POST | `/api/v1/sign-out` | cookie | encaminha para `POST /v1/user/sign-out` para revogar a sessão no servidor e então apaga o cookie; o cookie é apagado mesmo se a API falhar |
+| POST | `/api/v1/sign-in` | não | encaminha para `POST /v1/user`; grava `accessToken` no cookie `ex3:token` (`httpOnly`, `sameSite: strict`, `secure` em produção) e o marcador `ex3:session`; devolve o usuário sem o token |
+| POST | `/api/v1/sign-out` | cookie | encaminha para `POST /v1/user/sign-out` para revogar a sessão no servidor e então apaga o cookie do token e o marcador `ex3:session`; os cookies são apagados mesmo se a API falhar |
+| POST | `/api/v1/session/expire` | cookie | não chama a API; apaga o cookie do token, mantém o marcador e devolve `{ hasSessionExpired }`, verdadeiro se havia token ou marcador. É o que o interceptor chama depois de um 401 |
 | GET | `/api/v1/assets` | cookie | encaminha para `GET /v1/assets`; **soma `totalBalance` e calcula `dominance` por ativo no proxy** |
 | POST | `/api/v1/assets/create` | cookie | encaminha para `POST /v1/asset` |
 | GET/PATCH/DELETE | `/api/v1/assets/[symbol]` | cookie | encaminha para `/v1/asset/:symbol` |

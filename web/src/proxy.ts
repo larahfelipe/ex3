@@ -49,7 +49,7 @@ export const proxy = async (req: NextRequest) => {
   if (!isPubRoute(pathname) && !isAuthenticated) {
     const signInRoute = signInRouteFor({
       returnPath: `${pathname}${search}`,
-      hasSessionExpired: !!token
+      hasSessionExpired: !!token || req.cookies.has(APP_STORAGE_KEYS.Session)
     });
     const res = NextResponse.redirect(new URL(signInRoute, req.url));
 

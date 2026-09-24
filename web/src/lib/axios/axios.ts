@@ -4,7 +4,7 @@ import axios, {
   isAxiosError
 } from 'axios';
 
-import { type SignOutResponseData } from '@/app/api/v1/sign-out';
+import { type ExpireSessionResponseData } from '@/app/api/v1/session';
 import { signInRouteFor } from '@/common/constants';
 
 import type { ApiProxyErrorFields, ApiServerErrorData } from './errors';
@@ -35,14 +35,16 @@ const CREDENTIAL_ENDPOINTS: ReadonlySet<string> = new Set([
   '/v1/sign-up'
 ]);
 
-/** Exempt from the 401 handling too, so ending a session cannot recurse. */
-const SIGN_OUT_ENDPOINT = '/v1/sign-out';
+/** Exempt from the 401 handling too, so expiring a session cannot recurse. */
+const EXPIRE_SESSION_ENDPOINT = '/v1/session/expire';
 
 /**
- * Concurrent requests that fail with 401 share one sign-out, so the session is
- * ended once and the user is redirected once.
+ * Concurrent requests that fail with 401 share one expiry, so the rejected
+ * token is dropped once and the user is redirected once. The expiry notice is
+ * shown only when the user did not end the session themselves: a request still
+ * in flight after a sign-out, here or in another tab, fails with 401 too.
  */
-let pendingSignOut: Promise<void> | null = null;
+let pendingSessionExpiry: Promise<void> | null = null;
 
 proxyApi.interceptors.response.use(
   (res) => res,
@@ -51,23 +53,22 @@ proxyApi.interceptors.response.use(
     const isSessionRejection =
       err.response?.status === 401 &&
       !CREDENTIAL_ENDPOINTS.has(endpoint) &&
-      endpoint !== SIGN_OUT_ENDPOINT;
+      endpoint !== EXPIRE_SESSION_ENDPOINT;
 
     if (isSessionRejection) {
-      pendingSignOut ??= proxyApi
-        .post<SignOutResponseData>(SIGN_OUT_ENDPOINT)
+      pendingSessionExpiry ??= proxyApi
+        .post<ExpireSessionResponseData>(EXPIRE_SESSION_ENDPOINT)
         .then(({ data }) => {
-          if (!data?.success) return;
           window.location.href = signInRouteFor({
             returnPath: `${window.location.pathname}${window.location.search}`,
-            hasSessionExpired: true
+            hasSessionExpired: data.hasSessionExpired
           });
         })
         .finally(() => {
-          pendingSignOut = null;
+          pendingSessionExpiry = null;
         });
 
-      await pendingSignOut;
+      await pendingSessionExpiry;
     }
     const data = err.response?.data ?? { message: UNEXPECTED_ERROR_MESSAGE };
 

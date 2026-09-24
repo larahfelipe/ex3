@@ -24,6 +24,7 @@ export const COOKIE_OPTIONS: Partial<ResponseCookie> = {
 
 export const APP_STORAGE_KEYS = {
   Token: 'ex3:token',
+  Session: 'ex3:session',
   ActivePortfolio: 'ex3:active-portfolio',
   Navigation: 'ex3:navigation'
 };

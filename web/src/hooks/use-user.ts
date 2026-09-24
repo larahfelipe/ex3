@@ -39,21 +39,18 @@ export const useCurrentUser = () =>
     select: ({ data }) => data.user
   });
 
-/** Nothing cached for the account that is leaving may reach the next one to sign in. */
+/** The public layout drops the cached queries once the protected pages have unmounted. */
 const useLeaveSession = () => {
-  const queryClient = useQueryClient();
   const { push } = useRouter();
 
   return (message: string) => {
     selectActivePortfolio(null);
-    queryClient.removeQueries();
     toast.success(message);
     push(APP_ROUTES.Public.SignIn);
   };
 };
 
 export const useSignIn = (destination: string) => {
-  const queryClient = useQueryClient();
   const { push } = useRouter();
 
   return useMutation<
@@ -63,7 +60,6 @@ export const useSignIn = (destination: string) => {
   >({
     mutationFn: (payload) => api.getInstance().post('/v1/sign-in', payload),
     onSuccess: ({ data: userData }) => {
-      queryClient.removeQueries();
       toast.success(`Signed in as ${userData.name ?? userData.email}`);
       push(destination);
     }
@@ -71,7 +67,6 @@ export const useSignIn = (destination: string) => {
 };
 
 export const useSignUp = () => {
-  const queryClient = useQueryClient();
   const { push } = useRouter();
 
   return useMutation<
@@ -81,7 +76,6 @@ export const useSignUp = () => {
   >({
     mutationFn: (payload) => api.getInstance().post('/v1/sign-up', payload),
     onSuccess: ({ data: { user: userData } }) => {
-      queryClient.removeQueries();
       toast.success(
         `Account created. Signed in as ${userData.name ?? userData.email}`
       );

@@ -44,7 +44,7 @@ web compara (`isNotFoundError`, em `web/src/lib/axios/errors.ts`).
 
 **Senha atual errada em `PATCH`/`DELETE /v1/user` continua 400 `VALIDATION`.**
 Semanticamente é uma reautenticação, mas o interceptor do web trata qualquer 401
-fora de sign-in, sign-up e sign-out como sessão expirada: encerra a sessão e
+fora de sign-in e sign-up como sessão rejeitada: apaga o token e
 redireciona. Responder 401 a quem apenas digitou a senha errada deslogaria o
 usuário no meio da operação. A recusa é de um campo do formulário, e é como um
 campo que ela é reportada.

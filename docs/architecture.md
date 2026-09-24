@@ -57,7 +57,7 @@ A única dependência de `@prisma/client` fora de `infra/database` é `Prisma.De
 
 **Regra de leitura:** todo request do browser nasce de um hook de `web/src/hooks` sobre o TanStack Query — nenhuma tela chama `fetch` por conta própria, e cada request existente está inventariado em [`data-fetching.md`](data-fetching.md). Critérios de acessibilidade, layout e performance do frontend estão em [`accessibility.md`](accessibility.md), [`responsiveness.md`](responsiveness.md) e [`performance.md`](performance.md).
 
-**Proxy.** Os Route Handlers de `web/src/app/api/v1` são a fronteira: leem o cookie `httpOnly` `ex3:token`, mandam `Authorization: Bearer` ao backend e devolvem o corpo da API. O navegador nunca recebe o token nem a URL do backend — `API_URL` só existe no servidor do Next. Quem só encaminha delega tudo isso a `forwardToApi`, em `web/src/lib/api-proxy.ts`: um handler declara verbo, caminho, query string e se há corpo a repassar. `sign-in`, `sign-up` e `sign-out` mantêm handler próprio porque gravam ou apagam o cookie.
+**Proxy.** Os Route Handlers de `web/src/app/api/v1` são a fronteira: leem o cookie `httpOnly` `ex3:token`, mandam `Authorization: Bearer` ao backend e devolvem o corpo da API. O navegador nunca recebe o token nem a URL do backend — `API_URL` só existe no servidor do Next. Quem só encaminha delega tudo isso a `forwardToApi`, em `web/src/lib/api-proxy.ts`: um handler declara verbo, caminho, query string e se há corpo a repassar. `sign-in`, `sign-up`, `sign-out` e `session/expire` mantêm handler próprio porque gravam ou apagam os cookies.
 
 ## API
 
@@ -116,7 +116,7 @@ Falha do provedor nunca vira 500: a porta responde `not-found`, `unavailable` ou
 
 | Ponto | O que decide |
 | --- | --- |
-| `web/src/proxy.ts` | rota protegida sem token válido redireciona para o sign-in, com o caminho pedido em `next` e, havendo token, `reason=session-expired`; token expirado é apagado |
+| `web/src/proxy.ts` | rota protegida sem token válido redireciona para o sign-in, com o caminho pedido em `next` e, havendo token ou marcador de sessão, `reason=session-expired`; token expirado é apagado |
 | `web/src/lib/session.ts` | grava o cookie `httpOnly` com a própria expiração do token |
 | `web/src/app/api/v1/**` | anexa `Authorization: Bearer`; sem cookie, responde 401 sem chamar o backend |
 | `backend/src/middleware/AuthMiddleware.ts` | verifica assinatura e compara a claim `sessionVersion` com a linha do usuário |
