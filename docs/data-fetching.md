@@ -29,7 +29,7 @@ Para o `retry` distinguir 4xx de 5xx, o interceptor de `web/src/lib/axios/axios.
 | `useActivePortfolio` | `GET /v1/portfolio?portfolioId=` com carteira escolhida; senão `GET /v1/portfolios?page=1&limit=1` | `['portfolios', 'details', id]` ou `['portfolios', 'page', {page,limit}]` | Toda tela protegida | O id da carteira escolhida vem do `localStorage` (`useSyncExternalStore`, com `undefined` no servidor para nada ser pedido antes da leitura); sem escolha, a mais antiga. Uma única entrada de cache serve as telas |
 | `usePortfolios` | `GET /v1/portfolios` | `['portfolios', 'page', {page,limit}]` | `/portfolios` | Lista paginada da tela de carteiras |
 | `useInstrumentSearch` | `GET /v1/instruments/search` | `['instruments', 'search', query]` | `AddAssetDialog`, depois de o usuário digitar | Campo vazio não pede nada (`skipToken`). Debounce de 500 ms, que Enter antecipa: a pausa é a de quem parou de digitar, então um termo custa cerca de uma das 30 buscas por minuto que a API concede; cada termo é uma chave, e o resultado anterior fica visível enquanto o próximo carrega |
-| `useCurrentUser` | `GET /v1/user` | `['user']` | `sidebar.tsx` e `/account` | Nome e e-mail do cabeçalho de navegação; os dois consumidores compartilham a mesma chave, então é um request, não dois |
+| `useCurrentUser` | `GET /v1/user` | `['user']` | `sidebar.tsx` e `/account` | Nome e e-mail do cabeçalho de navegação; os dois consumidores compartilham a mesma chave, então é um request, não dois. Salvar o perfil grava a resposta do `PATCH` na chave, sem novo `GET` |
 | `usePortfolioOverview` | `GET /v1/portfolio/overview` | `[...portfolio, 'overview']` | `PortfolioValueCard` | Totais agregados que a listagem de posições não traz |
 | `useAllocation` | `GET /v1/portfolio/allocation` | `[...portfolio, 'allocation']` | `AllocationChart` | Agrupamento por classe e por ativo, com percentuais calculados no servidor |
 | `usePositions` | `GET /v1/portfolio/positions` | `[...portfolio, 'positions', listing]` | Resumo da Overview e tabela de `/assets` | Dois recortes distintos — 10 linhas sem filtro contra a listagem filtrada, ordenada e paginada —, logo duas chaves e dois requests |
@@ -64,7 +64,7 @@ Nenhuma tela encadeia um segundo nível: `usePosition`, `usePerformance` e `useT
 | --- | --- |
 | Duplicidade | Nenhuma. Chamadas repetidas do mesmo hook — `useActivePortfolio` em quatro telas, `useCurrentUser` em duas — compartilham chave e são atendidas por uma requisição só |
 | N+1 no proxy | Nenhum. Cada Route Handler de `app/api/v1` faz exatamente uma chamada ao backend |
-| N+1 no backend | Nenhum. `GetPortfolioPositionsService`, `GetPortfolioOverviewService`, `GetPortfolioAllocationService` e `GetPortfolioPositionService` buscam cotações e câmbio em lote, num `Promise.all` por request |
+| N+1 no backend | Nenhum. `GetPortfolioPositionsService`, `GetPortfolioOverviewService`, `GetPortfolioAllocationService` e `GetPortfolioPositionService` buscam cotações e câmbio em lote, num `Promise.all` por request. O histórico por instrumento da performance tinha uma leitura a mais, corrigida na [auditoria de 2026-09-24](#auditoria-de-requests-e-integrações--2026-09-24) |
 | Refetch excessivo | Era o achado real: sem `staleTime`, cada montagem refazia tudo — voltar de `/assets` para a Overview custava cinco requests que nada mudariam. Resolvido pelo default de 60 s |
 | Retry desnecessário | Era achado real: um 404 de ativo inexistente virava três requisições. Resolvido pelo `retry` que não repete requisição rejeitada |
 
@@ -74,8 +74,63 @@ Nenhuma tela encadeia um segundo nível: `usePosition`, `usePerformance` e `useT
 
 Duas escolhas deliberadas:
 
-* **Não invalidar `['portfolios']` nem `['user']`.** Nenhuma escrita do produto altera a lista de carteiras ou o usuário.
+* **As escritas de ativo e transação não invalidam `['portfolios']` nem `['user']`**, que nenhuma delas altera. Carteiras têm a invalidação própria, descrita no inventário. O perfil não revalida `['user']` no sucesso: a resposta do `PATCH` já traz o usuário salvo e é gravada na chave.
 * **`queryClient.clear()` ao montar o layout público.** Descartar o cache inteiro na troca de sessão é requisito de segurança, não de performance: nenhum dado de uma conta pode sobreviver para a próxima. É feito ao montar, não no sign-out, porque remover queries ainda observadas as refaz sem sessão.
+
+## Auditoria de requests e integrações — 2026-09-24
+
+### Atualização otimista
+
+Só onde a recusa do servidor é rara e desfazer não custa nada ao usuário. Onde o servidor decide algo que a interface não sabe prever, a tela espera a resposta.
+
+| Escrita | Otimista | Motivo |
+| --- | --- | --- |
+| Nome do perfil | Sim | O formulário valida pela mesma regra da API, então a recusa é rara, e renomear de novo desfaz. O nome muda na navegação e no formulário ao enviar; a falha restaura o nome anterior e revalida `['user']`, porque um timeout pode ter gravado o novo; o erro aparece no formulário |
+| Senha | Não | Trocar a senha encerra a sessão no servidor (`sessionVersion`); não há estado da interface a antecipar |
+| Criar, editar e excluir transação | Não | O ledger é validado no servidor — venda acima das unidades mantidas na data, moeda única por posição, posição dentro da faixa suportada — e cada escrita recalcula posição, custo médio e performance no servidor. Antecipar exibiria números que a API pode recusar ou calcular diferente |
+| Criar ativo | Não | O servidor resolve o instrumento, e o privado a partir da listagem do provedor; a linha depende de cotação que o cliente não tem |
+| Excluir ativo ou carteira | Não | Irreversível e em cascata. O `ConfirmDeletionDialog` fica aberto até a resposta e mostra a falha no lugar (TD-064); o foco devolvido depende da lista já revalidada |
+| Criar e editar carteira | Não | Trocar a moeda base reprecifica todos os valores no servidor; o diálogo mostra a recusa no lugar |
+
+### Estratégias de carregamento
+
+| Estratégia | Situação |
+| --- | --- |
+| Skeleton e estado por seção | Já existiam: cada seção tem o próprio carregamento, erro e vazio (`QuerySection`) |
+| Página anterior visível | Já existia: paginar, ordenar e trocar o período mantêm os dados à vista até o próximo chegar |
+| Código fora do bundle da rota | Feito: `sideEffects` no `package.json` tirou o calendário e a UI não usada das rotas públicas e da conta (ver `performance.md`) |
+| Diálogos sob demanda | Não feito: o custo sairia do carregamento e iria para o primeiro clique da ação principal da tela (ver `performance.md`) |
+| Prefetch da próxima página | Não feito: com a página anterior visível, paginar já não bloqueia, e cada prefetch é um request contra o limite de 120 por minuto |
+| Prefetch do detalhe no hover | Não feito: o detalhe pede performance e indicadores, que podem buscar histórico no provedor. Seria gastar cota do plano sem clique |
+| Waterfall carteira → escopo | Mantido (TD-055) |
+
+### Refresh do valor da carteira
+
+O botão invalida o escopo da carteira com `cancelRefetch: false`: um clique durante a revalidação junta-se a ela em vez de reiniciá-la, e o botão fica `aria-disabled` até ela terminar. No backend, a cotação vale 60 s (`QUOTE_TIME_TO_LIVE_MS`), então repetir o refresh dentro do minuto refaz a leitura do banco, mas não chama o provedor.
+
+### Backend e provedor
+
+| Achado | Correção |
+| --- | --- |
+| A borda de uma série sem fechamento era pedida ao provedor a cada leitura: fim de semana e feriado depois do último fechamento, dias antes da listagem ou antes do primeiro pregão da janela, símbolo que o provedor responde 404. `missingRangesOf` volta a pedir essas janelas, porque nada é gravado para elas | O adaptador responde vazio de novo, sem requisição, a janela que o provedor respondeu sem preço ou com 404, por uma hora (`EMPTY_HISTORY_TIME_TO_LIVE_MS`) e até 10.000 janelas. Janela com preço e falha não ficam guardadas: a primeira muda o que falta, a segunda já pausa o provedor por 30 s |
+| Consultas idênticas de histórico simultâneas faziam uma requisição cada — o detalhe do ativo pede performance e indicadores juntos, e os dois terminam na mesma janela até hoje | Uma consulta já em curso para o mesmo símbolo, intervalo e janela é aproveitada, como na cotação |
+| `GetPriceHistoryService` lia o instrumento antes do histórico gravado, uma consulta sequencial a mais por instrumento em toda leitura de performance e indicadores | O instrumento só é lido quando falta algo a pedir ao provedor; a série em dia custa uma consulta |
+
+Tudo fica na memória do processo, como o cache de cotações. Cada instância tem o próprio cache, e ele se perde num cold start.
+
+### Índices
+
+Os existentes cobrem as leituras: fechamentos e câmbio por `(instrumentId, timestamp, …)` e `(currency, baseCurrency, timestamp, …)` em faixa de datas, posições por `(portfolioId, instrumentId)`, transações por `(portfolioId, instrumentId)`. O ledger da carteira e a listagem de transações filtram por `portfolioId` e ordenam por `executedAt` depois de filtrar; com o volume de uma carteira pessoal, essa ordenação é pequena. Um índice `(portfolioId, executedAt)` passa a valer quando o `EXPLAIN` de `GET /v1/transactions` ou da performance mostrar essa ordenação no p95 medido.
+
+### Redis: critérios de adoção
+
+Não adotado. Tudo o que um cache compartilhado resolveria hoje se resolve na memória do processo, porque o custo que ele evita — chamada ao provedor, contagem de rate limit — é por instância e ainda não foi medido. Passa a se justificar quando houver ao menos um destes, medido:
+
+* **Rate limit entre instâncias (TD-006).** Com mais de uma instância servindo tráfego, o limite efetivo é o budget vezes o número de instâncias. Se isso deixar de ser aceitável, os contadores precisam de um store compartilhado.
+* **Cota do provedor.** Se o consumo medido do plano (TD-020) mostrar a mesma cotação ou janela de histórico pedida por várias instâncias, ou de novo depois de cada cold start, a ponto de ameaçar a cota.
+* **Revogação de sessão sem banco.** Hoje `sessionVersion` é lido do Postgres a cada request autenticado. Só se essa leitura aparecer no p95 medido.
+
+Antes de Redis, a ordem é: ajustar os TTLs com o consumo medido; fixar o número de instâncias; guardar no Postgres o que precisa sobreviver a um restart, como as janelas vazias, numa tabela de cobertura.
 
 ## Limite conhecido
 
