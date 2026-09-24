@@ -22,6 +22,7 @@ import {
   usePortfolios,
   useUpdatePortfolio
 } from '@/hooks/use-portfolio';
+import { FIRST_PAGE } from '@/lib/pagination';
 import type { Maybe } from '@/types';
 
 import { PortfolioFormDialog } from './_components/portfolio-form-dialog';
@@ -31,7 +32,6 @@ type PortfolioDialog =
   | { kind: 'edit'; portfolio: Portfolio }
   | { kind: 'delete'; portfolio: Portfolio };
 
-const FIRST_PAGE = 1;
 const PORTFOLIOS_PAGE_SIZE = 10;
 const PORTFOLIOS_PAGE_PARAM = 'page';
 

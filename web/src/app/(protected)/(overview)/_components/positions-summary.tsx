@@ -26,12 +26,12 @@ import {
 } from '@/components/ui';
 import { usePageParam } from '@/hooks/use-page-param';
 import { usePositions } from '@/hooks/use-portfolio';
+import { FIRST_PAGE } from '@/lib/pagination';
 
 type PositionsSummaryProps = Record<'portfolio', Portfolio> &
   Record<'onAddAsset', VoidFunction> &
   Partial<Record<'className', string>>;
 
-const FIRST_PAGE = 1;
 const POSITIONS_PAGE_SIZE = 10;
 const POSITIONS_PAGE_PARAM = 'positionsPage';
 

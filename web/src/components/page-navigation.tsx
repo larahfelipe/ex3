@@ -1,6 +1,7 @@
 import type { FC, ReactNode } from 'react';
 
 import { Button } from '@/components/ui';
+import { FIRST_PAGE } from '@/lib/pagination';
 
 type PageNavigationProps = Record<'label', string> &
   Record<'page' | 'totalPages', number> &
@@ -10,8 +11,6 @@ type PageNavigationProps = Record<'label', string> &
 type PageStepButtonProps = Record<'isUnavailable', boolean> &
   Record<'onStep', VoidFunction> &
   Record<'children', ReactNode>;
-
-const FIRST_PAGE = 1;
 
 /**
  * `aria-disabled` instead of `disabled`: reaching the first or the last page

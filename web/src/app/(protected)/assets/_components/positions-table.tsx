@@ -84,6 +84,7 @@ import {
   TableRowHeader
 } from '@/components/ui';
 import { usePositions } from '@/hooks/use-portfolio';
+import { FIRST_PAGE, pageNumberFrom } from '@/lib/pagination';
 import { cn } from '@/lib/utils';
 
 type PositionsTableProps = Record<'portfolio', Portfolio> &
@@ -98,7 +99,6 @@ type PositionListing = Required<
 type PositionColumn = Record<'field', PositionSortField> &
   Record<'label' | 'className', string>;
 
-const FIRST_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZES = [DEFAULT_PAGE_SIZE, 25, 50];
 const DEFAULT_SORT_FIELD: PositionSortField = 'symbol';
@@ -214,12 +214,6 @@ const firstOrderOf = (field: PositionSortField): SortOrder =>
 
 const DEFAULT_SORT_ORDER = firstOrderOf(DEFAULT_SORT_FIELD);
 
-const pageFrom = (value: string | null) => {
-  const page = Number(value);
-
-  return Number.isInteger(page) && page >= FIRST_PAGE ? page : FIRST_PAGE;
-};
-
 const listingFrom = (params: URLSearchParams): PositionListing => {
   const sortBy =
     POSITION_SORT_FIELDS.find(
@@ -232,7 +226,7 @@ const listingFrom = (params: URLSearchParams): PositionListing => {
     .slice(0, SEARCH_MAX_LENGTH);
 
   return {
-    page: pageFrom(params.get(LISTING_PARAMS.Page)),
+    page: pageNumberFrom(params.get(LISTING_PARAMS.Page)),
     pageSize:
       PAGE_SIZES.find(
         (size) => String(size) === params.get(LISTING_PARAMS.PageSize)
