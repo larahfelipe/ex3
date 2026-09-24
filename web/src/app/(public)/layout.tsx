@@ -3,8 +3,8 @@ import type { Children } from '@/types';
 export default function Layout({ children }: Children) {
   return (
     <div className="min-h-dvh bg-background lg:grid lg:grid-cols-2">
-      <main className="flex min-h-dvh flex-col px-6 py-12 sm:pt-[12dvh]">
-        <div className="mx-auto w-full max-w-100 space-y-10 duration-500 ease-out animate-in fade-in-0 slide-in-from-bottom-2">
+      <main className="flex min-h-dvh flex-col px-6 py-12">
+        <div className="m-auto w-full max-w-100 space-y-10 duration-500 ease-out animate-in fade-in-0 slide-in-from-bottom-2">
           {children}
         </div>
       </main>
