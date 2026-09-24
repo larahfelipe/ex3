@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, type CSSProperties, type FC } from 'react';
+import { Suspense, type FC } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
 import { AppProgressBar } from 'next-nprogress-bar';
@@ -10,17 +10,9 @@ import {
   QueryErrorResetBoundary
 } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import {
-  CircleAlert,
-  CircleCheck,
-  Info,
-  Loader2,
-  RefreshCw,
-  TriangleAlert
-} from 'lucide-react';
-import { Toaster } from 'sonner';
+import { Loader2, RefreshCw } from 'lucide-react';
 
-import { APP_THEME } from '@/common/constants';
+import { Toaster } from '@/components/toaster';
 import { Button } from '@/components/ui';
 import { queryClient } from '@/lib/react-query';
 import type { Children } from '@/types';
@@ -75,45 +67,7 @@ export const AppProvider: FC<Children> = ({ children }) => (
       options={{ showSpinner: false }}
     />
 
-    <Toaster
-      position="bottom-right"
-      theme={APP_THEME}
-      icons={{
-        error: (
-          <CircleAlert aria-hidden="true" size={22} className="text-negative" />
-        ),
-        success: (
-          <CircleCheck aria-hidden="true" size={22} className="text-positive" />
-        ),
-        warning: (
-          <TriangleAlert
-            aria-hidden="true"
-            size={22}
-            className="text-warning"
-          />
-        ),
-        info: <Info aria-hidden="true" size={22} className="text-info" />
-      }}
-      style={
-        {
-          '--normal-bg': 'hsl(var(--surface-elevated))',
-          '--normal-text': 'hsl(var(--surface-elevated-foreground))',
-          '--normal-border': 'hsl(var(--border))'
-        } as CSSProperties
-      }
-      toastOptions={{
-        classNames: {
-          toast: 'items-start gap-3 border-l-4 shadow-elevated',
-          icon: 'size-[22px] shrink-0',
-          title: 'text-sm font-medium text-surface-elevated-foreground',
-          description: 'text-sm text-surface-elevated-foreground/80',
-          error: 'border-l-negative',
-          success: 'border-l-positive',
-          warning: 'border-l-warning',
-          info: 'border-l-info'
-        }
-      }}
-    />
+    <Toaster />
 
     <QueryErrorResetBoundary>
       {({ reset }) => (

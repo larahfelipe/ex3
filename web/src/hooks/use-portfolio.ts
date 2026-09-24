@@ -43,6 +43,7 @@ import api, {
   type ApiProxyErrorData
 } from '@/lib/axios';
 import { queryKeys } from '@/lib/react-query';
+import { toastLifetimeOf } from '@/lib/toast-lifetime';
 import type { Maybe, WithMessage } from '@/types';
 
 /** Portfolios are listed in creation order, so this page holds the one the account was created with. */
@@ -147,7 +148,8 @@ type PortfolioChangeAnnouncement = Record<'title', string> &
   Partial<Record<'action', PortfolioChangeAction>>;
 
 /**
- * Time to read the change and reach the step it offers, above sonner's 4 s;
+ * Time to read the change and reach the step it offers, above the 4 s of
+ * `TOAST_LIFETIME_MS`;
  * the pointer over the toasts pauses it.
  */
 const ACTIONABLE_TOAST_DURATION_MS = 10_000;
@@ -175,7 +177,7 @@ export const useAnnouncePortfolioChange = (portfolio: Maybe<Portfolio>) => {
           ? { description }
           : {
               description,
-              duration: ACTIONABLE_TOAST_DURATION_MS,
+              ...toastLifetimeOf(ACTIONABLE_TOAST_DURATION_MS),
               action: { label: action.label, onClick: action.onSelect }
             }
       );
