@@ -41,7 +41,7 @@ type AllocationGroup = Omit<PortfolioAllocation['byType'][number], 'type'> &
 type RingArc = Record<'key' | 'className', string> &
   Record<'start' | 'length', number>;
 
-const ALLOCATION_VIEWS: AllocationView[] = ['type', 'asset'];
+const ALLOCATION_VIEWS: AllocationView[] = ['asset', 'type'];
 
 const ALLOCATION_VIEW_LABELS: Record<
   AllocationView,
@@ -64,6 +64,12 @@ const ALLOCATION_COLORS: AllocationColor[] = [
   { arc: 'stroke-chart-10', swatch: 'bg-chart-10' }
 ];
 
+/** Past the palette, the smallest groups share one neutral tone: cycling the palette would put two arcs of one color on the ring, read as one group. */
+const ALLOCATION_TAIL_COLOR: AllocationColor = {
+  arc: 'stroke-muted-foreground',
+  swatch: 'bg-muted-foreground'
+};
+
 const RING_CIRCUMFERENCE = 100;
 const RING_RADIUS = RING_CIRCUMFERENCE / (2 * Math.PI);
 const RING_THICKNESS = 5;
@@ -72,6 +78,17 @@ const RING_VIEW_BOX = `0 0 ${2 * RING_CENTER} ${2 * RING_CENTER}`;
 
 const CHART_LAYOUT_CLASS_NAME =
   'flex flex-col items-center gap-6 @md:flex-row @md:items-start';
+
+/** Largest share first; a group without a share, unpriced, goes last in the API's order. */
+const compareShareDescending = (
+  { allocation: left }: Pick<AllocationGroup, 'allocation'>,
+  { allocation: right }: Pick<AllocationGroup, 'allocation'>
+) => {
+  if (left === undefined) return right === undefined ? 0 : 1;
+  if (right === undefined) return -1;
+
+  return Number(right) - Number(left);
+};
 
 const selectAllocationGroups = (
   { byType, byAsset }: PortfolioAllocation,
@@ -91,9 +108,9 @@ const selectAllocationGroups = (
           ...share
         }));
 
-  return groups.map((group, index) => ({
+  return groups.toSorted(compareShareDescending).map((group, index) => ({
     ...group,
-    color: ALLOCATION_COLORS[index % ALLOCATION_COLORS.length]
+    color: ALLOCATION_COLORS.at(index) ?? ALLOCATION_TAIL_COLOR
   }));
 };
 
@@ -157,7 +174,7 @@ const AllocationRing: FC<Record<'groups', AllocationGroup[]>> = ({
 export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
   const allocationQuery = useAllocation(portfolio);
   const [viewSelection, setViewSelection] = useState<AllocationViewSelection>({
-    view: 'type',
+    view: 'asset',
     direction: 1
   });
   const { view: selectedView } = viewSelection;
