@@ -1,6 +1,4 @@
-/* eslint-disable react/jsx-newline */
 import type { Metadata } from 'next';
-import Link from 'next/link';
 
 import {
   APP_ROUTES,
@@ -8,6 +6,7 @@ import {
   SIGN_IN_REASONS
 } from '@/common/constants';
 
+import { AuthAlternative } from '../_components/auth-alternative';
 import { AuthNotice } from '../_components/auth-notice';
 import { PublicPageHeader } from '../_components/public-page-header';
 import { SignInForm } from './_components/sign-in-form';
@@ -51,15 +50,11 @@ export default async function SignIn({ searchParams }: SignInProps) {
 
         <SignInForm destination={destination} />
 
-        <p className="mt-8 text-center text-sm text-muted-foreground">
-          Not registered?{' '}
-          <Link
-            href={APP_ROUTES.Public.SignUp}
-            className="rounded-sm font-medium text-foreground underline decoration-muted-foreground underline-offset-4 ring-offset-background transition-colors hover:decoration-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
-          >
-            Create account
-          </Link>
-        </p>
+        <AuthAlternative
+          question="Not registered?"
+          href={APP_ROUTES.Public.SignUp}
+          label="Create account"
+        />
       </section>
     </>
   );
