@@ -25,6 +25,8 @@ const FAILURE_COOLDOWN_MS = 30_000;
 const QUOTE_BATCH_SIZE = 10;
 const LISTING_TIME_TO_LIVE_MS = 3_600_000;
 const LISTING_CACHE_MAX_ENTRIES = 1_000;
+const EMPTY_HISTORY_TIME_TO_LIVE_MS = 3_600_000;
+const EMPTY_HISTORY_CACHE_MAX_ENTRIES = 10_000;
 
 /** Mirrors `InstrumentLimits.NAME_MAX_LENGTH`. */
 const NAME_MAX_LENGTH = 120;
@@ -858,19 +860,97 @@ describe('YahooFinanceProvider', () => {
       assert.equal(calls.length, 0);
     });
 
-    it('answers a symbol the provider does not know as not found', async () => {
-      const { provider } = stubProvider(() =>
+    it('answers a symbol the provider does not know as not found, without asking again', async () => {
+      const { provider, calls } = stubProvider(() =>
         json({ chart: { result: null, error: { code: 'Not Found' } } }, 404)
       );
+      const range = { from: new Date(from), to: new Date(to) };
 
-      assert.deepEqual(
-        await provider.getHistoricalPrices(
-          PETR4,
-          { from: new Date(from), to: new Date(to) },
-          '1d'
-        ),
-        { outcome: 'not-found' }
+      assert.deepEqual(await provider.getHistoricalPrices(PETR4, range, '1d'), {
+        outcome: 'not-found'
+      });
+      assert.deepEqual(await provider.getHistoricalPrices(PETR4, range, '1d'), {
+        outcome: 'not-found'
+      });
+      assert.equal(calls.length, 1);
+    });
+
+    it('answers a range it found empty again without a request until its time to live expires', async () => {
+      const { provider, calls, clock } = stubProvider(() => chartResponse({}));
+      const range = { from: new Date(from), to: new Date(to) };
+
+      await provider.getHistoricalPrices(PETR4, range, '1d');
+      clock.now += EMPTY_HISTORY_TIME_TO_LIVE_MS - 1;
+      assert.deepEqual(await provider.getHistoricalPrices(PETR4, range, '1d'), {
+        outcome: 'quoted',
+        prices: []
+      });
+      assert.equal(calls.length, 1);
+
+      clock.now += 1;
+      await provider.getHistoricalPrices(PETR4, range, '1d');
+      assert.equal(calls.length, 2);
+    });
+
+    it('asks again for a range the provider failed to answer or answered with prices', async () => {
+      let isFailing = true;
+      const { provider, calls, clock } = stubProvider(() =>
+        isFailing
+          ? json({}, 500)
+          : chartResponse({ timestamps: [toSeconds(from)], closes: [47] })
       );
+      const range = { from: new Date(from), to: new Date(to) };
+
+      assert.deepEqual(await provider.getHistoricalPrices(PETR4, range, '1d'), {
+        outcome: 'unavailable'
+      });
+
+      isFailing = false;
+      clock.now += FAILURE_COOLDOWN_MS;
+      await provider.getHistoricalPrices(PETR4, range, '1d');
+      assert.deepEqual(await provider.getHistoricalPrices(PETR4, range, '1d'), {
+        outcome: 'quoted',
+        prices: [observedPrice('47', from)]
+      });
+      assert.equal(calls.length, 3);
+    });
+
+    it('joins a lookup of a range already being requested', async () => {
+      const { provider, calls } = stubProvider(() =>
+        chartResponse({ timestamps: [toSeconds(from)], closes: [47] })
+      );
+      const range = { from: new Date(from), to: new Date(to) };
+
+      const lookups = await Promise.all([
+        provider.getHistoricalPrices(PETR4, range, '1d'),
+        provider.getHistoricalPrices(PETR4, range, '1d')
+      ]);
+
+      assert.equal(calls.length, 1);
+      assert.deepEqual(lookups, [
+        { outcome: 'quoted', prices: [observedPrice('47', from)] },
+        { outcome: 'quoted', prices: [observedPrice('47', from)] }
+      ]);
+    });
+
+    it('bounds the empty ranges it keeps, dropping the oldest first', async () => {
+      const { provider, calls } = stubProvider(() => chartResponse({}));
+      const ranges = Array.from(
+        { length: EMPTY_HISTORY_CACHE_MAX_ENTRIES + 1 },
+        (_, index) => ({
+          from: new Date(from - index * ONE_DAY_MS),
+          to: new Date(to)
+        })
+      );
+
+      for (const range of ranges)
+        await provider.getHistoricalPrices(PETR4, range, '1d');
+
+      await provider.getHistoricalPrices(PETR4, ranges[1], '1d');
+      assert.equal(calls.length, ranges.length);
+
+      await provider.getHistoricalPrices(PETR4, ranges[0], '1d');
+      assert.equal(calls.length, ranges.length + 1);
     });
 
     it('refuses a chart whose prices do not line up with its timestamps', async (t) => {

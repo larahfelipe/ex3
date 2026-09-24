@@ -65,6 +65,21 @@ const LISTING_TIME_TO_LIVE_MS = 3_600_000;
  */
 const LISTING_CACHE_MAX_ENTRIES = 1_000;
 
+/**
+ * Assumed, not measured: a range the provider answered with no prices (a
+ * weekend, a holiday, the days before a listing) stays without them, and the
+ * history services ask for such an edge of a stored series on every read that
+ * misses it. It is answered empty again for this long without a request, and a
+ * close the provider publishes late is picked up once it expires.
+ */
+const EMPTY_HISTORY_TIME_TO_LIVE_MS = 3_600_000;
+
+/**
+ * Assumed, not measured: the ranges come from callers, so the empty histories
+ * kept are bounded by count, dropping the oldest entry.
+ */
+const EMPTY_HISTORY_CACHE_MAX_ENTRIES = 10_000;
+
 const HTTP_NOT_FOUND = 404;
 const MILLISECONDS_PER_SECOND = 1_000;
 const MILLISECONDS_PER_DAY = 86_400_000;
@@ -231,6 +246,11 @@ type CachedListings = {
   cachedAt: number;
 };
 
+type CachedEmptyHistory = {
+  outcome: 'quoted' | 'not-found';
+  cachedAt: number;
+};
+
 type ListingCandidate = Record<'yahooSymbol' | 'currency', string> &
   Record<'market', Market>;
 
@@ -328,16 +348,36 @@ const inBatches = <Item>(items: ReadonlyArray<Item>, size: number) =>
     items.slice(index * size, (index + 1) * size)
   );
 
+/** Sets the entry as the newest, first dropping the oldest when the cache is full. */
+const cacheWithinBound = <Entry>(
+  cache: Map<string, Entry>,
+  key: string,
+  entry: Entry,
+  maxEntries: number
+) => {
+  cache.delete(key);
+
+  if (cache.size >= maxEntries) {
+    const [oldestKey] = cache.keys();
+
+    if (oldestKey !== undefined) cache.delete(oldestKey);
+  }
+
+  cache.set(key, entry);
+};
+
 /**
  * `MarketDataProvider` over the YH Finance API. The key goes only in the header
  * of requests to its fixed origin, and a redirect is refused so it is never
  * sent elsewhere. Quotes are cached for `QUOTE_TIME_TO_LIVE_MS` and a symbol
  * already being requested joins that request; when the provider fails, the
- * last quote received is answered, with the timestamp it was observed at. The
+ * last quote received is answered, with the timestamp it was observed at. A
+ * history range already being requested joins that request, and one answered
+ * with no prices is answered so again for `EMPTY_HISTORY_TIME_TO_LIVE_MS`. The
  * quote cache holds only symbols translated from stored instruments and from
  * pairs of stored currency codes, so it is bounded by what is stored; the
- * listing cache holds symbols users searched, so it is bounded by count. Both
- * live in this process.
+ * listing and empty-history caches hold what callers ask for, so they are
+ * bounded by count. All of them live in this process.
  */
 export class YahooFinanceProvider implements MarketDataProvider {
   private static INSTANCE: YahooFinanceProvider;
@@ -348,6 +388,11 @@ export class YahooFinanceProvider implements MarketDataProvider {
   private readonly quoteCache = new Map<string, CachedQuote>();
   private readonly inFlightQuotes = new Map<string, Promise<QuoteLookup>>();
   private readonly listingCache = new Map<string, CachedListings>();
+  private readonly emptyHistoryCache = new Map<string, CachedEmptyHistory>();
+  private readonly inFlightHistories = new Map<
+    string,
+    Promise<PriceHistoryLookup>
+  >();
   private unavailableUntil = 0;
 
   constructor({
@@ -459,7 +504,12 @@ export class YahooFinanceProvider implements MarketDataProvider {
 
     if (search.outcome === 'unavailable') return cached?.search ?? search;
 
-    this.cacheListings(symbol, search);
+    cacheWithinBound(
+      this.listingCache,
+      symbol,
+      { search, cachedAt: this.now() },
+      LISTING_CACHE_MAX_ENTRIES
+    );
 
     return search;
   }
@@ -519,18 +569,6 @@ export class YahooFinanceProvider implements MarketDataProvider {
     };
   }
 
-  private cacheListings(symbol: string, search: SearchedListings) {
-    this.listingCache.delete(symbol);
-
-    if (this.listingCache.size >= LISTING_CACHE_MAX_ENTRIES) {
-      const [oldestSymbol] = this.listingCache.keys();
-
-      if (oldestSymbol !== undefined) this.listingCache.delete(oldestSymbol);
-    }
-
-    this.listingCache.set(symbol, { search, cachedAt: this.now() });
-  }
-
   /** The sector is optional, so a profile the provider does not answer is none. */
   private async lookUpSector(yahooSymbol: string) {
     const response = await this.request(
@@ -553,9 +591,11 @@ export class YahooFinanceProvider implements MarketDataProvider {
 
   private async lookUpPriceHistory(
     yahooSymbol: string,
-    { from, to }: PriceRange,
+    range: PriceRange,
     interval: PriceInterval
   ): Promise<PriceHistoryLookup> {
+    const { from, to } = range;
+
     if (from.getTime() >= to.getTime())
       return { outcome: 'quoted', prices: [] };
 
@@ -567,6 +607,53 @@ export class YahooFinanceProvider implements MarketDataProvider {
     )
       return { outcome: 'range-not-served' };
 
+    const historyKey = [
+      yahooSymbol,
+      interval,
+      from.toISOString(),
+      to.toISOString()
+    ].join(' ');
+    const cached = this.emptyHistoryCache.get(historyKey);
+
+    if (
+      cached !== undefined &&
+      this.now() - cached.cachedAt < EMPTY_HISTORY_TIME_TO_LIVE_MS
+    )
+      return cached.outcome === 'not-found'
+        ? NOT_FOUND
+        : { outcome: 'quoted', prices: [] };
+
+    const inFlight = this.inFlightHistories.get(historyKey);
+
+    if (inFlight !== undefined) return inFlight;
+
+    const lookup = this.requestPriceHistory(yahooSymbol, range, interval)
+      .then((history) => {
+        if (
+          history.outcome === 'not-found' ||
+          (history.outcome === 'quoted' && history.prices.length === 0)
+        )
+          cacheWithinBound(
+            this.emptyHistoryCache,
+            historyKey,
+            { outcome: history.outcome, cachedAt: this.now() },
+            EMPTY_HISTORY_CACHE_MAX_ENTRIES
+          );
+
+        return history;
+      })
+      .finally(() => this.inFlightHistories.delete(historyKey));
+
+    this.inFlightHistories.set(historyKey, lookup);
+
+    return lookup;
+  }
+
+  private async requestPriceHistory(
+    yahooSymbol: string,
+    { from, to }: PriceRange,
+    interval: PriceInterval
+  ): Promise<PriceHistoryLookup> {
     const response = await this.request(
       `${CHART_PATH}${encodeURIComponent(yahooSymbol)}`,
       {
