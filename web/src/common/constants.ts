@@ -41,23 +41,11 @@ export const APP_THEME = 'dark';
 
 export const APP_TITLE_TEMPLATE = `${APP_TITLE} | %s`;
 
-export const CURRENCIES = {
-  BRL: {
-    id: 'BRL',
-    symbol: 'R$',
-    name: 'Real'
-  },
-  USD: {
-    id: 'USD',
-    symbol: '$',
-    name: 'US Dollar'
-  },
-  EUR: {
-    id: 'EUR',
-    symbol: '€',
-    name: 'Euro'
-  }
-} as const;
+/** The base currencies a new portfolio is offered in; the API accepts any ISO 4217 code. */
+export const OFFERED_CURRENCIES = ['BRL', 'USD', 'EUR'] as const;
+
+export const DEFAULT_CURRENCY =
+  'BRL' satisfies (typeof OFFERED_CURRENCIES)[number];
 
 export const TRANSACTION_TYPES: Array<TransactionType> = [
   'BUY',
@@ -66,7 +54,7 @@ export const TRANSACTION_TYPES: Array<TransactionType> = [
   'JCP',
   'INTEREST',
   'BONUS'
-] as const;
+];
 
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   BUY: 'Buy',
