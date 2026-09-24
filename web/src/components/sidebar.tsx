@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState, type FC, type ReactNode } from 'react';
+import { useState, type FC, type ReactNode } from 'react';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -114,8 +114,6 @@ const NavigationLink: FC<NavigationLinkProps> = ({
 );
 
 export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
-  const portfolioHeadingId = useId();
-
   const pathname = usePathname();
 
   const [navigationState, setNavigationState] = useState(initialState);
@@ -163,28 +161,16 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
           <p className="font-display text-lg font-bold">EX3</p>
         </div>
 
-        <div className="flex flex-3 sm:mt-6 sm:flex-none sm:flex-col">
-          <p
-            id={portfolioHeadingId}
-            className="sr-only navigation-expanded:not-sr-only navigation-expanded:mb-2 navigation-expanded:px-3 navigation-expanded:text-xs navigation-expanded:font-medium navigation-expanded:text-muted-foreground"
-          >
-            Portfolio
-          </p>
-
-          <ul
-            aria-labelledby={portfolioHeadingId}
-            className="flex flex-1 sm:flex-col sm:gap-1"
-          >
-            {PORTFOLIO_SECTIONS.map((section) => (
-              <li key={section.path} className="flex flex-1">
-                <NavigationLink
-                  {...section}
-                  isActive={isCurrentPath(pathname, section.path)}
-                />
-              </li>
-            ))}
-          </ul>
-        </div>
+        <ul className="flex flex-3 sm:mt-6 sm:flex-none sm:flex-col sm:gap-1">
+          {PORTFOLIO_SECTIONS.map((section) => (
+            <li key={section.path} className="flex flex-1">
+              <NavigationLink
+                {...section}
+                isActive={isCurrentPath(pathname, section.path)}
+              />
+            </li>
+          ))}
+        </ul>
 
         <ul className="flex flex-1 sm:mt-auto sm:flex-none sm:flex-col sm:gap-1 sm:border-t sm:pt-3">
           <li className="flex flex-1">
