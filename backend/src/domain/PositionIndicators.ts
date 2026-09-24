@@ -37,8 +37,14 @@ export type PriceChangeRange = (typeof PriceChangeRanges)[number];
 
 export type DailyClose = Pick<MarketQuote, 'price' | 'currency' | 'timestamp'>;
 
+/** A window's change is read from its opening close, so both are given or neither is. */
 export type PriceChange = Record<'range', PriceChangeRange> &
-  Partial<Record<'change', string>>;
+  (
+    | Partial<Record<'change' | 'openedOn', never>>
+    | (Record<'change', string> & Record<'openedOn', Date>)
+  );
+
+export type PriceClose = Record<'close', string> & Record<'closedOn', Date>;
 
 export type PriceIndicators = {
   currency: MarketQuote['currency'];
@@ -47,6 +53,7 @@ export type PriceIndicators = {
   yearLow: string;
   yearHigh: string;
   changes: Array<PriceChange>;
+  closes: Array<PriceClose>;
 };
 
 export type ReturnIndicators = {
@@ -116,29 +123,47 @@ const priceChangeOf = (
         range,
         change: truncateToColumnScale(
           new ValuationDecimal(latest.price).div(openingPrice).sub(ONE)
-        ).toFixed()
+        ).toFixed(),
+        openedOn: startOfDayInUtc(opening.timestamp)
       };
 };
 
 /**
+ * A day observed by more than one source has more than one close (TD-028); the
+ * one read is the latest, by the ascending order the closes come in.
+ */
+const lastClosePerDayOf = (ascending: ReadonlyArray<DailyClose>) =>
+  ascending.filter(({ timestamp }, index) => {
+    const next = ascending.at(index + 1);
+
+    return next === undefined || dayOf(next.timestamp) !== dayOf(timestamp);
+  });
+
+/**
  * Price indicators need a close within the last year, so an instrument that no
  * longer trades has none. The yearly low and high are of daily closes, not of
- * intraday prices.
+ * intraday prices. `closes` starts at the close that opens the one-year
+ * window, the longest, so it holds every window's opening close, or at the
+ * first close when the history is shorter.
  */
 const pricesOf = (
   closes: ReadonlyArray<DailyClose>,
   now: Date
 ): PriceIndicators | undefined => {
   const yearStart = yearStartOf(now).getTime();
-  const ascending = closes.toSorted(
-    (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+  const dailyCloses = lastClosePerDayOf(
+    closes.toSorted((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
   );
-  const yearCloses = ascending
+  const yearCloses = dailyCloses
     .filter(({ timestamp }) => dayOf(timestamp) >= yearStart)
     .map(({ price }) => new ValuationDecimal(price));
-  const latest = ascending.at(-1);
+  const latest = dailyCloses.at(-1);
 
   if (latest === undefined || yearCloses.length === 0) return undefined;
+
+  const yearOpening = dailyCloses.findLastIndex(
+    ({ timestamp }) => dayOf(timestamp) <= yearStart
+  );
 
   return {
     currency: latest.currency,
@@ -147,8 +172,14 @@ const pricesOf = (
     yearLow: ValuationDecimal.min(...yearCloses).toFixed(),
     yearHigh: ValuationDecimal.max(...yearCloses).toFixed(),
     changes: PriceChangeRanges.map((range) =>
-      priceChangeOf(range, ascending, latest, now)
-    )
+      priceChangeOf(range, dailyCloses, latest, now)
+    ),
+    closes: dailyCloses
+      .slice(Math.max(0, yearOpening))
+      .map(({ price, timestamp }) => ({
+        close: price,
+        closedOn: startOfDayInUtc(timestamp)
+      }))
   };
 };
 

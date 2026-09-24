@@ -149,9 +149,13 @@ close, closedOn      = o fechamento mais recente e o seu dia
 yearLow, yearHigh    = o menor e o maior fechamento do último ano (fechamentos, não preços intradiários)
 change(janela)       = close ÷ abertura − 1
 abertura             = o último fechamento no primeiro dia da janela ou antes dele
+openedOn(janela)     = o dia da abertura, presente só com change
+closes               = um fechamento por dia, da abertura de 1Y, ou do primeiro fechamento, ao mais recente
 ```
 
 As janelas são `1M`, `3M`, `6M`, `YTD` e `1Y`, com os inícios de Performance, acima. A variação de uma janela fica sem `change` quando o histórico não alcança o seu primeiro dia, quando o fechamento mais recente não é posterior a ele ou quando a abertura é zero.
+
+Um dia observado por mais de uma fonte tem mais de um fechamento (TD-028); todo indicador de preço lê só o mais recente de cada dia, pela ordem dos instantes, o mesmo que a abertura já lia. `closes` é a série que o gráfico de preço do detalhe do ativo desenha: começa na abertura da janela mais longa, então contém a de cada janela, e o web recorta uma janela a partir do seu `openedOn`, sem cálculo.
 
 **Retorno (`returns`)**, do razão da posição executado até o instante da requisição, na moeda do razão. Ausente sem transação.
 
