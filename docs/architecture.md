@@ -1,23 +1,25 @@
-# Arquitetura
+# Architecture
 
-Quem é responsável pelo quê, em que direção as dependências apontam e o que não pertence a cada camada. O significado das entidades está em [`domain-model.md`](domain-model.md), e os contratos de cada rota, em [`api-inventory.md`](api-inventory.md).
+Who owns what, which way the dependencies point, and what does not belong in
+each layer. What the entities mean is in [`domain-model.md`](domain-model.md);
+the contract of each route is in [`api-inventory.md`](api-inventory.md).
 
-## Mapa
+## Map
 
 ```text
                     ┌─────────────────────────────────────────────┐
-navegador ─────────▶│ Frontend            web/src/app, components,│
+browser ───────────▶│ Frontend            web/src/app, components,│
                     │                     hooks, providers        │
                     ├─────────────────────────────────────────────┤
-                    │ proxy Next          web/src/app/api/v1      │──┐
+                    │ Next proxy          web/src/app/api/v1      │──┐
                     └─────────────────────────────────────────────┘  │ Bearer
                                                                      ▼
                     ┌─────────────────────────────────────────────┐
                     │ API        routes ▸ middleware ▸ controllers│
                     │            ▸ services                       │
                     ├──────────────────────┬──────────────────────┤
-                    │ Domain               │ portas: MarketData-  │
-                    │ cálculo puro         │ Provider             │
+                    │ Domain               │ ports: MarketData-   │
+                    │ pure computation     │ Provider             │
                     ├──────────────────────┼──────────────────────┤
                     │ Persistence          │ Market Data          │
                     │ infra/database       │ infra/market-data    │
@@ -25,121 +27,206 @@ navegador ─────────▶│ Frontend            web/src/app, com
                                ▼                       ▼
                           PostgreSQL              YH Finance
 
-Authentication atravessa as camadas: cookie e redirecionamento no web,
-Bearer no proxy, verificação no middleware da API, hash e assinatura na infra.
+Authentication cuts across the layers: cookie and redirect in the web, Bearer
+in the proxy, verification in the API middleware, hashing and signing in infra.
 ```
 
-| Camada | Código | Pode importar | Nunca importa |
+| Layer | Code | May import | Never imports |
 | --- | --- | --- | --- |
-| Frontend | `web/src/app`, `components`, `hooks`, `providers`, `lib` | o próprio proxy, por HTTP | backend, driver de banco |
+| Frontend | `web/src/app`, `components`, `hooks`, `providers`, `lib` | its own proxy, over HTTP | backend, database driver |
 | API | `backend/src/routes`, `middleware`, `controllers`, `validation`, `services` | Domain, Persistence, Market Data | — |
-| Domain | `backend/src/domain` | só a si mesmo | `@/infra`, `express` |
+| Domain | `backend/src/domain` | itself only | `@/infra`, `express` |
 | Persistence | `backend/src/infra/database` | Domain | `express`, `@/services` |
-| Market Data | `backend/src/infra/market-data` | Domain (a porta que implementa) | `express`, `@/services` |
-| Authentication | `web/src/proxy.ts`, `web/src/lib`, `backend/src/middleware/AuthMiddleware.ts`, `backend/src/infra/cryptography` | a camada em que reside | — |
+| Market Data | `backend/src/infra/market-data` | Domain (the port it implements) | `express`, `@/services` |
+| Authentication | `web/src/proxy.ts`, `web/src/lib`, `backend/src/middleware/AuthMiddleware.ts`, `backend/src/infra/cryptography` | the layer it lives in | — |
 
-As três últimas colunas são verificáveis por busca, e as buscas correspondentes não devolvem nada hoje:
+The last three columns are checkable by search, and the corresponding searches
+return nothing today:
 
 ```sh
 cd backend/src
-grep -rl "from '@/infra" domain          # o domínio não alcança infraestrutura
-grep -rl "from 'express'" domain services # nem domínio nem service conhecem HTTP
-grep -rl '@prisma/client' controllers     # nenhum controller fala com o banco
+grep -rl "from '@/infra" domain           # the domain does not reach infrastructure
+grep -rl "from 'express'" domain services # neither domain nor service knows HTTP
+grep -rl '@prisma/client' controllers     # no controller talks to the database
 ```
 
-A única dependência de `@prisma/client` fora de `infra/database` é `Prisma.Decimal`, o tipo numérico que o domínio usa para não calcular dinheiro em ponto flutuante — valor, não acesso a banco.
+The only dependency on `@prisma/client` outside `infra/database` is
+`Prisma.Decimal`, the numeric type the domain uses so that money is never
+computed in floating point — a value, not database access.
 
 ## Frontend
 
-**Responsabilidade:** renderizar o estado que a API entrega e capturar a intenção do usuário. Não calcula número de domínio: preço médio, valor de mercado, alocação e retorno chegam prontos, na moeda base que a resposta informa.
+**Responsibility:** render the state the API delivers and capture user intent.
+It computes no domain number: average cost, market value, allocation and return
+arrive ready, in the base currency the response states.
 
-`web/src/app` é o App Router, em dois grupos: `(public)` com sign-in e sign-up, `(protected)` com overview, ativos e conta. `web/src/proxy.ts` roda antes de cada requisição de página, decide sessão e emite a CSP com nonce. `components/ui` são primitivos sobre Radix e Tailwind; `components` são os compostos do produto. `providers/app-provider.tsx` monta o `QueryClient`, o error boundary com `Suspense` e o `Toaster`.
+`web/src/app` is the App Router, in two groups: `(public)` with sign-in and
+sign-up, `(protected)` with overview, assets and account. `web/src/proxy.ts`
+runs ahead of every page request, decides the session and emits the CSP with a
+nonce. `components/ui` are primitives over Radix and Tailwind; `components` are
+the product's composites. `providers/app-provider.tsx` wires the `QueryClient`,
+the error boundary with `Suspense`, and the `Toaster`.
 
-**Regra de leitura:** todo request do browser nasce de um hook de `web/src/hooks` sobre o TanStack Query — nenhuma tela chama `fetch` por conta própria, e cada request existente está inventariado em [`data-fetching.md`](data-fetching.md). Critérios de acessibilidade, layout e performance do frontend estão em [`accessibility.md`](accessibility.md), [`responsiveness.md`](responsiveness.md) e [`performance.md`](performance.md).
+**Reading rule:** every browser request originates in a hook from
+`web/src/hooks` over TanStack Query — no screen calls `fetch` on its own, and
+every request that exists is inventoried in
+[`data-fetching.md`](data-fetching.md). Accessibility, layout and frontend
+performance criteria are in [`accessibility.md`](accessibility.md),
+[`responsiveness.md`](responsiveness.md) and
+[`performance.md`](performance.md).
 
-**Proxy.** Os Route Handlers de `web/src/app/api/v1` são a fronteira: leem o cookie `httpOnly` `ex3:token`, mandam `Authorization: Bearer` ao backend e devolvem o corpo da API. O navegador nunca recebe o token nem a URL do backend — `API_URL` só existe no servidor do Next. Quem só encaminha delega tudo isso a `forwardToApi`, em `web/src/lib/api-proxy.ts`: um handler declara verbo, caminho, query string e se há corpo a repassar. `sign-in`, `sign-up`, `sign-out` e `session/expire` mantêm handler próprio porque gravam ou apagam os cookies.
+**Proxy.** The Route Handlers under `web/src/app/api/v1` are the boundary: they
+read the `httpOnly` `ex3:token` cookie, send `Authorization: Bearer` to the
+backend and return the API's body. The browser never receives the token or the
+backend URL — `API_URL` exists only on the Next server. A handler that merely
+forwards delegates all of this to `forwardToApi`, in
+`web/src/lib/api-proxy.ts`: it declares verb, path, query string and whether
+there is a body to pass along. `sign-in`, `sign-up`, `sign-out` and
+`session/expire` keep their own handler because they write or clear cookies.
 
 ## API
 
-**Responsabilidade:** traduzir HTTP em caso de uso e caso de uso em HTTP. É a única camada que conhece `Request` e `Response`.
+**Responsibility:** translate HTTP into a use case and a use case into HTTP. It
+is the only layer that knows `Request` and `Response`.
 
-| Módulo | Faz | Não faz |
+| Module | Does | Does not |
 | --- | --- | --- |
-| `routes` | declara caminho, método e a cadeia de middlewares | lógica |
-| `middleware` | correlação e log, helmet, CORS, limite de corpo, rate limit, autenticação, 404 e o error boundary | regra de negócio |
-| `controllers` | valida a entrada com zod e chama um service | acessar repositório ou provedor |
-| `services` | orquestra o caso de uso: posse, repositórios, provedor, transação de banco | conhecer HTTP |
-| `validation` | schemas zod e o `validate` que converte `ZodError` em `ValidationError` | — |
-| `errors` | as classes que nomeiam cada categoria de falha | responder |
+| `routes` | declares path, method and the middleware chain | logic |
+| `middleware` | correlation and logging, helmet, CORS, body limit, rate limit, authentication, 404 and the error boundary | business rules |
+| `controllers` | validates input with zod and calls a service | reach a repository or provider |
+| `services` | orchestrates the use case: ownership, repositories, provider, database transaction | know HTTP |
+| `validation` | zod schemas and the `validate` that turns a `ZodError` into a `ValidationError` | — |
+| `errors` | the classes that name each failure category | respond |
 
-A ordem dos middlewares em `config/App.ts` é significativa: o log é o primeiro, para que toda requisição tenha id, inclusive a que morre no CORS ou no rate limit; o error boundary é o último. O envelope `{ code, message, details }` e as oito categorias estão em [`errors.md`](errors.md); o formato das linhas de log, em [`observability.md`](observability.md).
+Middleware order in `config/App.ts` is meaningful: logging comes first, so that
+every request carries an id, including one that dies in CORS or in the rate
+limiter; the error boundary comes last. The `{ code, message, details }`
+envelope and the eight categories are in [`errors.md`](errors.md); the shape of
+a log line is in [`observability.md`](observability.md).
 
-A posse da carteira é verificada num único lugar, `requireOwnedPortfolio` de `services/PortfolioAccess.ts`: carteira de outro usuário responde como inexistente, e nenhum service repete a consulta. Os quatro casos de uso que avaliam posições partem de `readPortfolioHoldings` e `quoteHoldings`, em `services/portfolio/QuotedHoldings.ts`, que leem as posições da carteira e cotam num lote só as que cada um valoriza.
+Portfolio ownership is checked in a single place, `requireOwnedPortfolio` in
+`services/PortfolioAccess.ts`: another user's portfolio answers as
+non-existent, and no service repeats the query. The four use cases that value
+positions start from `readPortfolioHoldings` and `quoteHoldings`, in
+`services/portfolio/QuotedHoldings.ts`, which read the portfolio's positions
+and quote, in a single batch, the ones each of them values.
 
-Controllers e services são singletons com `getInstance`, compostos à mão no `index.ts` de cada pasta de controller. O handler que a rota registra monta o grafo daquele caso de uso e delega; como cada peça é singleton, montar é barato e a árvore de dependências fica explícita num só arquivo por assunto.
+Controllers and services are singletons with `getInstance`, composed by hand in
+the `index.ts` of each controller folder. The handler a route registers builds
+the graph for that use case and delegates; because every piece is a singleton,
+building is cheap and the dependency tree stays explicit in one file per
+subject.
 
 ## Domain
 
-**Responsabilidade:** as regras que definem o produto, como funções puras sobre valores. Sem I/O, sem Prisma além do tipo decimal, sem `Request`.
+**Responsibility:** the rules that define the product, as pure functions over
+values. No I/O, no Prisma beyond the decimal type, no `Request`.
 
-| Módulo | Regra que guarda |
+| Module | Rule it owns |
 | --- | --- |
-| `PositionLedger` | reconstrói a posição a partir do razão ordenado e recusa o razão impossível |
-| `PositionValuation` | custo, valor de mercado e resultado de uma posição |
-| `PortfolioValuation` | posições da carteira na moeda base, filtro, ordenação e alocação |
-| `PortfolioPerformance` | série diária de valor, aporte líquido e retorno ponderado no tempo |
-| `PriceHistory` | a janela de dias que falta buscar e o recorte por fechamento |
-| `models` | os tipos do domínio, independentes das linhas do banco |
-| `MarketDataProvider` | a **porta** por onde entra preço, definida aqui e implementada fora |
+| `PositionLedger` | rebuilds the position from the ordered ledger and refuses an impossible ledger |
+| `PositionValuation` | cost, market value and result of one position |
+| `PortfolioValuation` | portfolio positions in the base currency, filtering, sorting and allocation |
+| `PortfolioPerformance` | daily series of value, net contribution and time-weighted return |
+| `PriceHistory` | the window of days still missing and the cut by closing price |
+| `models` | the domain types, independent of database rows |
+| `MarketDataProvider` | the **port** prices come in through, defined here and implemented outside |
 
-É a camada mais testada e a mais barata de testar: os testes unitários exercitam esses módulos sem banco, sem rede e sem relógio real.
+It is the most tested layer and the cheapest to test: the unit tests exercise
+these modules with no database, no network and no real clock.
 
 ## Persistence
 
-**Responsabilidade:** guardar e recuperar o estado, e ser o único lugar do código que fala SQL ou Prisma.
+**Responsibility:** store and retrieve state, and be the only place in the code
+that speaks SQL or Prisma.
 
-`PrismaClient` é o singleton que carrega o adapter `@prisma/adapter-pg` e expõe `runSerializable`, que roda uma operação em transação serializável e a repete até três vezes quando o Postgres aborta por conflito de escrita. Cada repositório cobre um agregado (`User`, `Portfolio`, `Asset`, `Transaction`, `Instrument`, `MarketQuote`, `ExchangeRate`) e converte linha em modelo de domínio — decimal vira string, nunca `number`. Quando a operação abrange mais de uma tabela, ela roda em transação serializável: aberta pelo próprio repositório, como em `UserRepository.delete`, ou recebida como `TransactionClient` da operação maior, como em `TransactionRepository`.
+`PrismaClient` is the singleton that loads the `@prisma/adapter-pg` adapter and
+exposes `runSerializable`, which runs an operation in a serializable
+transaction and retries it up to three times when Postgres aborts it on a write
+conflict. Each repository covers one aggregate (`User`, `Portfolio`, `Asset`,
+`Transaction`, `Instrument`, `MarketQuote`, `ExchangeRate`) and converts a row
+into a domain model — a decimal becomes a string, never a `number`. When an
+operation spans more than one table it runs in a serializable transaction:
+opened by the repository itself, as in `UserRepository.delete`, or received as
+a `TransactionClient` from the larger operation, as in `TransactionRepository`.
 
-O schema e as migrations vivem em `backend/prisma`. Nenhuma escrita de domínio acontece fora de uma transação quando toca mais de uma tabela: gravar transação, excluir ativo e excluir conta são atômicas.
+The schema and the migrations live in `backend/prisma`. No domain write happens
+outside a transaction when it touches more than one table: recording a
+transaction, deleting an asset and deleting an account are atomic.
 
 ## Market Data
 
-**Responsabilidade:** obter preço e câmbio de fora, sem que isso vaze para o domínio.
+**Responsibility:** obtain prices and exchange rates from outside without that
+leaking into the domain.
 
-`YahooFinanceProvider` implementa a porta `MarketDataProvider`: traduz símbolo do catálogo para o símbolo do provedor, envia a chave só no header do seu próprio origin, recusa redirecionamento e valida com zod tudo o que recebe — resposta de provedor é entrada não confiável. Guarda cotação por 60s, junta na mesma requisição um símbolo já em voo — e, no histórico, uma janela já em voo —, guarda por uma hora a janela de histórico respondida vazia e, depois de uma falha, responde 30s com a última cotação observada em vez de insistir, registrando `quote_provider_unavailable`. Também resolve um ticker nas listagens que o provedor tem — nome, classe, mercado e moeda, pela mesma requisição de cotação, com cache de uma hora — e no setor, pelo perfil do ativo, para que o registro de instrumento não pergunte esses atributos ao usuário.
+`YahooFinanceProvider` implements the `MarketDataProvider` port: it translates a
+catalog symbol into the provider's symbol, sends the key only in the header of
+the provider's own origin, refuses redirects and validates everything it
+receives with zod — a provider response is untrusted input. It caches a quote
+for 60s, joins a symbol already in flight — and, for history, a window already
+in flight — into the same request, caches an empty history window for one hour
+and, after a failure, answers for 30s with the last observed quote instead of
+insisting, recording `quote_provider_unavailable`. It also resolves a ticker
+across the listings the provider carries — name, class, market and currency,
+from the same quote request, cached for one hour — and the sector, from the
+asset profile, so that registering an instrument does not ask the user for
+those attributes.
 
-Falha do provedor nunca vira 500: a porta responde `not-found`, `unavailable` ou `range-not-served`, e o service omite do corpo o campo que dependia daquele preço, mantendo o 200. Fechamento diário é persistido (`MarketQuoteRepository`, `ExchangeRateRepository`) e só os dias que faltam são pedidos.
+A provider failure never becomes a 500: the port answers `not-found`,
+`unavailable` or `range-not-served`, and the service omits from the body the
+field that depended on that price, keeping the 200. Daily closes are persisted
+(`MarketQuoteRepository`, `ExchangeRateRepository`) and only the missing days
+are requested.
 
 ## Authentication
 
-**Responsabilidade:** provar quem é o chamador em cada requisição e revogar sessão quando o usuário manda.
+**Responsibility:** prove who the caller is on every request, and revoke the
+session when the user says so.
 
-| Ponto | O que decide |
+| Point | What it decides |
 | --- | --- |
-| `web/src/proxy.ts` | rota protegida sem token válido redireciona para o sign-in, com o caminho pedido em `next` e, havendo token ou marcador de sessão, `reason=session-expired`; token expirado é apagado |
-| `web/src/lib/session.ts` | grava o cookie `httpOnly` com a própria expiração do token |
-| `web/src/app/api/v1/**` | anexa `Authorization: Bearer`; sem cookie, responde 401 sem chamar o backend |
-| `backend/src/middleware/AuthMiddleware.ts` | verifica assinatura e compara a claim `sessionVersion` com a linha do usuário |
-| `backend/src/infra/cryptography` | `Jwt` assina e verifica; `Bcrypt` deriva e confere a senha |
+| `web/src/proxy.ts` | a protected route without a valid token redirects to sign-in, carrying the requested path in `next` and, when a token or a session marker exists, `reason=session-expired`; an expired token is cleared |
+| `web/src/lib/session.ts` | writes the `httpOnly` cookie with the token's own expiry |
+| `web/src/app/api/v1/**` | attaches `Authorization: Bearer`; with no cookie, answers 401 without calling the backend |
+| `backend/src/middleware/AuthMiddleware.ts` | verifies the signature and compares the `sessionVersion` claim against the user's row |
+| `backend/src/infra/cryptography` | `Jwt` signs and verifies; `Bcrypt` derives and checks the password |
 
-A sessão é estatal de propósito: sign-in, sign-out e troca de senha incrementam `sessionVersion` e invalidam todo token emitido antes. As decisões e o que já foi corrigido estão em [`authentication.md`](authentication.md).
+The session is stateful on purpose: sign-in, sign-out and a password change
+increment `sessionVersion` and invalidate every token issued earlier. The
+decisions, and what has already been fixed, are in
+[`authentication.md`](authentication.md).
 
-## Como um request atravessa
+## How a request crosses the system
 
-`GET /v1/portfolio/positions`, do clique ao corpo:
+`GET /v1/portfolio/positions`, from click to body:
 
-1. O hook `usePositions` pede `/api/v1/portfolio/positions` ao próprio Next.
-2. O Route Handler lê o cookie, monta `Authorization: Bearer` e chama o backend.
-3. `requestLogMiddleware` atribui o id da requisição e instala o listener de `finish`; helmet, CORS, limite de corpo e rate limit rodam em seguida.
-4. `portfolioRouter` casa o caminho e roda `authMiddleware`, que resolve `req.user`.
-5. O handler da rota compõe repositórios, service e controller, e delega.
-6. O controller valida a query com zod e chama `execute` com o `userId` autenticado — nunca com um id vindo do corpo.
-7. O service confirma a posse da carteira, lê ativos e razão, pede cotação e câmbio à porta e entrega os valores às funções do domínio.
-8. O controller responde `200` com a página; erro tipado em qualquer ponto sobe até o error boundary e vira envelope.
-9. Na finalização da resposta, sai uma linha de log com id, rota, status, duração e o código do erro, se houve.
+1. The `usePositions` hook asks Next itself for `/api/v1/portfolio/positions`.
+2. The Route Handler reads the cookie, builds `Authorization: Bearer` and calls
+   the backend.
+3. `requestLogMiddleware` assigns the request id and installs the `finish`
+   listener; helmet, CORS, body limit and rate limit run next.
+4. `portfolioRouter` matches the path and runs `authMiddleware`, which resolves
+   `req.user`.
+5. The route's handler composes repositories, service and controller, and
+   delegates.
+6. The controller validates the query with zod and calls `execute` with the
+   authenticated `userId` — never with an id taken from the body.
+7. The service confirms portfolio ownership, reads assets and ledger, asks the
+   port for quotes and exchange rates, and hands the values to the domain
+   functions.
+8. The controller answers `200` with the page; a typed error at any point rises
+   to the error boundary and becomes an envelope.
+9. When the response finishes, one log line goes out with id, route, status,
+   duration and the error code, if there was one.
 
-## Limites conhecidos
+## Known limits
 
-* As rotas registram os handlers com `as Application` em 29 pontos: os controllers devolvem `Promise<Response>`, e a assinatura do Express 5 espera `void`. `HealthRoutes.ts` mostra o caminho sem cast — responder e retornar `void`.
-* A composição por caso de uso é escrita à mão nos `index.ts` dos controllers. É explícita e sem contêiner de injeção, ao custo de repetição quando um service ganha uma dependência.
-* O frontend não tem runner de teste; os seus gates são `lint`, `typecheck` e `build` (TD-058 em [`../TODO.md`](../TODO.md)).
+* Routes register their handlers with `as Application` in 29 places: the
+  controllers return `Promise<Response>`, and the Express 5 signature expects
+  `void`. `HealthRoutes.ts` shows the way without the cast — respond and return
+  `void`.
+* Per-use-case composition is written by hand in the controllers' `index.ts`.
+  It is explicit and needs no injection container, at the cost of repetition
+  when a service gains a dependency.
+* The frontend has no test runner; its gates are `lint`, `typecheck` and
+  `build` (TD-058 in [`../TODO.md`](../TODO.md)).

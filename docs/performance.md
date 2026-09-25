@@ -1,294 +1,442 @@
-# Performance do frontend
+# Frontend performance
 
-O que foi medido, o que foi mudado e o que foi deliberadamente deixado como está. A FASE 16 mediu e corrigiu; a TASK 20.5 fechou a auditoria; a TASK 20.7 mediu no navegador, na última seção. Cada uma declara seu commit de captura. A auditoria de requests tem documento próprio, em [`data-fetching.md`](data-fetching.md).
+What was measured, what was changed and what was deliberately left as it is.
+PHASE 16 measured and corrected; TASK 20.5 closed the audit; TASK 20.7 measured
+in the browser, in the last section. Each one declares its capture commit. The
+request audit has a document of its own, in
+[`data-fetching.md`](data-fetching.md).
 
-## Captura da FASE 16
+## PHASE 16 capture
 
-| Item | Valor |
+| Item | Value |
 | --- | --- |
-| Commit de captura | `d359afd` |
-| Data | 2026-09-19 |
-| Método | Análise estática do código e contagem de trabalho por evento; sem profiler de navegador — a medição em navegador só apareceu na TASK 20.7, na última seção |
+| Capture commit | `d359afd` |
+| Date | 2026-09-19 |
+| Method | Static analysis of the code and a count of work per event; no browser profiler — browser measurement only appeared in TASK 20.7, in the last section |
 
-## Gráficos — TASK 16.3
+## Charts — TASK 16.3
 
-Nenhuma biblioteca de gráficos está instalada: os dois gráficos são SVG escrito à mão, o que já elimina a maior fonte de peso e de trabalho de layout do dashboard.
+No chart library is installed: both charts are hand-written SVG, which already
+removes the dashboard's largest source of weight and of layout work.
 
-### Trabalho por evento de ponteiro
+### Work per pointer event
 
-`performance-chart.tsx` refazia, a cada evento de `pointermove`, a projeção da série inteira e as duas strings de `path` — trabalho proporcional ao número de pontos, num evento que dispara na frequência do ponteiro. E, como o estado do ponto ativo morava no componente da seção, cada movimento também re-renderizava o seletor de período e a tabela de dias.
+`performance-chart.tsx` redid, on every `pointermove` event, the projection of
+the whole series and the two `path` strings — work proportional to the number of
+points, in an event that fires at the pointer's frequency. And, because the
+active point's state lived in the section's component, every movement also
+re-rendered the period selector and the day table.
 
-Correções:
+Corrections:
 
-| Mudança | Efeito |
+| Change | Effect |
 | --- | --- |
-| `PerformanceSeries` passou a ser componente próprio, dono do índice ativo | Mover o ponteiro re-renderiza a linha e o tooltip; o seletor de período e a tabela ficam fora |
-| `useMemo` na série plotada, nos pontos e nos dois `path` | As strings são construídas uma vez por série, não uma vez por evento |
-| `key={selectedRange}` no componente | Trocar de período zera o ponto ativo por remontagem, sem um `setState` cruzado entre componentes; a tabela, cujo estado vive na seção, continua aberta |
+| `PerformanceSeries` became a component of its own, owner of the active index | Moving the pointer re-renders the line and the tooltip; the period selector and the table stay out |
+| `useMemo` on the plotted series, on the points and on the two `path`s | The strings are built once per series, not once per event |
+| `key={selectedRange}` on the component | Changing period resets the active point by remounting, with no `setState` crossing components; the table, whose state lives in the section, stays open |
 
-### Densidade de pontos
+### Point density
 
-A caixa de desenho tem 600 unidades de largura, então dois pontos a menos de uma unidade de distância caem no mesmo pixel. `plottedSeriesOf` reduz a série ao passo necessário para no máximo `MAX_PLOTTED_POINTS` (600) pontos, preservando sempre o último — é ele que a manchete lê quando o ponteiro está fora. O período `MAX` de uma carteira antiga, que traria milhares de pontos diários, passa a desenhar no máximo 600.
+The drawing box is 600 units wide, so two points less than one unit apart fall
+on the same pixel. `plottedSeriesOf` reduces the series to the step needed for
+at most `MAX_PLOTTED_POINTS` (600) points, always keeping the last one — it is
+the one the headline reads when the pointer is away. The `MAX` period of an old
+portfolio, which would bring thousands of daily points, now draws at most 600.
 
-A amostragem vale só para o desenho e para o tooltip. A tabela de `Performance as a table`, que é a alternativa acessível ao gráfico, continua listando todos os dias da resposta.
+The sampling applies to the drawing and to the tooltip only. The
+`Performance as a table` table, which is the chart's accessible alternative,
+still lists every day of the response.
 
-### Redimensionamento
+### Resizing
 
-Nenhum dos gráficos escuta `resize`. O de performance usa `viewBox` com `preserveAspectRatio="none"` e largura em CSS; o de alocação decide a orientação por container query (`@md`), e o anel é um SVG de tamanho fixo. O único `ResizeObserver` do projeto está em `components/ui/table.tsx` e só alterna um booleano.
+Neither chart listens for `resize`. The performance one uses a `viewBox` with
+`preserveAspectRatio="none"` and a width in CSS; the allocation one decides its
+orientation by container query (`@md`), and the ring is a fixed-size SVG. The
+project's only `ResizeObserver` is in `components/ui/table.tsx` and merely
+toggles a boolean.
 
-### O que não foi feito, e por quê
+### What was not done, and why
 
-| Item | Razão |
+| Item | Reason |
 | --- | --- |
-| Lazy loading dos gráficos | Os dois estão na primeira dobra do dashboard e não carregam biblioteca alguma: adiá-los trocaria bytes que não existem por um salto de layout |
-| Memoização em `allocation-chart.tsx` | O componente não faz trabalho por evento de ponteiro: `selectAllocationGroups` e os arcos do anel só recalculam quando a resposta muda ou quando o usuário troca de visão, uma vez por clique |
-| `React.memo` nos componentes financeiros | `Money`, `Percentage` e `Trend` formatam um valor e devolvem texto; o custo da comparação de props não se paga contra o da formatação |
+| Lazy loading of the charts | Both are above the dashboard's fold and load no library at all: deferring them would trade bytes that do not exist for a layout jump |
+| Memoization in `allocation-chart.tsx` | The component does no work per pointer event: `selectAllocationGroups` and the ring's arcs only recompute when the response changes or when the user switches view, once per click |
+| `React.memo` on the financial components | `Money`, `Percentage` and `Trend` format a value and return text; the cost of comparing props does not pay for itself against the cost of formatting |
 
-## Tabelas — TASK 16.4
+## Tables — TASK 16.4
 
-### Formatadores de número
+### Number formatters
 
-`common/utils.ts` guardava as três instâncias de `Intl.DateTimeFormat` em constantes de módulo, mas `formatNumber` construía um `Intl.NumberFormat` **por chamada** — e `formatPrice` dois, porque `currencyFractionDigits` construía outro só para ler `resolvedOptions()`. Uma página de 50 posições chama os formatadores cerca de 450 vezes por renderização.
+`common/utils.ts` kept the three `Intl.DateTimeFormat` instances in module
+constants, but `formatNumber` built an `Intl.NumberFormat` **per call** — and
+`formatPrice` two, because `currencyFractionDigits` built another one just to
+read `resolvedOptions()`. A page with 50 positions calls the formatters about
+450 times per render.
 
-Medição com Node 24, o mesmo V8 do Chrome, em 450 formatações por rodada e 200 rodadas:
+Measured with Node 24, the same V8 as Chrome, over 450 formattings per round and
+200 rounds:
 
-| Estratégia | Tempo por renderização |
+| Strategy | Time per render |
 | --- | --- |
-| `new Intl.NumberFormat` por chamada | 12,6 ms |
-| Formatador em cache | 0,32 ms |
+| `new Intl.NumberFormat` per call | 12.6 ms |
+| Cached formatter | 0.32 ms |
 
-Construir o formatador custava cerca de quarenta vezes o que formatar com ele custa, e sozinho consumia três quartos de um quadro de 16 ms a cada renderização da tabela. `numberFormatOf` passou a guardar as instâncias num `Map` chaveado pelas opções; as chaves distintas são limitadas pelos estilos, pelas moedas e pelas contagens de casas que os formatadores pedem, então o mapa não cresce com o volume de dados. A saída é idêntica: mesma locale, mesmas opções, só a instância é reaproveitada.
+Building the formatter cost about forty times what formatting with it costs, and
+on its own consumed three quarters of a 16 ms frame on every render of the
+table. `numberFormatOf` now keeps the instances in a `Map` keyed by the options;
+the distinct keys are bounded by the styles, the currencies and the digit counts
+the formatters ask for, so the map does not grow with the volume of data. The
+output is identical: same locale, same options, only the instance is reused.
 
 ### Volume
 
-| Item | Decisão |
+| Item | Decision |
 | --- | --- |
-| Paginação | Server-side em toda listagem: posições em 10, 25 ou 50 linhas, transações em 10 no detalhe do ativo e 5 na Overview. O número de linhas renderizadas não cresce com o tamanho da carteira |
-| Virtualização | Não introduzida. Ela resolve listas cuja altura é imprevisível; aqui o teto é 50 linhas por página, e virtualizar custaria a semântica de `<table>`, a rolagem nativa da região e a busca do navegador dentro da página |
-| `keepPreviousData` | Paginar, ordenar ou filtrar mantém a página anterior visível e esmaecida, sem desmontar e remontar o corpo da tabela a cada mudança |
+| Pagination | Server-side in every listing: positions in 10, 25 or 50 rows, transactions in 10 on the asset detail and 5 on the Overview. The number of rendered rows does not grow with the portfolio's size |
+| Virtualization | Not introduced. It solves lists whose height is unpredictable; here the ceiling is 50 rows per page, and virtualizing would cost the `<table>` semantics, the region's native scrolling and the browser's in-page search |
+| `keepPreviousData` | Paginating, sorting or filtering keeps the previous page visible and dimmed, without unmounting and remounting the table body on every change |
 
-### Renderização por tecla
+### Rendering per keystroke
 
-Digitar na busca de posições re-renderiza a tabela, porque o texto digitado e a listagem moram no mesmo componente. Com os formatadores em cache, o que resta por tecla é a reconciliação de no máximo 50 linhas, e a requisição só sai 300 ms depois da última tecla. Isolar esse estado num componente próprio, como foi feito com o ponto ativo do gráfico, só se justifica com um profiler apontando o custo — sem navegador, não se mede, e não se refatora no escuro.
+Typing in the positions search re-renders the table, because the typed text and
+the listing live in the same component. With the formatters cached, what remains
+per keystroke is the reconciliation of at most 50 rows, and the request only
+goes out 300 ms after the last keystroke. Isolating that state in a component of
+its own, as was done with the chart's active point, is only justified with a
+profiler pointing at the cost — with no browser, it is not measured, and one
+does not refactor in the dark.
 
 ## Bundle — TASK 16.5
 
-Medida usada em todo este trecho: soma dos bytes de `build/static/chunks`, o JavaScript que o navegador baixa. O Next 16 não imprime mais o tamanho por rota no `build`, e o `--webpack` então em uso não gerava `app-build-manifest.json`, então a comparação é do total antes e depois de cada mudança.
+The measure used throughout this section: the sum of the bytes of
+`build/static/chunks`, the JavaScript the browser downloads. Next 16 no longer
+prints the per-route size in `build`, and the `--webpack` in use at the time did
+not generate `app-build-manifest.json`, so the comparison is of the total before
+and after each change.
 
-| Momento | Bytes |
+| Moment | Bytes |
 | --- | --- |
-| Antes da auditoria (`f61b61f`) | 1.574.940 |
-| Depois | 1.558.141 |
+| Before the audit (`f61b61f`) | 1,574,940 |
+| After | 1,558,141 |
 
-### Três bibliotecas de ícones
+### Three icon libraries
 
-O projeto importava ícones de `react-icons` (cinco conjuntos: `io5`, `md`, `lu`, `pi`, `rx`), de `@radix-ui/react-icons` e de `lucide-react` — 11, 9 e 13 ícones. `react-icons/lu` é o próprio Lucide reempacotado, e os outros dois conjuntos entregavam o mesmo desenho com outro traço, o que tornava o mesmo conceito visualmente diferente conforme a tela.
+The project imported icons from `react-icons` (five sets: `io5`, `md`, `lu`,
+`pi`, `rx`), from `@radix-ui/react-icons` and from `lucide-react` — 11, 9 and 13
+icons. `react-icons/lu` is Lucide itself repackaged, and the other two sets
+delivered the same drawing with a different stroke, which made the same concept
+look different depending on the screen.
 
-Tudo passou para `lucide-react`, a mais usada das três. Equivalências que não são renomeações diretas:
+Everything moved to `lucide-react`, the most used of the three. Equivalences
+that are not direct renamings:
 
-| Saiu | Entrou | Nota |
+| Out | In | Note |
 | --- | --- | --- |
-| `CaretSortIcon` | `ChevronsUpDown` | mesmo par de setas do gatilho do select |
-| `DotFilledIcon` | `Circle` em `h-2 w-2 fill-current` | o Lucide não tem ponto cheio; o círculo reduzido é o que o shadcn usa |
-| `RxDashboard` | `LayoutGrid` | mesma grade de quatro células |
-| `PiEyeClosed` | `EyeClosed` | olho fechado, não o `EyeOff` cortado |
+| `CaretSortIcon` | `ChevronsUpDown` | the same arrow pair as the select's trigger |
+| `DotFilledIcon` | `Circle` in `h-2 w-2 fill-current` | Lucide has no filled dot; the reduced circle is what shadcn uses |
+| `RxDashboard` | `LayoutGrid` | the same four-cell grid |
+| `PiEyeClosed` | `EyeClosed` | a closed eye, not the struck-through `EyeOff` |
 
-Os ícones do Radix desenham numa caixa de 15 px e os do Lucide, de 24. Todos os usos já fixavam `h-4 w-4` ou `size={n}`; as duas exceções eram os botões de rolagem do select, que ganharam `h-4 w-4` para não crescerem.
+Radix's icons draw in a 15 px box and Lucide's in a 24 px one. Every use already
+fixed `h-4 w-4` or `size={n}`; the two exceptions were the select's scroll
+buttons, which gained `h-4 w-4` so as not to grow.
 
-### Dependências removidas
+### Removed dependencies
 
-| Pacote | Importadores | Instalado |
+| Package | Importers | Installed |
 | --- | --- | --- |
-| `react-icons` | consolidado em `lucide-react` | 85 MB |
-| `@radix-ui/react-icons` | consolidado em `lucide-react` | 4,6 MB |
-| `next-themes` | nenhum (TD-046) | 48 KB |
-| `lodash.isequal` + `@types/lodash.isequal` | nenhum | 68 KB |
+| `react-icons` | consolidated into `lucide-react` | 85 MB |
+| `@radix-ui/react-icons` | consolidated into `lucide-react` | 4.6 MB |
+| `next-themes` | none (TD-046) | 48 KB |
+| `lodash.isequal` + `@types/lodash.isequal` | none | 68 KB |
 
-São cerca de 90 MB a menos por install — o que mais pesa é o tempo de instalação e a imagem de build, não o bundle: os dois conjuntos de ícones já entravam no cliente apenas nos ícones usados, e por isso o total dos chunks cai só 16.799 bytes.
+That is about 90 MB less per install — what weighs most is the installation time
+and the build image, not the bundle: both icon sets already entered the client
+with the used icons only, which is why the chunk total drops by just 16,799
+bytes.
 
 ### Service worker
 
-`next-pwa` vinha com o `runtimeCaching` padrão, que registrava 15 rotas no worker — entre elas uma `NetworkFirst` para `/api/`, guardando até 16 respostas por 24 horas, e uma `NetworkFirst` genérica para toda navegação. As respostas de `/api/v1/*` carregam as posições e o patrimônio do usuário autenticado: ficavam no Cache Storage do dispositivo, sobreviviam ao sign-out, que só apaga o cookie, e podiam ser servidas como números atuais quando a rede demorasse mais de 10 s.
+`next-pwa` came with the default `runtimeCaching`, which registered 15 routes in
+the worker — among them a `NetworkFirst` for `/api/`, keeping up to 16 responses
+for 24 hours, and a generic `NetworkFirst` for every navigation. The
+`/v1/*` API responses carry the authenticated user's positions and net worth:
+they sat in the device's Cache Storage, survived sign-out, which only clears the
+cookie, and could be served as current numbers when the network took more than
+10 s.
 
-O worker passou a precachear a saída do build e nada mais: `runtimeCaching: []`, `cacheStartUrl: false` e `dynamicStartUrl: false`. Nenhuma resposta dinâmica é gravada, e a instalação continua válida porque o precache já instala um handler de `fetch`.
+The worker moved to precaching the build's output and nothing else:
+`runtimeCaching: []`, `cacheStartUrl: false` and `dynamicStartUrl: false`. No
+dynamic response is stored, and the installation stays valid because the
+precache already installs a `fetch` handler.
 
-| Item | Antes | Depois |
+| Item | Before | After |
 | --- | --- | --- |
-| `registerRoute` no `sw.js` | 15 | 0 |
-| Entradas no precache | 73 | 66 |
-| `login-hero.jpeg` (1,93 MB) no precache | sim | não |
+| `registerRoute` in `sw.js` | 15 | 0 |
+| Precache entries | 73 | 66 |
+| `login-hero.jpeg` (1.93 MB) in the precache | yes | no |
 
-Na TASK 20.3 o PWA saiu inteiro: sem `next-pwa` não há worker nem precache, e a superfície descrita acima deixa de existir. O que este trecho registra é por que ela nunca deveria ter existido com o padrão do plugin.
+In TASK 20.3 the PWA went out entirely: with no `next-pwa` there is no worker
+and no precache, and the surface described above ceases to exist. What this
+section records is why it should never have existed with the plugin's default.
 
-### O que foi avaliado e mantido
+### What was evaluated and kept
 
-| Item | Razão |
+| Item | Reason |
 | --- | --- |
-| `@tanstack/react-query-devtools` | Importado sem condição em `providers/app-provider.tsx`, mas o pacote exporta um componente que devolve `null` fora de `development`, e o painel é eliminado na build: nenhuma referência sobrou em `build/static/chunks` nem em `build/server`. O `Dockerfile` instala tudo no estágio de build e só o runtime roda com `--prod`, então a dependência de desenvolvimento não falta em lugar nenhum |
-| `next-pwa` | Mantido aqui porque instalabilidade é decisão de produto, não de auditoria; o risco de ser um plugin parado em 2022 ficou em TD-057, e a decisão veio na TASK 20.3 — o PWA foi removido |
-| `axios` | Usado nos route handlers e nos hooks, com interceptadores que centralizam sessão expirada e erro de API; trocar por `fetch` reescreveria essa camada sem ganho medido |
-| `class-variance-authority`, `clsx`, `tailwind-merge` | Base do `cn` e das variantes do `Button`; somados não chegam a 10 KB |
+| `@tanstack/react-query-devtools` | Imported unconditionally in `providers/app-provider.tsx`, but the package exports a component that returns `null` outside `development`, and the panel is eliminated in the build: no reference remained in `build/static/chunks` or in `build/server`. The `Dockerfile` installs everything in the build stage and only the runtime runs with `--prod`, so the development dependency is missing nowhere |
+| `next-pwa` | Kept here because installability is a product decision, not an audit one; the risk of being a plugin stalled in 2022 stayed in TD-057, and the decision came in TASK 20.3 — the PWA was removed |
+| `axios` | Used in the route handlers and in the hooks, with interceptors that centralize an expired session and an API error; swapping it for `fetch` would rewrite that layer with no measured gain |
+| `class-variance-authority`, `clsx`, `tailwind-merge` | The base of `cn` and of the `Button`'s variants; together they do not reach 10 KB |
 
-A arte do sign-in é hoje o maior arquivo servido — 1,93 MB contra 1,49 MB de todo o JavaScript do cliente — e continua sendo baixada em telefones, onde a coluna que a exibe é `hidden`. A correção mexe no `next/image` e no arquivo binário, fora do escopo desta task: está em TD-056, encaminhada para a TASK 20.5.
+The sign-in artwork is today the largest file served — 1.93 MB against 1.49 MB
+for all the client JavaScript — and it is still downloaded on phones, where the
+column that displays it is `hidden`. The fix touches `next/image` and the binary
+file, outside this task's scope: it is in TD-056, forwarded to TASK 20.5.
 
-## Auditoria final — TASK 20.5
+## Final audit — TASK 20.5
 
-| Item | Valor |
+| Item | Value |
 | --- | --- |
-| Commit de captura | `c426c5c` |
-| Data | 2026-09-20 |
-| Método | `build` e `next start` de produção locais, backend em `:8080`, conta recém-criada e carteira vazia; mediana de 8 amostras por rota. Sem navegador, pelo motivo em `accessibility.md`, §Auditoria automatizada |
+| Capture commit | `c426c5c` |
+| Date | 2026-09-20 |
+| Method | local production `build` and `next start`, backend on `:8080`, a freshly created account and an empty portfolio; the median of 8 samples per route. No browser, for the reason in `accessibility.md`, §Automated audit |
 
-| Métrica | Baseline | Atual | Gap |
+| Metric | Baseline | Current | Gap |
 | --- | --- | --- | --- |
-| Bundle do cliente | 1.558.141 B (TASK 16.5, webpack) | 1.580.679 B (Turbopack) | nenhum: bundlers diferentes, comparação abaixo |
-| Requests por página | inventário da TASK 16.1 | inalterado: 7 na Overview, 3 em `/assets`, 4 no detalhe, 1 em `/account` | duas ondas, pelo `portfolios` que abre as demais |
-| TTFB | não medido antes | 7–8 ms nas páginas, 6–8 ms nas rotas de dados | nenhum |
-| Maior arquivo servido | 2.020.657 B, baixado em todo viewport | 2.020.657 B, baixado só em `≥ lg` | o arquivo segue sem reencodificar (TD-056) |
-| LCP, CLS e INP | nunca medidos | nunca medidos | sem navegador no ambiente (TD-054, TD-058) |
+| Client bundle | 1,558,141 B (TASK 16.5, webpack) | 1,580,679 B (Turbopack) | none: different bundlers, comparison below |
+| Requests per page | the TASK 16.1 inventory | unchanged: 7 on the Overview, 3 on `/assets`, 4 on the detail, 1 on `/account` | two waves, because of the `portfolios` that opens the rest |
+| TTFB | not measured before | 7–8 ms on the pages, 6–8 ms on the data routes | none |
+| Largest file served | 2,020,657 B, downloaded on every viewport | 2,020,657 B, downloaded only at `≥ lg` | the file is still not re-encoded (TD-056) |
+| LCP, CLS and INP | never measured | never measured | no browser in the environment (TD-054, TD-058) |
 
 ### Bundle
 
-Mesma medida da TASK 16.5: soma dos bytes de `build/static/chunks`.
+The same measure as TASK 16.5: the sum of the bytes of `build/static/chunks`.
 
-| Momento | Bundler | Bytes |
+| Moment | Bundler | Bytes |
 | --- | --- | --- |
-| Baseline da TASK 16.5 (`d359afd`) | webpack | 1.558.141 |
-| Entrada desta task | Turbopack | 1.594.975 |
-| Entrada desta task, mesmo código sob `--webpack` | webpack | 1.538.621 |
-| Saída desta task | Turbopack | 1.580.679 |
+| TASK 16.5 baseline (`d359afd`) | webpack | 1,558,141 |
+| This task's entry | Turbopack | 1,594,975 |
+| This task's entry, same code under `--webpack` | webpack | 1,538,621 |
+| This task's exit | Turbopack | 1,580,679 |
 
-Contra o baseline direto, o número acusaria 36.834 bytes de regressão que não existem: a TASK 20.3 devolveu o `build` ao Turbopack ao remover o PWA, e o baseline é uma build webpack. Comparando bundler com bundler, o código escrito desde a FASE 16 tirou 19.520 bytes do cliente; o Turbopack, sobre esse mesmo código, emite 56.354 bytes a mais (+3,7 %) — preço de um `Compiled successfully` em 241 ms contra 3,8 s. O maior chunk isolado tem 427.816 bytes.
+Against the direct baseline, the number would report 36,834 bytes of regression
+that do not exist: TASK 20.3 returned the `build` to Turbopack when it removed
+the PWA, and the baseline is a webpack build. Comparing bundler with bundler,
+the code written since PHASE 16 took 19,520 bytes out of the client; Turbopack,
+over that same code, emits 56,354 bytes more (+3.7%) — the price of a
+`Compiled successfully` in 241 ms against 3.8 s. The largest single chunk is
+427,816 bytes.
 
-### A arte do sign-in — TD-056
+### The sign-in artwork — TD-056
 
-`priority` está **deprecado no Next 16**, substituído por `preload`, e não emite mais o `<link rel="preload">` que o nome sugere: o HTML servido não tinha preload algum. O que o prop fazia era manter a busca ansiosa de um `<img>` que o browser baixa mesmo sob `display:none` — e a coluna é `max-lg:hidden`. Todo telefone baixava 1,93 MB de decoração que nunca aparece.
+`priority` is **deprecated in Next 16**, replaced by `preload`, and no longer
+emits the `<link rel="preload">` the name suggests: the served HTML had no
+preload at all. What the prop did was keep the eager fetch of an `<img>` the
+browser downloads even under `display:none` — and the column is
+`max-lg:hidden`. Every phone downloaded 1.93 MB of decoration that never
+appears.
 
-A arte passou a ser `background-image` da própria coluna. O fundo de um elemento que não gera caixa não é buscado, então abaixo de `lg` a requisição deixa de existir; em `≥ lg` os bytes são os mesmos, buscados depois do CSS em vez de durante o parse do HTML. Como era o único uso de `next/image` no projeto, o runtime do componente também saiu do cliente.
+The artwork became the column's own `background-image`. The background of an
+element that generates no box is not fetched, so below `lg` the request ceases
+to exist; at `≥ lg` the bytes are the same, fetched after the CSS instead of
+during the HTML parse. As it was the project's only use of `next/image`, the
+component's runtime also left the client.
 
-| Item | Antes | Depois |
+| Item | Before | After |
 | --- | --- | --- |
-| Requisição em viewport `< lg` | 2.020.657 B | nenhuma |
-| Requisição em viewport `≥ lg` | 2.020.657 B | 2.020.657 B |
-| Runtime do `next/image` no bundle | 14.296 B | 0 |
-| HTML de `/sign-in` | 19.928 B | 19.392 B |
+| Request in a `< lg` viewport | 2,020,657 B | none |
+| Request in a `≥ lg` viewport | 2,020,657 B | 2,020,657 B |
+| `next/image` runtime in the bundle | 14,296 B | 0 |
+| `/sign-in` HTML | 19,928 B | 19,392 B |
 
-Resta o arquivo: 1,93 MB de JPEG onde um WebP na largura que a coluna usa resolveria em torno de um décimo. Não há codificador neste ambiente — `sharp`, `cwebp`, `magick` e PIL ausentes —, e a reencodificação segue aberta em TD-056, agora como item único.
+The file remains: 1.93 MB of JPEG where a WebP at the width the column uses
+would settle at around a tenth of that. There is no encoder in this environment
+— `sharp`, `cwebp`, `magick` and PIL absent — and the re-encoding stays open in
+TD-056, now as a single item.
 
 ### Requests
 
-O inventário da TASK 16.1 ([`data-fetching.md`](data-fetching.md)) continua valendo: nenhuma query nova entrou nas fases 17 a 20, e a TASK 20.2 passou todas as de carteira por `usePortfolioScopedQuery`, que as suspende até o id existir.
+The TASK 16.1 inventory ([`data-fetching.md`](data-fetching.md)) still holds: no
+new query entered in phases 17 to 20, and TASK 20.2 passed every portfolio query
+through `usePortfolioScopedQuery`, which suspends them until the id exists.
 
-| Página | Primeira onda | Segunda onda | Total |
+| Page | First wave | Second wave | Total |
 | --- | --- | --- | --- |
 | `/` | `currentUser`, `portfolios` | `overview`, `performance`, `allocation`, `positions`, `transactions` | 7 |
 | `/assets` | `currentUser`, `portfolios` | `positions` | 3 |
 | `/assets/[symbol]` | `currentUser`, `portfolios` | `position`, `transactions` | 4 |
 | `/account` | `currentUser` | — | 1 |
 
-A segunda onda é paralela; o que a atrasa é a dependência do id da carteira, o limite já registrado em `data-fetching.md`, §Waterfall.
+The second wave is parallel; what delays it is the dependency on the portfolio's
+id, the limit already recorded in `data-fetching.md`, §Waterfall.
 
 ### TTFB
 
-| Página | TTFB |
+| Page | TTFB |
 | --- | --- |
 | `/sign-in` | 8 ms |
 | `/` | 8 ms |
 | `/assets` | 7 ms |
 | `/account` | 8 ms |
 
-| Rota de dados | Pelo proxy do web | Direto na API | Custo do proxy |
+| Data route | Through the web's proxy | Direct to the API | Cost of the proxy |
 | --- | --- | --- | --- |
 | `/v1/user` | 6 ms | 3 ms | 3 ms |
 | `/v1/portfolios` | 7 ms | 3 ms | 4 ms |
 | `/v1/portfolio/overview` | 8 ms | 4 ms | 4 ms |
 | `/v1/portfolio/positions` | 8 ms | 4 ms | 4 ms |
 
-O salto pelo proxy custa de 3 a 4 ms: uma requisição HTTP a mais no mesmo host, mais a leitura do cookie e a montagem do `Authorization`. É o preço do token fora do navegador, descrito em `security.md`, §Cookie de sessão.
+The hop through the proxy costs 3 to 4 ms: one more HTTP request on the same
+host, plus reading the cookie and assembling the `Authorization`. It is the
+price of keeping the token out of the browser, described in `security.md`,
+§Session cookie.
 
-Os números são de `localhost`, processo quente e carteira vazia: medem o caminho, não o banco. O custo de consulta cresce com o livro, e é o backend que o paga — a FASE 15 instrumentou essas rotas. Como a FASE 16 não mediu TTFB, o que está aqui é o próprio baseline.
+The numbers are from `localhost`, a warm process and an empty portfolio: they
+measure the path, not the database. The query cost grows with the ledger, and it
+is the backend that pays it — PHASE 15 instrumented those routes. Since PHASE 16
+did not measure TTFB, what is here is the baseline itself.
 
-### LCP, CLS e INP
+### LCP, CLS and INP
 
-Não medidos nesta captura. O LCP foi medido depois, na TASK 20.7, na última seção deste documento; CLS e INP continuam sem número. O que a leitura do código sustenta:
+Not measured in this capture. LCP was measured later, in TASK 20.7, in the last
+section of this document; CLS and INP still have no number. What reading the
+code supports:
 
-| Métrica | O que se sabe |
+| Metric | What is known |
 | --- | --- |
-| LCP | Em `≥ lg` o candidato no sign-in é a arte, e a mudança acima troca o momento da busca sem mudar os bytes; abaixo de `lg` o maior elemento passa a ser o cartão de sign-in, que é texto e campo. No dashboard não há imagem alguma: o maior elemento é o cartão de patrimônio |
-| CLS | Todo estado de carregamento reserva altura explícita — `LoadingState` com `h-40` por padrão, `h-96` na listagem de posições, e esqueletos com a forma do conteúdo nos cartões e nos gráficos. Nenhuma imagem entra no fluxo. O que nenhuma leitura decide é se a altura reservada é a do conteúdo que chega, e é exatamente essa diferença que o CLS mede |
-| INP | O trabalho por interação foi o alvo das TASKs 16.3 e 16.4: projeção do gráfico memoizada, formatadores em cache, busca com 300 ms de debounce. Sem medição, segue sendo argumento, não número |
+| LCP | At `≥ lg` the candidate on sign-in is the artwork, and the change above moves the moment of the fetch without changing the bytes; below `lg` the largest element becomes the sign-in card, which is text and fields. On the dashboard there is no image at all: the largest element is the net-worth card |
+| CLS | Every loading state reserves an explicit height — `LoadingState` with `h-40` by default, `h-96` in the positions listing, and skeletons shaped like the content in the cards and in the charts. No image enters the flow. What no reading decides is whether the reserved height is that of the content that arrives, and it is exactly that difference that CLS measures |
+| INP | The work per interaction was the target of TASKS 16.3 and 16.4: memoized chart projection, cached formatters, search with a 300 ms debounce. Without measurement, it remains an argument, not a number |
 
-### Gráficos e tabelas — TASK 20.5
+### Charts and tables — TASK 20.5
 
-Reverificados depois das refatorações das fases 17 a 20, sem regressão: `MAX_PLOTTED_POINTS` continua igual a `CHART_WIDTH`, com a amostragem por passo que preserva o último ponto; os quatro `useMemo` de `performance-chart.tsx` seguem na série plotada, nos pontos e nos dois `path`; o `Map` de `Intl.NumberFormat` segue em `common/utils.ts`; e a paginação continua server-side em 10, 25 ou 50 posições, 10 transações no detalhe do ativo, 10 no resumo de posições e 5 na Overview.
+Re-verified after the refactorings of phases 17 to 20, with no regression:
+`MAX_PLOTTED_POINTS` is still equal to `CHART_WIDTH`, with the step sampling that
+keeps the last point; the four `useMemo`s of `performance-chart.tsx` are still
+on the plotted series, on the points and on the two `path`s; the
+`Intl.NumberFormat` `Map` is still in `common/utils.ts`; and the pagination is
+still server-side at 10, 25 or 50 positions, 10 transactions on the asset
+detail, 10 in the positions summary and 5 on the Overview.
 
-## Medição em navegador — TASK 20.7
+## Browser measurement — TASK 20.7
 
-A TASK 20.5 deixou LCP, CLS e INP como lacuna por falta de navegador. Um Firefox 155 headless, dirigido por WebDriver BiDi, fechou metade dela em 2026-09-20, contra o build de produção servido por `next start` em `localhost:3010`, com uma conta semeada com uma posição e duas compras.
+TASK 20.5 left LCP, CLS and INP as a gap for lack of a browser. A headless
+Firefox 155, driven by WebDriver BiDi, closed half of it on 2026-09-20, against
+the production build served by `next start` on `localhost:3010`, with an account
+seeded with one position and two purchases.
 
-| Item | Valor |
+| Item | Value |
 | --- | --- |
-| Commit de captura | `69ca10c` |
-| Método | `PerformanceObserver` com `buffered: true` para o LCP, `first-contentful-paint` da Paint Timing e `responseStart - requestStart` da Navigation Timing |
-| Ressalva | Tudo em `localhost`, sem latência de rede e sem throttling: os tempos são o piso do que o código consegue, não a experiência de campo |
+| Capture commit | `69ca10c` |
+| Method | `PerformanceObserver` with `buffered: true` for LCP, `first-contentful-paint` from Paint Timing and `responseStart - requestStart` from Navigation Timing |
+| Caveat | Everything on `localhost`, with no network latency and no throttling: the times are the floor of what the code can do, not the field experience |
 
-| Rota | LCP 1280×800 | LCP 390×844 | FCP | TTFB |
+| Route | LCP 1280×800 | LCP 390×844 | FCP | TTFB |
 | --- | --- | --- | --- | --- |
-| `/sign-in` sem sessão | 47 ms | 65 ms | 47–65 ms | 7 ms |
-| `/sign-up` sem sessão | 50 ms | 51 ms | 50–51 ms | 9–14 ms |
+| `/sign-in` with no session | 47 ms | 65 ms | 47–65 ms | 7 ms |
+| `/sign-up` with no session | 50 ms | 51 ms | 50–51 ms | 9–14 ms |
 | `/` | 255 ms | 225 ms | 51 ms | 9–12 ms |
 | `/assets` | 216 ms | 194 ms | 51–52 ms | 9–14 ms |
 | `/assets/PETR4` | 220 ms | 188 ms | 51–52 ms | 9–13 ms |
 | `/account` | 39 ms | 86 ms | 39–86 ms | 9 ms |
 
-O orçamento do LCP é 2,5 s; a pior rota fica em um décimo disso. A distância entre FCP e LCP nas rotas protegidas — cerca de 170 ms — é o intervalo entre o esqueleto e o dado da API, exatamente o waterfall de TD-055. O elemento de LCP é a lista de métricas do cartão de patrimônio nas telas com dado e o parágrafo do formulário nas demais; a arte do sign-in não é candidata em nenhuma largura desde a TASK 20.5.
+The LCP budget is 2.5 s; the worst route sits at a tenth of that. The distance
+between FCP and LCP on the protected routes — about 170 ms — is the interval
+between the skeleton and the API's data, exactly the waterfall of TD-055. The
+LCP element is the net-worth card's metric list on the screens with data and the
+form's paragraph on the rest; the sign-in artwork is not a candidate at any
+width since TASK 20.5.
 
-O que continua sem número: o **CLS**, porque o Firefox não implementa o tipo de entrada `layout-shift` — só Chromium expõe —, e o **INP**, que exige interação real numa janela ativa, que o arnês headless nunca tem. Ambos seguem em TD-054, junto do Lighthouse.
+What still has no number: **CLS**, because Firefox does not implement the
+`layout-shift` entry type — only Chromium exposes it — and **INP**, which
+requires a real interaction in an active window, which the headless harness
+never has. Both remain in TD-054, alongside Lighthouse.
 
-## Código do app sem efeitos colaterais — 2026-09-24
+## App code with no side effects — 2026-09-24
 
-`web/package.json` declara `"sideEffects": ["*.css"]`. Sem a declaração, o bundler trata todo módulo do app como capaz de efeito ao ser importado e não pode descartar o que um barrel reexporta sem uso: `import { Button } from '@/components/ui'`, no provider do layout raiz, levava a todas as rotas o `Calendar` e, com ele, o `react-day-picker`, além dos componentes Radix que a rota não usa. O sign-in baixava o calendário sem ter data nenhuma.
+`web/package.json` declares `"sideEffects": ["*.css"]`. Without the declaration,
+the bundler treats every app module as capable of an effect when imported and
+cannot discard what a barrel re-exports without use:
+`import { Button } from '@/components/ui'`, in the root layout's provider,
+carried `Calendar` — and with it `react-day-picker` — to every route, along with
+the Radix components the route does not use. Sign-in downloaded the calendar
+without having any date at all.
 
-A declaração vale porque o único import feito só pelo efeito é o `globals.css`, que o padrão cobre. Os módulos com efeito no topo, `lib/axios/axios.ts` (interceptadores) e `lib/dates.ts` (`dayjs.extend`), só são alcançados pelos próprios exports: nenhum arquivo importa `dayjs` ou `axios` diretamente para usar o que eles configuram.
+The declaration holds because the only import made for its effect alone is
+`globals.css`, which the default covers. The modules with a top-level effect,
+`lib/axios/axios.ts` (interceptors) and `lib/dates.ts` (`dayjs.extend`), are
+reached only through their own exports: no file imports `dayjs` or `axios`
+directly to use what they configure.
 
-Medida: soma dos bytes dos chunks que a rota carrega de saída — os `rootMainFiles` de `build/build-manifest.json` mais os `entryJSFiles` do `page_client-reference-manifest.js` da rota —, na build de produção (Turbopack). É mais fina que a soma de `build/static/chunks` das tasks anteriores, que não muda quando código só troca de chunk.
+The measure: the sum of the bytes of the chunks the route loads at the outset —
+the `rootMainFiles` of `build/build-manifest.json` plus the `entryJSFiles` of
+the route's `page_client-reference-manifest.js` — in the production build
+(Turbopack). It is finer than the sum of `build/static/chunks` of the previous
+tasks, which does not change when code merely moves between chunks.
 
-| Rota | Antes | Depois | Diferença |
+| Route | Before | After | Difference |
 | --- | --- | --- | --- |
-| `/sign-in` | 1.368.590 | 1.164.783 | −203.807 (−14,9 %) |
-| `/sign-up` | 1.373.727 | 1.170.942 | −202.785 |
-| `/account` | 1.382.891 | 1.180.051 | −202.840 |
-| `/portfolios` | 1.388.436 | 1.227.937 | −160.499 |
-| `/` | 1.429.595 | 1.418.351 | −11.244 |
-| `/assets/[symbol]` | 1.424.343 | 1.413.114 | −11.229 |
-| `/assets` | 1.422.138 | 1.429.069 | +6.931 |
-| Soma de `build/static/chunks` | 1.739.931 | 1.706.746 | −33.185 |
+| `/sign-in` | 1,368,590 | 1,164,783 | −203,807 (−14.9%) |
+| `/sign-up` | 1,373,727 | 1,170,942 | −202,785 |
+| `/account` | 1,382,891 | 1,180,051 | −202,840 |
+| `/portfolios` | 1,388,436 | 1,227,937 | −160,499 |
+| `/` | 1,429,595 | 1,418,351 | −11,244 |
+| `/assets/[symbol]` | 1,424,343 | 1,413,114 | −11,229 |
+| `/assets` | 1,422,138 | 1,429,069 | +6,931 |
+| Sum of `build/static/chunks` | 1,739,931 | 1,706,746 | −33,185 |
 
-As rotas com o formulário de transação mantêm o calendário, que usam. Os 6.931 bytes a mais em `/assets` são reagrupamento de chunks pelo Turbopack, não código novo.
+The routes with the transaction form keep the calendar, which they use. The
+6,931 extra bytes on `/assets` are chunk regrouping by Turbopack, not new code.
 
-**Avaliado e não feito: carregar os diálogos sob demanda (`next/dynamic`).** Nas rotas que abrem o formulário de transação, o calendário e o formulário somam cerca de 100 KB. Adiar esse código tira bytes do carregamento e os põe no primeiro clique em "New transaction" ou "Edit", a interação principal dessas telas, e o diálogo abriria vazio até o chunk chegar. Sem medição de INP em navegador (TD-054), a troca não se justifica.
+**Evaluated and not done: loading the dialogs on demand (`next/dynamic`).** On
+the routes that open the transaction form, the calendar and the form add up to
+about 100 KB. Deferring that code takes bytes out of the load and puts them into
+the first click on "New transaction" or "Edit", the main interaction of those
+screens, and the dialog would open empty until the chunk arrived. With no INP
+measurement in a browser (TD-054), the trade is not justified.
 
-## Abas animadas — 2026-09-24
+## Animated tabs — 2026-09-24
 
-O `framer-motion` entrou para o deslize do `SegmentedControl` e dos painéis de `SlideTransition` (`docs/toolchain.md`). Três escolhas mantêm o custo nas rotas que animam:
+`framer-motion` came in for the slide of `SegmentedControl` and of the
+`SlideTransition` panels ([`toolchain.md`](toolchain.md)). Three choices keep
+the cost in the routes that animate:
 
-* **`framer-motion`, não `motion/react`.** O segundo reexporta o primeiro por `import * as fm`, que o Turbopack não poda: com ele, o sign-up subia de 1.171.069 para 1.324.882 bytes (+153.813).
-* **`MotionScope` em cada primitiva, não no provider raiz.** Com `LazyMotion` e `MotionConfig` no provider do layout, sign-in e account, que não animam nada, levavam 37 KB a mais (sign-in em 1.201.977). Dentro das primitivas, sobem 344 bytes, o `import()` do pacote de recursos.
-* **Recursos por `import()`.** `domMax`, 88.176 bytes crus e 28.437 com gzip, chega num chunk separado quando a primeira primitiva monta, não no carregamento da rota. O conteúdo da primeira renderização não depende dele: painel e indicador renderizam com `initial={false}` e o CSS preenche o item marcado até o rádio ser lido.
+* **`framer-motion`, not `motion/react`.** The latter re-exports the former
+  through `import * as fm`, which Turbopack does not prune: with it, sign-up
+  went from 1,171,069 to 1,324,882 bytes (+153,813).
+* **`MotionScope` in each primitive, not in the root provider.** With
+  `LazyMotion` and `MotionConfig` in the layout's provider, sign-in and account,
+  which animate nothing, carried 37 KB more (sign-in at 1,201,977). Inside the
+  primitives, they grow by 344 bytes, the feature bundle's `import()`.
+* **Features through `import()`.** `domMax`, 88,176 raw bytes and 28,437 with
+  gzip, arrives in a separate chunk when the first primitive mounts, not on the
+  route's load. The first render's content does not depend on it: panel and
+  indicator render with `initial={false}` and the CSS fills in the marked item
+  until the radio is read.
 
-Mesma medida da seção anterior, na build de produção:
+The same measure as the previous section, in the production build:
 
-| Rota | Antes | Depois | Diferença |
+| Route | Before | After | Difference |
 | --- | --- | --- | --- |
-| `/sign-in` | 1.164.910 | 1.165.254 | +344 |
-| `/sign-up` | 1.171.069 | 1.229.960 | +58.891 |
-| `/account` | 1.180.178 | 1.180.522 | +344 |
-| `/portfolios` | 1.229.036 | 1.281.696 | +52.660 |
-| `/` | 1.419.295 | 1.478.387 | +59.092 |
-| `/assets` | 1.430.013 | 1.482.673 | +52.660 |
-| `/assets/[symbol]` | 1.414.058 | 1.466.718 | +52.660 |
+| `/sign-in` | 1,164,910 | 1,165,254 | +344 |
+| `/sign-up` | 1,171,069 | 1,229,960 | +58,891 |
+| `/account` | 1,180,178 | 1,180,522 | +344 |
+| `/portfolios` | 1,229,036 | 1,281,696 | +52,660 |
+| `/` | 1,419,295 | 1,478,387 | +59,092 |
+| `/assets` | 1,430,013 | 1,482,673 | +52,660 |
+| `/assets/[symbol]` | 1,414,058 | 1,466,718 | +52,660 |
 
-**Avaliado e não feito.** As outras microinterações já existem por CSS e não ganham nada ao trocar de biblioteca: diálogo e alerta entram e saem com fade e escala de 95%, popover, menu e lista do `Select` com fade e zoom, o botão encolhe ao toque, e `APPEAR_CLASS` dá o fade do que substitui um carregamento. O período do gráfico de desempenho só desliza o indicador: o painel não troca, os dados novos chegam depois, sobre o anterior esmaecido, e deslizá-lo mostraria o gráfico velho indo embora para o mesmo gráfico voltar. A altura do erro de campo animada foi descartada porque o erro aparece e some enquanto se digita, e o formulário tremeria a cada tecla. Os chips de janela do detalhe do ativo são cartões de métrica, não abas.
+**Evaluated and not done.** The other microinteractions already exist in CSS and
+gain nothing by changing library: a dialog and an alert enter and leave with a
+fade and a 95% scale, a popover, a menu and the `Select`'s list with a fade and
+a zoom, the button shrinks on touch, and `APPEAR_CLASS` gives the fade to what
+replaces a load. The performance chart's period only slides the indicator: the
+panel does not change, the new data arrives afterwards, over the dimmed previous
+one, and sliding it would show the old chart leaving for the same chart to come
+back. An animated height for a field's error was discarded because the error
+appears and disappears while typing, and the form would shake on every
+keystroke. The asset detail's window chips are metric cards, not tabs.
 
-Nada disso foi verificado em navegador nesta sessão.
-
+None of this was verified in a browser in that session.

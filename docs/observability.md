@@ -1,128 +1,131 @@
-# Observabilidade — FASE 18
+# Observability
 
-Como o backend reporta o que aconteceu em produção: o que é escrito, com que
-campos, e por que nada disso passa por `console`.
+How the backend reports what happened in production: what is written, with
+which fields, and why none of it goes through `console`.
 
-## Formato
+## Format
 
-Uma linha, um objeto JSON, sem quebra interna. `INFO` e `WARNING` vão para
-`stdout`; `ERROR` vai para `stderr`. É o formato que um coletor de logs ingere
-sem agente nenhum: `severity` e `timestamp` são lidos do próprio objeto, e o
-resto vira payload estruturado.
+One line, one JSON object, with no internal break. `INFO` and `WARNING` go to
+`stdout`; `ERROR` goes to `stderr`. It is the shape a log collector ingests with
+no agent at all: `severity` and `timestamp` are read from the object itself, and
+the rest becomes a structured payload.
 
 ```json
 {"timestamp":"2026-09-19T14:32:07.123Z","severity":"INFO","event":"http_request","requestId":"b7c1d2e3-f4a5-4b6c-8d9e-0f1a2b3c4d5e","method":"GET","route":"/v1/portfolio/positions","status":200,"durationMs":37,"userId":"0f2f5a3c-2c1c-4f2a-9a1a-7c6f5d4e3b2a"}
 ```
 
-| Campo | Origem |
+| Field | Source |
 | --- | --- |
-| `timestamp` | ISO 8601 em UTC, gravado no momento da escrita |
-| `severity` | `INFO`, `WARNING` ou `ERROR` |
-| `event` | discriminador tipado; é por ele que se agrupa uma consulta |
+| `timestamp` | ISO 8601 in UTC, taken at write time |
+| `severity` | `INFO`, `WARNING` or `ERROR` |
+| `event` | typed discriminator; it is what a query groups by |
 
-`JSON.stringify` escapa `\n`, `\r` e demais caracteres de controle, então
-nenhum dado vindo da requisição consegue forjar uma segunda linha de log.
-`formatLogEntry` é uma função pura e o destino é injetável (`LogSink`), o que
-deixa o conteúdo testável sem capturar `stdout`.
+`JSON.stringify` escapes `\n`, `\r` and the other control characters, so no
+data coming from the request can forge a second log line. `formatLogEntry` is a
+pure function and the destination is injectable (`LogSink`), which makes the
+content testable without capturing `stdout`.
 
-## Catálogo de eventos
+## Event catalog
 
-| `event` | Severidade | Campos próprios | Onde |
+| `event` | Severity | Own fields | Where |
 | --- | --- | --- | --- |
 | `server_started` | INFO | `port` | `Server.ts` |
 | `database_connected` | INFO | — | `PrismaClient.ts` |
-| `database_unreachable` | ERROR | `reason` | `Server.ts`, antes de `exit(1)` |
+| `database_unreachable` | ERROR | `reason` | `Server.ts`, before `exit(1)` |
 | `quote_provider_key_missing` | WARNING | — | `Server.ts` |
 | `quote_provider_unavailable` | WARNING | `reason`, `retryInMs` | `YahooFinanceProvider.ts` |
-| `quote_provider_request_failed` | WARNING | `reason` | `YahooFinanceProvider.ts`, na consulta de setor, que falha sem pausar as cotações |
-| `dependency_unavailable` | WARNING | `dependency`, `reason` | readiness, em `HealthControllerHandlers.ts` |
-| `http_request` | conforme o status; sonda atendida não gera linha | `requestId`, `method`, `route`, `status`, `durationMs`, `userId?`, `errorCode?` | `RequestLogMiddleware.ts` |
-| `request_failed` | ERROR | `requestId?`, `errorName`, `errorMessage`, `stack?` | `ErrorHandlerMiddleware.ts`, só para exceção fora de `ApplicationError`; um `503` antecipado, como provedor indisponível, já foi registrado pela dependência |
+| `quote_provider_request_failed` | WARNING | `reason` | `YahooFinanceProvider.ts`, on the sector lookup, which fails without pausing quotes |
+| `dependency_unavailable` | WARNING | `dependency`, `reason` | readiness, in `HealthControllerHandlers.ts` |
+| `http_request` | follows the status; a served probe produces no line | `requestId`, `method`, `route`, `status`, `durationMs`, `userId?`, `errorCode?` | `RequestLogMiddleware.ts` |
+| `request_failed` | ERROR | `requestId?`, `errorName`, `errorMessage`, `stack?` | `ErrorHandlerMiddleware.ts`, for an exception outside `ApplicationError` only; an early `503`, such as an unavailable provider, was already recorded by the dependency |
 
-`LogEvent` é uma união discriminada: uma linha nova é um membro novo do tipo,
-nunca uma mensagem livre. A severidade de `http_request` sai do status —
-`< 400` é `INFO`, `4xx` é `WARNING`, `5xx` é `ERROR`.
+`LogEvent` is a discriminated union: a new line is a new member of the type,
+never a free-form message. The severity of `http_request` comes from the status
+— `< 400` is `INFO`, `4xx` is `WARNING`, `5xx` is `ERROR`.
 
-## Os seis campos de uma requisição
+## The six fields of a request
 
-* **request id** — `x-request-id`. Um id que chega na requisição é reaproveitado
-  somente se estiver na forma que o próprio serviço gera (`[A-Za-z0-9-]{8,64}`);
-  caso contrário é substituído por um `randomUUID`. Sempre devolvido no header
-  de resposta, para o cliente correlacionar o que reportar.
-* **user id** — apenas o id de quem está autenticado. Nunca e-mail, nunca token,
-  nunca corpo da requisição: um log é lido por mais gente e vive mais tempo do
-  que a sessão.
-* **route** — o padrão registrado, não o caminho:
-  `/v1/portfolio/positions/:symbol` agrupa, `/v1/portfolio/positions/AAPL` não
-  agruparia. Requisição que não casou rota alguma é
-  registrada como `unmatched`.
-* **status** — o código com que a resposta foi finalizada.
-* **duration** — `performance.now()` na entrada e na finalização da resposta,
-  arredondado para milissegundos.
-* **error code** — o `code` do envelope de erro, gravado em `req.errorCode` pelo
-  error handler (e pelo 404) e lido depois pelo log da requisição.
+* **request id** — `x-request-id`. An id that arrives on the request is reused
+  only if it has the shape the service itself generates
+  (`[A-Za-z0-9-]{8,64}`); otherwise it is replaced by a `randomUUID`. Always
+  returned in the response header, so the client can correlate whatever it
+  reports.
+* **user id** — the id of whoever is authenticated, and nothing else. Never an
+  email, never a token, never the request body: a log is read by more people
+  and lives longer than the session.
+* **route** — the registered pattern, not the path:
+  `/v1/portfolio/positions/:symbol` groups, `/v1/portfolio/positions/AAPL`
+  would not. A request that matched no route is recorded as `unmatched`.
+* **status** — the code the response finished with.
+* **duration** — `performance.now()` on entry and on response finish, rounded
+  to milliseconds.
+* **error code** — the error envelope's `code`, written into `req.errorCode` by
+  the error handler (and by the 404) and read afterwards by the request log.
 
-O log é escrito no evento `finish` da resposta, isto é, depois do error
-boundary. É o que garante que `status` e `errorCode` descrevam o que o cliente
-de fato recebeu.
+The log is written on the response's `finish` event, that is, after the error
+boundary. That is what guarantees that `status` and `errorCode` describe what
+the client actually received.
 
-## Ordem dos middlewares
+## Middleware order
 
-`RequestLogMiddleware` é o primeiro registrado em `App.ts`, antes do `helmet`.
-Assim o id existe para qualquer requisição — inclusive as que morrem no CORS, no
-limite de payload ou no rate limit — e o listener de `finish` já está instalado
-quando qualquer camada responde.
+`RequestLogMiddleware` is the first one registered in `App.ts`, ahead of
+`helmet`. That way the id exists for any request — including the ones that die
+in CORS, in the payload limit or in the rate limiter — and the `finish`
+listener is already installed when any layer responds.
 
-## Limites conhecidos
+## Known limits
 
-* O rate limit responde sem passar pelo error boundary, então o `errorCode` da
-  linha é escrito pelo `handler` do próprio limitador: uma requisição barrada
-  sai com `status: 429` e `errorCode: INFRASTRUCTURE`. Ver `docs/errors.md`.
-* Sob `NODE_ENV=test` nada é escrito: a saída de uma suíte é do runner de teste,
-  e uma linha de servidor no meio dela não reporta nada. O que se verifica nos
-  testes é a entrada entregue ao `LogSink`, não o que foi para o descritor.
-* Não há tracing distribuído: o serviço é um processo só, e o `requestId` já
-  costura as linhas de uma mesma requisição. Métricas nomeadas ficam por conta
-  da plataforma de execução (latência, contagem, instâncias), sem
-  instrumentação própria.
+* The rate limiter answers without going through the error boundary, so the
+  line's `errorCode` is written by the limiter's own `handler`: a blocked
+  request goes out with `status: 429` and `errorCode: INFRASTRUCTURE`. See
+  [`errors.md`](errors.md).
+* Under `NODE_ENV=test` nothing is written: a suite's output belongs to the test
+  runner, and a server line in the middle of it reports nothing. What the tests
+  verify is the entry handed to `LogSink`, not what reached the descriptor.
+* There is no distributed tracing: the service is a single process, and
+  `requestId` already stitches the lines of one request together. Named metrics
+  are left to the runtime platform (latency, count, instances), with no
+  instrumentation of our own.
 
-## Health e readiness
+## Health and readiness
 
-Duas rotas sem autenticação, fora de `/v1`, respondem ao orquestrador:
+Two unauthenticated routes, outside `/v1`, answer the orchestrator:
 
-| Rota | Responde | Toca o banco | Significa |
+| Route | Answers | Touches the database | Means |
 | --- | --- | --- | --- |
-| `GET /health` | `200 {"status":"alive"}` | não | o processo está de pé e o event loop responde |
-| `GET /ready` | `200 {"status":"ready","database":"up"}` | uma query `SELECT 1` por chamada | a instância consegue servir uma requisição que lê |
+| `GET /health` | `200 {"status":"alive"}` | no | the process is up and the event loop responds |
+| `GET /ready` | `200 {"status":"ready","database":"up"}` | one `SELECT 1` per call | the instance can serve a request that reads |
 
-São coisas distintas de propósito. Liveness não consulta dependência alguma
-porque reiniciar o processo não conserta um banco fora do ar: quem lesse a
-indisponibilidade do banco como falha de liveness reiniciaria uma instância
-saudável. Readiness consulta a cada chamada — um flag em memória reportaria o
-estado que a última requisição por acaso observou.
+They are distinct on purpose. Liveness queries no dependency because restarting
+the process does not fix a database that is down: reading database
+unavailability as a liveness failure would restart a healthy instance.
+Readiness queries on every call — an in-memory flag would report the state the
+last request happened to observe.
 
-Quando o banco não responde, `/ready` sai com 503 e o envelope de erro
-`INFRASTRUCTURE` (`docs/errors.md`), sem dizer ao chamador o que falhou; o
-motivo vai só para o log, no evento `dependency_unavailable`. As duas rotas
-ficam atrás do rate limit da API, como qualquer outra: a sonda cabe folgada em
-`RateLimits.API`, e uma sonda que só falha porque o IP dela estourou o
-orçamento descreve uma instância que de fato não está servindo.
+When the database does not answer, `/ready` goes out with 503 and the
+`INFRASTRUCTURE` error envelope ([`errors.md`](errors.md)), without telling the
+caller what failed; the reason goes to the log only, in the
+`dependency_unavailable` event. Both routes sit behind the API's rate limit,
+like any other: a probe fits comfortably within `RateLimits.API`, and a probe
+that fails only because its IP blew the budget describes an instance that is in
+fact not serving.
 
-Uma sonda atendida (`/health` ou `/ready` com status `< 400`) não gera linha
-de `http_request`: o orquestrador repete a chamada a intervalo fixo, e cada
-linha dizia só que a instância seguia de pé, o que o próprio orquestrador já
-registra. A sonda que falha continua registrada, com a severidade do status
-(`/ready` fora do ar sai como `ERROR`, ao lado do `dependency_unavailable`). As
-rotas vêm de `ProbeRoutes`, em `Constants.ts`, a mesma constante que as monta.
+A served probe (`/health` or `/ready` with status `< 400`) produces no
+`http_request` line: the orchestrator repeats the call at a fixed interval, and
+each line said only that the instance was still up, which the orchestrator
+already records. A failing probe is still recorded, with the status's severity
+(`/ready` while down goes out as `ERROR`, beside `dependency_unavailable`). The
+routes come from `ProbeRoutes`, in `Constants.ts`, the same constant that
+mounts them.
 
-No `compose.yaml`, o `healthcheck` do serviço `backend` chama `/ready` a cada
-10s e o `web` espera por `service_healthy`. Em produção não há sonda: a
-configuração do serviço que executa as imagens — onde o startup probe apontaria
-para `/ready` e o liveness probe para `/health` — vive fora do repositório
-(TD-060).
+In `compose.yaml`, the `backend` service's `healthcheck` calls `/ready` every
+10s and `web` waits for `service_healthy`. In production there is no probe: the
+configuration of the service that runs the images — where the startup probe
+would point at `/ready` and the liveness probe at `/health` — lives outside the
+repository (TD-060).
 
-## Como evitar regressão
+## How regression is prevented
 
-`no-console` é `error` no ESLint do backend, com exceção apenas para
-`src/test/**`. Qualquer `console.log` de diagnóstico que escape para o código de
-produção quebra o lint antes de virar linha não estruturada em produção.
+`no-console` is `error` in the backend's ESLint config, with an exception for
+`src/test/**` only. Any diagnostic `console.log` that escapes into production
+code breaks the lint before it becomes an unstructured line in production.
