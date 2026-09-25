@@ -34,10 +34,10 @@ const app = express();
 app.disable('x-powered-by');
 
 /**
- * Cloud Run terminates TLS one hop in front of the app, so the client address
- * used for rate limiting comes from the first `X-Forwarded-For` entry. Outside
- * production nothing sits in front, and trusting the header would let a client
- * spoof its own identity.
+ * The runtime platform terminates TLS one hop in front of the app, so the
+ * client address used for rate limiting comes from the first `X-Forwarded-For`
+ * entry. Outside production nothing sits in front, and trusting the header
+ * would let a client spoof its own identity.
  */
 app.set('trust proxy', envs.isProduction ? 1 : false);
 

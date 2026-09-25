@@ -4,10 +4,11 @@ on:
   workflow_run:
     workflows: [CI]
     types: [completed]
+    branches: [master]
 
 # Cancelling `prisma migrate deploy` part-way leaves the database partly migrated.
 concurrency:
-  group: migrate
+  group: migrate-production
   cancel-in-progress: false
 
 permissions:
@@ -16,12 +17,15 @@ permissions:
 jobs:
   migrate:
     name: Prisma migrate deploy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
-    # CI also reports on `develop` and on pull requests.
+    # A pull request opened from a fork whose branch is also named `master`
+    # produces a CI run that passes the trigger's branch filter, so only a push
+    # to this repository may reach the production database.
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'master'
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     environment: production
     defaults:
       run:
@@ -33,19 +37,13 @@ jobs:
         # already be ahead of the commit whose CI passed.
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup backend
+        uses: ./.github/actions/setup-pnpm-package
         with:
-          node-version-file: .node-version
-          cache: pnpm
-          cache-dependency-path: backend/pnpm-lock.yaml
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          package: backend
+          install-args: --prod
 
       - name: Prisma migration
         run: pnpm exec prisma migrate deploy

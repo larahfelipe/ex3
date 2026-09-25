@@ -141,10 +141,9 @@ O runner é o `node:test`, sem framework adicional. Os testes unitários (`src/*
 | --- | --- |
 | Gates de cada push e PR para `master` e `develop` | `.github/workflows/ci.yaml` |
 | Migrations em produção | `.github/workflows/migrate.yaml`, em push para `master` |
-| Build e publicação das imagens | `cloudbuild.yaml` → `gcr.io/$PROJECT_ID/{backend,web}:$COMMIT_SHA` |
-| Runtime | Cloud Run, a partir do estágio `runner` de cada `Dockerfile` |
+| Imagem de produção | estágio `runner` de cada `Dockerfile` |
 
-`API_URL` do web entra por build-arg e fica fixada na imagem, não no ambiente do container. `API_PROXY_SECRET` faz o contrário: é variável de ambiente dos dois serviços no Cloud Run, de preferência vinda do Secret Manager, nunca build-arg, porque o web a lê em tempo de execução e numa imagem ela ficaria nas camadas. O backend não sobe em produção sem ela. O `cloudbuild.yaml` não tem passo de deploy: a configuração do serviço no Cloud Run — variáveis, probes `GET /ready` e `GET /health` — vive fora do repositório (TD-060).
+`API_URL` do web entra por build-arg e fica fixada na imagem, não no ambiente do container. `API_PROXY_SECRET` faz o contrário: é variável de ambiente dos dois serviços em produção, de preferência vinda de um gerenciador de segredos, nunca build-arg, porque o web a lê em tempo de execução e numa imagem ela ficaria nas camadas. O backend não sobe em produção sem ela. O repositório não constrói nem publica imagem: a construção, a publicação e a configuração do serviço que as executa — variáveis, probes `GET /ready` e `GET /health` — vivem fora dele (TD-060).
 
 ## Documentação
 

@@ -14,7 +14,7 @@ e senha está em [`authentication.md`](authentication.md); o envelope de erro, e
 | `x-request-id` | `PROPAGATED_REQUEST_ID` aceita 8–64 caracteres de `[A-Za-z0-9-]`; fora disso o id é gerado | id descartado em silêncio, sem erro | nenhuma: o valor só volta no cabeçalho e no log |
 | `Origin` | allowlist de `CORS_ALLOWED_ORIGINS`, obrigatória em produção | resposta sem `Access-Control-Allow-Origin` | nenhuma |
 | `x-client-address` e `x-api-proxy-secret` | `clientAddressOf` (`RateLimitMiddleware.ts`): o endereço vale só com o segredo de `API_PROXY_SECRET` e se for um IP | cabeçalho ignorado em silêncio; a requisição conta pelo endereço de quem conectou | só o web, que prova pelo segredo |
-| `X-Forwarded-For` no web | `clientAddressHeaders` (`web/src/lib/api-proxy.ts`) usa só a última entrada, a que o Cloud Run acrescenta | entradas anteriores ignoradas | nenhuma: o que o cliente envia fica antes da entrada da plataforma |
+| `X-Forwarded-For` no web | `clientAddressHeaders` (`web/src/lib/api-proxy.ts`) usa só a última entrada, a que a plataforma acrescenta | entradas anteriores ignoradas | nenhuma: o que o cliente envia fica antes da entrada da plataforma |
 | Corpo dos route handlers do web | `jsonPayload` (`web/src/lib/api-proxy.ts`) | `400 Bad Request` com envelope `{ message, _error }` | nenhuma |
 | Provedor de cotação (Yahoo Finance) | origem fixa e símbolo restrito a letras e dígitos, escapado na URL; resposta parseada por schema antes de virar preço ou atributo de instrumento, com nome e setor limitados em tamanho; do cliente, o registro só aceita símbolo, mercado e moeda | falha de infraestrutura; a posição é reportada pelo livro | resposta tratada como dado externo |
 
@@ -116,7 +116,7 @@ transação, e é o ponto de criação automatizada de contas.
 tráfego chega à API vindo do mesmo serviço: contado pelo socket, o endereço
 seria um balde único para o produto inteiro. As rotas sem sessão (sign-in e
 sign-up) recebem do web dois cabeçalhos: `x-client-address`, a última entrada do
-`X-Forwarded-For` — a que o Cloud Run acrescenta, o mesmo salto único que o
+`X-Forwarded-For` — a que a plataforma acrescenta, o mesmo salto único que o
 `trust proxy` da API conta —, e `x-api-proxy-secret`. A API só acredita no
 endereço quando o segredo confere com `API_PROXY_SECRET` e o valor é um IP; do
 contrário conta pelo endereço de quem conectou, que um cabeçalho não muda. Os

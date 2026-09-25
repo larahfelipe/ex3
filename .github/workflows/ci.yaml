@@ -12,7 +12,8 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # A run on `master` gates the production migration, so it is never cancelled.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 permissions:
   contents: read
@@ -20,17 +21,16 @@ permissions:
 jobs:
   backend:
     name: Backend
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
         working-directory: backend
-    # Credentials match backend/.env.test, which is the only connection string
-    # the test suite reads. Keeping them identical locally and here means no
-    # database configuration is duplicated in this workflow.
     services:
       postgres:
         image: postgres:17.6-alpine
+        # Credentials match backend/.env.test, which is the only connection
+        # string the test suite reads.
         env:
           POSTGRES_USER: ex3
           POSTGRES_PASSWORD: ex3
@@ -45,19 +45,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
         with:
-          node-version-file: .node-version
-          cache: pnpm
-          cache-dependency-path: backend/pnpm-lock.yaml
+          persist-credentials: false
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Setup backend
+        uses: ./.github/actions/setup-pnpm-package
+        with:
+          package: backend
 
       - name: Lint
         run: pnpm lint
@@ -84,7 +78,7 @@ jobs:
 
   web:
     name: Web
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -92,19 +86,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
         with:
-          node-version-file: .node-version
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
+          persist-credentials: false
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Setup web
+        uses: ./.github/actions/setup-pnpm-package
+        with:
+          package: web
 
       - name: Lint
         run: pnpm lint

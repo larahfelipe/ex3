@@ -80,7 +80,6 @@ Não existe script de testes em nenhum dos workspaces.
 │   └── src/{config,controllers,domain,errors,infra,interfaces,middleware,routes,services,types,validation}
 ├── web/                Next.js 14 App Router
 │   └── src/{app,common,components,hooks,lib,providers,types}
-├── cloudbuild.yaml
 └── docs/               (criado por esta task)
 ```
 
