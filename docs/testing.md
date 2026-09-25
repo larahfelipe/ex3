@@ -1,330 +1,934 @@
-# Testes — TASK 3.1
+# Testing
 
-Infraestrutura de testes do backend. Registra as decisões que não são dedutíveis dos arquivos.
+The backend's test infrastructure. It records the decisions that cannot be
+deduced from the files.
 
-## Comandos
+## Commands
 
-| Comando | O que roda | Precisa de banco |
+| Command | What it runs | Needs a database |
 | --- | --- | --- |
-| `pnpm test` | suíte completa (unit + integração) | sim |
-| `pnpm test:unit` | testes sem IO | não |
-| `pnpm test:integration` | testes contra o banco real | sim |
-| `pnpm test:unit:watch` | unit em watch | não |
-| `pnpm test:db:up` / `pnpm test:db:down` | ciclo de vida do serviço `postgres-test` do `compose.yaml` da raiz | — |
+| `pnpm test` | the full suite (unit + integration) | yes |
+| `pnpm test:unit` | tests without IO | no |
+| `pnpm test:integration` | tests against the real database | yes |
+| `pnpm test:unit:watch` | unit in watch mode | no |
+| `pnpm test:db:up` / `pnpm test:db:down` | lifecycle of the `postgres-test` service in the root `compose.yaml` | — |
 
-`pnpm test` é o comando único da suíte. Localmente ele pressupõe o banco de pé (`pnpm test:db:up`); no CI o Postgres é um service container, então `pnpm test` basta. Em container, `docker compose run --rm backend-check` sobe o banco e roda os gates inteiros (ver `docs/containers.md`).
+`pnpm test` is the suite's single command. Locally it assumes the database is
+up (`pnpm test:db:up`); in CI Postgres is a service container, so `pnpm test` is
+enough. In a container, `docker compose run --rm backend-check` brings the
+database up and runs the whole set of gates (see
+[`containers.md`](containers.md)).
 
-## Duas categorias, separadas por nome de arquivo
+## Two categories, separated by file name
 
-* **unit** — `src/**/*.test.ts`, colocados ao lado do código. Sem rede, sem banco, sem relógio real.
-* **integração** — `src/**/*.integration.ts`, também colocados ao lado do código, contra o Postgres de teste e a aplicação Express inteira via `supertest`.
+* **unit** — `src/**/*.test.ts`, placed next to the code. No network, no
+  database, no real clock.
+* **integration** — `src/**/*.integration.ts`, also placed next to the code,
+  against the test Postgres and the whole Express application through
+  `supertest`.
 
-`App.test.ts` passou a ser `App.integration.ts`: ele exercita a pilha HTTP completa, então uma vez que existe banco disponível ele o consulta. Mantê-lo na faixa unit fazia `pnpm test:unit` ir de 0,5 s para 10 s e deixava de ser verdade que a faixa não toca IO.
+`App.test.ts` became `App.integration.ts`: it exercises the full HTTP stack, so
+once a database is available it queries it. Keeping it in the unit band took
+`pnpm test:unit` from 0.5 s to 10 s and made it untrue that the band touches no
+IO.
 
-A separação é por sufixo, não por diretório, porque o glob `src/**/*.test.ts` já era a convenção do repositório e `*.integration.ts` não colide com ele. Isso mantém `pnpm test:unit` executável sem nenhuma dependência externa — que é o que permite rodá-lo em watch.
+The split is by suffix, not by directory, because the glob `src/**/*.test.ts`
+was already the repository's convention and `*.integration.ts` does not collide
+with it. That keeps `pnpm test:unit` runnable with no external dependency at
+all — which is what allows running it in watch mode.
 
-Integração roda com `--test-concurrency=1`: os arquivos compartilham um único banco, e o `TRUNCATE` de um invalidaria as fixtures de outro rodando em paralelo.
+Integration runs with `--test-concurrency=1`: the files share a single
+database, and one file's `TRUNCATE` would invalidate another's fixtures running
+in parallel.
 
-Todo arquivo de integração chama `registerIntegrationHooks()` uma vez, dentro do `describe`. Ele registra o reset de banco e de rate limit por teste e o `$disconnect` no fim do arquivo. O disconnect não é zelo: o runner espera o processo de cada arquivo terminar, e um pool aberto o mantém vivo pelo idle timeout inteiro — esquecê-lo custava 10 s por arquivo, sem nenhum teste falhar.
+Every integration file calls `registerIntegrationHooks()` once, inside the
+`describe`. It registers the per-test database and rate-limit reset and the
+`$disconnect` at the end of the file. The disconnect is not fastidiousness: the
+runner waits for each file's process to finish, and an open pool keeps it alive
+for the whole idle timeout — forgetting it cost 10 s per file, with no test
+failing.
 
-## Banco de teste
+## Test database
 
-`.env.test` é a **única** fonte da string de conexão, lida via `node --env-file`. Sob `NODE_ENV=test`, nem `config/Envs.ts` nem `prisma.config.ts` carregam o `.env` do desenvolvedor: o que a suíte não declarar fica ausente, em vez de ser preenchido por uma credencial que alcança outro banco. O serviço `postgres-test` do `compose.yaml` e o service container do CI usam as mesmas credenciais (`ex3`/`ex3`/`ex3_test`), então nenhum dos dois ambientes redefine configuração de banco. Como o `node --env-file` não sobrescreve variável já presente no ambiente, um `NODE_ENV` ou `DATABASE_URL` exportado vence o `.env.test`; por isso `resetDatabase()` recusa truncar fora de `NODE_ENV=test` (`NonTestDatabaseResetError`).
+`.env.test` is the **only** source of the connection string, read through
+`node --env-file`. Under `NODE_ENV=test`, neither `config/Envs.ts` nor
+`prisma.config.ts` loads the developer's `.env`: what the suite does not declare
+stays absent, instead of being filled in by a credential that reaches another
+database. The `postgres-test` service in `compose.yaml` and the CI service
+container use the same credentials (`ex3`/`ex3`/`ex3_test`), so neither
+environment redefines database configuration. Because `node --env-file` does not
+overwrite a variable already present in the environment, an exported `NODE_ENV`
+or `DATABASE_URL` wins over `.env.test`; that is why `resetDatabase()` refuses
+to truncate outside `NODE_ENV=test` (`NonTestDatabaseResetError`).
 
-O armazenamento do container local é `tmpfs`: cada `up` começa com um cluster vazio. A suíte depende de o banco ser descartável, não de limpar o que deixou para trás.
+The local container's storage is `tmpfs`: every `up` starts with an empty
+cluster. The suite depends on the database being disposable, not on cleaning up
+what it left behind.
 
-Isolamento entre testes vem de `resetDatabase()`, chamado em `beforeEach`. A lista de tabelas é lida de `pg_tables` em vez de fixada no código — tabelas introduzidas pelas migrations da FASE 4 passam a ser truncadas sem editar o helper. `_prisma_migrations` é preservada, senão cada run reaplicaria o histórico inteiro sobre um schema já existente.
+Isolation between tests comes from `resetDatabase()`, called in `beforeEach`.
+The table list is read from `pg_tables` rather than hard-coded — tables
+introduced by the PHASE 4 migrations start being truncated without editing the
+helper. `_prisma_migrations` is preserved, otherwise every run would reapply the
+whole history over an existing schema.
 
-`TRUNCATE` exige identificadores interpolados (não dá para bindá-los como parâmetro). Os nomes vêm do catálogo do próprio banco de teste, nunca de entrada de teste; é a única chamada `$executeRawUnsafe` do repositório.
+`TRUNCATE` requires interpolated identifiers (they cannot be bound as
+parameters). The names come from the test database's own catalog, never from
+test input; it is the repository's only `$executeRawUnsafe` call.
 
-## Schema: migrations passaram a ser versionadas
+## Schema: migrations are now versioned
 
-`prisma/migrations` estava em `.gitignore`, e por isso o diretório não existia. O efeito era silencioso e grave: o `prisma migrate deploy` do workflow `migrate.yaml` nunca tinha nada para aplicar, e o schema em produção não era reproduzível a partir do repositório.
+`prisma/migrations` was in `.gitignore`, and so the directory did not exist. The
+effect was silent and serious: the `prisma migrate deploy` of the `migrate.yaml`
+workflow never had anything to apply, and the production schema was not
+reproducible from the repository.
 
-A entrada foi removida do `.gitignore` e a migration inicial (`0_init`) foi gerada a partir do `schema.prisma` com `prisma migrate diff --from-empty`. O banco de teste é provisionado pelo mesmo caminho que produção — `prisma migrate deploy` —, não por `db push`.
+The entry was removed from `.gitignore` and the initial migration (`0_init`) was
+generated from `schema.prisma` with `prisma migrate diff --from-empty`. The test
+database is provisioned through the same path as production —
+`prisma migrate deploy` — not through `db push`.
 
-`relationMode = "prisma"` continua no schema, então o banco não tem foreign keys: as fixtures podem inserir um `Portfolio` com `userId` inexistente sem erro. É limitação herdada do modelo atual, reavaliada na FASE 4.
+`relationMode = "prisma"` is still in the schema, so the database has no foreign
+keys: fixtures may insert a `Portfolio` with a non-existent `userId` without
+error. It is a limitation inherited from the current model, re-evaluated in
+PHASE 4.
 
-## Provisionamento: script, não `--test-global-setup`
+## Provisioning: a script, not `--test-global-setup`
 
-`pnpm test:integration` roda `src/test/PrepareTestDatabase.ts` como processo separado antes do runner. A flag `--test-global-setup` do Node seria o lugar natural, mas ela resolve o módulo de setup **sincronamente**, o que ignora os hooks de loader do `tsx`: qualquer import do arquivo de setup (`./TestDatabase`, `@/infra/...`) falha com `ERR_MODULE_NOT_FOUND`.
+`pnpm test:integration` runs `src/test/PrepareTestDatabase.ts` as a separate
+process ahead of the runner. Node's `--test-global-setup` flag would be the
+natural place, but it resolves the setup module **synchronously**, which ignores
+`tsx`'s loader hooks: any import from the setup file (`./TestDatabase`,
+`@/infra/...`) fails with `ERR_MODULE_NOT_FOUND`.
 
-O script faz duas coisas: prova que o banco responde (`SELECT 1` — com driver adapter o `$connect` resolve mesmo inacessível, ver `docs/toolchain.md`) e aplica as migrations. Se o banco não responde, a mensagem aponta `pnpm test:db:up` em vez de vazar stack do Prisma.
+The script does two things: it proves the database answers (`SELECT 1` — with a
+driver adapter `$connect` resolves even when it is unreachable, see
+[`toolchain.md`](toolchain.md)) and applies the migrations. If the database does
+not answer, the message points at `pnpm test:db:up` instead of leaking a Prisma
+stack.
 
 ## Fixtures
 
-`src/test/Fixtures.ts` escreve via Prisma Client direto, **não** pelos repositories: os repositories são o código sob teste nas TASKS 3.3/3.4, e fixtures construídas sobre eles mascarariam defeitos.
+`src/test/Fixtures.ts` writes through the Prisma Client directly, **not**
+through the repositories: the repositories are the code under test in TASKS
+3.3/3.4, and fixtures built on top of them would mask defects.
 
-A exceção é a senha, que passa pelo mesmo `Bcrypt` da aplicação — é o que permite que um teste faça sign-in de verdade com `FIXTURE_PASSWORD`. O digest é calculado uma vez por processo de teste, já que todo usuário de fixture compartilha a mesma senha.
+The exception is the password, which goes through the application's own
+`Bcrypt` — that is what lets a test sign in for real with `FIXTURE_PASSWORD`.
+The digest is computed once per test process, since every fixture user shares
+the same password.
 
-`seedPortfolio()` monta o menor grafo coerente que a API consegue operar: usuário → carteira → ativo → transação, com o ativo ligado ao instrumento do seu símbolo. `createAsset` cria esse instrumento com `name` igual ao símbolo e tipo `OTHER` quando ele ainda não existe, como a migração do catálogo faz com os dados existentes; `createInstrument` cadastra o instrumento para os testes que precisam do símbolo no catálogo antes de chamar a API. Nenhum valor é aleatório; símbolos e e-mails alternativos são passados explicitamente por quem precisa de mais de um. `createPortfolio` aceita nome, moeda base e data de criação, para os testes que precisam de várias carteiras do mesmo usuário em ordem conhecida.
+`seedPortfolio()` assembles the smallest coherent graph the API can operate on:
+user → portfolio → asset → transaction, with the asset linked to its symbol's
+instrument. `createAsset` creates that instrument with `name` equal to the
+symbol and type `OTHER` when it does not exist yet, as the catalog migration
+does with existing data; `createInstrument` registers the instrument for the
+tests that need the symbol in the catalog before calling the API. No value is
+random; alternative symbols and emails are passed explicitly by whoever needs
+more than one. `createPortfolio` accepts a name, a base currency and a creation
+date, for the tests that need several portfolios of the same user in a known
+order.
 
-## Cliente HTTP
+## HTTP client
 
-`signIn()` autentica pelo endpoint real em vez de assinar um token localmente. A sessão é stateful (a `sessionVersion` do token precisa ser a da linha do usuário) e é o endpoint que incrementa essa versão, então o token obtido é o mesmo que um cliente real receberia. Assinar localmente fica restrito aos testes de token inválido, que precisam de claims forjadas.
+`signIn()` authenticates through the real endpoint instead of signing a token
+locally. The session is stateful (the token's `sessionVersion` must be the one
+on the user's row) and it is the endpoint that increments that version, so the
+token obtained is the same one a real client would receive. Signing locally is
+restricted to the invalid-token tests, which need forged claims.
 
-Os rate limiters guardam contadores em memória de processo, que sobrevivem a um teste. Os budgets são apertados de propósito (10 falhas de sign-in por conta e endereço a cada 15 min), então `resetRateLimits()` é chamado em `beforeEach` e limpa inteiros os `MemoryStore` de `rateLimitStores` em vez de listar chaves. `Harness.integration.ts` afirma que a conta de um sign-in que falhou está de fato sendo contada antes de resetar, para que um reset que não limpa nada falhe em vez de passar silenciosamente; o sign-in que acerta a senha devolve a tentativa e não serviria de prova. Os testes de endereço usam os blocos de documentação da RFC 5737, atestados pelos cabeçalhos do web com o `API_PROXY_SECRET` do `.env.test`.
+The rate limiters keep counters in process memory, which survive a test. The
+budgets are deliberately tight (10 sign-in failures per account and address
+every 15 min), so `resetRateLimits()` is called in `beforeEach` and clears the
+`MemoryStore`s of `rateLimitStores` whole instead of listing keys.
+`Harness.integration.ts` asserts that a failed sign-in is in fact being counted
+before resetting, so that a reset which clears nothing fails instead of passing
+silently; a sign-in that gets the password right gives the attempt back and
+would not serve as proof. The address tests use the RFC 5737 documentation
+blocks, attested by the web's headers with the `API_PROXY_SECRET` from
+`.env.test`.
 
 ## Mocks
 
-Não há utilitário próprio: `node:test` já traz `mock.method`, que substitui um método e restaura em `mock.restoreAll()`. Os singletons da aplicação são compartilhados dentro do processo de um arquivo de teste, e o runner dá um processo por arquivo — é isso que torna a substituição direta segura. `AuthMiddleware.test.ts` é o exemplo da convenção. A exceção é o `PrismaClient`: a instância é um proxy cujo descritor de `runSerializable` não traz o método, e `mock.method` sobre ela falha; `injectWriteFailure` substitui o método em `PrismaClient.prototype` (ver [Atomicidade das operações financeiras](#atomicidade-das-operações-financeiras)).
+There is no helper of our own: `node:test` already ships `mock.method`, which
+replaces a method and restores it on `mock.restoreAll()`. The application's
+singletons are shared inside the process of one test file, and the runner gives
+one process per file — that is what makes direct replacement safe.
+`AuthMiddleware.test.ts` is the example of the convention. The exception is
+`PrismaClient`: the instance is a proxy whose descriptor for `runSerializable`
+does not carry the method, and `mock.method` over it fails;
+`injectWriteFailure` replaces the method on `PrismaClient.prototype` (see
+[Atomicity of financial operations](#atomicity-of-financial-operations)).
 
 ## Harness
 
-`src/test/Harness.integration.ts` testa a própria infraestrutura: que as migrations criaram o schema, que as fixtures produzem um grafo coerente, que o reset zera todas as tabelas, que o cliente HTTP autentica e alcança rota protegida, que o reset de rate limit acerta a chave real, e que a falha injetada atinge só a escrita escolhida e desfaz as anteriores. É o teste que quebra primeiro quando o ambiente está errado, em vez de deixar as TASKS 3.2–3.4 falharem por motivo não relacionado.
+`src/test/Harness.integration.ts` tests the infrastructure itself: that the
+migrations created the schema, that the fixtures produce a coherent graph, that
+the reset empties every table, that the HTTP client authenticates and reaches a
+protected route, that the rate-limit reset hits the real key, and that the
+injected failure hits only the chosen write and undoes the previous ones. It is
+the test that breaks first when the environment is wrong, instead of letting
+TASKS 3.2–3.4 fail for an unrelated reason.
 
-## Regressão do fluxo de assets — TASK 3.3
+## Asset flow regression — TASK 3.3
 
-`src/routes/Assets.integration.ts` fixa, pela API HTTP, o comportamento de adicionar, renomear e excluir ativos. Isso inclui o isolamento entre usuários: ativo de outra carteira responde exatamente como ativo inexistente, não é renomeado e não é excluído. As leituras que a suíte também fixava saíram com `GET /v1/asset/:symbol`, `GET /v1/assets` e `GET /v1/assets/valuations`; o que a tela de ativos lê hoje está em [Valuation](#valuation).
+`src/routes/Assets.integration.ts` pins down, through the HTTP API, the
+behaviour of adding, renaming and deleting assets. That includes isolation
+between users: another portfolio's asset answers exactly like a non-existent
+asset, is not renamed and is not deleted. The reads the suite also pinned down
+went out with `GET /v1/asset/:symbol`, `GET /v1/assets` and
+`GET /v1/assets/valuations`; what the assets screen reads today is in
+[Valuation](#valuation).
 
-**O teste descreve o que existe.** Uma inconsistência que não quebra o fluxo é fixada como está e sinalizada no próprio teste, até ser corrigida.
+**The test describes what exists.** An inconsistency that does not break the
+flow is pinned down as it is and flagged in the test itself, until it is fixed.
 
-**Defeito conhecido vira teste `todo`.** O teste afirma o comportamento correto e hoje falha, reproduzindo o defeito. O `node:test` não reprova a suíte por um `todo`, nem avisa quando um passa a passar, então quem corrige o defeito remove a marcação e o teste passa a proteger a correção. O `ℹ todo N` do resumo é a contagem de defeitos abertos.
+**A known defect becomes a `todo` test.** The test asserts the correct
+behaviour and fails today, reproducing the defect. `node:test` does not fail the
+suite over a `todo`, nor does it warn when one starts passing, so whoever fixes
+the defect removes the marker and the test starts protecting the fix. The
+summary's `ℹ todo N` is the count of open defects.
 
-O único `todo` da suíte, duas carteiras com o mesmo símbolo (baseline #19: `Asset.symbol` era `@unique` global e o segundo usuário recebia 500), passou com o catálogo de instrumentos e virou teste comum. Ver [Catálogo de instrumentos](#catálogo-de-instrumentos).
+The suite's only `todo`, two portfolios with the same symbol (baseline #19:
+`Asset.symbol` was globally `@unique` and the second user got a 500), passed
+with the instrument catalog and became an ordinary test. See
+[Instrument catalog](#instrument-catalog).
 
-**Busca.** A busca da tela de ativos, que antes filtrava no web a página já carregada e nunca encontrava ativo de outra página (baseline #25), é feita por `GET /v1/portfolio/positions` sobre todas as posições da carteira (ver [Valuation](#valuation)).
+**Search.** The assets screen's search, which used to filter the already loaded
+page in the web and never found an asset from another page (baseline #25), is
+done by `GET /v1/portfolio/positions` over every position in the portfolio (see
+[Valuation](#valuation)).
 
-## Correções posteriores à TASK 3.3
+## Fixes made after TASK 3.3
 
-Os achados da task foram corrigidos, e os testes que os fixavam passaram a proteger a correção:
+The task's findings were fixed, and the tests that pinned them down started
+protecting the fix:
 
-| Achado | Hoje | Onde |
+| Finding | Today | Where |
 | --- | --- | --- |
-| símbolo em branco gravado como `''` (`min(1)` rodava antes do `trim`) | `trim` e caixa alta rodam antes dos limites: 400 | `validation/schema/asset/AssetSymbolSchema.ts` |
-| `limit` fracionário aceito e devolvido como tamanho de página | `page` e `limit` inteiros positivos, `limit` até 100 (OWASP API4:2023): 400 | `validation/schema/PaginationQuerySchema.ts` |
-| `DELETE` de ativo ausente respondia 400, e o `GET`, 404 | 404 em `GET`, `PATCH` e `DELETE` | `services/asset/DeleteAssetService.ts`, `services/asset/UpdateAssetService.ts` |
-| transações excluídas por `assetSymbol` sem escopo de carteira, risco latente para a remodelagem do domínio | toda consulta do razão, exclusão em lote de ativo e de conta inclusive, filtra pelo `portfolioId` gravado na transação | `infra/database/TransactionRepository.ts`, `infra/database/AssetRepository.ts` |
-| `PATCH` de transação somava o novo impacto à posição sem desfazer o anterior, e respondia `Transaction created` | a edição desfaz o impacto gravado e aplica o novo; responde `Transaction updated` | `infra/database/TransactionRepository.ts`, `services/transaction/UpdateTransactionService.ts` |
-| linha do razão e posição gravadas em escritas independentes: `SELL`s concorrentes passavam pela mesma checagem | uma transação serializável por escrita: dos `SELL`s concorrentes, só passam os que a posição cobre | `infra/database/PrismaClient.ts`, `infra/database/TransactionRepository.ts` |
-| edição ou exclusão que levava a posição abaixo de zero era aceita | 400 `ACC_NEGATIVE_AMOUNT`, sem alterar nada | `infra/database/TransactionRepository.ts` |
-| `type` de transação com `min`/`max` antes do `trim`: `' buy '` recusado | `trim` e caixa alta antes de comparar com os tipos aceitos | `validation/schema/transaction/TransactionTypeSchema.ts` |
-| id de transação aceito como qualquer string e levado ao banco | UUID validado no schema: 400 | `validation/schema/transaction/TransactionIdSchema.ts` |
-| exclusão de ativo e de conta em escritas independentes; conta com ativos respondia 500 | uma transação serializável cada, dependentes primeiro | `infra/database/AssetRepository.ts`, `infra/database/UserRepository.ts` |
-
-**Símbolo novo e símbolo gravado.** Só o símbolo que vai ser gravado (`POST /v1/asset` e o `newSymbol` do rename) segue a allowlist de letras e dígitos, a mesma do formulário do web. Endereçar um ativo existente exige só o formato normalizado, então um símbolo gravado antes da allowlist (ex.: `BRK.B`) continua sendo lido, renomeado e excluído sem migração.
-
-**Escopo por carteira.** A transação grava `portfolioId` e `instrumentId`, e toda consulta do razão filtra pela carteira do chamador. Com o catálogo de instrumentos, duas carteiras podem ter o mesmo instrumento, e o teste de exclusão de ativo com o mesmo instrumento em outra carteira confirma que as transações dela ficam intactas.
-
-**Razão e posição na mesma transação.** Criar, editar e excluir uma transação lê as transações da posição, reconstrói a posição sobre o razão como ele fica depois da escrita e grava a linha do razão e a posição em uma única transação `SERIALIZABLE` (`PrismaClient.runSerializable`). O razão é conferido sobre a leitura feita dentro da transação; se uma escrita concorrente a invalidar, o Postgres aborta um dos lados (`P2034`), que é reexecutado do início, até 3 tentativas. Um terceiro conflito seguido propaga como 500. A tentativa recusada não grava nada, nem para desfazer em seguida: a escrita entraria na detecção de conflitos serializáveis, e `SELL`s concorrentes recusados esgotariam as tentativas uns dos outros. O Prisma não expõe `SELECT ... FOR UPDATE` fora de SQL cru, e a transação serializável dá a mesma garantia pela API tipada. Exclusão de ativo e de conta usam o mesmo mecanismo, para não deixar transação órfã.
-
-**Rename.** O rename liga o ativo ao instrumento do novo símbolo e leva junto as transações da carteira no instrumento antigo, na mesma transação serializável. Símbolo fora do catálogo responde 404. Símbolo que a carteira já tem responde 400 sem mover nada: o índice único `(portfolioId, instrumentId)` recusa a escrita e a transação inteira é desfeita, transações inclusive.
-
-**Precisão.** Com `amount`, `price` e `balance` em `Float`, `BUY 0.3`, `SELL 0.1`, `SELL 0.2` recusava o último por resíduo de arredondamento. As colunas passaram a `DECIMAL(38,18)`, e o teste que reproduzia o defeito passou a proteger a correção. Ver [Transação remodelada](#transação-remodelada).
-
-**Cobertura acrescentada.**
-
-* `src/routes/Transactions.integration.ts`: transação de outro usuário responde como inexistente em `GET`, `PATCH` e `DELETE`, sem alterar a transação nem a posição; a listagem só enxerga a carteira do chamador, inclusive em carteira com mais ativos que uma página.
-* `src/routes/Assets.integration.ts`: símbolo fora da allowlist, fronteira de 100 no tamanho de página e rename (caixa, símbolo legado, allowlist, ativo de outra carteira como inexistente, transações levadas junto).
-* `src/routes/Transactions.integration.ts`, razão: `BUY` soma e `SELL` subtrai da posição; `SELL` além da posição recusado sem gravar; edição substitui o impacto em vez de somar; edição ou exclusão que levaria a posição abaixo de zero recusada sem alterar nada; de três `SELL`s concorrentes sobre posição 1, só um passa. Validação: `type` em qualquer caixa e com espaços aceito, em branco ou desconhecido recusado sem gravar; id que não é UUID → 400 em `GET`, `PATCH` e `DELETE`.
-* `src/config/App.integration.ts`: falha não prevista responde 500 genérico, sem detalhe interno, e é registrada uma única vez.
-* `src/routes/Authentication.integration.ts`: sign-ups concorrentes para o mesmo e-mail, nome da primeira carteira pedido no sign-up, aparado ou recusado em branco e acima de 60 caracteres, e exclusão de conta (ver `docs/authentication.md`).
-
-## Transações atuais — TASK 3.4
-
-`src/routes/Transactions.integration.ts` cobre, pela API HTTP, criação, edição e exclusão de `BUY` e `SELL` e a recusa por saldo insuficiente. A maior parte já existia desde as correções posteriores à TASK 3.3 (razão, posse e validação, acima). A task acrescentou o que faltava ao escopo:
-
-* a criação responde com a linha gravada, e o `GET` do id devolve o mesmo corpo;
-* criar transação em ativo de outra carteira responde como ativo inexistente, sem gravar nem mover a posição;
-* a edição que troca `BUY` por `SELL` move a posição nos dois sentidos;
-* a exclusão de um `SELL` devolve à posição o que ele tinha retirado;
-* `quantity` ou `unitPrice` zero, negativo ou fora do formato de string decimal recebem 400 em `POST` e `PATCH`, sem alterar nada. Número JSON não é convertido, porque o schema não faz coerção.
-
-**Bugs de consistência conhecidos.** Os do baseline já corrigidos continuam fixados pelos testes que protegem a correção: dupla contabilização na edição (#15), checagem de carteira sem `await` na exclusão (#16, primeira parte), escritas não atômicas (#17) e mensagem de criação na edição (#21). Os que dependiam da remodelagem da FASE 4 foram reproduzidos por testes `todo`, na convenção da TASK 3.3, e nenhum continua `todo`.
-
-O de custo das unidades mantidas após `SELL` (baseline #18) passou quando `balance`, que somava o custo da compra e subtraía o valor da venda, deu lugar a `investedValue`, e virou teste comum: `BUY 10 @ 10` e `SELL 5 @ 30` deixam 5 unidades com `investedValue` 50, onde `balance` ficava em −50. Ver [Posição reconstruída do razão](#posição-reconstruída-do-razão).
-
-Os dois `todo` que comparavam a posição editada e a posição após exclusão ao recálculo da sequência passaram com a posição reconstruída do razão e viraram testes comuns. Ver [Posição reconstruída do razão](#posição-reconstruída-do-razão).
-
-Os de venda fracionária até zero e de custo acima do maior número finito passaram com a transação remodelada: o primeiro virou teste comum, e o segundo deu lugar aos testes do teto de `DECIMAL(38,18)`. Ver [Transação remodelada](#transação-remodelada).
-
-**Recálculo como referência.** Os critérios das TASKs 4.7 e 4.8 comparam a posição com a que a sequência de transações produziria. Os testes gravam essa sequência, pela API, num segundo ativo da mesma carteira e comparam as duas posições, em vez de fixar o valor esperado, e por isso continuaram valendo quando a posição passou a ser reconstruída a partir do razão. As sequências fracionárias foram escolhidas porque divergiam na aritmética incremental de `double` usada antes, o que foi conferido antes de virarem teste.
-
-**Pendências.** O que a task encontrou sem ser necessário para concluí-la está em [`TODO.md`](../TODO.md): TD-002 (paginação da listagem de transações). TD-001 (tipo numérico) e TD-009 (limite superior de `amount` e `price`) foram resolvidos pela [transação remodelada](#transação-remodelada).
-
-## Catálogo de instrumentos
-
-`src/routes/Instruments.integration.ts` cobre o catálogo pela API HTTP:
-
-* admin cadastra instrumento, com símbolo, tipo, mercado, moeda e país normalizados para caixa alta;
-* o mesmo símbolo, em qualquer caixa, não gera um segundo instrumento: 400 `Instrument already exists in catalog`;
-* símbolo fora da allowlist, tipo fora da lista, moeda que não é ISO 4217, país que não tem duas letras, nome em branco ou acima do limite e mercado ausente ou fora da tabela recebem 400 sem gravar;
-* admin completa os atributos de um instrumento, e o símbolo enviado no corpo é ignorado; corpo sem atributos recebe 400, e símbolo fora do catálogo, 404;
-* usuário que não é admin recebe 403 ao cadastrar ou editar, sem alterar o catálogo;
-* qualquer usuário autenticado lista o catálogo, paginado e ordenado por símbolo;
-* excluir a conta de quem detém um instrumento remove os ativos e mantém o instrumento.
-
-As suítes de ativos e de transações passaram a cobrir o mesmo instrumento em duas carteiras. Abrir o ativo na segunda carteira reusa o instrumento, o razão e a contagem de uma carteira não enxergam as transações da outra, e excluir o ativo de uma carteira mantém o ativo e as transações da outra (TD-003). Abrir ativo ou renomear para símbolo fora do catálogo responde 404, e renomear para símbolo que a carteira já tem responde 400 sem mover transações.
-
-**Migração.** A suíte roda sobre o schema final e não exercita a migração dos dados existentes. A do catálogo foi conferida à parte, sobre um banco com as migrations anteriores e dados no formato antigo: cria um instrumento por símbolo, liga ativos e transações sem perda e aborta antes de qualquer alteração quando existe transação sem ativo. `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code`, sobre o banco de teste migrado, confirma que as migrations produzem o schema.
-
-## Várias carteiras por usuário
-
-`src/routes/Portfolios.integration.ts` cobre as carteiras pela API HTTP:
-
-* o chamador cria carteira, com `name` sem espaços nas pontas e `baseCurrency` em caixa alta; nome no limite de 60 caracteres é aceito, e nome ou moeda base inválidos recebem 400 sem gravar;
-* a listagem traz só as carteiras do chamador, em ordem de criação, e se divide em páginas disjuntas que cobrem o total, a última parcial; chamador sem carteira recebe a listagem vazia, e tamanho de página fora dos limites de `PaginationQuerySchema` recebe 400;
-* o `GET` devolve carteira do chamador, carteira de outro usuário responde exatamente como inexistente, e `portfolioId` ausente ou que não é UUID recebe 400;
-* nome repetido do mesmo dono, em qualquer caixa ou espaçamento, recebe 409 com `details` em `name`, na criação e na renomeação, sem gravar; outro usuário pode usar o nome, a própria carteira pode mudar só a caixa do nome, e de três criações simultâneas com o mesmo nome em caixas diferentes exatamente uma passa. Espaços internos repetidos viram um só.
-
-As suítes de ativos e de transações ganharam um bloco `portfolio scope`: carteira de outro usuário no `portfolioId` responde exatamente como carteira inexistente, e `portfolioId` ausente ou que não é UUID recebe 400, sem alterar ativo, transação nem posição. Duas carteiras do mesmo usuário mantêm separadas as posições no mesmo instrumento, e a transação por id, que não traz carteira na rota, é lida, editada e excluída em qualquer carteira do dono. `src/routes/Authentication.integration.ts` cobre o sign-up na moeda escolhida, a recusa de moeda base ausente ou desconhecida sem criar conta e a exclusão de conta com todas as carteiras (ver `docs/authentication.md`).
-
-**Ordem.** Os testes de listagem gravam as carteiras fora da ordem de criação, com `createdAt` separados por um dia, para que a ordem afirmada venha do `ORDER BY` e não da ordem de inserção.
-
-**Migração.** Como a do catálogo, a migração dos dados existentes foi conferida à parte, sobre um banco com as migrations anteriores e dados no formato antigo: a carteira existente vira `Main`, em BRL, com `createdAt` e `updatedAt` iguais à data de cadastro do usuário; carteira sem usuário aborta a migração antes de qualquer alteração; o índice único de `userId` vira índice simples, e uma segunda carteira do mesmo usuário é aceita. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
-
-**Migração do nome único.** `20260924000000_portfolio_name_key` foi conferida à parte, em 2026-09-24, sobre um banco com as migrations anteriores e nomes repetidos: normaliza os nomes gravados como `normalizePortfolioName` (NFC, espaços internos colapsados, pontas aparadas), grava `nameKey` com `lower()` e renomeia cada repetição do mesmo dono, a partir da segunda por `createdAt`, com o primeiro sufixo ` (n)` livre — `main` e `MAIN` ao lado de `Main` e de um `Main (2)` já existente viraram `main (3)` e `MAIN (4)` —, cortando o nome para caber em 60 caracteres. O mesmo nome em donos diferentes fica intacto. O banco de teste e o de produção usam `en_US.utf8`, em que `lower()` baixa letras acentuadas como `toLowerCase()`; num banco em locale `C`, `lower()` só baixaria ASCII, e a chave gravada pela migração divergiria da que a API calcula para nomes com acento. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
-
-## Posição reconstruída do razão
-
-`Position` (tabela `positions`) guarda `quantity`, `averageCost` e `investedValue`, e cada carteira tem no máximo uma posição por instrumento. As rotas e o `AssetRepository` ainda falam em ativo, e as respostas de ativo trazem os três campos no lugar de `amount`. As afirmações de posição em `src/routes/Transactions.integration.ts` e `src/routes/Assets.integration.ts` conferem os três.
-
-A unicidade já estava coberta pela suíte de ativos: símbolo que a carteira já tem, em qualquer caixa, responde 400, e duas carteiras, do mesmo usuário ou não, têm posições separadas no mesmo instrumento. O bloco `ledger` de `src/routes/Transactions.integration.ts` passou a cobrir a reconstrução:
-
-* `BUY` pondera o custo médio pela quantidade e `SELL` o mantém: `BUY 10 @ 10`, `BUY 10 @ 20` e `SELL 5 @ 30` deixam 15 unidades a 15;
-* editar um `BUY` reprecifica as linhas seguintes, e excluir um `SELL` também;
-* a edição que deixa um `SELL` posterior acima do que a posição detém naquele ponto é recusada sem alterar nada, mesmo quando a quantidade final continuaria positiva;
-* posição que chega a zero volta a custo médio zero.
-
-`investedValue` é o custo das unidades detidas, `quantity × averageCost`, e o valor recebido na venda não entra nele: `BUY 10 @ 10` e `SELL 5 @ 30` deixam `investedValue` 50.
-
-**Recusa sem escrita.** Criação, edição e exclusão conferem em memória o razão candidato, com a linha nova no ponto da sua data de execução, a editada reordenada pela data nova ou sem a excluída, e só gravam quando ele é aceito, pelo motivo descrito em "Razão e posição na mesma transação".
-
-**Ordem.** O razão é percorrido em ordem `executedAt`, depois ordem de gravação. O teste "replays entries executed and created at the same instant in recording order, not id order" grava, com o mesmo `executedAt` e `createdAt`, um `BUY` com o id que ordena por último e depois um `SELL` com o que ordena primeiro, e confirma que a escrita seguinte na posição é aceita e reconstrói a posição nessa ordem.
-
-**Migração.** Conferida à parte, sobre um banco com as migrations anteriores e dados no formato antigo: renomeia `assets` para `positions`, com chave primária e índices; reconstrói `quantity`, `averageCost` e `balance` de cada posição a partir das suas transações, substituindo o valor gravado quando diverge e zerando a posição sem transações; transações no mesmo instante seguem a ordem do id; o resultado é igual, bit a bit, à reconstrução em TypeScript, inclusive com valores fracionários; um razão que vende mais do que detém aborta a migração sem alterar nada. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
-
-**Migração do custo.** Conferida à parte, sobre um banco com as migrations anteriores e posições gravadas: renomeia `balance` para `investedValue`, com tipo, nulabilidade e padrão do schema; grava `quantity × averageCost` truncado em 18 casas, inclusive em posição com `balance` negativo após venda acima do custo, com custo médio fracionário e no teto da coluna; e aborta sem alterar nada quando algum produto não cabe em `DECIMAL(38,18)`. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
-
-## Transação remodelada
-
-`Transaction` grava `quantity`, `unitPrice`, `fees`, `taxes`, `currency`, `executedAt`, `broker` e `notes`, e `type` é o enum `TransactionType`. Quantidades e valores de transação e posição são `DECIMAL(38,18)` e trafegam como string decimal. As fixtures gravam strings e compartilham `FIXTURE_EXECUTED_AT`, então a ordem do razão entre elas cai para a ordem de gravação. Os testes comparam decimais pela string de `toFixed()`, porque o `toJSON` de `Prisma.Decimal` usa expoente em valores pequenos.
-
-O bloco `ledger` de `src/routes/Transactions.integration.ts` passou a cobrir:
-
-* vender posição fracionária até exatamente zero;
-* taxas e impostos no custo da compra, com o custo médio truncado em 18 casas;
-* valores pequenos devolvidos em notação simples, sem expoente;
-* transação em moeda diferente das outras da posição recusada com `CURRENCY_MISMATCH`, sem gravar;
-* `BUY` retroativo entrando no razão pela data de execução e reprecificando a posição;
-* `SELL` executado antes da compra que o cobriria recusado, na criação e na edição que o move para antes dela;
-* `DIVIDEND`, `JCP` e `INTEREST` gravados sem mover a posição, e `BONUS` somando unidades pelo custo atribuído, zero inclusive;
-* posição no teto de `DECIMAL(38,18)` aceita, e a escrita que o passaria, em quantidade ou em `investedValue`, recusada com `POSITION_OUT_OF_RANGE`.
-
-O bloco de validação cobre, em `POST` e `PATCH`, sem gravar nem mover a posição: tipo em branco, desconhecido ou ainda não aceito pela API (`SPLIT`); decimal em `number`, negativo, com expoente, com zero à esquerda, com ponto sem casas, com espaços, vazio, com 21 dígitos inteiros ou 19 casas, e zero em `quantity` e em `unitPrice`, este em todo tipo menos `BONUS`, com o `path` `unitPrice` no detalhe; `currency` ausente ou fora de ISO 4217; `executedAt` ausente, sem hora, sem fuso ou em outro formato; `broker` e `notes` acima do limite. Um teste confere que a criação grava cada campo como enviado, com o `executedAt` enviado com fuso devolvido em UTC, e que a edição substitui todos, voltando os opcionais omitidos ao padrão.
-
-**Migração.** Conferida à parte, sobre um banco com as migrations anteriores e dados no formato antigo: nenhuma transação perdida; `amount` e `price` convertidos pela menor representação decimal de cada `double` (`0.1` e `0.2` somam exatamente `0.3`, e `BUY 0.3`, `SELL 0.1`, `SELL 0.2` zeram a posição); `currency` da moeda base de cada carteira e `executedAt = createdAt`; posições reconstruídas em decimal, com custo médio truncado em 18 casas; colunas, nulabilidade e enum como no schema; tabela temporária removida. Aborta sem alterar nada com tipo fora do enum, transação sem carteira, `amount` ou `price` zero, negativo, com mais de 18 casas ou a partir de 10²⁰, razão que vende mais do que detém, `DIVIDEND` no razão e razão que passa por posição fora da coluna, mesmo terminando dentro dela. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
-
-**Migração do `JCP`.** Só acrescenta o valor ao enum `TransactionType`, depois de `DIVIDEND`, sem tocar em linha gravada. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
-
-## Reconstrução determinística da posição
-
-`rebuildPosition`, em `src/domain/PositionLedger.ts`, reconstrói a posição a partir do razão sem IO; `TransactionRepository` lê as transações da posição, entrega o razão candidato e grava o resultado. `src/domain/PositionLedger.test.ts` a cobre na faixa unit:
-
-* `BUY` pondera o custo médio com taxas e impostos, e `investedValue` é `quantity × averageCost`;
-* `SELL` mantém o custo médio e o zera quando nada resta;
-* custo médio e `investedValue` truncados em 18 casas;
-* as 24 permutações de um razão de quatro transações reconstroem a mesma posição;
-* transações com o mesmo `executedAt` seguem a ordem de gravação, e a ainda não gravada vem por último;
-* `BONUS` soma quantidade e custo atribuído, zero inclusive;
-* `DIVIDEND`, `JCP` e `INTEREST` não alteram quantidade nem custo, com ou sem unidades detidas, e em outra moeda recusam o razão;
-* recusados: `SELL` antes da compra que o cobriria, razão com duas moedas, razão que passa por posição fora da coluna e `investedValue` fora da coluna com os demais valores dentro dela;
-* tipo que a reconstrução não implementa (`SPLIT`) lança;
-* `realizeProfitLoss` realiza cada venda pelo custo médio antes dela, com o mesmo resultado nas 24 permutações de compra, venda, recompra e venda; trunca cada venda em 18 casas; e devolve a recusa do replay.
-
-`src/domain/PositionIndicators.test.ts` cobre `describePositionIndicators` com um instante fixo: a variação de cada janela contra o último fechamento no seu primeiro dia ou antes, com fechamentos fora de ordem e fora do horário de meia-noite; a mínima e a máxima só do último ano, sem o fechamento lido antes dele; `openedOn` junto de cada `change`; `closes` a partir da abertura do ano, sem o fechamento lido antes dela, ou a partir do primeiro fechamento quando o histórico é mais curto; um fechamento por dia, o mais recente, quando mais de uma fonte observou o dia, na mínima, na máxima, na variação e na série; a janela que o histórico não alcança, a que o fechamento mais recente não alcança e a aberta em zero sem `change`; nenhum indicador de preço sem fechamento no último ano; o realizado de cada venda, a renda líquida de taxas e impostos, a do último ano, o `yieldOnCost` e o `since` com o razão fora de ordem; prejuízo realizado sem `yieldOnCost` quando nada está investido; e razão que não se reconstrói lança. O bloco `indicators` de `src/routes/Portfolios.integration.ts` cobre a rota contra o banco, com fechamentos semeados relativos ao dia corrente: preço, com `openedOn` e a série desde a abertura do ano, e retorno de uma posição com compra, venda e dividendo; posição sem transação nem fechamento com o corpo vazio; símbolo fora da carteira com 404, sem ler histórico; carteira de outro usuário com 404 e `portfolioId` ausente com 400. A variação `YTD` fica fora da asserção de integração, porque nos três primeiros dias de janeiro os fechamentos semeados caem no seu primeiro dia; a unit a cobre com data fixa.
-
-`src/domain/Fundamentals.test.ts` cobre `fundamentalMetricsOf` e `describeFundamentals`: as oito métricas de uma ação na ordem de exibição, as de REIT e de fundo, nenhuma para cripto, título, Tesouro, caixa e outros, e uma figura por métrica pedida, na ordem pedida, sem valor quando a fonte não a informa. O bloco `fundamentals` de `src/routes/Portfolios.integration.ts` troca `getFundamentals` do singleton por um `FakeMarketDataProvider`: figuras de uma ação na ordem, com a fonte; posição de cripto `not-applicable` sem chamar o provedor; `not-found` e depois `unavailable` trocando o falso no meio do teste; símbolo fora da carteira com 404; carteira de outro usuário com 404 e query inválida com 400.
-
-**Ordem de gravação.** `Transaction.sequence` é `BIGINT` único, preenchido pelo banco na inserção e nunca devolvido pela API. `createTransaction` aceita `id` e `createdAt`, o que permite gravar transações no mesmo instante com ids em ordem contrária à de gravação.
-
-**Migração.** Conferida à parte, sobre um banco com as migrations anteriores: numera as transações existentes em ordem `createdAt`, `id`, através das posições; em tabela vazia, a primeira inserção recebe 1; a inserção seguinte continua do maior número; a coluna é `bigint` não nula, com o default da sequência que ela possui, e o índice único recusa número repetido. `prisma migrate diff`, sobre o banco de teste migrado, não aponta diferença.
-
-## Exclusão de transação
-
-`TransactionRepository.delete` reconstrói a posição a partir das transações restantes e grava a exclusão e a posição na mesma transação serializável. Além dos testes de exclusão do bloco `ledger` (devolver o que um `SELL` retirou, reprecificar as linhas seguintes, recusar a exclusão de um `BUY` do qual um `SELL` depende), dois cobrem a consistência da exclusão:
-
-* "leaves a position after a deletion equal to replaying the remaining transactions" exclui um `BUY` do meio de um razão com taxas, impostos e um `SELL` e um `BUY` posteriores, e compara a posição com a obtida gravando só as transações restantes numa posição vazia. Nesse razão, retirar o impacto da linha excluída por delta daria outro custo médio.
-* "rolls back the deletion when writing the position fails, keeping the transaction" remove a posição direto no banco, para que a gravação dela falhe depois de a linha ser excluída, e confirma a resposta 500 com a transação ainda gravada.
-
-## Atomicidade das operações financeiras
-
-Criar, editar e excluir transação, renomear ativo, excluir ativo e excluir conta escrevem em mais de uma tabela dentro de uma única `runSerializable` (ver "Razão e posição na mesma transação"). Para cada uma, um teste faz a última escrita falhar, depois das anteriores, e confirma a resposta 500 genérica com o estado anterior intacto:
-
-* criação de transação: a gravação da posição falha depois da inserção; o razão mantém só as transações anteriores e a posição não muda;
-* edição de transação: a gravação da posição falha depois da alteração; a transação continua como gravada e a posição não muda;
-* exclusão de transação: o teste de [Exclusão de transação](#exclusão-de-transação);
-* rename de ativo: o teste do índice único, descrito em "Rename";
-* exclusão de ativo: a remoção da posição falha depois da remoção das transações; posição e transações continuam gravadas;
-* exclusão de conta: a remoção do usuário falha depois da remoção de transações, posições e carteiras; as quatro tabelas mantêm as linhas da conta.
-
-A última escrita é a que tem mais escritas anteriores a desfazer; uma falha em etapa anterior interrompe a operação antes das seguintes.
-
-**Falha injetada.** Criação, edição, exclusão de ativo e exclusão de conta não têm falha natural na última escrita. `injectWriteFailure(t, model, action)`, em `src/test/TestDatabase.ts`, faz `model.action` rejeitar dentro da transação real de `runSerializable` até o fim do teste, e as demais consultas seguem normalmente, então o que o teste observa é o rollback do Postgres. A falha não é prevista: sai pelo error handler como 500 e é registrada, e o teste silencia `console.error`. O teste do harness confere que só a escrita escolhida falha e que a anterior é desfeita, para que um helper que falhasse antes da primeira escrita não deixasse os testes de rollback passarem sem desfazer nada.
-
-## Provedor de cotação falso
-
-Nenhum teste chama provedor de cotação real. `src/test/FakeMarketDataProvider.ts` implementa `MarketDataProvider` sobre os preços que recebe no construtor, por símbolo, e devolve cada um com `source` `fake`; com `isAvailable: false`, toda consulta responde `unavailable`. Fundamentos são semeados à parte, na opção `fundamentals`, por símbolo; o falso devolve só as métricas pedidas, e símbolo sem fundamentos semeados responde `not-found`. Cada teste cria o seu e o entrega ao código que recebe um `MarketDataProvider`, sem estado mutável compartilhado. O construtor exige ao menos um preço por símbolo, então símbolo sem preço é o que está fora do mapa e responde `not-found`. Taxa de câmbio é semeada sob os códigos do par, como `USDBRL` para um dólar em reais, e o fechamento anterior vai no próprio preço, em `previousClose`.
-
-O falso ignora mercado, moeda e intervalo: traduzir o instrumento e respeitar o alcance de cada intervalo cabe ao adaptador real.
-
-`src/test/FakeMarketDataProvider.test.ts` confere na faixa unit o contrato em que os testes se apoiam: cotação mais recente em qualquer ordem de carga, histórico em ordem crescente, início do intervalo incluído e fim excluído, intervalo vazio, símbolo sem preço, taxa de câmbio pelo par, fundamentos só das métricas pedidas e indisponibilidade. `tsconfig.build.json` exclui `src/test`, então o falso não entra no build.
-
-## Adaptador Yahoo Finance
-
-`src/infra/market-data/YahooFinanceProvider.test.ts` roda na faixa unit, sem rede: o construtor recebe `fetchResponse` e `now`, e cada teste cria o seu provedor, com respostas e relógio próprios. Cobre:
-
-* tradução por mercado (`PETR4.SA`, `AAPL`, `KO`, `BTC-USD`) numa única requisição, com a chave só no header `x-api-key`, nunca na URL, redirect recusado e timeout;
-* instrumento de mercado fora da tabela, sem mercado ou moeda, ou com símbolo fora de letras e dígitos responde `not-found` sem requisição;
-* símbolo ausente da resposta responde `not-found` e fica em cache;
-* cache por `QUOTE_TIME_TO_LIVE_MS` e nova requisição quando expira; consulta simultânea de um símbolo aproveita a requisição em curso; lotes de no máximo `QUOTE_BATCH_SIZE` símbolos;
-* sem chave, toda cotação responde `unavailable` sem requisição;
-* status de erro, timeout e falha de rede respondem `unavailable`, abrem a pausa de `FAILURE_COOLDOWN_MS` e não registram a chave; durante a falha, a última cotação recebida é devolvida com o `timestamp` em que foi observada;
-* resposta fora do formato e cotação inválida (moeda em unidade menor, como `BRp`, preço negativo ou fora de `DECIMAL(38,18)`, horário ausente) respondem `unavailable`, sem afetar as válidas do mesmo lote;
-* fechamento anterior arredondado como o preço, e descartado quando inválido sem recusar a cotação;
-* câmbio: par `USDBRL=X` no cache das cotações, código inválido ou igual à base como `not-found` sem requisição, taxa cotada em moeda diferente da base como `unavailable` e pausa compartilhada com a falha de cotação;
-* histórico: `period1`, `period2` e `interval` da requisição, fechamentos nulos descartados, intervalo semiaberto em ordem crescente, `range-not-served` sem requisição para início além do alcance do intervalo, intervalo vazio, 404 como `not-found` e série com tamanhos divergentes como `unavailable`;
-* cache do histórico: janela vazia e 404 respondidos sem requisição até `EMPTY_HISTORY_TIME_TO_LIVE_MS` e pedidos de novo quando expira; janela com preço e falha pedidas de novo; consulta simultânea da mesma janela aproveitando a requisição em curso; no máximo `EMPTY_HISTORY_CACHE_MAX_ENTRIES` janelas, descartando a mais antiga.
-* fundamentos: as métricas lidas de `financialData` e `summaryDetail`, com número em `{raw}` ou nu, `debtToEquity` de percentual para múltiplo, e os módulos pedidos, só `summaryDetail` para o yield de um fundo, lido de `yield`; figura fora do formato fica de fora, e fluxo de caixa em moeda de unidade menor, como `GBp`, também; cache por `FUNDAMENTALS_TIME_TO_LIVE_MS`, com a resposta e o 404; instrumento sem tradução como `not-found` sem requisição; status de erro e formato inválido respondem `unavailable`, são pedidos de novo e não pausam as cotações.
-
-O teste espelha no topo as constantes do adaptador de que depende.
+| a blank symbol stored as `''` (`min(1)` ran before the `trim`) | `trim` and upper-casing run before the limits: 400 | `validation/schema/asset/AssetSymbolSchema.ts` |
+| a fractional `limit` accepted and returned as the page size | `page` and `limit` positive integers, `limit` up to 100 (OWASP API4:2023): 400 | `validation/schema/PaginationQuerySchema.ts` |
+| `DELETE` of a missing asset answered 400, and `GET` answered 404 | 404 on `GET`, `PATCH` and `DELETE` | `services/asset/DeleteAssetService.ts`, `services/asset/UpdateAssetService.ts` |
+| transactions deleted by `assetSymbol` with no portfolio scope, a latent risk for the domain reshaping | every ledger query, batch asset deletion and account deletion included, filters by the `portfolioId` stored on the transaction | `infra/database/TransactionRepository.ts`, `infra/database/AssetRepository.ts` |
+| a transaction `PATCH` added the new impact to the position without undoing the previous one, and answered `Transaction created` | editing undoes the stored impact and applies the new one; it answers `Transaction updated` | `infra/database/TransactionRepository.ts`, `services/transaction/UpdateTransactionService.ts` |
+| the ledger row and the position written in independent writes: concurrent `SELL`s passed the same check | one serializable transaction per write: of concurrent `SELL`s, only those the position covers pass | `infra/database/PrismaClient.ts`, `infra/database/TransactionRepository.ts` |
+| an edit or deletion that took the position below zero was accepted | 400 `ACC_NEGATIVE_AMOUNT`, changing nothing | `infra/database/TransactionRepository.ts` |
+| a transaction `type` with `min`/`max` before the `trim`: `' buy '` refused | `trim` and upper-casing before comparing against the accepted types | `validation/schema/transaction/TransactionTypeSchema.ts` |
+| a transaction id accepted as any string and taken to the database | UUID validated in the schema: 400 | `validation/schema/transaction/TransactionIdSchema.ts` |
+| asset and account deletion in independent writes; an account with assets answered 500 | one serializable transaction each, dependents first | `infra/database/AssetRepository.ts`, `infra/database/UserRepository.ts` |
+
+**A new symbol and a stored symbol.** Only the symbol that is going to be
+stored (`POST /v1/asset` and the rename's `newSymbol`) follows the allowlist of
+letters and digits, the same one the web's form uses. Addressing an existing
+asset requires only the normalized format, so a symbol stored before the
+allowlist (e.g. `BRK.B`) is still read, renamed and deleted without a migration.
+
+**Portfolio scope.** A transaction stores `portfolioId` and `instrumentId`, and
+every ledger query filters by the caller's portfolio. With the instrument
+catalog, two portfolios may hold the same instrument, and the test that deletes
+an asset whose instrument is also in another portfolio confirms that the other
+portfolio's transactions stay intact.
+
+**Ledger and position in the same transaction.** Creating, editing and deleting
+a transaction reads the position's transactions, rebuilds the position over the
+ledger as it will stand after the write, and stores the ledger row and the
+position in a single `SERIALIZABLE` transaction
+(`PrismaClient.runSerializable`). The ledger is checked over the read made
+inside the transaction; if a concurrent write invalidates it, Postgres aborts
+one of the sides (`P2034`), which is re-executed from the start, up to 3
+attempts. A third consecutive conflict propagates as a 500. The refused attempt
+writes nothing, not even to undo it afterwards: the write would enter
+serializable conflict detection, and refused concurrent `SELL`s would exhaust
+each other's attempts. Prisma does not expose `SELECT ... FOR UPDATE` outside
+raw SQL, and the serializable transaction gives the same guarantee through the
+typed API. Asset and account deletion use the same mechanism, so as not to leave
+an orphan transaction.
+
+**Rename.** The rename links the asset to the new symbol's instrument and takes
+the portfolio's transactions on the old instrument along with it, in the same
+serializable transaction. A symbol outside the catalog answers 404. A symbol the
+portfolio already holds answers 400 without moving anything: the
+`(portfolioId, instrumentId)` unique index refuses the write and the whole
+transaction is undone, transactions included.
+
+**Precision.** With `amount`, `price` and `balance` as `Float`, `BUY 0.3`,
+`SELL 0.1`, `SELL 0.2` refused the last one because of rounding residue. The
+columns became `DECIMAL(38,18)`, and the test that reproduced the defect started
+protecting the fix. See [Reshaped transaction](#reshaped-transaction).
+
+**Coverage added.**
+
+* `src/routes/Transactions.integration.ts`: another user's transaction answers
+  as non-existent on `GET`, `PATCH` and `DELETE`, changing neither the
+  transaction nor the position; the listing only sees the caller's portfolio,
+  including in a portfolio with more assets than one page.
+* `src/routes/Assets.integration.ts`: a symbol outside the allowlist, the
+  boundary of 100 on the page size and the rename (case, legacy symbol,
+  allowlist, another portfolio's asset as non-existent, transactions taken
+  along).
+* `src/routes/Transactions.integration.ts`, the ledger: `BUY` adds to and
+  `SELL` subtracts from the position; a `SELL` beyond the position is refused
+  without storing; an edit replaces the impact instead of adding to it; an edit
+  or deletion that would take the position below zero is refused changing
+  nothing; of three concurrent `SELL`s over a position of 1, only one passes.
+  Validation: a `type` in any case and with spaces is accepted, blank or
+  unknown is refused without storing; an id that is not a UUID → 400 on `GET`,
+  `PATCH` and `DELETE`.
+* `src/config/App.integration.ts`: an unforeseen failure answers a generic 500,
+  with no internal detail, and is logged exactly once.
+* `src/routes/Authentication.integration.ts`: concurrent sign-ups for the same
+  email, the first portfolio's name requested at sign-up, trimmed or refused
+  when blank and above 60 characters, and account deletion (see
+  [`authentication.md`](authentication.md)).
+
+## Current transactions — TASK 3.4
+
+`src/routes/Transactions.integration.ts` covers, through the HTTP API, the
+creation, editing and deletion of `BUY` and `SELL` and the refusal for
+insufficient balance. Most of it already existed from the fixes made after TASK
+3.3 (ledger, ownership and validation, above). The task added what the scope was
+missing:
+
+* creation answers with the stored row, and the id's `GET` returns the same
+  body;
+* creating a transaction on another portfolio's asset answers as a non-existent
+  asset, storing nothing and not moving the position;
+* an edit that swaps `BUY` for `SELL` moves the position both ways;
+* deleting a `SELL` gives back to the position what it had taken away;
+* a `quantity` or `unitPrice` that is zero, negative or outside the decimal
+  string format gets 400 on `POST` and `PATCH`, changing nothing. A JSON number
+  is not converted, because the schema does no coercion.
+
+**Known consistency bugs.** The baseline ones already fixed remain pinned down
+by the tests that protect the fix: double counting on edit (#15), an unawaited
+portfolio check on deletion (#16, first part), non-atomic writes (#17) and the
+creation message on edit (#21). The ones that depended on the PHASE 4 reshaping
+were reproduced by `todo` tests, following the TASK 3.3 convention, and none is
+still `todo`.
+
+The one about the cost of the units held after a `SELL` (baseline #18) passed
+once `balance`, which added the purchase cost and subtracted the sale value,
+gave way to `investedValue`, and it became an ordinary test: `BUY 10 @ 10` and
+`SELL 5 @ 30` leave 5 units with `investedValue` 50, where `balance` came out
+at −50. See [Position rebuilt from the ledger](#position-rebuilt-from-the-ledger).
+
+The two `todo`s that compared the edited position and the position after
+deletion against a recomputation of the sequence passed with the position
+rebuilt from the ledger and became ordinary tests. See
+[Position rebuilt from the ledger](#position-rebuilt-from-the-ledger).
+
+The ones about a fractional sale down to zero and a cost above the largest
+finite number passed with the reshaped transaction: the first became an
+ordinary test, and the second gave way to the `DECIMAL(38,18)` ceiling tests.
+See [Reshaped transaction](#reshaped-transaction).
+
+**Recomputation as the reference.** The criteria of TASKS 4.7 and 4.8 compare
+the position against the one the sequence of transactions would produce. The
+tests store that sequence, through the API, on a second asset of the same
+portfolio and compare the two positions, instead of pinning the expected value,
+and that is why they went on holding when the position started being rebuilt
+from the ledger. The fractional sequences were chosen because they diverged
+under the incremental `double` arithmetic used before, which was checked before
+they became a test.
+
+**Open items.** What the task found without it being necessary to conclude the
+task is in [`TODO.md`](../TODO.md): TD-002 (pagination of the transaction
+listing). TD-001 (numeric type) and TD-009 (upper bound on `amount` and `price`)
+were resolved by the [reshaped transaction](#reshaped-transaction).
+
+## Instrument catalog
+
+`src/routes/Instruments.integration.ts` covers the catalog through the HTTP
+API:
+
+* an admin registers an instrument, with symbol, type, market, currency and
+  country normalized to upper case;
+* the same symbol, in any case, does not produce a second instrument: 400
+  `Instrument already exists in catalog`;
+* a symbol outside the allowlist, a type outside the list, a currency that is
+  not ISO 4217, a country that does not have two letters, a blank name or one
+  above the limit and a market that is missing or outside the table get 400
+  without storing;
+* an admin completes an instrument's attributes, and the symbol sent in the body
+  is ignored; a body with no attributes gets 400, and a symbol outside the
+  catalog gets 404;
+* a user who is not an admin gets 403 when registering or editing, leaving the
+  catalog unchanged;
+* any authenticated user lists the catalog, paginated and sorted by symbol;
+* deleting the account of whoever holds an instrument removes the assets and
+  keeps the instrument.
+
+The asset and transaction suites started covering the same instrument in two
+portfolios. Opening the asset in the second portfolio reuses the instrument, one
+portfolio's ledger and count do not see the other's transactions, and deleting
+the asset from one portfolio keeps the other's asset and transactions (TD-003).
+Opening an asset or renaming to a symbol outside the catalog answers 404, and
+renaming to a symbol the portfolio already holds answers 400 without moving
+transactions.
+
+**Migration.** The suite runs over the final schema and does not exercise the
+migration of existing data. The catalog's was checked separately, over a
+database with the previous migrations and data in the old format: it creates one
+instrument per symbol, links assets and transactions with no loss, and aborts
+before any change when a transaction without an asset exists.
+`prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code`,
+over the migrated test database, confirms that the migrations produce the
+schema.
+
+## Several portfolios per user
+
+`src/routes/Portfolios.integration.ts` covers portfolios through the HTTP API:
+
+* the caller creates a portfolio, with a `name` with no surrounding spaces and a
+  `baseCurrency` in upper case; a name at the 60-character limit is accepted,
+  and an invalid name or base currency gets 400 without storing;
+* the listing brings only the caller's portfolios, in creation order, and splits
+  into disjoint pages that cover the total, the last one partial; a caller with
+  no portfolio gets the empty listing, and a page size outside the
+  `PaginationQuerySchema` limits gets 400;
+* the `GET` returns the caller's portfolio, another user's portfolio answers
+  exactly like a non-existent one, and a `portfolioId` that is missing or not a
+  UUID gets 400;
+* a name repeated for the same owner, in any case or spacing, gets 409 with
+  `details` on `name`, on creation and on rename, without storing; another user
+  may use the name, the portfolio itself may change only the case of its name,
+  and of three simultaneous creations with the same name in different cases
+  exactly one passes. Repeated internal spaces collapse into one.
+
+The asset and transaction suites gained a `portfolio scope` block: another
+user's portfolio in `portfolioId` answers exactly like a non-existent portfolio,
+and a `portfolioId` that is missing or not a UUID gets 400, changing neither
+asset, transaction nor position. Two portfolios of the same user keep separate
+positions on the same instrument, and a transaction by id, which carries no
+portfolio in the route, is read, edited and deleted in any of the owner's
+portfolios. `src/routes/Authentication.integration.ts` covers sign-up in the
+chosen currency, the refusal of a missing or unknown base currency without
+creating an account, and account deletion with every portfolio (see
+[`authentication.md`](authentication.md)).
+
+**Order.** The listing tests store the portfolios out of creation order, with
+`createdAt` a day apart, so that the asserted order comes from the `ORDER BY`
+and not from the insertion order.
+
+**Migration.** Like the catalog's, the migration of existing data was checked
+separately, over a database with the previous migrations and data in the old
+format: the existing portfolio becomes `Main`, in BRL, with `createdAt` and
+`updatedAt` equal to the user's registration date; a portfolio with no user
+aborts the migration before any change; the unique index on `userId` becomes a
+plain index, and a second portfolio for the same user is accepted.
+`prisma migrate diff`, over the migrated test database, reports no difference.
+
+**Unique-name migration.** `20260924000000_portfolio_name_key` was checked
+separately, on 2026-09-24, over a database with the previous migrations and
+repeated names: it normalizes the stored names as `normalizePortfolioName` does
+(NFC, internal spaces collapsed, ends trimmed), writes `nameKey` with `lower()`
+and renames each repetition for the same owner, from the second by `createdAt`
+onwards, with the first free ` (n)` suffix — `main` and `MAIN` beside `Main` and
+an already existing `Main (2)` became `main (3)` and `MAIN (4)` — cutting the
+name to fit in 60 characters. The same name under different owners is left
+intact. The test and production databases use `en_US.utf8`, where `lower()`
+lowers accented letters as `toLowerCase()` does; in a database with the `C`
+locale, `lower()` would lower ASCII only, and the key written by the migration
+would diverge from the one the API computes for names with accents.
+`prisma migrate diff`, over the migrated test database, reports no difference.
+
+## Position rebuilt from the ledger
+
+`Position` (table `positions`) keeps `quantity`, `averageCost` and
+`investedValue`, and each portfolio has at most one position per instrument. The
+routes and `AssetRepository` still speak of assets, and asset responses carry
+the three fields in place of `amount`. The position assertions in
+`src/routes/Transactions.integration.ts` and `src/routes/Assets.integration.ts`
+check all three.
+
+Uniqueness was already covered by the assets suite: a symbol the portfolio
+already holds, in any case, answers 400, and two portfolios, of the same user or
+not, have separate positions on the same instrument. The `ledger` block of
+`src/routes/Transactions.integration.ts` started covering the rebuild:
+
+* `BUY` weights the average cost by quantity and `SELL` keeps it: `BUY 10 @ 10`,
+  `BUY 10 @ 20` and `SELL 5 @ 30` leave 15 units at 15;
+* editing a `BUY` reprices the following rows, and so does deleting a `SELL`;
+* an edit that leaves a later `SELL` above what the position holds at that point
+  is refused changing nothing, even when the final quantity would still be
+  positive;
+* a position that reaches zero goes back to an average cost of zero.
+
+`investedValue` is the cost of the units held, `quantity × averageCost`, and the
+amount received on a sale does not enter it: `BUY 10 @ 10` and `SELL 5 @ 30`
+leave `investedValue` at 50.
+
+**Refusal without a write.** Creation, editing and deletion check the candidate
+ledger in memory, with the new row at the point of its execution date, the
+edited one reordered by the new date, or without the deleted one, and only store
+when it is accepted, for the reason described in "Ledger and position in the
+same transaction".
+
+**Order.** The ledger is walked in `executedAt` order, then in recording order.
+The test "replays entries executed and created at the same instant in recording
+order, not id order" stores, with the same `executedAt` and `createdAt`, a `BUY`
+with the id that sorts last and then a `SELL` with the one that sorts first, and
+confirms that the next write to the position is accepted and rebuilds the
+position in that order.
+
+**Migration.** Checked separately, over a database with the previous migrations
+and data in the old format: it renames `assets` to `positions`, with its primary
+key and indexes; rebuilds each position's `quantity`, `averageCost` and
+`balance` from its transactions, replacing the stored value when it diverges and
+zeroing the position with no transactions; transactions at the same instant
+follow id order; the result is equal, bit for bit, to the TypeScript rebuild,
+fractional values included; a ledger that sells more than it holds aborts the
+migration changing nothing. `prisma migrate diff`, over the migrated test
+database, reports no difference.
+
+**Cost migration.** Checked separately, over a database with the previous
+migrations and stored positions: it renames `balance` to `investedValue`, with
+the schema's type, nullability and default; writes `quantity × averageCost`
+truncated at 18 places, including in a position with a negative `balance` after
+a sale above cost, with a fractional average cost and at the column's ceiling;
+and aborts changing nothing when some product does not fit in `DECIMAL(38,18)`.
+`prisma migrate diff`, over the migrated test database, reports no difference.
+
+## Reshaped transaction
+
+`Transaction` stores `quantity`, `unitPrice`, `fees`, `taxes`, `currency`,
+`executedAt`, `broker` and `notes`, and `type` is the `TransactionType` enum.
+Transaction and position quantities and values are `DECIMAL(38,18)` and travel
+as decimal strings. The fixtures store strings and share `FIXTURE_EXECUTED_AT`,
+so the ledger order among them falls back to recording order. The tests compare
+decimals by the string from `toFixed()`, because `Prisma.Decimal`'s `toJSON`
+uses an exponent for small values.
+
+The `ledger` block of `src/routes/Transactions.integration.ts` started covering:
+
+* selling a fractional position down to exactly zero;
+* fees and taxes in the purchase cost, with the average cost truncated at 18
+  places;
+* small values returned in plain notation, with no exponent;
+* a transaction in a currency different from the position's others refused with
+  `CURRENCY_MISMATCH`, without storing;
+* a backdated `BUY` entering the ledger by its execution date and repricing the
+  position;
+* a `SELL` executed before the purchase that would cover it refused, on creation
+  and on the edit that moves it before that purchase;
+* `DIVIDEND`, `JCP` and `INTEREST` stored without moving the position, and
+  `BONUS` adding units at the attributed cost, zero included;
+* a position at the `DECIMAL(38,18)` ceiling accepted, and the write that would
+  pass it, in quantity or in `investedValue`, refused with
+  `POSITION_OUT_OF_RANGE`.
+
+The validation block covers, on `POST` and `PATCH`, without storing or moving
+the position: a type that is blank, unknown or not yet accepted by the API
+(`SPLIT`); a decimal as a `number`, negative, with an exponent, with a leading
+zero, with a dot and no places, with spaces, empty, with 21 integer digits or 19
+places, and zero in `quantity` and in `unitPrice`, the latter on every type but
+`BONUS`, with `unitPrice` as the detail's `path`; a `currency` that is missing
+or outside ISO 4217; an `executedAt` that is missing, without a time, without a
+zone or in another format; a `broker` and `notes` above the limit. One test
+checks that creation stores each field as sent, with an `executedAt` sent with a
+zone returned in UTC, and that editing replaces them all, taking the omitted
+optional ones back to their default.
+
+**Migration.** Checked separately, over a database with the previous migrations
+and data in the old format: no transaction lost; `amount` and `price` converted
+by each `double`'s shortest decimal representation (`0.1` and `0.2` add up to
+exactly `0.3`, and `BUY 0.3`, `SELL 0.1`, `SELL 0.2` zero the position);
+`currency` from each portfolio's base currency and `executedAt = createdAt`;
+positions rebuilt in decimal, with the average cost truncated at 18 places;
+columns, nullability and enum as in the schema; the temporary table removed. It
+aborts changing nothing on a type outside the enum, a transaction with no
+portfolio, an `amount` or `price` that is zero, negative, with more than 18
+places or from 10²⁰ up, a ledger that sells more than it holds, a `DIVIDEND` in
+the ledger and a ledger that passes through a position outside the column, even
+if it ends inside it. `prisma migrate diff`, over the migrated test database,
+reports no difference.
+
+**`JCP` migration.** It only adds the value to the `TransactionType` enum, after
+`DIVIDEND`, without touching a stored row. `prisma migrate diff`, over the
+migrated test database, reports no difference.
+
+## Deterministic position rebuild
+
+`rebuildPosition`, in `src/domain/PositionLedger.ts`, rebuilds the position from
+the ledger with no IO; `TransactionRepository` reads the position's
+transactions, hands over the candidate ledger and stores the result.
+`src/domain/PositionLedger.test.ts` covers it in the unit band:
+
+* `BUY` weights the average cost with fees and taxes, and `investedValue` is
+  `quantity × averageCost`;
+* `SELL` keeps the average cost and zeroes it when nothing is left;
+* average cost and `investedValue` truncated at 18 places;
+* the 24 permutations of a four-transaction ledger rebuild the same position;
+* transactions with the same `executedAt` follow recording order, and the one
+  not yet stored comes last;
+* `BONUS` adds quantity and attributed cost, zero included;
+* `DIVIDEND`, `JCP` and `INTEREST` change neither quantity nor cost, with or
+  without units held, and in another currency they refuse the ledger;
+* refused: a `SELL` before the purchase that would cover it, a ledger with two
+  currencies, a ledger that passes through a position outside the column, and an
+  `investedValue` outside the column with every other value inside it;
+* a type the rebuild does not implement (`SPLIT`) throws;
+* `realizeProfitLoss` realizes each sale at the average cost before it, with the
+  same result across the 24 permutations of buy, sell, buy again and sell;
+  truncates each sale at 18 places; and returns the replay's refusal.
+
+`src/domain/PositionIndicators.test.ts` covers `describePositionIndicators` with
+a fixed instant: each window's change against the last close on or before its
+first day, with closes out of order and outside midnight; the low and the high
+from the last year only, without the close read before it; `openedOn` beside
+each `change`; `closes` from the start of the year, without the close read
+before it, or from the first close when the history is shorter; one close per
+day, the most recent one, when more than one source observed the day, in the
+low, the high, the change and the series; the window the history does not reach,
+the one the most recent close does not reach and the one that opens at zero with
+no `change`; no price indicator without a close in the last year; each sale's
+realized result, income net of fees and taxes, the last year's income, the
+`yieldOnCost` and the `since` with the ledger out of order; a realized loss
+without `yieldOnCost` when nothing is invested; and a ledger that does not
+rebuild throws. The `indicators` block of
+`src/routes/Portfolios.integration.ts` covers the route against the database,
+with closes seeded relative to the current day: price, with `openedOn` and the
+series since the start of the year, and the return of a position with a
+purchase, a sale and a dividend; a position with neither transaction nor close
+with an empty body; a symbol outside the portfolio with 404, without reading
+history; another user's portfolio with 404 and a missing `portfolioId` with 400.
+The `YTD` change is left out of the integration assertion, because in the first
+three days of January the seeded closes fall on its first day; the unit test
+covers it with a fixed date.
+
+`src/domain/Fundamentals.test.ts` covers `fundamentalMetricsOf` and
+`describeFundamentals`: a stock's eight metrics in display order, those of a
+REIT and of a fund, none for crypto, bonds, Treasury, cash and other, and one
+figure per requested metric, in the requested order, with no value when the
+source does not report it. The `fundamentals` block of
+`src/routes/Portfolios.integration.ts` swaps the singleton's `getFundamentals`
+for a `FakeMarketDataProvider`: a stock's figures in order, with the source; a
+crypto position `not-applicable` without calling the provider; `not-found` and
+then `unavailable` by swapping the fake mid-test; a symbol outside the portfolio
+with 404; another user's portfolio with 404 and an invalid query with 400.
+
+**Recording order.** `Transaction.sequence` is a unique `BIGINT`, filled in by
+the database on insertion and never returned by the API. `createTransaction`
+accepts `id` and `createdAt`, which makes it possible to store transactions at
+the same instant with ids in the opposite order to the recording order.
+
+**Migration.** Checked separately, over a database with the previous migrations:
+it numbers the existing transactions in `createdAt`, `id` order, across
+positions; on an empty table, the first insertion gets 1; the next insertion
+continues from the highest number; the column is a non-null `bigint`, with the
+default from the sequence it owns, and the unique index refuses a repeated
+number. `prisma migrate diff`, over the migrated test database, reports no
+difference.
+
+## Transaction deletion
+
+`TransactionRepository.delete` rebuilds the position from the remaining
+transactions and stores the deletion and the position in the same serializable
+transaction. Besides the deletion tests in the `ledger` block (giving back what
+a `SELL` took away, repricing the following rows, refusing to delete a `BUY` a
+`SELL` depends on), two cover the deletion's consistency:
+
+* "leaves a position after a deletion equal to replaying the remaining
+  transactions" deletes a `BUY` from the middle of a ledger with fees, taxes and
+  a later `SELL` and `BUY`, and compares the position against the one obtained
+  by storing only the remaining transactions into an empty position. In that
+  ledger, removing the deleted row's impact by delta would give a different
+  average cost.
+* "rolls back the deletion when writing the position fails, keeping the
+  transaction" removes the position directly in the database, so that writing it
+  fails after the row has been deleted, and confirms the 500 response with the
+  transaction still stored.
+
+## Atomicity of financial operations
+
+Creating, editing and deleting a transaction, renaming an asset, deleting an
+asset and deleting an account write to more than one table inside a single
+`runSerializable` (see "Ledger and position in the same transaction"). For each
+one, a test makes the last write fail, after the previous ones, and confirms the
+generic 500 response with the previous state intact:
+
+* transaction creation: writing the position fails after the insertion; the
+  ledger keeps only the previous transactions and the position does not change;
+* transaction editing: writing the position fails after the change; the
+  transaction stays as stored and the position does not change;
+* transaction deletion: the test in
+  [Transaction deletion](#transaction-deletion);
+* asset rename: the unique-index test, described under "Rename";
+* asset deletion: removing the position fails after the transactions are
+  removed; position and transactions remain stored;
+* account deletion: removing the user fails after transactions, positions and
+  portfolios are removed; all four tables keep the account's rows.
+
+The last write is the one with the most previous writes to undo; a failure at an
+earlier step interrupts the operation before the following ones.
+
+**Injected failure.** Creation, editing, asset deletion and account deletion
+have no natural failure in the last write. `injectWriteFailure(t, model,
+action)`, in `src/test/TestDatabase.ts`, makes `model.action` reject inside
+`runSerializable`'s real transaction until the end of the test, and the other
+queries proceed normally, so what the test observes is Postgres's rollback. The
+failure is unforeseen: it goes out through the error handler as a 500 and is
+logged, and the test silences `console.error`. The harness test checks that only
+the chosen write fails and that the previous one is undone, so that a helper
+failing before the first write would not let the rollback tests pass without
+undoing anything.
+
+## Fake quote provider
+
+No test calls a real quote provider. `src/test/FakeMarketDataProvider.ts`
+implements `MarketDataProvider` over the prices it receives in the constructor,
+by symbol, and returns each one with `source` `fake`; with
+`isAvailable: false`, every lookup answers `unavailable`. Fundamentals are
+seeded separately, in the `fundamentals` option, by symbol; the fake returns
+only the requested metrics, and a symbol with no seeded fundamentals answers
+`not-found`. Each test creates its own and hands it to the code that takes a
+`MarketDataProvider`, with no shared mutable state. The constructor requires at
+least one price per symbol, so a symbol with no price is one outside the map and
+answers `not-found`. An exchange rate is seeded under the pair's codes, such as
+`USDBRL` for one dollar in reais, and the previous close goes in the price
+itself, in `previousClose`.
+
+The fake ignores market, currency and interval: translating the instrument and
+respecting each interval's reach is the real adapter's job.
+
+`src/test/FakeMarketDataProvider.test.ts` checks in the unit band the contract
+the tests lean on: the most recent quote in any load order, history in ascending
+order, the interval's start included and its end excluded, an empty interval, a
+symbol with no price, an exchange rate by pair, fundamentals limited to the
+requested metrics, and unavailability. `tsconfig.build.json` excludes
+`src/test`, so the fake does not enter the build.
+
+## Yahoo Finance adapter
+
+`src/infra/market-data/YahooFinanceProvider.test.ts` runs in the unit band,
+without network: the constructor receives `fetchResponse` and `now`, and each
+test creates its own provider, with its own responses and clock. It covers:
+
+* translation by market (`PETR4.SA`, `AAPL`, `KO`, `BTC-USD`) in a single
+  request, with the key only in the `x-api-key` header, never in the URL, a
+  refused redirect and a timeout;
+* an instrument from a market outside the table, with no market or currency, or
+  with a symbol outside letters and digits answers `not-found` with no request;
+* a symbol missing from the response answers `not-found` and is cached;
+* caching for `QUOTE_TIME_TO_LIVE_MS` and a new request when it expires; a
+  simultaneous lookup of one symbol reuses the request in flight; batches of at
+  most `QUOTE_BATCH_SIZE` symbols;
+* with no key, every quote answers `unavailable` with no request;
+* an error status, a timeout and a network failure answer `unavailable`, open
+  the `FAILURE_COOLDOWN_MS` pause and do not record the key; during the failure,
+  the last quote received is returned with the `timestamp` at which it was
+  observed;
+* a response outside the format and an invalid quote (a currency in a minor
+  unit, such as `BRp`, a negative price or one outside `DECIMAL(38,18)`, a
+  missing time) answer `unavailable`, without affecting the valid ones in the
+  same batch;
+* the previous close rounded like the price, and discarded when invalid without
+  refusing the quote;
+* exchange: the `USDBRL=X` pair in the quote cache, an invalid code or one equal
+  to the base as `not-found` with no request, a rate quoted in a currency
+  different from the base as `unavailable`, and a pause shared with the quote
+  failure;
+* history: the request's `period1`, `period2` and `interval`, null closes
+  discarded, a half-open interval in ascending order, `range-not-served` with no
+  request for a start beyond the interval's reach, an empty interval, 404 as
+  `not-found` and a series with diverging lengths as `unavailable`;
+* history caching: an empty window and a 404 answered with no request until
+  `EMPTY_HISTORY_TIME_TO_LIVE_MS` and requested again when it expires; a window
+  with a price, and a failure, requested again; a simultaneous lookup of the
+  same window reusing the request in flight; at most
+  `EMPTY_HISTORY_CACHE_MAX_ENTRIES` windows, discarding the oldest;
+* fundamentals: the metrics read from `financialData` and `summaryDetail`, with
+  a number in `{raw}` or bare, `debtToEquity` from a percentage to a multiple,
+  and the requested modules, `summaryDetail` alone for a fund's yield, read from
+  `yield`; a figure outside the format is left out, and so is cash flow in a
+  minor-unit currency, such as `GBp`; caching for
+  `FUNDAMENTALS_TIME_TO_LIVE_MS`, with the response and the 404; an instrument
+  with no translation as `not-found` with no request; an error status and an
+  invalid format answer `unavailable`, are requested again and do not pause the
+  quotes.
+
+The test mirrors at the top the adapter constants it depends on.
 
 ## Valuation
 
-`src/domain/PositionValuation.test.ts`, na faixa unit, cobre `valuePosition`: valor de mercado com lucro e percentual; truncamento em direção a zero no produto e no quociente; valores nos limites de `DECIMAL(38,18)` sem perda de dígitos; `profitLoss` ausente com razão noutra moeda ou sem transações; percentual ausente sem valor investido; `not-found` e `unavailable` repassados.
+`src/domain/PositionValuation.test.ts`, in the unit band, covers
+`valuePosition`: market value with profit and percentage; truncation toward zero
+in the product and in the quotient; values at the `DECIMAL(38,18)` limits with
+no digit loss; `profitLoss` absent with a ledger in another currency or with no
+transactions; percentage absent with no invested value; `not-found` and
+`unavailable` passed through.
 
-`GET /v1/assets/valuations`, que avaliava os símbolos pedidos de uma carteira, foi removido com a suíte que o cobria; a tabela de posições lê `GET /v1/portfolio/positions`. A resposta `unavailable` sem chave de provedor, sem nenhuma chamada a `fetch`, é fixada no adaptador, em `src/infra/market-data/YahooFinanceProvider.test.ts`.
+`GET /v1/assets/valuations`, which valued a portfolio's requested symbols, was
+removed along with the suite that covered it; the positions table reads
+`GET /v1/portfolio/positions`. The `unavailable` response with no provider key,
+with no call to `fetch` at all, is pinned down in the adapter, in
+`src/infra/market-data/YahooFinanceProvider.test.ts`.
 
-`src/domain/PortfolioValuation.test.ts`, na faixa unit, cobre `summarizePortfolio`: soma na moeda base com resultado e variação do dia; conversão pela taxa da moeda da cotação e da moeda das transações; truncamento em direção a zero nos totais e percentuais, inclusive na variação negativa; totais nos limites de `DECIMAL(38,18)` sem perda de dígitos; indicadores ausentes sem cotação, sem taxa, sem moeda do custo ou sem fechamento anterior; posição sem unidades ignorada; carteira vazia com totais zero. Cobre também `valuePositionsInBaseCurrency`: cada posição na moeda base com a sua alocação; alocação sobre a carteira inteira quando só parte dela é listada; truncamento de preço, valor e fração; posição nos limites de `DECIMAL(38,18)` sem perda de dígitos; campos ausentes sem cotação ou sem taxa; custo sem moeda; posição sem unidades com valor e alocação zero; carteira de valor zero na escala sem alocação. Cobre ainda `allocatePortfolio`: distribuição por ativo, tipo, setor e moeda sem a posição sem unidades, com setor `null` por último; em cada grupo, a soma dos valores e frações truncados das suas posições, com toda distribuição dentro da tolerância sobre `totalValue` e sobre 1; moeda da cotação no lugar da do catálogo, e a do catálogo sem cotação; total, frações e valor do grupo ausentes sem cotação ou sem taxa; carteira sem posições com unidades de valor zero e distribuições vazias; carteira de valor zero na escala sem alocação. Cobre `matchesPositionFilter`: toda posição sem critério; busca sem diferenciar caixa em símbolo e nome; classe; situação, com a menor quantidade representável como em carteira e a quantidade zero como encerrada; e os critérios combinados. E `sortPositionsBy`: comparação decimal, não lexicográfica, nos dois sentidos, com a posição sem o valor por último em ambos, e empate na ordem recebida. E `foreignCurrenciesOf`, com cada moeda diferente da base uma vez. E `describePosition`: a posição na moeda base ao lado do catálogo e da cotação na moeda dela, com variação do dia e percentual; truncamento em direção a zero de ambos; sem fechamento anterior, sem variação nem percentual; fechamento anterior zero, sem percentual; e, sem cotação, só os campos da posição e do catálogo.
+`src/domain/PortfolioValuation.test.ts`, in the unit band, covers
+`summarizePortfolio`: the sum in the base currency with the result and the day's
+change; conversion at the rate of the quote's currency and of the transactions'
+currency; truncation toward zero in the totals and percentages, including in a
+negative change; totals at the `DECIMAL(38,18)` limits with no digit loss;
+indicators absent with no quote, no rate, no cost currency or no previous close;
+a position with no units ignored; an empty portfolio with zero totals. It also
+covers `valuePositionsInBaseCurrency`: each position in the base currency with
+its allocation; allocation over the whole portfolio when only part of it is
+listed; truncation of price, value and fraction; a position at the
+`DECIMAL(38,18)` limits with no digit loss; fields absent with no quote or no
+rate; cost with no currency; a position with no units with zero value and
+allocation; a portfolio worth zero at the scale with no allocation. It further
+covers `allocatePortfolio`: distribution by asset, type, sector and currency
+without the position with no units, with sector `null` last; in each group, the
+sum of its positions' truncated values and fractions, with every distribution
+within tolerance over `totalValue` and over 1; the quote's currency in place of
+the catalog's, and the catalog's when there is no quote; total, fractions and
+the group's value absent with no quote or no rate; a portfolio with no positions
+with units worth zero and with empty distributions; a portfolio worth zero at
+the scale with no allocation. It covers `matchesPositionFilter`: every position
+with no criterion; search without distinguishing case in symbol and name; class;
+status, with the smallest representable quantity as held and a quantity of zero
+as closed; and the criteria combined. And `sortPositionsBy`: decimal
+comparison, not lexicographic, both ways, with the position missing the value
+last in both, and ties in the order received. And `foreignCurrenciesOf`, with
+each currency other than the base once. And `describePosition`: the position in
+the base currency beside the catalog and the quote in the quote's currency, with
+the day's change and percentage; truncation toward zero of both; with no
+previous close, neither change nor percentage; a previous close of zero, with no
+percentage; and, with no quote, only the position's and the catalog's fields.
 
-O bloco `overview` de `src/routes/Portfolios.integration.ts` cobre `GET /v1/portfolio/overview`, trocando `getQuotes` e `getExchangeRates` do singleton por um `FakeMarketDataProvider`: indicadores da carteira pedida, sem as posições de outra carteira do mesmo usuário nem a posição sem unidades, com câmbio pedido só para a moeda estrangeira; indicadores que dependem de cotação fora do corpo com o provedor indisponível; carteira vazia na sua moeda base, com `heldPositionCount` `0`, e a contagem das posições com unidades nas demais; carteira de outro usuário igual à inexistente; `portfolioId` ausente ou malformado com 400.
+The `overview` block of `src/routes/Portfolios.integration.ts` covers
+`GET /v1/portfolio/overview`, swapping the singleton's `getQuotes` and
+`getExchangeRates` for a `FakeMarketDataProvider`: the requested portfolio's
+indicators, without another portfolio of the same user's positions and without
+the position with no units, with exchange requested only for the foreign
+currency; the indicators that depend on a quote left out of the body with the
+provider unavailable; an empty portfolio in its base currency, with
+`heldPositionCount` `0`, and the count of positions with units in the others;
+another user's portfolio the same as a non-existent one; a `portfolioId` that is
+missing or malformed with 400.
 
-O bloco `positions` do mesmo arquivo cobre `GET /v1/portfolio/positions` com a mesma troca: posições da carteira pedida em ordem de `symbol` e na moeda base, com a posição sem unidades e sem as de outra carteira do mesmo usuário, e câmbio pedido só para a moeda estrangeira; última página e página além dela com os mesmos totais, cotando fora da página só as posições com unidades; ordem de `symbol` decrescente, com a mesma cotação; ordem por um valor nos dois sentidos antes de paginar, com a posição sem o valor por último e todas as posições filtradas cotadas; busca por símbolo e nome sem diferenciar caixa, classe e situação, sozinhas e combinadas, com `total` e `totalPages` só das posições filtradas e busca sem correspondência como página vazia; itens sem os campos que dependem de cotação com o provedor indisponível; carteira vazia como página vazia no maior `pageSize`; carteira de outro usuário igual à inexistente; `portfolioId`, `page`, `pageSize`, `sortBy`, `sortOrder`, `search`, `type` ou `status` ausente, malformado ou fora dos limites com 400.
+The `positions` block of the same file covers `GET /v1/portfolio/positions` with
+the same swap: the requested portfolio's positions in `symbol` order and in the
+base currency, with the position with no units and without another portfolio of
+the same user's, and exchange requested only for the foreign currency; the last
+page and a page beyond it with the same totals, quoting outside the page only
+the positions with units; descending `symbol` order, with the same quote;
+ordering by a value both ways before paginating, with the position missing the
+value last and every filtered position quoted; search by symbol and name
+without distinguishing case, class and status, alone and combined, with `total`
+and `totalPages` covering only the filtered positions and a search with no match
+as an empty page; items without the fields that depend on a quote with the
+provider unavailable; an empty portfolio as an empty page at the largest
+`pageSize`; another user's portfolio the same as a non-existent one; a
+`portfolioId`, `page`, `pageSize`, `sortBy`, `sortOrder`, `search`, `type` or
+`status` that is missing, malformed or outside the limits with 400.
 
-O bloco `by symbol`, dentro de `positions`, cobre `GET /v1/portfolio/positions/:symbol` com a mesma troca: a posição pelo símbolo sem diferenciar caixa, com catálogo, cotação e variação do dia, cotando também as demais posições com unidades e pedindo câmbio só para a moeda estrangeira; a posição sem unidades, cotada ao lado das com unidades; a posição sem cotação nem os campos que dependem dela com o provedor indisponível; símbolo sem posição na carteira pedida, inclusive o de outra carteira do mesmo usuário, com 404 e sem consultar o provedor; valores pequenos devolvidos em notação simples, sem expoente; carteira de outro usuário igual à inexistente; `portfolioId` ausente ou malformado e símbolo vazio ou longo demais com 400.
+The `by symbol` block, inside `positions`, covers
+`GET /v1/portfolio/positions/:symbol` with the same swap: the position by symbol
+without distinguishing case, with catalog, quote and the day's change, also
+quoting the other positions with units and requesting exchange only for the
+foreign currency; the position with no units, quoted beside those with units;
+the position with no quote and without the fields that depend on it with the
+provider unavailable; a symbol with no position in the requested portfolio,
+including one from another portfolio of the same user, with 404 and without
+consulting the provider; small values returned in plain notation, with no
+exponent; another user's portfolio the same as a non-existent one; a
+`portfolioId` that is missing or malformed and a symbol that is empty or too
+long with 400.
 
-O bloco `allocation` do mesmo arquivo cobre `GET /v1/portfolio/allocation` com a mesma troca: distribuição da carteira pedida por ativo, tipo, setor e moeda, na moeda base, sem a posição sem unidades nem as de outra carteira do mesmo usuário, cotando só as posições com unidades e pedindo câmbio só para a moeda estrangeira; grupos sem valores nem frações com o provedor indisponível; carteira vazia na sua moeda base, de valor zero e com distribuições vazias; carteira de outro usuário igual à inexistente; `portfolioId` ausente ou malformado com 400.
+The `allocation` block of the same file covers `GET /v1/portfolio/allocation`
+with the same swap: the requested portfolio's distribution by asset, type,
+sector and currency, in the base currency, without the position with no units
+and without another portfolio of the same user's, quoting only the positions
+with units and requesting exchange only for the foreign currency; groups with
+neither values nor fractions with the provider unavailable; an empty portfolio
+in its base currency, worth zero and with empty distributions; another user's
+portfolio the same as a non-existent one; a `portfolioId` that is missing or
+malformed with 400.
 
-`node --env-file` não sobrescreve variável já exportada no shell, então nenhum teste depende de `.env.test` omitir `YAHOO_FINANCE_API_KEY`: nenhuma rota chega ao `getQuotes` ou ao `getExchangeRates` do singleton com instrumento ou moeda cotável sem que o teste os troque.
+`node --env-file` does not overwrite a variable already exported in the shell,
+so no test depends on `.env.test` omitting `YAHOO_FINANCE_API_KEY`: no route
+reaches the singleton's `getQuotes` or `getExchangeRates` with a quotable
+instrument or currency without the test swapping them.
 
-## Corpo de erro
+## Error body
 
-`src/config/App.integration.ts` fixa o corpo `{ code, message, details }` ([Padrão de resposta](api-inventory.md#padrão-de-resposta)) na rota inexistente (404), no payload acima do limite (413), no JSON malformado (400), no rate limit (429) e na falha não prevista (500), com `details` vazio. Um payload que o schema recusa responde 400 com um `{ path, message }` por campo recusado em `details`.
+`src/config/App.integration.ts` pins down the `{ code, message, details }` body
+([Response shape](api-inventory.md#response-shape)) on a non-existent route
+(404), on a payload above the limit (413), on malformed JSON (400), on the rate
+limit (429) and on an unforeseen failure (500), with `details` empty. A payload
+the schema refuses answers 400 with one `{ path, message }` per refused field in
+`details`.
 
-## Listagem de transações
+## Transaction listing
 
-O bloco `listing` de `src/routes/Transactions.integration.ts` cobre `GET /v1/transactions`: transações da carteira pedida do mais recente ao mais antigo, com a ordem de gravação desempatando o mesmo `executedAt`, cada item com os campos da transação e o `symbol` do instrumento, sem as de outra carteira do mesmo usuário; filtros por `symbol` e `type` em qualquer caixa, por `broker` igual ao valor gravado, com outra caixa, `%` e `_` sem correspondência, e por `dateFrom` e `dateTo` inclusivos e em qualquer fuso, combinados, invertidos e sem correspondência; páginas sem repetir nem pular transação, e página além da última, até a maior que o schema aceita, com `items` vazio e os mesmos totais; filtro ou página malformados com 400. O bloco `portfolio scope` inclui o endpoint, e os testes que listavam por símbolo, nas suítes de transações e de ativos, passaram a filtrar por `symbol`.
+The `listing` block of `src/routes/Transactions.integration.ts` covers
+`GET /v1/transactions`: the requested portfolio's transactions from the most
+recent to the oldest, with recording order breaking ties on the same
+`executedAt`, each item with the transaction's fields and the instrument's
+`symbol`, without another portfolio of the same user's; filters by `symbol` and
+`type` in any case, by `broker` equal to the stored value, with a different
+case, `%` and `_` with no match, and by `dateFrom` and `dateTo` inclusive and in
+any zone, combined, inverted and with no match; pages that neither repeat nor
+skip a transaction, and a page beyond the last, up to the largest the schema
+accepts, with an empty `items` and the same totals; a malformed filter or page
+with 400. The `portfolio scope` block includes the endpoint, and the tests that
+listed by symbol, in the transaction and asset suites, started filtering by
+`symbol`.
 
-## Cotações gravadas
+## Stored quotes
 
-`src/domain/PriceHistory.test.ts` cobre, sem banco, o que falta buscar de uma série: o instante levado ao início do seu dia em UTC; o intervalo inteiro quando nada está gravado; nada a pedir quando os fechamentos alcançam o dia corrente; cada borda isolada e as duas juntas; o dia sem negociação entre os extremos, que nunca é repedido; o intervalo que termina no passado, preservado inteiro; e o intervalo restrito ao dia corrente, que não pede nada. O agora é parâmetro, nunca `new Date()` dentro do teste.
+`src/domain/PriceHistory.test.ts` covers, without a database, what is left to
+fetch from a series: the instant taken to the start of its day in UTC; the whole
+interval when nothing is stored; nothing to request when the closes reach the
+current day; each edge on its own and both together; the day with no trading
+between the extremes, which is never requested again; the interval that ends in
+the past, preserved whole; and the interval restricted to the current day, which
+requests nothing. Now is a parameter, never `new Date()` inside the test.
 
-`src/services/market-data/GetPriceHistoryService.integration.ts` cobre a orquestração contra o banco, com relógio fixo e o `getHistoricalPrices` do `FakeMarketDataProvider` substituído por `t.mock.method` em cada caso: o que é pedido ao provedor exclui o dia corrente e chega com o intervalo diário; série que já alcança o dia corrente não chama o provedor; só os dias posteriores ao fechamento mais novo são pedidos; provedor que não responde devolve o que está gravado; e símbolo fora do catálogo é recusado com `NotFoundError`.
+`src/services/market-data/GetPriceHistoryService.integration.ts` covers the
+orchestration against the database, with a fixed clock and the
+`FakeMarketDataProvider`'s `getHistoricalPrices` replaced by `t.mock.method` in
+each case: what is requested from the provider excludes the current day and
+arrives with the daily interval; a series that already reaches the current day
+does not call the provider; only the days after the newest close are requested;
+a provider that does not answer returns what is stored; and a symbol outside the
+catalog is refused with `NotFoundError`.
 
-`src/infra/database/MarketQuoteRepository.integration.ts` é a primeira suíte de integração de repositório: não sobe a API nem usa o cliente HTTP, e confere pelo `PrismaClient` o que a tabela guarda, com `registerIntegrationHooks` e o instrumento de `createInstrument`. Cobre `recordDailyCloses`: uma linha por dia de negociação, com o instante no início do dia em UTC, o decimal exato e o instrumento da linha; dia já gravado pela mesma fonte mantendo o preço primeiro observado, com o retorno contando só os dias novos; o mesmo dia de outra fonte como linha própria; e lista vazia sem gravar nada.
+`src/infra/database/MarketQuoteRepository.integration.ts` is the first
+repository integration suite: it brings up neither the API nor the HTTP client,
+and checks through `PrismaClient` what the table keeps, with
+`registerIntegrationHooks` and the instrument from `createInstrument`. It covers
+`recordDailyCloses`: one row per trading day, with the instant at the start of
+the day in UTC, the exact decimal and the row's instrument; a day already stored
+by the same source keeping the first observed price, with the return counting
+only the new days; the same day from another source as a row of its own; and an
+empty list storing nothing.
 
-## Performance da carteira
+## Portfolio performance
 
-`src/domain/PortfolioPerformance.test.ts` cobre, sem banco, a resolução da janela e a série: meses inteiros para trás a partir do início do dia corrente em UTC, o ano corrente do `YTD`, o dia da primeira transação do `MAX` e a janela vazia do razão sem transação; a posição valorizada a cada fechamento, com retorno zero no primeiro ponto; o aporte do dia que não conta como ganho; o provento líquido pago no dia contado como retorno; as unidades de `BONUS` sem aporte; a posição cotada em outra moeda levada à moeda base pela taxa do dia; o dia sem taxa e o dia sem fechamento de alguma posição detida, ambos fora da série; o benchmark sobre o primeiro fechamento da janela; e a carteira sem nada cotado, de série vazia. O agora é parâmetro, nunca `new Date()` dentro do teste.
+`src/domain/PortfolioPerformance.test.ts` covers, without a database, the
+window resolution and the series: whole months back from the start of the
+current day in UTC, `YTD`'s current year, the day of `MAX`'s first transaction
+and the empty window of a ledger with no transaction; the position valued at
+each close, with a zero return at the first point; the day's contribution, which
+does not count as a gain; the net income paid on the day counted as a return;
+the `BONUS` units with no contribution; the position quoted in another currency
+taken to the base currency at the day's rate; the day with no rate and the day
+with no close for some held position, both out of the series; the benchmark over
+the window's first close; and the portfolio with nothing quotable, with an empty
+series. Now is a parameter, never `new Date()` inside the test.
 
-O bloco `performance` de `src/routes/Portfolios.integration.ts` cobre `GET /v1/portfolio/performance` contra o banco, trocando `getHistoricalPrices` e `getHistoricalExchangeRate` do singleton por `t.mock.method`, como as demais rotas trocam a cotação: a série da carteira pedida na moeda base, com a janela que chegou ao provedor; a posição em moeda estrangeira convertida pela taxa de cada dia, com o par pedido uma vez; o benchmark ao lado da carteira; benchmark fora do catálogo com 404; a série de uma só posição, pelo símbolo sem diferenciar caixa, sem buscar fechamento nem câmbio das demais; símbolo sem posição na carteira com 404; carteira sem transação como janela vazia; carteira de outro usuário igual à inexistente; e `portfolioId`, `range`, `benchmark` ou `symbol` ausente ou malformado com 400. Os fechamentos são semeados relativos ao dia corrente, e não em datas fixas, que a suíte deixaria para trás.
+The `performance` block of `src/routes/Portfolios.integration.ts` covers
+`GET /v1/portfolio/performance` against the database, swapping the singleton's
+`getHistoricalPrices` and `getHistoricalExchangeRate` for `t.mock.method`, as
+the other routes swap the quote: the requested portfolio's series in the base
+currency, with the window that reached the provider; the position in a foreign
+currency converted at each day's rate, with the pair requested once; the
+benchmark beside the portfolio; a benchmark outside the catalog with 404; the
+series of a single position, by symbol without distinguishing case, without
+fetching the others' closes or exchange; a symbol with no position in the
+portfolio with 404; a portfolio with no transaction as an empty window; another
+user's portfolio the same as a non-existent one; and a `portfolioId`, `range`,
+`benchmark` or `symbol` that is missing or malformed with 400. The closes are
+seeded relative to the current day, not on fixed dates, which the suite would
+leave behind.

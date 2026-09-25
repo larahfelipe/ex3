@@ -1,97 +1,168 @@
 # Containers
 
-Ambiente de desenvolvimento em Docker Compose e imagens de produção. Registra como operar e as decisões que não são dedutíveis dos arquivos.
+The Docker Compose development environment and the production images. It
+records how to operate them and the decisions that cannot be derived from the
+files.
 
-Requer Docker Engine com o plugin Compose v2 (`docker compose`).
+Requires Docker Engine with the Compose v2 plugin (`docker compose`).
 
-## Arquivos
+## Files
 
-| Arquivo | Papel |
+| File | Role |
 | --- | --- |
-| `compose.yaml` | Ambiente de desenvolvimento e serviços de verificação. Projeto `ex3`, qualquer que seja o diretório do clone. |
-| `.env.example` → `.env` | Valores que o `compose.yaml` interpola. O `.env` fica fora do git. |
-| `backend/Dockerfile`, `web/Dockerfile` | Estágios `base`, `deps`, `builder`, `prod-deps`, `dev` e `runner`. |
-| `backend/.dockerignore`, `web/.dockerignore` | Tiram do contexto de build `.env*`, `node_modules` e artefatos de build. |
+| `compose.yaml` | Development environment and verification services. Project `ex3`, whatever the clone directory is. |
+| `.env.example` → `.env` | Values `compose.yaml` interpolates. `.env` stays out of git. |
+| `backend/Dockerfile`, `web/Dockerfile` | Stages `base`, `deps`, `builder`, `prod-deps`, `dev` and `runner`. |
+| `backend/.dockerignore`, `web/.dockerignore` | Keep `.env*`, `node_modules` and build artifacts out of the build context. |
 
-## Primeiro uso
+## First run
 
 ```sh
 cp .env.example .env
-# POSTGRES_PASSWORD: openssl rand -hex 24   (hex: a senha entra na URL de conexão sem escape)
+# POSTGRES_PASSWORD: openssl rand -hex 24   (hex: the password goes into the connection URL unescaped)
 # JWT_SECRET:        openssl rand -base64 48
 docker compose up --build
 ```
 
-O web fica em http://localhost:3000, e a API, em http://localhost:8080. As duas portas são publicadas só em `127.0.0.1`. O Postgres de desenvolvimento não publica porta: o acesso é por `docker compose exec postgres psql --username=ex3 --dbname=ex3`.
+The web is at http://localhost:3000 and the API at http://localhost:8080. Both
+ports are published on `127.0.0.1` only. The development Postgres publishes no
+port: reach it with
+`docker compose exec postgres psql --username=ex3 --dbname=ex3`.
 
-Sem `POSTGRES_PASSWORD`, o Postgres recusa inicializar o cluster; sem `JWT_SECRET`, o `EnvsSchema` recusa o boot do backend. As variáveis não usam `${VAR:?}` porque o Compose interpola o arquivo inteiro a cada comando, e isso exigiria o `.env` até para `pnpm test:db:up`.
+Without `POSTGRES_PASSWORD`, Postgres refuses to initialize the cluster;
+without `JWT_SECRET`, `EnvsSchema` refuses to boot the backend. The variables do
+not use `${VAR:?}` because Compose interpolates the whole file on every command,
+which would require `.env` even for `pnpm test:db:up`.
 
-O serviço `migrate` carrega um catálogo de desenvolvimento, com ações, ETFs, FII e criptos de B3, NYSE, NASDAQ e CRYPTO, para que um banco novo já permita adicionar ativo e transação. A carga só insere símbolos ausentes, então rodar de novo não duplica nem sobrescreve o que um admin corrigiu. Outros instrumentos continuam exigindo um administrador (`POST /v1/instrument`), e o primeiro é promovido por SQL:
+The `migrate` service loads a development catalog — stocks, ETFs, a REIT and
+crypto from B3, NYSE, NASDAQ and CRYPTO — so that a fresh database already
+allows adding an asset and a transaction. The load inserts missing symbols
+only, so running it again neither duplicates nor overwrites what an admin
+corrected. Other instruments still require an administrator
+(`POST /v1/instrument`), and the first one is promoted with SQL:
 
 ```sh
 docker compose exec postgres psql --username=ex3 --dbname=ex3 \
-  --command="UPDATE users SET \"isAdmin\" = true WHERE email = 'voce@exemplo.com';"
+  --command="UPDATE users SET \"isAdmin\" = true WHERE email = 'you@example.com';"
 ```
 
-## Serviços
+## Services
 
-`docker compose up` sobe, nesta ordem:
+`docker compose up` starts, in this order:
 
-1. `postgres` e `backend-deps` / `web-deps` em paralelo. Os `*-deps` rodam `pnpm install --frozen-lockfile` e terminam; num `node_modules` já em dia, é uma verificação de segundos.
-2. `migrate`, quando o `postgres` está saudável e o `backend-deps` terminou: `prisma migrate deploy`, o mesmo caminho da produção e da suíte de testes, seguido de `prisma db seed`, que roda `src/infra/database/SeedDevelopmentCatalog.ts`. O seed fica fora do build e do workflow de produção.
-3. `backend` (`pnpm dev`), quando o `migrate` terminou com sucesso.
-4. `web` (`pnpm dev`), quando o `web-deps` terminou e o `backend` foi iniciado.
+1. `postgres` and `backend-deps` / `web-deps` in parallel. The `*-deps` services
+   run `pnpm install --frozen-lockfile` and exit; against an up-to-date
+   `node_modules` this is a check that takes seconds.
+2. `migrate`, once `postgres` is healthy and `backend-deps` has finished:
+   `prisma migrate deploy`, the same path production and the test suite take,
+   followed by `prisma db seed`, which runs
+   `src/infra/database/SeedDevelopmentCatalog.ts`. The seed stays out of the
+   build and out of the production workflow.
+3. `backend` (`pnpm dev`), once `migrate` has completed successfully.
+4. `web` (`pnpm dev`), once `web-deps` has finished and `backend` has started.
 
-Os serviços de desenvolvimento usam o estágio `dev`: imagem com Node e pnpm, código montado do host, processo como `node`. O `node_modules` de cada pacote fica num volume, porque os binários nativos (`bcrypt`, Prisma, SWC) do host macOS não servem ao Linux do container. O store do pnpm é um volume compartilhado entre os dois pacotes, para que uma reinstalação não baixe de novo o que já foi baixado. O `build/` do `next dev` fica num volume próprio e não disputa o diretório com um `pnpm build` feito no host.
+The development services use the `dev` stage: an image with Node and pnpm, code
+mounted from the host, process running as `node`. Each package's `node_modules`
+lives in a volume, because the host's native binaries (`bcrypt`, Prisma, SWC)
+do not serve the container's Linux. The pnpm store is a volume shared by both
+packages, so that a reinstall does not download again what was already
+downloaded. The `build/` of `next dev` has its own volume and does not fight
+over the directory with a `pnpm build` run on the host.
 
-O `backend` tem health check em `GET /ready`, que responde pelo banco, e por isso o `web` espera por `service_healthy`, não pelo container iniciado. O `web` tem o seu em conexão TCP na porta 3000: o `next dev` compila a página pedida, então uma sonda por rota recompilaria a cada intervalo. As duas sondas rodam `node -e` dentro do próprio container, sem depender de `curl` na imagem, a cada 10s, com 60s de carência no start e três falhas seguidas para virar `unhealthy`. Ver `docs/observability.md`.
+`backend` has a health check on `GET /ready`, which answers for the database,
+which is why `web` waits for `service_healthy` rather than for a started
+container. `web` has its own on a TCP connection to port 3000: `next dev`
+compiles the page that is requested, so a per-route probe would recompile on
+every interval. Both probes run `node -e` inside the container, without
+depending on `curl` being in the image, every 10s, with a 60s start period and
+three consecutive failures to become `unhealthy`. See
+[`observability.md`](observability.md).
 
-Em Linux, o usuário `node` do container (uid 1000) grava no código montado (`dist/`, `next-env.d.ts`, `build/`). Com outro uid no host, essas escritas falham. No Docker Desktop do macOS, o mapeamento de dono é transparente.
+On Linux, the container's `node` user (uid 1000) writes into the mounted code
+(`dist/`, `next-env.d.ts`, `build/`). With a different uid on the host those
+writes fail. On Docker Desktop for macOS the ownership mapping is transparent.
 
-## Variáveis de ambiente
+## Environment variables
 
-O `.env` da raiz só é lido pelo Compose. O backend no container recebe `NODE_ENV`, `PORT`, `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `API_PROXY_SECRET` e `YAHOO_FINANCE_API_KEY` do `compose.yaml`, e o web recebe `API_URL` e o mesmo `API_PROXY_SECRET`. Como o `dotenv` não sobrescreve variável já definida, esses valores prevalecem sobre um `backend/.env` presente no código montado. As demais chaves (`BCRYPT_SALT`, `JWT_EXPIRATION`, `CORS_ALLOWED_ORIGINS`) seguem o `backend/.env`, se ele existir, ou o default do `EnvsSchema`.
+The root `.env` is read by Compose only. In the container, the backend receives
+`NODE_ENV`, `PORT`, `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`,
+`API_PROXY_SECRET` and `YAHOO_FINANCE_API_KEY` from `compose.yaml`, and the web
+receives `API_URL` and the same `API_PROXY_SECRET`. Because `dotenv` does not
+overwrite an already defined variable, these values win over a `backend/.env`
+present in the mounted code. The remaining keys (`BCRYPT_SALT`,
+`JWT_EXPIRATION`, `CORS_ALLOWED_ORIGINS`) follow `backend/.env`, if it exists,
+or the `EnvsSchema` default.
 
-O web recebe `API_URL=http://backend:8080`, o nome do serviço na rede do Compose. O navegador só fala com o web.
+The web receives `API_URL=http://backend:8080`, the service name on the Compose
+network. The browser only ever talks to the web.
 
-## Verificações
+## Checks
 
-Os serviços do perfil `check` repetem os gates do CI:
+The `check` profile's services repeat the CI gates:
 
 ```sh
 docker compose run --rm backend-check     # lint, typecheck, test:unit, test:integration, build
 docker compose run --rm web-check         # lint, typecheck, build
-docker compose run --rm backend-check pnpm test:unit   # um comando só
-docker compose rm --stop --force postgres-test   # encerra o banco de teste
+docker compose run --rm backend-check pnpm test:unit   # a single command
+docker compose rm --stop --force postgres-test   # shut the test database down
 ```
 
-O `backend-check` compartilha o namespace de rede do `postgres-test`. Assim, o `localhost:5432` do `.env.test` continua válido dentro do container, e o `.env.test` segue como a única fonte da string de conexão da suíte. O serviço não define variável de ambiente nenhuma, porque o `node --env-file` não sobrescreve o que já está no ambiente.
+`backend-check` shares the network namespace of `postgres-test`. That keeps the
+`localhost:5432` from `.env.test` valid inside the container, and `.env.test`
+remains the single source of the suite's connection string. The service defines
+no environment variable at all, because `node --env-file` does not overwrite
+what is already in the environment.
 
-**A suíte não roda no serviço `backend`.** Nele, `NODE_ENV=development` e o `DATABASE_URL` do banco de desenvolvimento prevaleceriam sobre o `.env.test`. O `resetDatabase` recusa truncar com `NODE_ENV` diferente de `test` (`NonTestDatabaseResetError`), então um `docker compose run backend pnpm test` falha sem apagar dados.
+**The suite does not run in the `backend` service.** There, `NODE_ENV=development`
+and the development database's `DATABASE_URL` would win over `.env.test`.
+`resetDatabase` refuses to truncate when `NODE_ENV` is anything but `test`
+(`NonTestDatabaseResetError`), so a `docker compose run backend pnpm test`
+fails without deleting data.
 
-Para rodar a suíte no host, `pnpm test:db:up` e `pnpm test:db:down` no `backend/` sobem e removem só o `postgres-test`, publicado em `127.0.0.1:5432`.
+To run the suite on the host, `pnpm test:db:up` and `pnpm test:db:down` in
+`backend/` start and remove `postgres-test` alone, published on
+`127.0.0.1:5432`.
 
-## Dados e volumes
+## Data and volumes
 
-| Volume | Conteúdo |
+| Volume | Content |
 | --- | --- |
-| `postgres-data` | Banco de desenvolvimento |
-| `backend-node-modules`, `web-node-modules` | Dependências instaladas no Linux do container |
-| `web-dev-build` | Saída do `next dev` |
-| `pnpm-store` | Store do pnpm (`PNPM_CONFIG_STORE_DIR`) |
+| `postgres-data` | Development database |
+| `backend-node-modules`, `web-node-modules` | Dependencies installed on the container's Linux |
+| `web-dev-build` | Output of `next dev` |
+| `pnpm-store` | pnpm store (`PNPM_CONFIG_STORE_DIR`) |
 
-`docker compose down` preserva os volumes. `docker compose down --volumes` apaga todos, inclusive o banco de desenvolvimento. Para refazer só as dependências de um pacote, remova o volume dele com `docker compose down` seguido de `docker volume rm ex3_web-node-modules`. O `postgres-test` usa `tmpfs` e começa vazio a cada subida (ver `docs/testing.md`).
+`docker compose down` preserves the volumes. `docker compose down --volumes`
+deletes all of them, including the development database. To rebuild one
+package's dependencies only, remove its volume with `docker compose down`
+followed by `docker volume rm ex3_web-node-modules`. `postgres-test` uses
+`tmpfs` and starts empty on every run (see [`testing.md`](testing.md)).
 
-Mudança em Dockerfile ou no `packageManager` do `package.json` exige `docker compose up --build`. Mudança de dependência não exige: o `*-deps` reinstala no próximo `up`.
+A change to a Dockerfile or to `packageManager` in `package.json` requires
+`docker compose up --build`. A dependency change does not: `*-deps` reinstalls
+on the next `up`.
 
-## Imagens de produção
+## Production images
 
-O alvo de produção é o último estágio, `runner`:
+The production target is the last stage, `runner`:
 
-- parte de `node:24.15-alpine` sem pnpm e roda como `node`, com `tini` como PID 1: o Node não trata SIGTERM quando é o PID 1, e a plataforma que executa a imagem não oferece `--init`;
-- leva só as dependências de produção, instaladas num estágio limpo (`prod-deps`), e o artefato do `builder`: `dist/` e `prisma/` no backend; `build/` sem `build/cache`, `public/`, `next.config.js` e `package.json` no web;
-- executa `node` direto, sem gerenciador de pacotes no processo. O web usa `node node_modules/next/dist/bin/next start`, o que evita que o corepack baixe o pnpm quando o container sobe.
+- it starts from `node:24.15-alpine` without pnpm and runs as `node`, with
+  `tini` as PID 1: Node does not handle SIGTERM when it is PID 1, and the
+  platform that runs the image offers no `--init`;
+- it carries production dependencies only, installed in a clean stage
+  (`prod-deps`), plus the `builder` artifact: `dist/` and `prisma/` in the
+  backend; `build/` without `build/cache`, `public/`, `next.config.js` and
+  `package.json` in the web;
+- it executes `node` directly, with no package manager in the process. The web
+  uses `node node_modules/next/dist/bin/next start`, which keeps corepack from
+  downloading pnpm when the container starts.
 
-O corepack baixa a versão do `packageManager` durante o build, em `COREPACK_HOME`, legível pelo usuário `node` do estágio `dev`. Os Dockerfiles não usam sintaxe exclusiva do BuildKit, como `RUN --mount`, para que qualquer builder os construa.
+Corepack downloads the `packageManager` version during the build, into
+`COREPACK_HOME`, readable by the `node` user of the `dev` stage. The
+Dockerfiles use no BuildKit-only syntax, such as `RUN --mount`, so that any
+builder can build them.
 
-`API_URL` chega ao web por build-arg, e o estágio `runner` a declara como variável de ambiente do container. Ela é lida pelo servidor em tempo de execução, não mais inlinada no bundle pelo `next.config.js` — ver `security.md`, §Segredos.
+`API_URL` reaches the web as a build arg, and the `runner` stage declares it as
+a container environment variable. It is read by the server at runtime, no
+longer inlined into the bundle by `next.config.js` — see `security.md`,
+§Secrets.

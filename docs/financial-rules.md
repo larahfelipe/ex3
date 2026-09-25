@@ -1,123 +1,175 @@
-# Regras financeiras
+# Financial rules
 
-Definição matemática de cada número que a API reporta, com o ponto do código que a implementa. O que as entidades significam está em [`domain-model.md`](domain-model.md); aqui está como os valores são calculados a partir delas.
+The mathematical definition of every number the API reports, with the point in
+the code that implements it. What the entities mean is in
+[`domain-model.md`](domain-model.md); here is how the values are computed from
+them.
 
-## Convenções
+## Conventions
 
-Toda aritmética usa decimal de base 10 (`Prisma.Decimal`), nunca ponto flutuante binário. As colunas monetárias são `DECIMAL(38,18)`: precisão de 38 dígitos, escala de 18 casas.
+All arithmetic uses base-10 decimal (`Prisma.Decimal`), never binary floating
+point. The monetary columns are `DECIMAL(38,18)`: 38 digits of precision, a
+scale of 18 places.
 
-* **Truncamento.** Todo resultado exposto é truncado **em direção a zero** na escala da coluna (18 casas). Nunca se arredonda para cima: um valor exibido nunca é maior do que o calculado.
-* **Precisão intermediária.** O replay do razão calcula com `2 × 38 + 1 = 77` dígitos e a valoração com `4 × 38 = 152`, o bastante para que nenhuma operação intermediária arredonde antes do truncamento final.
-* **Percentuais são frações.** `profitLossPercent = 0.1` significa 10%. A formatação em percentual é do frontend.
-* **Campo ausente ≠ zero.** Quando falta a cotação, o câmbio ou o divisor é zero, o campo **não vem no corpo** — a resposta continua `200`. Um zero afirmaria que o valor é zero; a ausência afirma que ele não é calculável agora.
-* **Entrada no web.** O web nunca converte quantidade ou valor para `number`: o formulário guarda a string decimal que a API recebe, e o que ele calcula conta unidades de `10^-escala` em `bigint` (`web/src/lib/decimal.ts`). As casas por classe de instrumento (`UNIT_PRICE_DECIMALS`) só definem como o preço é digitado; a API aceita 18 casas em qualquer classe, então nada que o web envia é recusado por precisão e nada gravado perde casas ao ser editado.
-* **Moedas.** Um razão vive em uma única moeda. Totais de carteira são convertidos para a `baseCurrency` da carteira pela cotação mais recente de cada moeda, não pela cotação do dia de cada transação.
+* **Truncation.** Every exposed result is truncated **toward zero** at the
+  column's scale (18 places). Nothing is ever rounded up: a displayed value is
+  never greater than the computed one.
+* **Intermediate precision.** The ledger replay computes with
+  `2 × 38 + 1 = 77` digits and the valuation with `4 × 38 = 152`, enough that no
+  intermediate operation rounds before the final truncation.
+* **Percentages are fractions.** `profitLossPercent = 0.1` means 10%.
+  Formatting as a percentage is the frontend's job.
+* **An absent field ≠ zero.** When the quote or the exchange rate is missing, or
+  the divisor is zero, the field **does not come in the body** — the response is
+  still `200`. A zero would assert that the value is zero; the absence asserts
+  that it is not computable right now.
+* **Input in the web.** The web never converts a quantity or a value to
+  `number`: the form holds the decimal string the API receives, and what it
+  computes counts units of `10^-scale` in a `bigint`
+  (`web/src/lib/decimal.ts`). The places per instrument class
+  (`UNIT_PRICE_DECIMALS`) only define how the price is typed; the API accepts 18
+  places in any class, so nothing the web sends is refused for precision and
+  nothing stored loses places when edited.
+* **Currencies.** A ledger lives in a single currency. Portfolio totals are
+  converted to the portfolio's `baseCurrency` at each currency's most recent
+  quote, not at the quote of each transaction's day.
 
-Notação: `q` quantidade, `p` preço unitário, `f` taxas (fees), `t` impostos, `P` preço de mercado, `c` custo médio, `x` taxa de câmbio para a moeda base.
+Notation: `q` quantity, `p` unit price, `f` fees, `t` taxes, `P` market price,
+`c` average cost, `x` exchange rate to the base currency.
 
-## Preço médio (`averageCost`)
+## Average cost (`averageCost`)
 
-Custo médio por unidade, reconstruído do razão inteiro a cada gravação — nunca incrementado sobre o valor anterior. Entradas são ordenadas por `executedAt` e, no empate, pela ordem de gravação (`sequence`).
+The average cost per unit, rebuilt from the whole ledger on every write — never
+incremented over the previous value. Entries are ordered by `executedAt` and, on
+a tie, by the write order (`sequence`).
 
-Estado inicial `q₀ = 0`, `c₀ = 0`. Para cada entrada `i`:
+Initial state `q₀ = 0`, `c₀ = 0`. For each entry `i`:
 
 ```text
 BUY, BONUS   qᵢ = qᵢ₋₁ + q
-             custo total = qᵢ₋₁ · cᵢ₋₁ + q · p + f + t
-             cᵢ = ⌊custo total · 10¹⁸ ÷ qᵢ⌋ ÷ 10¹⁸      (divisão inteira)
-SELL         qᵢ = qᵢ₋₁ − q,  recusado se q > qᵢ₋₁
-             cᵢ = cᵢ₋₁, e 0 quando qᵢ = 0
+             total cost = qᵢ₋₁ · cᵢ₋₁ + q · p + f + t
+             cᵢ = ⌊total cost · 10¹⁸ ÷ qᵢ⌋ ÷ 10¹⁸      (integer division)
+SELL         qᵢ = qᵢ₋₁ − q,  refused if q > qᵢ₋₁
+             cᵢ = cᵢ₋₁, and 0 when qᵢ = 0
 DIVIDEND, JCP, INTEREST
              qᵢ = qᵢ₋₁,  cᵢ = cᵢ₋₁
 ```
 
-A venda **não** altera o preço médio: realizar resultado não muda o custo do que continua na carteira. Zerar a posição zera o custo, para que uma recompra posterior não herde o custo da posição anterior. O `BONUS` entra com o custo atribuído a cada unidade — bonificação com `p = 0` dilui o preço médio, que é o efeito correto.
+A sale does **not** change the average cost: realizing a result does not change
+the cost of what remains in the portfolio. Zeroing the position zeroes the cost,
+so that a later repurchase does not inherit the previous position's cost.
+`BONUS` enters with the cost attributed to each unit — a bonus with `p = 0`
+dilutes the average cost, which is the correct effect.
 
-Uma posição intermediária que não caiba em `DECIMAL(38,18)` é recusada com `422`, sem gravar: o razão não passa por um estado que a coluna não representa.
+An intermediate position that does not fit in `DECIMAL(38,18)` is refused with
+`422`, with nothing written: the ledger does not pass through a state the column
+cannot represent.
 
 `backend/src/domain/PositionLedger.ts`
 
-## Custo (`investedValue`)
+## Cost (`investedValue`)
 
 ```text
 investedValue = ⌊q · c⌋₁₈
 ```
 
-Quanto a posição custou, na moeda do razão, truncado na escala da coluna. É o denominador do resultado percentual e o `investedValue` da visão geral, convertido para a moeda base.
+What the position cost, in the ledger's currency, truncated at the column's
+scale. It is the denominator of the percentage result and the `investedValue` of
+the overview, converted to the base currency.
 
 ## Valuation
 
-Valor de mercado de uma posição, na moeda da cotação:
+A position's market value, in the quote's currency:
 
 ```text
 marketValue = ⌊q · P⌋₁₈
 ```
 
-Na moeda base da carteira, cada parcela é convertida pela cotação mais recente da sua moeda:
+In the portfolio's base currency, each part is converted at its currency's most
+recent quote:
 
 ```text
-marketValueBase  = ⌊q · P · x_cotação⌋₁₈
-investedValueBase = ⌊investedValue · x_razão⌋₁₈
-totalValue = Σ marketValueBase, sobre as posições com unidades
+marketValueBase   = ⌊q · P · x_quote⌋₁₈
+investedValueBase = ⌊investedValue · x_ledger⌋₁₈
+totalValue = Σ marketValueBase, over the positions with units
 ```
 
-`totalValue` só existe se **toda** posição com unidades tiver cotação e câmbio; uma parcial reportaria uma carteira menor como se tivesse perdido valor. `quotedAt` é o instante **mais antigo** entre as cotações e os câmbios usados: descreve a idade do total, não da última consulta.
+`totalValue` only exists if **every** position with units has a quote and an
+exchange rate; a partial one would report a smaller portfolio as if it had lost
+value. `quotedAt` is the **earliest** instant among the quotes and exchange
+rates used: it describes the age of the total, not of the last query.
 
-`backend/src/domain/PositionValuation.ts`, `backend/src/domain/PortfolioValuation.ts`
+`backend/src/domain/PositionValuation.ts`,
+`backend/src/domain/PortfolioValuation.ts`
 
 ## P&L
 
 ```text
 profitLoss        = marketValue − investedValue
-profitLossPercent = profitLoss ÷ investedValue          (ausente se investedValue = 0)
+profitLossPercent = profitLoss ÷ investedValue          (absent if investedValue = 0)
 ```
 
-Na posição, o resultado só é dado quando a moeda do razão é a mesma da cotação — custos em moedas diferentes não somam sem câmbio. Na carteira, ambos já estão na moeda base, e o resultado é a diferença dos dois totais. Efeito conhecido: como as duas parcelas usam a taxa de hoje, o resultado **não separa** o que veio do preço do ativo do que veio do câmbio.
+On a position, the result is only given when the ledger's currency is the same
+as the quote's — costs in different currencies do not add without an exchange
+rate. On the portfolio, both are already in the base currency, and the result is
+the difference of the two totals. A known effect: because both parts use today's
+rate, the result does **not** separate what came from the asset's price from
+what came from the exchange rate.
 
-Variação do dia:
+The day's change:
 
 ```text
 dayChange        = totalValue − previousValue
-dayChangePercent = dayChange ÷ previousValue            (ausente se previousValue = 0)
+dayChangePercent = dayChange ÷ previousValue            (absent if previousValue = 0)
 ```
 
-`previousValue` é a carteira avaliada pelo fechamento anterior de cada ativo, e só existe quando toda posição com unidades tem fechamento anterior.
+`previousValue` is the portfolio valued at each asset's previous close, and it
+only exists when every position with units has a previous close.
 
-## Alocação
+## Allocation
 
 ```text
-allocation(posição) = marketValueBase ÷ totalValue      (ausente se totalValue ausente ou 0)
-allocation(grupo)   = Σ allocation das posições do grupo
-marketValue(grupo)  = Σ marketValueBase das posições do grupo
+allocation(position) = marketValueBase ÷ totalValue     (absent if totalValue is absent or 0)
+allocation(group)    = Σ allocation of the group's positions
+marketValue(group)   = Σ marketValueBase of the group's positions
 ```
 
-Os grupos (`byAsset`, `byType`, `bySector`, `byCurrency`) somam exatamente as parcelas das posições, sem recalcular a partir do total: as quatro distribuições fecham no mesmo valor. Um grupo em que alguma posição não tem o valor deixa o campo de fora. Só posições com unidades entram. Para `n` posições, a soma fica abaixo de `totalValue` por menos de `n · 10⁻¹⁸`, e abaixo de 1 por menos de `n · 10⁻¹⁸ · (1 + 1 ÷ totalValue)` — resíduo do truncamento, não erro de arredondamento.
+The groups (`byAsset`, `byType`, `bySector`, `byCurrency`) add exactly the
+positions' parts, without recomputing from the total: the four distributions
+close at the same value. A group in which some position lacks the value leaves
+the field out. Only positions with units enter. For `n` positions, the sum falls
+below `totalValue` by less than `n · 10⁻¹⁸`, and below 1 by less than
+`n · 10⁻¹⁸ · (1 + 1 ÷ totalValue)` — a truncation residue, not a rounding error.
 
-`allocatePortfolio`, em `backend/src/domain/PortfolioValuation.ts`
+`allocatePortfolio`, in `backend/src/domain/PortfolioValuation.ts`
 
 ## Performance
 
-Série diária do valor da carteira na moeda base. A janela termina no início do dia corrente em UTC, exclusivo, e começa em:
+The daily series of the portfolio's value in the base currency. The window ends
+at the start of the current day in UTC, exclusive, and starts at:
 
-| `range` | Início |
+| `range` | Start |
 | --- | --- |
-| `1W`, `1M`, `3M`, `6M`, `1Y` | o mesmo instante, 7 dias / 1, 3, 6, 12 meses atrás |
-| `YTD` | 1º de janeiro do ano corrente, em UTC |
-| `MAX` | o dia da primeira transação do razão |
+| `1W`, `1M`, `3M`, `6M`, `1Y` | the same instant, 7 days / 1, 3, 6, 12 months earlier |
+| `YTD` | 1 January of the current year, in UTC |
+| `MAX` | the day of the ledger's first transaction |
 
-Um dia vira ponto da série só quando toda posição detida nele, e toda transação executada nele, tem fechamento e câmbio. A posição de cada dia é reconstruída do razão até o fechamento daquele dia, então uma transação lançada retroativamente move toda a série anterior a ela.
+A day becomes a point of the series only when every position held on it, and
+every transaction executed on it, has a close and an exchange rate. Each day's
+position is rebuilt from the ledger up to that day's close, so a transaction
+entered retroactively moves the whole series before it.
 
-Fluxo de caixa de cada entrada, na moeda base do dia:
+Each entry's cash flow, in the base currency of the day:
 
 ```text
-BUY                        +(q · p + f + t)        aporte
+BUY                        +(q · p + f + t)        contribution
 BONUS                      +(f + t)
-SELL                       −(q · p − f − t)        retirada
-DIVIDEND, JCP, INTEREST    −(q · p − f − t)        distribuição
-netContribution(dia) = Σ dos fluxos das entradas executadas naquele dia
+SELL                       −(q · p − f − t)        withdrawal
+DIVIDEND, JCP, INTEREST    −(q · p − f − t)        distribution
+netContribution(day) = Σ of the flows of the entries executed on that day
 ```
 
-Retorno ponderado no tempo, encadeado a partir do primeiro ponto:
+The time-weighted return, chained from the first point:
 
 ```text
 growth₁ = 1
@@ -125,109 +177,178 @@ growthᵢ = growthᵢ₋₁ · (valueᵢ − netContributionᵢ) ÷ valueᵢ₋�
 twrᵢ    = growthᵢ − 1
 ```
 
-Subtrair o aporte do dia antes de dividir é o que impede que dinheiro colocado ou retirado conte como ganho. Um intervalo sem pontos faz o retorno seguinte abranger o intervalo inteiro. `twr` é fração: `0.1` é 10%.
+Subtracting the day's contribution before dividing is what keeps money put in or
+taken out from counting as a gain. An interval with no points makes the
+following return span the whole interval. `twr` is a fraction: `0.1` is 10%.
 
-`trackPortfolioPerformance`, em `backend/src/domain/PortfolioPerformance.ts`
+`trackPortfolioPerformance`, in `backend/src/domain/PortfolioPerformance.ts`
 
-## Dividendos
+## Dividends
 
-`DIVIDEND`, `JCP` e `INTEREST` são registrados no razão como qualquer transação: `q` é o número de unidades que gerou a renda, `p` o valor bruto por unidade, e o líquido recebido é `q · p − f − t`. O provento não exige unidades detidas na data, porque quem vende depois da data com direito ainda recebe. Duas regras:
+`DIVIDEND`, `JCP` and `INTEREST` are recorded in the ledger like any
+transaction: `q` is the number of units that generated the income, `p` the gross
+amount per unit, and the net received is `q · p − f − t`. Income does not
+require units held on the date, because someone who sells after the entitlement
+date still receives it. Two rules:
 
-1. **Não alteram a posição.** Quantidade e preço médio ficam como estavam — renda não é custo, e não pode diluir nem inflar o custo de quem a recebeu.
-2. **Contam como distribuição na performance.** Entram no `netContribution` do dia com o líquido de sinal negativo, como uma retirada — não há saldo em caixa na carteira, então o provento sai dela como sai o líquido de uma venda. Como o preço do ativo cai no dia ex, o `twr` daquele dia é `(value + provento) ÷ value anterior`: o provento não aparece como perda.
+1. **They do not change the position.** Quantity and average cost stay as they
+   were — income is not cost, and it cannot dilute or inflate the cost of
+   whoever received it.
+2. **They count as a distribution in the performance.** They enter the day's
+   `netContribution` with the net amount negated, like a withdrawal — there is
+   no cash balance in the portfolio, so income leaves it as a sale's net amount
+   does. Because the asset's price drops on the ex date, that day's `twr` is
+   `(value + income) ÷ the previous value`: the income does not appear as a
+   loss.
 
-A renda de uma posição é somada em `GET /v1/portfolio/positions/:symbol/indicators` (ver Indicadores da posição, abaixo). Da carteira não há agregação: nenhuma rota devolve total do mês, do ano ou `yield` da carteira inteira (TD-062 em [`../TODO.md`](../TODO.md)).
+A position's income is summed in
+`GET /v1/portfolio/positions/:symbol/indicators` (see Position indicators,
+below). For the portfolio there is no aggregation: no route returns a monthly
+total, a yearly total or the whole portfolio's `yield` (TD-062 in
+[`../TODO.md`](../TODO.md)).
 
-## Indicadores da posição
+## Position indicators
 
-`GET /v1/portfolio/positions/:symbol/indicators` descreve uma posição por dois grupos, cada um ausente quando não há de onde calculá-lo.
+`GET /v1/portfolio/positions/:symbol/indicators` describes a position through
+two groups, each absent when there is nothing to compute it from.
 
-**Preço (`prices`)**, dos fechamentos diários do instrumento, na moeda em que é cotado. Lidos de 14 dias antes do início da janela de um ano até o início do dia corrente em UTC, exclusivo; os 14 dias acham o fechamento que precifica um primeiro dia que caiu em fim de semana ou feriado (limite suposto, não medido: nenhum mercado do catálogo fica duas semanas sem pregão). Ausente sem fechamento no último ano.
+**Price (`prices`)**, from the instrument's daily closes, in the currency it is
+quoted in. Read from 14 days before the start of the one-year window up to the
+start of the current day in UTC, exclusive; the 14 days find the close that
+prices a first day that fell on a weekend or a holiday (an assumed limit, not
+measured: no market in the catalog goes two weeks without a trading session).
+Absent when there is no close in the last year.
 
 ```text
-close, closedOn      = o fechamento mais recente e o seu dia
-yearLow, yearHigh    = o menor e o maior fechamento do último ano (fechamentos, não preços intradiários)
-change(janela)       = close ÷ abertura − 1
-abertura             = o último fechamento no primeiro dia da janela ou antes dele
-openedOn(janela)     = o dia da abertura, presente só com change
-closes               = um fechamento por dia, da abertura de 1Y, ou do primeiro fechamento, ao mais recente
+close, closedOn      = the most recent close and its day
+yearLow, yearHigh    = the lowest and highest close of the last year (closes, not intraday prices)
+change(window)       = close ÷ opening − 1
+opening              = the last close on or before the window's first day
+openedOn(window)     = the opening's day, present only with change
+closes               = one close per day, from the 1Y opening, or from the first close, to the most recent
 ```
 
-As janelas são `1M`, `3M`, `6M`, `YTD` e `1Y`, com os inícios de Performance, acima. A variação de uma janela fica sem `change` quando o histórico não alcança o seu primeiro dia, quando o fechamento mais recente não é posterior a ele ou quando a abertura é zero.
+The windows are `1M`, `3M`, `6M`, `YTD` and `1Y`, with the starts in
+Performance, above. A window's change goes without `change` when the history
+does not reach its first day, when the most recent close is not later than it,
+or when the opening is zero.
 
-Um dia observado por mais de uma fonte tem mais de um fechamento (TD-028); todo indicador de preço lê só o mais recente de cada dia, pela ordem dos instantes, o mesmo que a abertura já lia. `closes` é a série que o gráfico de preço do detalhe do ativo desenha: começa na abertura da janela mais longa, então contém a de cada janela, e o web recorta uma janela a partir do seu `openedOn`, sem cálculo.
+A day observed by more than one source has more than one close (TD-028); every
+price indicator reads only the most recent of each day, by instant order, the
+same one the opening already read. `closes` is the series the asset detail's
+price chart draws: it starts at the longest window's opening, so it contains
+each window's, and the web cuts a window out from its `openedOn`, with no
+calculation.
 
-**Retorno (`returns`)**, do razão da posição executado até o instante da requisição, na moeda do razão. Ausente sem transação.
+**Return (`returns`)**, from the position's ledger executed up to the instant of
+the request, in the ledger's currency. Absent when there is no transaction.
 
 ```text
-realizedProfitLoss = Σ das vendas de (q · p − f − t − q · c)      c = custo médio antes da venda
-income             = Σ dos proventos de (q · p − f − t)
-trailingIncome     = o mesmo, só dos executados no último ano
-yieldOnCost        = trailingIncome ÷ investedValue               (ausente se investedValue = 0)
-since              = o executedAt mais antigo do razão
+realizedProfitLoss = Σ over the sales of (q · p − f − t − q · c)  c = average cost before the sale
+income             = Σ over the income entries of (q · p − f − t)
+trailingIncome     = the same, only for those executed in the last year
+yieldOnCost        = trailingIncome ÷ investedValue               (absent if investedValue = 0)
+since              = the ledger's earliest executedAt
 ```
 
-O resultado de cada venda é truncado em 18 casas antes da soma, e o custo médio é o do replay de `rebuildPosition`, o mesmo que a posição grava. Um razão gravado sempre se reconstrói, porque toda escrita o reconstruiu; uma recusa aqui é invariante quebrado e responde `500`. Não há retorno total: somar o resultado não realizado da posição exigiria a cotação na moeda do razão, a mesma restrição de P&L, acima.
+Each sale's result is truncated at 18 places before the sum, and the average
+cost is the one from `rebuildPosition`'s replay, the same the position stores. A
+stored ledger always rebuilds, because every write rebuilt it; a refusal here is
+a broken invariant and answers `500`. There is no total return: adding the
+position's unrealized result would require the quote in the ledger's currency,
+the same restriction as P&L, above.
 
-`describePositionIndicators`, em `backend/src/domain/PositionIndicators.ts`, e `realizeProfitLoss`, em `backend/src/domain/PositionLedger.ts`
+`describePositionIndicators`, in `backend/src/domain/PositionIndicators.ts`, and
+`realizeProfitLoss`, in `backend/src/domain/PositionLedger.ts`
 
-## Fundamentos
+## Fundamentals
 
-`GET /v1/portfolio/positions/:symbol/fundamentals` descreve o instrumento de uma posição pelos indicadores fundamentalistas que a classe dele comporta. Nenhum é calculado aqui: cada valor é o que a fonte de mercado informa, e a resposta diz qual fonte é, em `source`, porque outra fonte pode calcular o mesmo indicador de outro jeito (janela, ajuste, moeda). O web diz isso no rodapé da seção.
+`GET /v1/portfolio/positions/:symbol/fundamentals` describes a position's
+instrument through the fundamental indicators its class supports. None is
+computed here: each value is what the market data source reports, and the
+response says which source it is, in `source`, because another source may
+compute the same indicator differently (window, adjustment, currency). The web
+states that in the section's footer.
 
-| Classe | Indicadores, na ordem exibida |
+| Class | Indicators, in display order |
 | --- | --- |
-| `STOCK` | P/E, dividend yield (12M), ROE, margem líquida, dívida/patrimônio, crescimento de receita, crescimento de lucro, fluxo de caixa livre (12M) |
-| `REIT` | dividend yield (12M), dívida/patrimônio, crescimento de receita |
+| `STOCK` | P/E, dividend yield (12M), ROE, profit margin, debt/equity, revenue growth, earnings growth, free cash flow (12M) |
+| `REIT` | dividend yield (12M), debt/equity, revenue growth |
 | `ETF`, `FUND` | dividend yield (12M) |
-| `CRYPTO`, `BOND`, `TREASURY`, `CASH`, `OTHER` | nenhum: `not-applicable`, sem consultar o provedor |
+| `CRYPTO`, `BOND`, `TREASURY`, `CASH`, `OTHER` | none: `not-applicable`, with no query to the provider |
 
-* REIT: a depreciação dos imóveis distorce o lucro, então P/E, ROE, margem e crescimento de lucro leem mal a classe (o múltiplo usual é sobre FFO, que a fonte não informa).
-* ETF e fundo: os múltiplos seriam os da carteira do fundo, não dele; só o rendimento é do próprio fundo.
-* "Growth" genérico ficou representado por crescimento de receita e de lucro, que dizem o que cresce.
+* REIT: property depreciation distorts earnings, so P/E, ROE, margin and
+  earnings growth read the class poorly (the usual multiple is over FFO, which
+  the source does not report).
+* ETF and fund: the multiples would be those of the fund's portfolio, not of the
+  fund itself; only the yield belongs to the fund.
+* Generic "growth" is represented by revenue and earnings growth, which say what
+  is growing.
 
 ```text
-priceToEarnings = preço ÷ lucro por ação dos últimos 12 meses (múltiplo)
-dividendYield   = proventos pagos nos últimos 12 meses ÷ preço (fração)
-returnOnEquity  = lucro líquido dos últimos 12 meses ÷ patrimônio líquido (fração)
-profitMargin    = lucro líquido ÷ receita, últimos 12 meses (fração)
-debtToEquity    = dívida total ÷ patrimônio líquido, último trimestre (múltiplo)
-revenueGrowth   = receita do último trimestre ÷ a do mesmo trimestre do ano anterior − 1 (fração)
-earningsGrowth  = lucro do último trimestre ÷ o do mesmo trimestre do ano anterior − 1 (fração)
-freeCashFlow    = caixa gerado nos últimos 12 meses após investimentos e juros (valor, na moeda das demonstrações)
+priceToEarnings = price ÷ earnings per share over the last 12 months (multiple)
+dividendYield   = income paid over the last 12 months ÷ price (fraction)
+returnOnEquity  = net income over the last 12 months ÷ shareholders' equity (fraction)
+profitMargin    = net income ÷ revenue, last 12 months (fraction)
+debtToEquity    = total debt ÷ shareholders' equity, last quarter (multiple)
+revenueGrowth   = last quarter's revenue ÷ that of the same quarter a year earlier − 1 (fraction)
+earningsGrowth  = last quarter's earnings ÷ those of the same quarter a year earlier − 1 (fraction)
+freeCashFlow    = cash generated over the last 12 months after investments and interest (value, in the statements' currency)
 ```
 
-Frações vêm como `0.12` para 12%, múltiplos como `1.5` para 1,5 vez, e o web os exibe como percentual e como `1.50×`; os crescimentos levam sinal e cor. O fluxo de caixa livre vem com `currency`, a moeda das demonstrações, que pode diferir da moeda de cotação, e é exibido abreviado (`R$9B`). Cada `figures[i]` sem `value` é indicador que a fonte não informa para o instrumento, exibido como "Not reported"; P/E com lucro negativo costuma cair aqui.
+Fractions come as `0.12` for 12%, multiples as `1.5` for 1.5 times, and the web
+shows them as a percentage and as `1.50×`; the growth figures carry sign and
+colour. Free cash flow comes with `currency`, the statements' currency, which
+may differ from the quote currency, and is shown abbreviated (`R$9B`). Each
+`figures[i]` without a `value` is an indicator the source does not report for
+the instrument, displayed as "Not reported"; P/E with negative earnings usually
+lands here.
 
-| `outcome` | Significado | Web |
+| `outcome` | Meaning | Web |
 | --- | --- | --- |
-| `reported` | a fonte respondeu; `figures` traz um item por indicador da classe | a grade, com um `InfoTip` por indicador |
-| `not-applicable` | a classe não comporta indicador | "Company fundamentals do not apply to this asset's class" |
-| `not-found` | a fonte não conhece o instrumento, ou ele não tem mercado para ser traduzido | "The market data source has no fundamentals for this asset" |
-| `unavailable` | a fonte falhou ou está sem chave | erro com nova tentativa |
+| `reported` | the source answered; `figures` carries one item per indicator of the class | the grid, with an `InfoTip` per indicator |
+| `not-applicable` | the class supports no indicator | "Company fundamentals do not apply to this asset's class" |
+| `not-found` | the source does not know the instrument, or it has no market to be translated | "The market data source has no fundamentals for this asset" |
+| `unavailable` | the source failed or has no key | an error with a retry |
 
-`fundamentalMetricsOf` e `describeFundamentals`, em `backend/src/domain/Fundamentals.ts`
+`fundamentalMetricsOf` and `describeFundamentals`, in
+`backend/src/domain/Fundamentals.ts`
 
 ## Benchmarks
 
-Uma série de comparação opcional em `GET /v1/portfolio/performance`, por símbolo do catálogo:
+An optional comparison series in `GET /v1/portfolio/performance`, by catalog
+symbol:
 
 ```text
-twr(dia) = close(dia) ÷ close(primeiro dia da janela) − 1
+twr(day) = close(day) ÷ close(window's first day) − 1
 ```
 
-É retorno de preço puro: não reinveste provento do índice, não converte moeda — a série vem com a `currency` em que o benchmark é cotado, e cabe a quem lê não comparar moedas diferentes sem ressalva. Vazia quando o primeiro fechamento é zero ou a janela não tem fechamento.
+It is a pure price return: it does not reinvest the index's income and does not
+convert currency — the series comes with the `currency` the benchmark is quoted
+in, and it falls to whoever reads it not to compare different currencies without
+a caveat. Empty when the first close is zero or the window has no close.
 
-`returnsOf`, em `backend/src/domain/PortfolioPerformance.ts`
+`returnsOf`, in `backend/src/domain/PortfolioPerformance.ts`
 
-## Drawdown e métricas de risco
+## Drawdown and risk metrics
 
-**Não implementados.** Nenhuma rota devolve `maxDrawdown`, `currentDrawdown`, `recovery`, volatilidade, Sharpe, beta ou correlação, e não há função de domínio que os calcule (TD-063 em [`../TODO.md`](../TODO.md)). A série de `GET /v1/portfolio/performance` é o insumo de que esses números precisariam, e nenhuma tela do web exibe medida de risco.
+**Not implemented.** No route returns `maxDrawdown`, `currentDrawdown`,
+`recovery`, volatility, Sharpe, beta or correlation, and there is no domain
+function that computes them (TD-063 in [`../TODO.md`](../TODO.md)). The series
+of `GET /v1/portfolio/performance` is the input those numbers would need, and no
+web screen displays a risk measure.
 
-## O que estas definições não fazem
+## What these definitions do not do
 
-* **Não há custo por lote.** O custo médio é ponderado sobre a posição inteira; FIFO, LIFO e custo específico não são opções.
-* **O resultado realizado não entra no P&L.** `profitLoss` é sempre o não realizado do que ainda se detém; o realizado de cada posição só aparece nos indicadores dela, e a carteira não o soma.
-* **Não há efeito de câmbio separado.** Ver P&L, acima.
-* **Não há imposto apurado.** `taxes` é o valor lançado na transação, somado ao custo; não há regra fiscal, alíquota nem apuração de período.
-* **Não há preço intradiário na série.** A performance usa fechamento diário; a visão geral e as posições usam a última cotação do provedor, com 60s de cache.
+* **There is no per-lot cost.** The average cost is weighted over the whole
+  position; FIFO, LIFO and specific cost are not options.
+* **The realized result does not enter P&L.** `profitLoss` is always the
+  unrealized result of what is still held; each position's realized result
+  appears only in its indicators, and the portfolio does not add it up.
+* **There is no separate exchange-rate effect.** See P&L, above.
+* **There is no assessed tax.** `taxes` is the amount entered in the
+  transaction, added to the cost; there is no tax rule, rate or period
+  assessment.
+* **There is no intraday price in the series.** Performance uses the daily
+  close; the overview and the positions use the provider's latest quote, with a
+  60s cache.

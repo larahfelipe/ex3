@@ -1,98 +1,104 @@
-# Baseline de responsividade — TASK 15.1
+# Responsiveness
 
-Comportamento de layout do frontend (`web/src`) em cada largura de validação, usado como critério das TASKS 15.2 a 15.4 e de toda task posterior que toque em UI. Cada linha descreve o que o código faz hoje, com o ponto que o garante.
+Layout behaviour of the frontend (`web/src`) at each validation width, used as
+the criterion for TASKS 15.2 to 15.4 and for every later task that touches the
+UI. Each row describes what the code does today, with the place that guarantees
+it.
 
-## Referência
+## Reference
 
-| Item | Valor |
+| Item | Value |
 | --- | --- |
-| Escala | Breakpoints padrão do Tailwind CSS 4, sem override em `@theme` |
-| Larguras de validação | 320, 375, 768, 1024, 1440 px |
-| Escopo | `web/src` — rotas `(public)` e `(protected)`, primitives em `components/ui` |
-| Commit de captura | `4363487` |
-| Data de captura | 2026-09-19 |
+| Scale | Default Tailwind CSS 4 breakpoints, with no `@theme` override |
+| Validation widths | 320, 375, 768, 1024, 1440 px |
+| Scope | `web/src` — `(public)` and `(protected)` routes, primitives in `components/ui` |
+| Capture commit | `4363487` |
+| Capture date | 2026-09-19 |
 
-| Variante | Largura mínima | Uso no projeto |
+| Variant | Minimum width | Use in the project |
 | --- | --- | --- |
-| `max-sm` | até 639 px | 16 ocorrências — barra inferior, botão de largura cheia, rótulo em `sr-only` |
-| `sm` | 640 px | 66 ocorrências — é o único corte estrutural do app |
-| `md` | 768 px | nenhum uso direto; só a variante de container `@md` |
-| `lg` | 1024 px | layout público em duas colunas, grade de três colunas do dashboard e as duas grades do detalhe do ativo |
-| `xl` | 1280 px | nenhum uso desde a TASK 15.2 |
-| `@md` | container de 448 px | orientação do gráfico de alocação, em `allocation-chart.tsx` |
+| `max-sm` | up to 639 px | 16 occurrences — bottom bar, full-width button, `sr-only` label |
+| `sm` | 640 px | 66 occurrences — the app's only structural cut |
+| `md` | 768 px | no direct use; only the `@md` container variant |
+| `lg` | 1024 px | two-column public layout, the dashboard's three-column grid and the asset detail's two grids |
+| `xl` | 1280 px | unused since TASK 15.2 |
+| `@md` | 448 px container | allocation chart orientation, in `allocation-chart.tsx` |
 
-O corte real do produto é um só, em 640 px: abaixo dele a navegação é uma barra inferior e tudo empilha; acima dele a navegação é um trilho fixo de 10 rem e o conteúdo ocupa o restante. As variantes `lg` e `xl` refinam grades já empilhadas, nunca a navegação.
+The product's real cut is a single one, at 640 px: below it navigation is a
+bottom bar and everything stacks; above it navigation is a fixed 10 rem rail and
+the content takes the rest. The `lg` and `xl` variants refine grids that are
+already stacked, never the navigation.
 
-## Regras de layout
+## Layout rules
 
-| # | Regra | Verificação |
+| # | Rule | Verification |
 | --- | --- | --- |
-| R1 | Nenhuma rolagem horizontal do documento em qualquer largura a partir de 320 px | 1.4.10 · conteúdo em unidades relativas; transbordo confinado a container próprio |
-| R2 | Transbordo permitido só dentro de região declarada, com nome e alcance por teclado | 1.4.10, 2.1.1 · `components/ui/table.tsx`, região nomeada e focável enquanto transborda |
-| R3 | Alvo de toque de no mínimo 44 px em ponteiro grosseiro | 2.5.8 · `min-h-11` e `max-sm:min-w-11` em `sidebar.tsx` |
-| R4 | Texto nunca truncado sem alternativa acessível ao valor completo | 1.4.4 · `title`/`sr-only` ou célula com valor exato |
-| R5 | Ação principal da tela alcançável sem rolagem horizontal e sem sair do fluxo | 2.4.3 · `max-sm:w-full` nos botões de cabeçalho e de estado |
-| R6 | Altura viva medida em `dvh`, não em `vh`, onde a barra do navegador ou o teclado virtual se movem | `dialog.tsx`, `alert-dialog.tsx`, `(public)/layout.tsx`, com `interactiveWidget: 'resizes-content'` no `viewport` da raiz |
-| R7 | Nenhuma largura fixa maior que 320 px em elemento de fluxo | varredura de `min-w-` e de largura literal |
+| R1 | No horizontal document scrolling at any width from 320 px up | 1.4.10 · content in relative units; overflow confined to its own container |
+| R2 | Overflow allowed only inside a declared region, named and keyboard reachable | 1.4.10, 2.1.1 · `components/ui/table.tsx`, a named and focusable region while it overflows |
+| R3 | Touch target of at least 44 px on a coarse pointer | 2.5.8 · `min-h-11` and `max-sm:min-w-11` in `sidebar.tsx` |
+| R4 | Text never truncated without an accessible alternative to the full value | 1.4.4 · `title`/`sr-only`, or a cell with the exact value |
+| R5 | The screen's primary action reachable without horizontal scrolling and without leaving the flow | 2.4.3 · `max-sm:w-full` on header and state buttons |
+| R6 | Live height measured in `dvh`, not `vh`, wherever the browser bar or the virtual keyboard moves | `dialog.tsx`, `alert-dialog.tsx`, `(public)/layout.tsx`, with `interactiveWidget: 'resizes-content'` in the root `viewport` |
+| R7 | No fixed width greater than 320 px on a flow element | sweep of `min-w-` and literal widths |
 
-## Comportamento por largura
+## Behaviour by width
 
-### 320 px e 375 px — abaixo de `sm`
+### 320 px and 375 px — below `sm`
 
-| Região | Comportamento |
+| Region | Behaviour |
 | --- | --- |
-| Navegação | Barra fixa no rodapé, altura `--navigation-bar` (3.75 rem), quatro alvos de 44 px distribuídos — visão geral, ativos, conta e sair —, rótulo em `sr-only`, marca oculta |
-| Shell da página | `<main>` com `pb-(--navigation-bar)` para não ficar sob a barra; o contêiner de `(protected)/layout.tsx`, comum a toda página, dá padding lateral de 16 px (`px-4`) e vertical de 32 px (`py-8`) |
-| Dashboard | Pilha única: valor da carteira, gráfico de performance, alocação, resumo de posições, transações recentes |
-| Alocação | Container abaixo de 448 px: anel acima, legenda abaixo, em coluna |
-| Posições | Filtro, busca e ações em largura cheia; a tabela mostra ativo, valor e o menu de ações, com o resultado repetido sob o símbolo. Quantidade, preço médio, preço, alocação e as duas colunas de resultado saem de cena e seguem no detalhe do ativo, alcançável pelo link do símbolo |
-| Tabelas do dashboard | Só colunas primárias: resumo de posições mostra ativo, valor de mercado e resultado; transações mostram data, tipo, ativo e detalhes. Quantidade, preço unitário e alocação saem de cena e seguem disponíveis no detalhe do ativo e no dialog de detalhes |
-| Rolagem residual | O que ainda transborda fica dentro da região de `components/ui/table.tsx`, que só então é nomeada e recebe `Tab` — nunca no documento |
-| Detalhe do ativo | Uma coluna; as duas grades `lg:grid-cols-2` ficam empilhadas |
-| Formulários | Campos em coluna única; o `sm:grid-cols-2` do formulário de transação não se aplica |
-| Dialogs | `w-full` sem margem lateral, cantos retos (`sm:rounded-lg` não se aplica), padding de 24 px — sobram 272 px de conteúdo em 320 px. O conteúdo é limitado a `max-h-dvh` e rola por dentro: quando é mais alto que a tela, o dialog ocupa a tela integral, e o rodapé com o CTA fica no fim da rolagem |
-| Teclado virtual | `interactiveWidget: 'resizes-content'` encolhe o viewport de layout, e com ele todo `dvh`: o dialog se redimensiona sobre o teclado e o campo focado entra na área visível |
-| Autenticação | Só a coluna do formulário; a coluna de arte é `max-lg:hidden`. O `main` tem `min-h-dvh`, então cresce em vez de recortar quando o teclado reduz a tela |
+| Navigation | Bar fixed at the bottom, height `--navigation-bar` (3.75 rem), four 44 px targets spread across it — overview, assets, account and sign out —, `sr-only` label, brand hidden |
+| Page shell | `<main>` with `pb-(--navigation-bar)` so it does not sit under the bar; the container in `(protected)/layout.tsx`, shared by every page, gives 16 px of side padding (`px-4`) and 32 px of vertical padding (`py-8`) |
+| Dashboard | A single stack: portfolio value, performance chart, allocation, positions summary, recent transactions |
+| Allocation | Container below 448 px: ring above, legend below, in a column |
+| Positions | Filter, search and actions at full width; the table shows asset, value and the actions menu, with the result repeated under the symbol. Quantity, average cost, price, allocation and the two result columns leave the screen and remain on the asset detail, reachable through the symbol link |
+| Dashboard tables | Primary columns only: the positions summary shows asset, market value and result; transactions show date, type, asset and details. Quantity, unit price and allocation leave the screen and remain available on the asset detail and in the details dialog |
+| Residual scrolling | Whatever still overflows stays inside the region in `components/ui/table.tsx`, which only then is named and takes `Tab` — never the document |
+| Asset detail | One column; the two `lg:grid-cols-2` grids stay stacked |
+| Forms | Fields in a single column; the transaction form's `sm:grid-cols-2` does not apply |
+| Dialogs | `w-full` with no side margin, square corners (`sm:rounded-lg` does not apply), 24 px of padding — 272 px of content is left at 320 px. The content is capped at `max-h-dvh` and scrolls inside: when it is taller than the screen, the dialog takes the full screen and the footer with the CTA sits at the end of the scroll |
+| Virtual keyboard | `interactiveWidget: 'resizes-content'` shrinks the layout viewport, and every `dvh` with it: the dialog resizes above the keyboard and the focused field comes into the visible area |
+| Authentication | The form column only; the art column is `max-lg:hidden`. `main` has `min-h-dvh`, so it grows instead of clipping when the keyboard shrinks the screen |
 
-### 768 px — acima de `sm`, abaixo de `lg`
+### 768 px — above `sm`, below `lg`
 
-| Região | Comportamento |
+| Region | Behaviour |
 | --- | --- |
-| Navegação | Trilho fixo à esquerda, `--navigation-rail` (10 rem), rótulo visível, marca visível; `<main>` deslocado por `ml-(--navigation-rail)` |
-| Largura útil | 640 px de conteúdo, com padding lateral de 24 px (`sm:px-6`) |
-| Dashboard | Ainda em pilha única — a grade só divide em 1280 px |
-| Alocação | Container acima de 448 px: passa de `@md`, anel e legenda lado a lado |
-| Posições | Filtros em linha; as oito colunas voltam e a tabela pode transbordar, dentro da região rolável nomeada |
-| Dialogs | Largura travada em `max-w-lg` (32 rem), centralizado, cantos arredondados, altura limitada a `calc(100dvh - 2rem)` para sobrar a moldura |
-| Autenticação | Só a coluna do formulário, centralizada: a arte entra junto com a grade, em 1024 px |
+| Navigation | Rail fixed on the left, `--navigation-rail` (10 rem), label visible, brand visible; `<main>` offset by `ml-(--navigation-rail)` |
+| Usable width | 640 px of content, with 24 px of side padding (`sm:px-6`) |
+| Dashboard | Still a single stack — the grid only splits at 1280 px |
+| Allocation | Container above 448 px: past `@md`, ring and legend side by side |
+| Positions | Filters in a row; the eight columns return and the table may overflow, inside the named scrollable region |
+| Dialogs | Width locked at `max-w-lg` (32 rem), centred, rounded corners, height capped at `calc(100dvh - 2rem)` to leave the frame |
+| Authentication | The form column only, centred: the art joins with the grid, at 1024 px |
 
 ### 1024 px — `lg`
 
-| Região | Comportamento |
+| Region | Behaviour |
 | --- | --- |
-| Largura útil | 752 px de conteúdo com o menu expandido e 880 px com ele recolhido, com padding lateral de 32 px (`lg:px-8`) |
-| Dashboard | Grade de três colunas: alocação em uma, resumo de posições em duas (`lg:col-span-2`), com ~490 px para a tabela com o menu expandido |
-| Detalhe do ativo | As duas grades passam a duas colunas |
-| Autenticação | Tela dividida em duas colunas iguais, formulário à esquerda e arte à direita |
-| Posições | Tabela normalmente cabe sem transbordo horizontal |
+| Usable width | 752 px of content with the menu expanded and 880 px with it collapsed, with 32 px of side padding (`lg:px-8`) |
+| Dashboard | Three-column grid: allocation in one, positions summary in two (`lg:col-span-2`), leaving ~490 px for the table with the menu expanded |
+| Asset detail | Both grids move to two columns |
+| Authentication | Screen split into two equal columns, form on the left and art on the right |
+| Positions | The table normally fits with no horizontal overflow |
 
 ### 1440 px — `xl`
 
-| Região | Comportamento |
+| Region | Behaviour |
 | --- | --- |
-| Largura útil | 1152 px de conteúdo com o menu expandido e 1280 px com ele recolhido, com padding lateral de 40 px (`xl:px-10`) |
-| Dashboard | Mesma grade de 1024 px, com ~760 px para a tabela do resumo com o menu expandido |
-| Demais regiões | Iguais a 1024 px. O contêiner da página para de crescer em 1536 px (`max-w-(--breakpoint-2xl)`) e se centraliza à direita do menu, o que só acontece acima de 1824 px com o menu expandido |
+| Usable width | 1152 px of content with the menu expanded and 1280 px with it collapsed, with 40 px of side padding (`xl:px-10`) |
+| Dashboard | Same grid as 1024 px, leaving ~760 px for the summary table with the menu expanded |
+| Other regions | Same as 1024 px. The page container stops growing at 1536 px (`max-w-(--breakpoint-2xl)`) and centres itself to the right of the menu, which only happens above 1824 px with the menu expanded |
 
-## Lacunas conhecidas na captura
+## Gaps known at capture time
 
-Observadas ao escrever este documento, cada uma endereçada na task indicada:
+Observed while writing this document, each addressed in the task indicated:
 
-| Lacuna | Regra | Task |
+| Gap | Rule | Task |
 | --- | --- | --- |
-| ~~O dashboard só reflui em 1280 px~~ — resolvido na TASK 15.2: a grade passou a dividir em `lg` | — | 15.2 |
-| ~~A tabela de posições resolve o excesso de colunas com rolagem horizontal indiscriminada~~ — resolvido na TASK 15.3: abaixo de `sm` só ativo, valor e ações, com o detalhe do ativo como alternativa | R2, R4 | 15.3 |
-| ~~O container de rolagem de `components/ui/table.tsx` não alcança o teclado~~ — resolvido na TASK 15.3 · TD-051 | R2 | 15.3 |
-| ~~Entre 640 px e 1024 px a coluna de arte da autenticação aparece empilhada sob o formulário~~ — resolvido na TASK 15.4: a arte é `max-lg:hidden`, e aparece só com a grade | — | 15.4 |
-| ~~O layout público usa `h-screen`, e não `dvh`~~ — resolvido na TASK 15.4 | R6 | 15.4 |
-| ~~Nenhum dialog assume a tela inteira abaixo de `sm`, e só o de transação limita a altura~~ — resolvido na TASK 15.4: o limite e a rolagem vivem nos dois primitives, e o viewport da raiz encolhe com o teclado | R5, R6 | 15.4 |
+| ~~The dashboard only reflows at 1280 px~~ — solved in TASK 15.2: the grid now splits at `lg` | — | 15.2 |
+| ~~The positions table solves column overflow with indiscriminate horizontal scrolling~~ — solved in TASK 15.3: below `sm` only asset, value and actions, with the asset detail as the alternative | R2, R4 | 15.3 |
+| ~~The scroll container in `components/ui/table.tsx` is not keyboard reachable~~ — solved in TASK 15.3 · TD-051 | R2 | 15.3 |
+| ~~Between 640 px and 1024 px the authentication art column appears stacked under the form~~ — solved in TASK 15.4: the art is `max-lg:hidden` and appears only with the grid | — | 15.4 |
+| ~~The public layout uses `h-screen`, not `dvh`~~ — solved in TASK 15.4 | R6 | 15.4 |
+| ~~No dialog takes the full screen below `sm`, and only the transaction one caps its height~~ — solved in TASK 15.4: the cap and the scrolling live in both primitives, and the root viewport shrinks with the keyboard | R5, R6 | 15.4 |

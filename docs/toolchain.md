@@ -1,13 +1,14 @@
-# Toolchain — FASE 2
+# Toolchain
 
-Registro das versões fixadas e das decisões que não são dedutíveis do `package.json`.
+Record of the pinned versions and of the decisions that cannot be deduced from
+`package.json`.
 
-## Versões
+## Versions
 
 | Item | backend | web |
 | --- | --- | --- |
-| Node | 24.15 (`.nvmrc`, `.node-version`, `engines`, imagem base dos Dockerfiles) | idem |
-| pnpm | 11.18.0 (`packageManager`) | idem |
+| Node | 24.15 (`.nvmrc`, `.node-version`, `engines`, the Dockerfiles' base image) | same |
+| pnpm | 11.18.0 (`packageManager`) | same |
 | TypeScript | 5.9.3 | 5.9.3 |
 | Prettier | 3.9.6 | 3.9.6 |
 | ESLint | 10.10.0 | 10.10.0 |
@@ -20,59 +21,114 @@ Registro das versões fixadas e das decisões que não são dedutíveis do `pack
 | `eslint-plugin-react-hooks` | — | 7.1.1 |
 | `eslint-plugin-jsx-a11y` | — | 6.10.2 |
 
-Tudo acima está na última estável, com uma exceção deliberada: `typescript`.
+Everything above is on the latest stable, with one deliberate exception:
+`typescript`.
 
-## Por que TypeScript 5.9 e não 7.0
+## Why TypeScript 5.9 and not 7.0
 
-`typescript@7.0.2` é a distribuição do compilador nativo e **não publica mais a API JavaScript do compilador**: o `exports` do pacote expõe apenas `./package.json`, `.` (que resolve para `lib/version.cjs`, um objeto com `version` e `versionMajorMinor`) e um conjunto `./unstable/*`. Não existe mais `typescript/lib/typescript.js`.
+`typescript@7.0.2` is the native compiler distribution and **no longer
+publishes the compiler's JavaScript API**: the package's `exports` exposes only
+`./package.json`, `.` (which resolves to `lib/version.cjs`, an object with
+`version` and `versionMajorMinor`) and a `./unstable/*` set. There is no
+`typescript/lib/typescript.js` any more.
 
-Toda a cadeia de ferramentas atual do repositório depende daquela API:
+The repository's whole toolchain at the time depended on that API:
 
-* `next@14` — `verifyTypeScriptSetup` faz `require(deps.resolved.get('typescript'))`; a resolução falha, o `require` recebe `undefined` e o processo morre com `TypeError: Cannot read properties of undefined (reading 'endsWith')`. Isso derruba `next lint`. No `next build` o efeito é pior porque é silencioso: o `tsconfig.json` não chega a ser lido, os `paths` somem e o webpack falha com `Can't resolve '@/common/constants'` — o build quebra por um motivo que não tem relação aparente com a causa;
-* `@typescript-eslint@7` — `require('typescript')` devolve o objeto de versão e o plugin estoura ao carregar as regras. Com o alvo do lint corrigido (falha 29 do baseline), `pnpm lint` no backend passava a falhar com exit code 2.
+* `next@14` — `verifyTypeScriptSetup` calls
+  `require(deps.resolved.get('typescript'))`; resolution fails, `require`
+  receives `undefined` and the process dies with `TypeError: Cannot read
+  properties of undefined (reading 'endsWith')`. That takes `next lint` down.
+  In `next build` the effect is worse because it is silent: `tsconfig.json` is
+  never read, the `paths` disappear and webpack fails with
+  `Can't resolve '@/common/constants'` — the build breaks for a reason with no
+  apparent relation to the cause;
+* `@typescript-eslint@7` — `require('typescript')` returns the version object
+  and the plugin blows up while loading the rules. With the lint target fixed
+  (baseline failure 29), `pnpm lint` in the backend started failing with exit
+  code 2.
 
-Ambos os workspaces ficam, portanto, na última linha estável que mantém a API JS: **5.9.3**.
+Both packages therefore stay on the latest stable line that keeps the JS API:
+**5.9.3**.
 
-A migração para 7.x continua bloqueada depois da TASK 2.2: `typescript-eslint@8.70.0` declara `typescript >=4.8.4 <6.1.0` como peer. Reavaliar quando `typescript-eslint` e o Next.js declararem suporte ao pacote nativo. Nada no código-fonte depende de sintaxe específica de 7.x — a troca é de dependência, não de código.
+Migrating to 7.x remains blocked after TASK 2.2: `typescript-eslint@8.70.0`
+declares `typescript >=4.8.4 <6.1.0` as a peer. Re-evaluate once
+`typescript-eslint` and Next.js declare support for the native package. Nothing
+in the source depends on 7.x-specific syntax — the switch is one of
+dependencies, not of code.
 
-## Ajustes decorrentes
+## Consequent adjustments
 
-* **Alvo do lint do backend.** `eslint --max-warnings=0` não passava alvo nenhum e o ESLint 8 não assume `.` por padrão: o comando saía com 0 sem analisar arquivo algum (falha 29 do baseline). No ESLint 10 o padrão é `.`, e o script passou a lintar de fato — 111 arquivos.
-* **`eslint-plugin-prettier` 4 → 5 e `eslint-config-prettier` 8 → 10 no backend.** O par antigo usa `prettier.resolveConfig.sync`, removida no Prettier 3 (`TypeError: prettier.resolveConfig.sync is not a function`). O `web` já estava na linha 5.x.
-* **`prettier:fix` do backend** executava `--check` junto de `--write`.
-* **Cadeia de build do backend.** `tscpaths@0.0.9` (sem manutenção desde 2019, exige `baseUrl`) foi substituído por `tsc-alias`; `ts-node-dev` + `tsconfig-paths` por `tsx`. O `tsconfig.json` declara `paths` sem `baseUrl`, e `tsconfig.build.json` exclui os arquivos de teste do artefato publicado.
+* **The backend's lint target.** `eslint --max-warnings=0` passed no target at
+  all, and ESLint 8 does not assume `.` by default: the command exited 0 without
+  analysing a single file (baseline failure 29). In ESLint 10 the default is
+  `.`, and the script started actually linting — 111 files.
+* **`eslint-plugin-prettier` 4 → 5 and `eslint-config-prettier` 8 → 10 in the
+  backend.** The old pair uses `prettier.resolveConfig.sync`, removed in
+  Prettier 3 (`TypeError: prettier.resolveConfig.sync is not a function`). The
+  web was already on the 5.x line.
+* **The backend's `prettier:fix`** ran `--check` alongside `--write`.
+* **The backend's build chain.** `tscpaths@0.0.9` (unmaintained since 2019,
+  requires `baseUrl`) was replaced by `tsc-alias`; `ts-node-dev` +
+  `tsconfig-paths` by `tsx`. `tsconfig.json` declares `paths` without `baseUrl`,
+  and `tsconfig.build.json` excludes the test files from the published artifact.
 
 ## ESLint: flat config (TASK 2.2)
 
-Os dois workspaces passaram para `eslint.config.mjs` e os `\.eslintrc.json` foram removidos. `pnpm lint` chama o ESLint direto (`eslint --max-warnings=0`), sem `next lint`: o lint deixou de depender do ciclo de vida do Next e virou uma etapa independente do pipeline.
+Both packages moved to `eslint.config.mjs` and the `.eslintrc.json` files were
+removed. `pnpm lint` calls ESLint directly (`eslint --max-warnings=0`), without
+`next lint`: linting stopped depending on the Next lifecycle and became an
+independent pipeline step.
 
-ESLint 9 foi descartado: a linha está em `maintenance` e o próprio pacote se declara `deprecated` ("This version is no longer supported"). A versão instalada é a 10.
+ESLint 9 was discarded: the line is in `maintenance` and the package itself
+declares `deprecated` ("This version is no longer supported"). The installed
+version is 10.
 
-### Decisões do `web`
+### Decisions in the web
 
-* **Conjunto de regras composto explicitamente** a partir de `typescript-eslint`, `eslint-plugin-react`, `eslint-plugin-react-hooks`, `eslint-plugin-jsx-a11y` e `@next/eslint-plugin-next`, em vez de `eslint-config-next`. As regras que o projeto usava foram preservadas uma a uma. Saíram `eslint-config-next@14.0.4` (defasada em relação ao `next@14.2.24` instalado) e `eslint-plugin-next@0.0.0` (placeholder vazio, falha 6 do baseline).
-* **`@next/eslint-plugin-next` na 16.3.4, e não na 14.2.24 do Next instalado.** A 14.x chama `context.getCwd()`, removido no ESLint 10, e o lint morre ao carregar `@next/next/no-html-link-for-pages`. O plugin é um conjunto de regras estáticas, independente do runtime; a TASK 2.3 alinha o Next a essa versão.
-* **`settings.react.version` é lido de `react/package.json`** pelo próprio `eslint.config.mjs`. O valor `'detect'` faz o `eslint-plugin-react` chamar `context.getFilename()`, também removido no ESLint 10. Ler a versão instalada evita fixar um número que envelheceria na TASK 2.4.
-* **`jsx-a11y/anchor-has-content` e `jsx-a11y/heading-has-content` desligadas em `src/components/ui/**`.** As primitivas repassam `children` via props; o conteúdo que as regras procuram só existe no call site. É limitação de análise estática, não ausência de conteúdo acessível.
-* **Arquivos de configuração na raiz** (`next.config.js`, `postcss.config.js`, `tailwind.config.ts`, `eslint.config.mjs`) ganharam um bloco próprio com globais de Node e `@typescript-eslint/no-require-imports` desligada.
+* **Rule set composed explicitly** from `typescript-eslint`,
+  `eslint-plugin-react`, `eslint-plugin-react-hooks`, `eslint-plugin-jsx-a11y`
+  and `@next/eslint-plugin-next`, instead of `eslint-config-next`. The rules the
+  project used were preserved one by one. Out went `eslint-config-next@14.0.4`
+  (out of step with the installed `next@14.2.24`) and `eslint-plugin-next@0.0.0`
+  (an empty placeholder, baseline failure 6).
+* **`@next/eslint-plugin-next` on 16.3.4, not on the installed Next's 14.2.24.**
+  The 14.x calls `context.getCwd()`, removed in ESLint 10, and the lint dies
+  while loading `@next/next/no-html-link-for-pages`. The plugin is a set of
+  static rules, independent of the runtime; TASK 2.3 aligns Next with that
+  version.
+* **`settings.react.version` is read from `react/package.json`** by
+  `eslint.config.mjs` itself. The value `'detect'` makes `eslint-plugin-react`
+  call `context.getFilename()`, also removed in ESLint 10. Reading the installed
+  version avoids pinning a number that would go stale in TASK 2.4.
+* **`jsx-a11y/anchor-has-content` and `jsx-a11y/heading-has-content` turned off
+  in `src/components/ui/**`.** The primitives forward `children` through props;
+  the content the rules look for exists only at the call site. It is a limit of
+  static analysis, not an absence of accessible content.
+* **Configuration files at the root** (`next.config.js`, `postcss.config.js`,
+  `tailwind.config.ts`, `eslint.config.mjs`) got a block of their own with Node
+  globals and `@typescript-eslint/no-require-imports` turned off.
 
-### Violações corrigidas
+### Violations fixed
 
-Os conjuntos `recommended` atuais são mais estritos que os de ESLint 8 / `@typescript-eslint` 6 e apontaram cinco problemas reais, todos corrigidos em vez de silenciados:
+The current `recommended` sets are stricter than those of ESLint 8 /
+`@typescript-eslint` 6 and pointed at five real problems, all fixed rather than
+silenced:
 
-| Arquivo | Regra | Correção |
+| File | Rule | Fix |
 | --- | --- | --- |
 | `web/src/app/api/v1/assets/types.ts` | `@typescript-eslint/no-empty-object-type` | `interface ... extends WithMessage {}` → `type ... = WithMessage` |
-| `web/src/hooks/use-disclosure.ts` | `@typescript-eslint/no-unused-expressions` | ternário com efeito colateral → `if/else` |
+| `web/src/hooks/use-disclosure.ts` | `@typescript-eslint/no-unused-expressions` | ternary with a side effect → `if/else` |
 | `web/src/app/(protected)/assets/_components/assets-table.tsx` | `no-useless-assignment` | `{++i}` → `{i + 1}` |
-| `web/next.config.js` | diretiva `eslint-disable` obsoleta | `@typescript-eslint/no-var-requires` foi renomeada para `no-require-imports` |
-| `backend/src/**` | — | reordenação de imports nos arquivos de teste (`import-helpers/order-imports`), que nunca haviam sido lintados |
+| `web/next.config.js` | obsolete `eslint-disable` directive | `@typescript-eslint/no-var-requires` was renamed to `no-require-imports` |
+| `backend/src/**` | — | import reordering in the test files (`import-helpers/order-imports`), which had never been linted |
 
-## Migração de dependências (TASKS 2.3 a 2.7)
+## Dependency migration (TASKS 2.3 to 2.7)
 
-Todas as dependências de runtime dos dois workspaces foram levadas à última estável. As quebras que exigiram mudança de código estão abaixo; o que só trocou de número não está registrado.
+Every runtime dependency of both packages was taken to the latest stable. The
+breaking changes that required a code change are below; what only changed
+number is not recorded.
 
-| Dependência | De | Para |
+| Dependency | From | To |
 | --- | --- | --- |
 | `express` | 4.18.3 | 5.2.1 |
 | `zod` | 3.22.4 | 4.6.2 |
@@ -86,47 +142,112 @@ Todas as dependências de runtime dos dois workspaces foram levadas à última e
 
 ### Backend
 
-* **Express 5.** `@types/express@5` não reexporta mais os tipos de `express-serve-static-core`, que `src/types/express.d.ts` aumenta para declarar `Request.user`. O pacote passou a ser dependência direta (`@types/express-serve-static-core@^5`), senão a augmentação resolve contra outra cópia dos tipos e `req.user` volta a não existir. Com a tipagem correta, os `authMiddleware as Application` dos routers — cast que existia só para calar o erro — foram removidos. Handlers `async` que rejeitam agora propagam ao error middleware sem `try/catch`, mas `errorHandlerMiddleware` continua sendo a fronteira única de erro e não depende disso.
-* **Zod 4.** Os validadores de formato saíram do namespace `z.string()` e viraram funções de topo (`z.email()` em lugar de `z.string().email()`); `ZodError.errors` virou `ZodError.issues`; `required_error`/`invalid_type_error` viraram a chave única `error`; `ctx.addIssue` exige `code: 'custom'` explícito. `validate` em `src/validation/Validator.ts` e `EnvsSchema` foram ajustados.
-* **Prisma 7.** Mudança arquitetural, não só de versão:
-  * o `datasource` do `schema.prisma` não lê mais `env("DATABASE_URL")`. A URL da CLI passou para `prisma.config.ts` (que carrega `dotenv` por conta própria) e a do runtime para o driver adapter;
-  * `@prisma/adapter-pg` é agora obrigatório — `new PrismaClient({ adapter: new PrismaPg({ connectionString }) })`;
-  * com adapter, `$connect()` apenas monta o pool e **resolve mesmo com o banco inacessível**. A verificação de conectividade no startup era um no-op silencioso; passou a executar `SELECT 1`. Esse era um defeito latente, não uma consequência do upgrade — a 5.x já se comportava assim sob adapter;
-  * `prisma migrate`/`generate` leem `DIRECT_URL` quando presente, para não migrar através do pooler;
-  * o critério "migration funciona" só foi fechado na TASK 3.1: `prisma/migrations` estava em `.gitignore`, então não havia migration alguma para aplicar. Ver `docs/testing.md`.
-* **bcrypt 6.** Sem mudança de API; exige Node >= 18 e recompila o binding nativo, daí `bcrypt: true` em `allowBuilds`.
-* **dotenv 17.** Passou a imprimir um banner promocional em todo `config()`. Silenciado com `config({ quiet: true })`, que também mantém a saída dos testes limpa.
+* **Express 5.** `@types/express@5` no longer re-exports the types from
+  `express-serve-static-core`, which `src/types/express.d.ts` augments to
+  declare `Request.user`. The package became a direct dependency
+  (`@types/express-serve-static-core@^5`), otherwise the augmentation resolves
+  against another copy of the types and `req.user` ceases to exist. With the
+  typing correct, the routers' `authMiddleware as Application` casts — which
+  existed only to silence the error — were removed. `async` handlers that reject
+  now propagate to the error middleware without `try/catch`, but
+  `errorHandlerMiddleware` remains the single error boundary and does not depend
+  on that.
+* **Zod 4.** The format validators left the `z.string()` namespace and became
+  top-level functions (`z.email()` in place of `z.string().email()`);
+  `ZodError.errors` became `ZodError.issues`; `required_error`/
+  `invalid_type_error` became the single `error` key; `ctx.addIssue` requires an
+  explicit `code: 'custom'`. `validate` in `src/validation/Validator.ts` and
+  `EnvsSchema` were adjusted.
+* **Prisma 7.** An architectural change, not just a version one:
+  * the `datasource` in `schema.prisma` no longer reads `env("DATABASE_URL")`.
+    The CLI's URL moved to `prisma.config.ts` (which loads `dotenv` on its own)
+    and the runtime's to the driver adapter;
+  * `@prisma/adapter-pg` is now mandatory —
+    `new PrismaClient({ adapter: new PrismaPg({ connectionString }) })`;
+  * with an adapter, `$connect()` only assembles the pool and **resolves even
+    with the database unreachable**. The connectivity check at startup was a
+    silent no-op; it now runs `SELECT 1`. That was a latent defect, not a
+    consequence of the upgrade — 5.x already behaved that way under an adapter;
+  * `prisma migrate`/`generate` read `DIRECT_URL` when present, so as not to
+    migrate through the pooler;
+  * the "migration works" criterion was only closed in TASK 3.1:
+    `prisma/migrations` was in `.gitignore`, so there was no migration to apply.
+    See [`testing.md`](testing.md).
+* **bcrypt 6.** No API change; it requires Node >= 18 and recompiles the native
+  binding, hence `bcrypt: true` in `allowBuilds`.
+* **dotenv 17.** It started printing a promotional banner on every `config()`.
+  Silenced with `config({ quiet: true })`, which also keeps the tests' output
+  clean.
 
 ### Web
 
 * **Next 16.**
-  * `middleware.ts` foi renomeado para `proxy.ts` e o export `middleware` para `proxy` (`ProxyConfig` no lugar de `MiddlewareConfig`). O arquivo antigo ainda funciona com aviso de depreciação; o novo nome foi adotado. `docs/authentication.md` acompanha;
-  * Turbopack é o bundler padrão, e `next-pwa@5.6.0` (último estável) é um plugin de webpack: injeta `config.plugins` via `webpack()`, que o Turbopack ignora, e o service worker nunca é gerado. A alternativa mantida (`@serwist/next`) tem a mesma limitação, então trocar de plugin não resolveria. O PWA foi removido na TASK 20.3 por decisão de produto: `dev` e `build` voltaram a rodar sob Turbopack, sem `--webpack`. Isso fecha a falha 28 do baseline — não há mais plugin incompatível a conter;
-  * `cookies()` é assíncrona desde o Next 15 — os route handlers que a usam passaram a `await`;
-  * o `dev` do Next 16 escreve `AGENTS.md` e `CLAUDE.md` na raiz do pacote a cada execução, com regras geradas pelo próprio framework. São arquivos não versionados, que competem com a documentação do repositório: desligados por `agentRules: false` em `next.config.js`.
-* **React 19.** `@types/react@19` move `JSX` para dentro do namespace `React` e remove o global: referências a `JSX.Element` passaram a importar `type JSX` de `react` ou a qualificar como `React.JSX.Element`. A transformação de `ref` em prop comum não exigiu mudança na atualização — as primitivas usavam `React.forwardRef`, que continua suportado. Na modernização de 2026-09-22 elas passaram a receber `ref` como prop comum, tipada por `React.ComponentProps`, sem `forwardRef` nem `displayName`.
-* **Zod 4 no web.** `z.string().trim().email()`, deprecado, virou `z.string().trim().pipe(z.email())`. `z.email().trim()` não serve: valida o formato antes de aparar e recusaria um e-mail com espaço nas pontas, que o schema anterior aceitava.
-* **Tailwind 4.** Configuração em CSS, não em JS:
-  * `tailwind.config.ts` foi removido. Tema e keyframes vivem em `src/app/globals.css` via `@theme` e `@custom-variant`;
-  * `@tailwind base/components/utilities` viraram `@import 'tailwindcss'`;
-  * o PostCSS plugin mudou de `tailwindcss` para `@tailwindcss/postcss`, que já aplica prefixos — `autoprefixer` saiu;
-  * `tailwindcss-animate` não é compatível com a configuração em CSS; substituído por `tw-animate-css`;
-  * a cor de borda padrão virou `currentcolor`. Um bloco de compatibilidade em `globals.css` preserva o visual da 3.x.
+  * `middleware.ts` was renamed to `proxy.ts` and the `middleware` export to
+    `proxy` (`ProxyConfig` in place of `MiddlewareConfig`). The old file still
+    works with a deprecation warning; the new name was adopted.
+    [`authentication.md`](authentication.md) follows suit;
+  * Turbopack is the default bundler, and `next-pwa@5.6.0` (the latest stable)
+    is a webpack plugin: it injects `config.plugins` through `webpack()`, which
+    Turbopack ignores, and the service worker is never generated. The
+    alternative that is maintained (`@serwist/next`) has the same limitation, so
+    switching plugins would not solve it. The PWA was removed in TASK 20.3 as a
+    product decision: `dev` and `build` went back to running under Turbopack,
+    without `--webpack`. That closes baseline failure 28 — there is no
+    incompatible plugin left to contain;
+  * `cookies()` has been asynchronous since Next 15 — the route handlers that
+    use it now `await`;
+  * Next 16's `dev` writes `AGENTS.md` and `CLAUDE.md` at the package root on
+    every run, with rules generated by the framework itself. They are
+    unversioned files that compete with the repository's documentation: turned
+    off with `agentRules: false` in `next.config.js`.
+* **React 19.** `@types/react@19` moves `JSX` inside the `React` namespace and
+  removes the global: references to `JSX.Element` now either import
+  `type JSX` from `react` or qualify as `React.JSX.Element`. Turning `ref` into
+  an ordinary prop required no change during the upgrade — the primitives used
+  `React.forwardRef`, which is still supported. In the 2026-09-22 modernization
+  they started receiving `ref` as an ordinary prop, typed by
+  `React.ComponentProps`, with neither `forwardRef` nor `displayName`.
+* **Zod 4 in the web.** `z.string().trim().email()`, deprecated, became
+  `z.string().trim().pipe(z.email())`. `z.email().trim()` does not do: it
+  validates the format before trimming and would refuse an email with
+  surrounding spaces, which the previous schema accepted.
+* **Tailwind 4.** Configuration in CSS, not in JS:
+  * `tailwind.config.ts` was removed. Theme and keyframes live in
+    `src/app/globals.css` through `@theme` and `@custom-variant`;
+  * `@tailwind base/components/utilities` became `@import 'tailwindcss'`;
+  * the PostCSS plugin changed from `tailwindcss` to `@tailwindcss/postcss`,
+    which already applies prefixes — `autoprefixer` is gone;
+  * `tailwindcss-animate` is not compatible with the CSS configuration;
+    replaced by `tw-animate-css`;
+  * the default border colour became `currentcolor`. A compatibility block in
+    `globals.css` preserves the 3.x appearance.
 
-### Infraestrutura
+### Infrastructure
 
-* **`pnpm-workspace.yaml` nos dois Dockerfiles.** O pnpm 11 lê `allowBuilds` e `minimumReleaseAgeExclude` desse arquivo; sem copiá-lo para a imagem, o `pnpm install` do build falhava no backend (scripts de build do `bcrypt`/Prisma bloqueados). Outro defeito latente: o arquivo passou a existir na TASK 2.1 e os Dockerfiles nunca foram atualizados.
-* **`minimumReleaseAgeExclude`.** A política de supply chain do pnpm rejeita versões publicadas há pouco tempo. As que o repositório precisa estão listadas explicitamente por versão exata (`zod@4.6.2`, `lucide-react@1.44.0`), nunca por pacote — um curinga por pacote aceitaria qualquer release futura.
+* **`pnpm-workspace.yaml` in both Dockerfiles.** pnpm 11 reads `allowBuilds` and
+  `minimumReleaseAgeExclude` from that file; without copying it into the image,
+  the build's `pnpm install` failed in the backend (`bcrypt`/Prisma build
+  scripts blocked). Another latent defect: the file came into existence in TASK
+  2.1 and the Dockerfiles were never updated.
+* **`minimumReleaseAgeExclude`.** pnpm's supply-chain policy rejects versions
+  published recently. The ones the repository needs are listed explicitly by
+  exact version (`zod@4.6.2`, `lucide-react@1.44.0`), never by package — a
+  wildcard per package would accept any future release.
 
-### Defeito corrigido de passagem
+### Defect fixed along the way
 
-`web/src/app/api/v1/assets/route.ts` montava a URL do backend descartando os query params recebidos: paginação e filtros nunca chegavam à API. A requisição agora repassa `req.nextUrl.searchParams`.
+`web/src/app/api/v1/assets/route.ts` assembled the backend URL discarding the
+query params it had received: pagination and filters never reached the API. The
+request now forwards `req.nextUrl.searchParams`.
 
-## Auditoria de dependências — TASK 20.3
+## Dependency audit — TASK 20.3
 
-`pnpm audit` responde **"No known vulnerabilities found"** nos dois pacotes. Antes desta task eram 7 avisos no `backend` (4 high, 3 moderate) e 46 no `web` (31 high, 10 moderate, 5 low), todos transitivos: nenhuma dependência direta estava vulnerável.
+`pnpm audit` answers **"No known vulnerabilities found"** in both packages.
+Before this task there were 7 advisories in `backend` (4 high, 3 moderate) and
+46 in `web` (31 high, 10 moderate, 5 low), all transitive: no direct dependency
+was vulnerable.
 
-### Versões principais de runtime
+### Main runtime versions
 
 | backend | | web | |
 | --- | --- | --- | --- |
@@ -140,33 +261,76 @@ Todas as dependências de runtime dos dois workspaces foram levadas à última e
 | `cors` | 2.8.6 | `tailwindcss` | 4.3.3 |
 | `dotenv` | 17.4.2 | `lucide-react` | 1.44.0 |
 
-### `overrides` como correção de transitiva
+### `overrides` as a fix for a transitive advisory
 
-O aviso transitivo não se corrige atualizando o pacote direto: quem o traz está desatualizado, e às vezes sem manutenção. O pnpm 11 lê `overrides` de `pnpm-workspace.yaml`, não mais do `package.json`, e o `Dockerfile` do backend já copia esse arquivo antes do `install` — a imagem recebe os mesmos pins. Só o `backend` precisa de pins; o `web` zerou os avisos removendo o `next-pwa`, e o que sobrou da árvore já resolve em versões corrigidas dentro das faixas que os pais declaram.
+A transitive advisory is not fixed by updating the direct package: whoever
+brings it in is out of date, and sometimes unmaintained. pnpm 11 reads
+`overrides` from `pnpm-workspace.yaml`, no longer from `package.json`, and the
+backend's `Dockerfile` already copies that file before the `install` — the image
+gets the same pins. Only `backend` needs pins; `web` cleared its advisories by
+removing `next-pwa`, and what is left of the tree already resolves to fixed
+versions within the ranges its parents declare.
 
-| Pacote | Fixado em | Chega por | Falha corrigida |
+| Package | Pinned at | Arrives through | Failure fixed |
 | --- | --- | --- | --- |
 | `braces`, `micromatch`, `picomatch` | `^3.0.3`, `^4.0.8`, `^2.3.2` | `tsc-alias` → `chokidar`/`globby` | ReDoS |
-| `deepmerge-ts` | `^8.0.2` | `prisma` → `@prisma/config` | poluição de protótipo |
-| `mysql2` | `^3.23.1` | `prisma` (driver que este projeto não usa) | bomba de descompressão |
-| `postcss` | `^8.5.28` (dependência direta, atualizada) | — | leitura de arquivo arbitrária e travessia de caminho no source map |
+| `deepmerge-ts` | `^8.0.2` | `prisma` → `@prisma/config` | prototype pollution |
+| `mysql2` | `^3.23.1` | `prisma` (a driver this project does not use) | decompression bomb |
+| `postcss` | `^8.5.28` (a direct dependency, updated) | — | arbitrary file read and path traversal in the source map |
 
-Os 46 avisos do `web` vinham todos de `next-pwa@5.6.0`, sem manutenção desde 2022, que arrasta uma cadeia de build inteira (`workbox-build`, `babel-loader`, `clean-webpack-plugin`) e prende `webpack`, `lodash`, `rollup@2` e `@babel/core` em versões de 2022. Eram avisos de build, não de runtime: nada dessa cadeia era servido ao navegador. Com o plugin removido, o `web` passou a auditar limpo sem um `overrides` sequer — `ajv@6`/`ajv@8`, `minimatch@3` e `brace-expansion@1`, que sobram sob o `eslint` e o `@hookform/resolvers`, já resolvem em versões corrigidas.
+The web's 46 advisories all came from `next-pwa@5.6.0`, unmaintained since 2022,
+which drags in a whole build chain (`workbox-build`, `babel-loader`,
+`clean-webpack-plugin`) and holds `webpack`, `lodash`, `rollup@2` and
+`@babel/core` at 2022 versions. They were build advisories, not runtime ones:
+none of that chain was served to the browser. With the plugin removed, `web`
+started auditing clean without a single `overrides` — `ajv@6`/`ajv@8`,
+`minimatch@3` and `brace-expansion@1`, left over under `eslint` and
+`@hookform/resolvers`, already resolve to fixed versions.
 
-### Dependências removidas
+### Removed dependencies
 
-`next-pwa` saiu com o PWA inteiro — `public/manifest.json`, o `<link rel="manifest">` do layout, o `withPWA` do `next.config.js` e as duas linhas de `.gitignore` que escondiam o worker gerado. O aplicativo deixa de ser instalável e não precacheia mais nada; o que se ganha é uma cadeia de build de 2022 fora da árvore e o Turbopack de volta no `dev` e no `build`. Reintroduzir instalabilidade depende de um plugin que suporte Turbopack.
+`next-pwa` went out with the whole PWA — `public/manifest.json`, the layout's
+`<link rel="manifest">`, the `withPWA` in `next.config.js` and the two
+`.gitignore` lines that hid the generated worker. The application is no longer
+installable and precaches nothing; what is gained is a 2022 build chain out of
+the tree and Turbopack back in `dev` and `build`. Reintroducing installability
+depends on a plugin that supports Turbopack.
 
-`@radix-ui/react-checkbox`, `@radix-ui/react-separator` e `@radix-ui/react-tooltip` saíram com as três primitivas que eram suas únicas consumidoras (`components/ui/checkbox.tsx`, `separator.tsx` e `tooltip.tsx`), nenhuma renderizada por tela alguma. Tree shaking já as mantinha fora do bundle; o que some é confiança em três publicadores a cada `install`. Reintroduzi-las é um `pnpm add` e o arquivo do shadcn.
+`@radix-ui/react-checkbox`, `@radix-ui/react-separator` and
+`@radix-ui/react-tooltip` went out with the three primitives that were their
+only consumers (`components/ui/checkbox.tsx`, `separator.tsx` and
+`tooltip.tsx`), none of them rendered by any screen. Tree shaking already kept
+them out of the bundle; what goes away is trust in three publishers on every
+`install`. Reintroducing them is a `pnpm add` and the shadcn file.
 
-O restante do manifesto tem consumidor verificado, inclusive os casos que uma busca por `import` não alcança: `@types/*` (tipos ambientes), `tsc-alias` (script de `build`), `eslint-config-prettier` (peer de `eslint-plugin-prettier/recommended`), e `dotenv` (`config/Envs.ts` e `prisma.config.ts`).
+The rest of the manifest has a verified consumer, including the cases a search
+for `import` does not reach: `@types/*` (ambient types), `tsc-alias` (the
+`build` script), `eslint-config-prettier` (a peer of
+`eslint-plugin-prettier/recommended`), and `dotenv` (`config/Envs.ts` and
+`prisma.config.ts`).
 
-### Divergência de peer conhecida
+### Known peer divergence
 
-`pnpm peers check` acusa `eslint-plugin-jsx-a11y@6.10.2` e `eslint-plugin-react@7.37.5` declarando `eslint` até a 9, com a 10.10.0 instalada. As regras carregam e `pnpm lint` passa com `--max-warnings=0` nos dois pacotes; é defasagem de declaração dos plugins, não incompatibilidade observada.
+`pnpm peers check` reports `eslint-plugin-jsx-a11y@6.10.2` and
+`eslint-plugin-react@7.37.5` declaring `eslint` up to 9, with 10.10.0
+installed. The rules load and `pnpm lint` passes with `--max-warnings=0` in both
+packages; it is a lag in the plugins' declarations, not an observed
+incompatibility.
 
 ## `framer-motion` — 2026-09-24
 
-Dependência nova, pedida para animar as abas: o deslize do indicador do `SegmentedControl` e dos painéis de `SlideTransition` precisa de animação de layout entre elementos e de saída de um elemento desmontado, que o CSS e o `tw-animate-css` não fazem. Fixada em versão exata, `13.4.2`, a mais recente fora da janela de `minimumReleaseAge` do pnpm no dia da instalação.
+A new dependency, required to animate the tabs: the slide of the
+`SegmentedControl` indicator and of the `SlideTransition` panels needs layout
+animation between elements and an exit animation for an unmounted element,
+which CSS and `tw-animate-css` do not do. Pinned to an exact version, `13.4.2`,
+the most recent one outside pnpm's `minimumReleaseAge` window on the day it was
+installed.
 
-O pacote `motion`, o nome atual da biblioteca, não entrou: `motion/react` reexporta o `framer-motion` inteiro por `import * as`, e o Turbopack não poda um namespace reexportado. Importando de `framer-motion`, com `LazyMotion` e `m`, o sign-up levou 58 KB crus a mais em vez de 154 KB (`docs/performance.md`, "Abas animadas"). O resto do app continua animando por CSS: diálogos, popovers, menus e o toque dos botões já têm entrada e saída pelo `tw-animate-css` sobre a presença do Radix.
+The `motion` package, the library's current name, did not get in:
+`motion/react` re-exports the whole of `framer-motion` through `import * as`,
+and Turbopack does not prune a re-exported namespace. Importing from
+`framer-motion`, with `LazyMotion` and `m`, sign-up took 58 KB raw more instead
+of 154 KB ([`performance.md`](performance.md), "Animated tabs"). The rest of the
+app keeps animating through CSS: dialogs, popovers, menus and the buttons'
+press already have entrance and exit through `tw-animate-css` over Radix's
+presence.
