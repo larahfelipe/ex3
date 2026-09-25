@@ -31,7 +31,7 @@ const CLIENT_ADDRESS_HEADER = 'x-client-address';
 const PROXY_SECRET_HEADER = 'x-api-proxy-secret';
 
 /**
- * Cloud Run appends the address each connection comes from to
+ * The runtime platform appends the address each connection comes from to
  * `X-Forwarded-For`, so only the last entry is the client's; any before it were
  * sent by the client itself. The API's `trust proxy` counts the same one hop.
  */

@@ -6,9 +6,9 @@ campos, e por que nada disso passa por `console`.
 ## Formato
 
 Uma linha, um objeto JSON, sem quebra interna. `INFO` e `WARNING` vão para
-`stdout`; `ERROR` vai para `stderr`. É o formato que o Cloud Run entrega ao
-Cloud Logging sem agente nenhum: `severity` e `timestamp` são lidos do próprio
-objeto, o resto vira `jsonPayload`.
+`stdout`; `ERROR` vai para `stderr`. É o formato que um coletor de logs ingere
+sem agente nenhum: `severity` e `timestamp` são lidos do próprio objeto, e o
+resto vira payload estruturado.
 
 ```json
 {"timestamp":"2026-09-19T14:32:07.123Z","severity":"INFO","event":"http_request","requestId":"b7c1d2e3-f4a5-4b6c-8d9e-0f1a2b3c4d5e","method":"GET","route":"/v1/portfolio/positions","status":200,"durationMs":37,"userId":"0f2f5a3c-2c1c-4f2a-9a1a-7c6f5d4e3b2a"}
@@ -83,7 +83,8 @@ quando qualquer camada responde.
   testes é a entrada entregue ao `LogSink`, não o que foi para o descritor.
 * Não há tracing distribuído: o serviço é um processo só, e o `requestId` já
   costura as linhas de uma mesma requisição. Métricas nomeadas ficam por conta
-  das do Cloud Run (latência, contagem, instâncias), sem instrumentação própria.
+  da plataforma de execução (latência, contagem, instâncias), sem
+  instrumentação própria.
 
 ## Health e readiness
 
@@ -115,10 +116,10 @@ registra. A sonda que falha continua registrada, com a severidade do status
 rotas vêm de `ProbeRoutes`, em `Constants.ts`, a mesma constante que as monta.
 
 No `compose.yaml`, o `healthcheck` do serviço `backend` chama `/ready` a cada
-10s e o `web` espera por `service_healthy`. Em produção não há sonda: o
-`cloudbuild.yaml` constrói e publica as imagens, e a configuração do serviço no
-Cloud Run — onde o startup probe apontaria para `/ready` e o liveness probe
-para `/health` — vive fora do repositório (TD-060).
+10s e o `web` espera por `service_healthy`. Em produção não há sonda: a
+configuração do serviço que executa as imagens — onde o startup probe apontaria
+para `/ready` e o liveness probe para `/health` — vive fora do repositório
+(TD-060).
 
 ## Como evitar regressão
 

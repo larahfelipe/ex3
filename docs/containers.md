@@ -86,12 +86,12 @@ Mudança em Dockerfile ou no `packageManager` do `package.json` exige `docker co
 
 ## Imagens de produção
 
-O alvo padrão, e o único que o `cloudbuild.yaml` constrói, é o último estágio, `runner`:
+O alvo de produção é o último estágio, `runner`:
 
-- parte de `node:24.15-alpine` sem pnpm e roda como `node`, com `tini` como PID 1: o Node não trata SIGTERM quando é o PID 1, e o Cloud Run não oferece `--init`;
+- parte de `node:24.15-alpine` sem pnpm e roda como `node`, com `tini` como PID 1: o Node não trata SIGTERM quando é o PID 1, e a plataforma que executa a imagem não oferece `--init`;
 - leva só as dependências de produção, instaladas num estágio limpo (`prod-deps`), e o artefato do `builder`: `dist/` e `prisma/` no backend; `build/` sem `build/cache`, `public/`, `next.config.js` e `package.json` no web;
 - executa `node` direto, sem gerenciador de pacotes no processo. O web usa `node node_modules/next/dist/bin/next start`, o que evita que o corepack baixe o pnpm quando o container sobe.
 
-O corepack baixa a versão do `packageManager` durante o build, em `COREPACK_HOME`, legível pelo usuário `node` do estágio `dev`. Os Dockerfiles não usam sintaxe exclusiva do BuildKit, como `RUN --mount`, porque o builder `gcr.io/cloud-builders/docker` do Cloud Build não a garante.
+O corepack baixa a versão do `packageManager` durante o build, em `COREPACK_HOME`, legível pelo usuário `node` do estágio `dev`. Os Dockerfiles não usam sintaxe exclusiva do BuildKit, como `RUN --mount`, para que qualquer builder os construa.
 
-`API_URL` chega ao web por build-arg, como o `cloudbuild.yaml` já faz, e o estágio `runner` a declara como variável de ambiente do container. Ela é lida pelo servidor em tempo de execução, não mais inlinada no bundle pelo `next.config.js` — ver `security.md`, §Segredos.
+`API_URL` chega ao web por build-arg, e o estágio `runner` a declara como variável de ambiente do container. Ela é lida pelo servidor em tempo de execução, não mais inlinada no bundle pelo `next.config.js` — ver `security.md`, §Segredos.
