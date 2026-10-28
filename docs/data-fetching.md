@@ -43,6 +43,25 @@ arrived without a status and every error became a 500 on the client.
 | `usePosition` | `GET /v1/portfolio/positions/:symbol` | `[...portfolio, 'position', symbol]` | Asset detail | One position with the breakdown the listing does not carry |
 | `usePerformance` | `GET /v1/portfolio/performance` | `[...portfolio, 'performance', params]` | The Overview and detail charts | A time series per period; switching period is another key, fetched once and served from cache on later switches |
 | `useTransactions` | `GET /v1/transactions` | `[...portfolio, 'transactions', filters]` | Overview (last 5) and asset detail (paginated by symbol) | Distinct cuts of the same listing; neither derives from the other |
+| `useFinanceAlerts` | `GET /v1/finances/alerts` | `['finances', 'alerts', today]` | `sidebar.tsx` on every protected screen; the Bills page | The overdue count on the Finances badge and the due-soon list; a failure leaves the badge out, and the finance pages show the same count with their own error state |
+| `useFinanceSummary` | `GET /v1/finances/summary` | `['finances', 'summary', params]` | `/finances` | Every figure on the overview, in one request, for the chosen currency |
+| `useFinanceSettings` | `GET /v1/finances/settings` | `['finances', 'settings']` | `/finances`, beside the summary | What is flagged — overdue bills, bills and installments due soon — and the lead days, which the Reminders card shows and its dialog edits |
+| `useExpenses` | `GET /v1/finances/expenses` | `['finances', 'expenses', filters, today]` | The Bills page; a calendar day's bills; a series' bills | Distinct cuts of the same listing: filtered, by day, by series |
+| `useExpense` | `GET /v1/finances/expenses/:id` | `['finances', 'expense', id, today]` | The bill dialog (`?expense=`) | Payments and history, which the listing does not carry |
+| `usePayments` | `GET /v1/finances/payments` | `['finances', 'payments', filters]` | `/finances/reports` | The payment history of the span |
+| `useInstallmentPlans` / `useInstallmentPlan` | `GET /v1/finances/installment-plans[/:id]` | `['finances', 'installment-plans', filters]` / `['finances', 'installment-plan', id, today]` | `/finances/installments`, and its dialog (`?plan=`) | The list, then one plan with every installment |
+| `useRecurringExpenses` / `useRecurringExpense` | `GET /v1/finances/recurring-expenses[/:id]` | `['finances', 'recurring-expenses', filters, today]` / `['finances', 'recurring-expense', id, today]` | `/finances/recurring`, and its dialog (`?series=`) | The list, then one series with its history |
+| `useFinanceCalendar` | `GET /v1/finances/calendar` | `['finances', 'calendar', params]` | `/finances/calendar` | The month's per-day counts; the chosen day's bills come from `useExpenses` |
+| `useFinanceReport` | `GET /v1/finances/reports` | `['finances', 'report', params]` | `/finances/reports` | Totals, months, categories and kinds of the span, compared with the previous span |
+
+Every finance query sends `today`, the browser's calendar day
+(`useReferenceDay`), because what is overdue depends on the person's day, not
+the server's. A detail query uses `skipToken` until its id is in the URL. The
+listings, the summary, the calendar and the report keep the previous data
+while a new filter, page, month or span loads. Every finance write invalidates
+the `['finances']` prefix, and only that: each finance figure derives from the
+same records, and no finance write touches a portfolio. The rules behind the
+figures are in [`financial-management.md`](financial-management.md).
 
 Every portfolio-scoped query uses `skipToken` until the portfolio has arrived:
 none of them fires with an undefined `portfolioId`.

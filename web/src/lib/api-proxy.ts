@@ -7,7 +7,7 @@ import { toApiProxyErrorResponse } from './api-error-response';
 import api, { ApiProxyError, UNEXPECTED_ERROR_MESSAGE } from './axios';
 
 type ForwardedRequest = {
-  method: 'get' | 'post' | 'patch' | 'delete';
+  method: 'get' | 'post' | 'put' | 'patch' | 'delete';
   path: string;
   searchParams?: URLSearchParams;
   payloadFrom?: Request;

@@ -74,3 +74,95 @@ export const instantOfCalendarDay = (day: string) => {
 
   return (localStart.isAfter(utcStart) ? localStart : utcStart).toISOString();
 };
+
+export const CALENDAR_MONTH_FORMAT = 'YYYY-MM';
+
+const MONTH_FORMAT = 'MMM YYYY';
+const LONG_MONTH_FORMAT = 'MMMM YYYY';
+const WEEKDAY_DAY_FORMAT = 'ddd, MMM D';
+const LONG_WEEKDAY_DAY_FORMAT = 'dddd, MMMM D, YYYY';
+
+const calendarMonthOrNull = (month: string) => {
+  const parsed = dayjs(month, CALENDAR_MONTH_FORMAT, true);
+
+  return parsed.isValid() ? parsed : null;
+};
+
+export const isCalendarMonth = (month: string) =>
+  calendarMonthOrNull(month) !== null;
+
+export const isCalendarDay = (day: string) => calendarDayOrNull(day) !== null;
+
+/** The first and the last day of `month`, both counted. */
+export const daySpanOfCalendarMonth = (month: string) => {
+  const start = calendarMonthOrNull(month);
+
+  return start === null
+    ? null
+    : {
+        from: start.format(CALENDAR_DAY_FORMAT),
+        to: start.endOf('month').format(CALENDAR_DAY_FORMAT)
+      };
+};
+
+export const calendarMonthOfDay = (day: string) =>
+  calendarDayOrNull(day)?.format(CALENDAR_MONTH_FORMAT) ?? null;
+
+/** `count` months after `month`, or before it when negative. */
+export const shiftCalendarMonth = (month: string, count: number) =>
+  calendarMonthOrNull(month)
+    ?.add(count, 'month')
+    .format(CALENDAR_MONTH_FORMAT) ?? null;
+
+/** Months from `from` to `to`, counting both. */
+export const monthSpanOf = (from: string, to: string) => {
+  const start = calendarMonthOrNull(from);
+  const end = calendarMonthOrNull(to);
+
+  return start === null || end === null ? null : end.diff(start, 'month') + 1;
+};
+
+export const formatCalendarMonth = (month: string) =>
+  calendarMonthOrNull(month)?.format(MONTH_FORMAT) ?? null;
+
+export const formatLongCalendarMonth = (month: string) =>
+  calendarMonthOrNull(month)?.format(LONG_MONTH_FORMAT) ?? null;
+
+export const formatShortCalendarMonth = (month: string) =>
+  calendarMonthOrNull(month)?.format(SHORT_MONTH_FORMAT) ?? null;
+
+export const formatWeekdayCalendarDay = (day: string) =>
+  calendarDayOrNull(day)?.format(WEEKDAY_DAY_FORMAT) ?? null;
+
+export const formatLongWeekdayCalendarDay = (day: string) =>
+  calendarDayOrNull(day)?.format(LONG_WEEKDAY_DAY_FORMAT) ?? null;
+
+/** `count` months after `day`, on the month's last day when it is shorter, as the API schedules. */
+export const shiftCalendarDayByMonths = (day: string, count: number) =>
+  calendarDayOrNull(day)?.add(count, 'month').format(CALENDAR_DAY_FORMAT) ??
+  null;
+
+export const shiftCalendarDay = (day: string, count: number) =>
+  calendarDayOrNull(day)?.add(count, 'day').format(CALENDAR_DAY_FORMAT) ?? null;
+
+/** Whole days from `from` to `to`: negative when `to` comes first. */
+export const daysBetween = (from: string, to: string) => {
+  const start = calendarDayOrNull(from);
+  const end = calendarDayOrNull(to);
+
+  return start === null || end === null ? null : end.diff(start, 'day');
+};
+
+/** Every day of `month`, and the weekday of its first, 0 for Sunday to 6 for Saturday. */
+export const daysOfCalendarMonth = (month: string) => {
+  const start = calendarMonthOrNull(month);
+
+  if (start === null) return null;
+
+  return {
+    firstWeekday: start.day(),
+    days: Array.from({ length: start.daysInMonth() }, (_, index) =>
+      start.add(index, 'day').format(CALENDAR_DAY_FORMAT)
+    )
+  };
+};

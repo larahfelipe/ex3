@@ -139,6 +139,22 @@ export class UserRepository {
       });
       await transactionClient.instrument.deleteMany({ where: { ownerId: id } });
       await transactionClient.portfolio.deleteMany({ where: { userId: id } });
+      await transactionClient.financeEvent.deleteMany({
+        where: { userId: id }
+      });
+      await transactionClient.expensePayment.deleteMany({
+        where: { userId: id }
+      });
+      await transactionClient.expense.deleteMany({ where: { userId: id } });
+      await transactionClient.installmentPlan.deleteMany({
+        where: { userId: id }
+      });
+      await transactionClient.recurringExpense.deleteMany({
+        where: { userId: id }
+      });
+      await transactionClient.financeSettings.deleteMany({
+        where: { userId: id }
+      });
       await transactionClient.user.deleteMany({ where: { id } });
     });
   }

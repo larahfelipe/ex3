@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 
 type SubmitButtonProps = Pick<
   ButtonProps,
-  'form' | 'size' | 'disabled' | 'className' | 'aria-describedby'
+  'form' | 'size' | 'variant' | 'disabled' | 'className' | 'aria-describedby'
 > &
   Record<'isPending', boolean> &
   Record<'children', ReactNode>;

@@ -932,3 +932,30 @@ user's portfolio the same as a non-existent one; and a `portfolioId`, `range`,
 `benchmark` or `symbol` that is missing or malformed with 400. The closes are
 seeded relative to the current day, not on fixed dates, which the suite would
 leave behind.
+
+## Personal finance
+
+Six unit files under `src/domain` cover, without a database, the rules the
+finance module computes: calendar days in UTC with month ends and 29 February,
+recurrence by frequency, the exact split of a plan's total and its schedule,
+settlement from the active payments, money at the currency's minor units, and
+the overview's and reports' aggregates. The reference day is a parameter, never
+`new Date()` inside the rule.
+
+`src/routes/Finances.integration.ts` covers every `/v1/finances` route against
+the database: validation with 400, another user's records the same as
+non-existent ones, partial, corrected and voided payments, plans and their
+reschedules, series generation, edits from a date and stopping, the summary,
+calendar, reports, alerts and reminder settings, and account deletion removing
+the finance rows. Concurrency is exercised with `Promise.all` — two payments on
+the same bill, two reads generating the same series — and atomicity with
+`injectWriteFailure`, which fails one write inside the transaction and checks
+that nothing of it was kept. Dates are relative to `utcToday()`: plans start in
+a coming January, so no installment turns overdue as the calendar moves, and a
+series that needs one past occurrence repeats weekly, because a monthly one
+started a month back anchors on a shorter month's end and puts a second
+occurrence behind the 29th to 31st. Neither the year nor the day of the month
+the suite runs on changes its result.
+
+The file-by-file table, with the count of each, is in
+[`financial-management.md`](financial-management.md#tests).

@@ -1,4 +1,5 @@
 export * from './ExchangeRate';
+export * from './Finance';
 export * from './Instrument';
 export * from './MarketQuote';
 export * from './Portfolio';

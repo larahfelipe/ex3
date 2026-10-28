@@ -2,7 +2,10 @@
 
 Investment portfolio tracker: it records transactions, rebuilds each asset's
 position from the ledger, and reports cost, market value, allocation and
-performance in the portfolio's base currency.
+performance in the portfolio's base currency. A separate Finances section
+tracks what the account owes: bills and their payments, installment purchases,
+recurring expenses, a due-date calendar and spending reports — kept apart from
+the investments, whose data it never reads or changes.
 
 Two independent packages, each with its own `package.json` and lockfile. There
 is no root `package.json` and no pnpm workspace: every command runs inside
@@ -19,7 +22,7 @@ is no root `package.json` and no pnpm workspace: every command runs inside
 browser ──▶ web                                  ──▶ backend                      ──▶ PostgreSQL
             app/(public)    sign-in, sign-up         routes ──▶ middleware            (Prisma 7)
             app/(protected) overview, assets,               ──▶ controllers
-                            account                         ──▶ services
+                            finances, account               ──▶ services
             app/api/v1      proxy, httpOnly cookie          ──▶ domain (pure)     ──▶ YH Finance
 ```
 
@@ -31,7 +34,8 @@ nothing about cookies or browser sessions.
 In the backend, each layer depends only on the one below it: `routes` declares
 the HTTP contract, `services` orchestrates the use case and the database
 transaction, `domain` is pure calculation, testable with no I/O (ledger,
-valuation, performance, price history), and `infra` isolates Prisma, the quote
+valuation, performance, price history, and the bills, installments and
+recurrences of personal finance), and `infra` isolates Prisma, the quote
 provider, cryptography and structured logging. An error is born typed in any
 layer and becomes an HTTP envelope in a single error boundary.
 
@@ -40,7 +44,8 @@ the entities mean, [`docs/api-inventory.md`](docs/api-inventory.md) for the
 routes and the response shape,
 [`docs/authentication.md`](docs/authentication.md) for session and
 authorization, [`docs/security.md`](docs/security.md) for the security
-checklist.
+checklist, [`docs/financial-management.md`](docs/financial-management.md) for
+the Finances section.
 
 ## Requirements
 
@@ -107,6 +112,11 @@ docker compose exec postgres psql --username=ex3 --dbname=ex3 \
 Without `YAHOO_FINANCE_API_KEY` the application still works: every quote is
 reported as unavailable, and the screens show quantity and cost, with no market
 value.
+
+Finances need no configuration or seed: every user starts with an empty
+section, and the reminders show inside the application only — no email or push
+is sent (see
+[`docs/financial-management.md`](docs/financial-management.md#notifications)).
 
 ## Environment variables
 
@@ -210,6 +220,7 @@ variables, `GET /ready` and `GET /health` probes — live outside it (TD-060).
 | [`docs/architecture.md`](docs/architecture.md) | layers, responsibilities and the direction of the dependencies |
 | [`docs/domain-model.md`](docs/domain-model.md) | entities, ownership, values, currencies and dates |
 | [`docs/financial-rules.md`](docs/financial-rules.md) | the mathematical definition of average cost, P&L, allocation and performance |
+| [`docs/financial-management.md`](docs/financial-management.md) | the Finances section: data model, business rules, API, screens, notifications and tests |
 | [`docs/api-inventory.md`](docs/api-inventory.md) | routes, contracts and what changed since the baseline |
 | [`docs/authentication.md`](docs/authentication.md) | session, token, cookie and authorization |
 | [`docs/errors.md`](docs/errors.md) | the eight error categories and the API envelope |

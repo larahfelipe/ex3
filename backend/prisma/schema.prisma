@@ -8,9 +8,9 @@ datasource db {
 }
 
 model User {
-  id             String     @id @default(uuid())
+  id             String      @id @default(uuid())
   name           String?
-  email          String     @unique
+  email          String      @unique
   password       String
   portfolios     Portfolio[]
   /// Sign-up issues the first token at the initial value; sign-in, sign-out
@@ -162,4 +162,208 @@ model Transaction {
   @@index([portfolioId, instrumentId])
   @@index([instrumentId])
   @@map("transactions")
+}
+
+/// Personal finance records belong to a user, not to a portfolio: what an
+/// account owes is independent of what it invests. Every table holds the
+/// owner's id, which each read and write filters by.
+enum ExpenseCategory {
+  HOUSING
+  UTILITIES
+  FOOD
+  TRANSPORTATION
+  HEALTH
+  EDUCATION
+  LEISURE
+  SUBSCRIPTIONS
+  INSURANCE
+  TAXES
+  DEBT
+  SHOPPING
+  PERSONAL_CARE
+  OTHER
+}
+
+enum PaymentMethod {
+  CASH
+  DEBIT_CARD
+  CREDIT_CARD
+  BANK_TRANSFER
+  PIX
+  BOLETO
+  DIRECT_DEBIT
+  OTHER
+}
+
+enum RecurrenceFrequency {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum FinanceRecordType {
+  EXPENSE
+  INSTALLMENT_PLAN
+  RECURRING_EXPENSE
+}
+
+enum FinanceEventType {
+  CREATED
+  UPDATED
+  CANCELLED
+  RESTORED
+  PAYMENT_RECORDED
+  PAYMENT_CORRECTED
+  PAYMENT_VOIDED
+  RESCHEDULED
+}
+
+/// A bill: a one-time expense, an installment of a plan or an occurrence of a
+/// recurring expense. Days are calendar days (`DATE`): a bill is due on a day,
+/// not at an instant, so no time zone moves it.
+model Expense {
+  id                 String            @id @default(uuid())
+  description        String
+  category           ExpenseCategory
+  subcategory        String?
+  amount             Decimal           @db.Decimal(38, 18)
+  currency           String
+  entryDate          DateTime          @db.Date
+  dueDate            DateTime          @db.Date
+  paymentMethod      PaymentMethod?
+  account            String?
+  notes              String?
+  /// What the active payments settled (their amount plus discount), and the
+  /// day the last of them brought the outstanding to zero. Every payment write
+  /// recomputes both from the payments, in the same transaction.
+  settledAmount      Decimal           @default(0) @db.Decimal(38, 18)
+  settledOn          DateTime?         @db.Date
+  cancelledAt        DateTime?
+  installmentPlan    InstallmentPlan?  @relation(fields: [installmentPlanId], references: [id])
+  installmentPlanId  String?
+  installmentNumber  Int?
+  recurringExpense   RecurringExpense? @relation(fields: [recurringExpenseId], references: [id])
+  recurringExpenseId String?
+  /// The day the series scheduled the occurrence on: its identity within the
+  /// series, kept when its due date is edited.
+  occurrenceDate     DateTime?         @db.Date
+  /// Edited on its own, so an edit of the whole plan or series leaves it as is.
+  isCustomized       Boolean           @default(false)
+  payments           ExpensePayment[]
+  userId             String
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@unique([installmentPlanId, installmentNumber])
+  @@unique([recurringExpenseId, occurrenceDate])
+  @@index([userId, dueDate])
+  @@map("expenses")
+}
+
+/// `amount` and `discount` settle the expense; `fees` (late interest, charges)
+/// are paid on top. The cash spent is `amount + fees`. A voided payment is kept
+/// as history and settles nothing.
+model ExpensePayment {
+  id        String         @id @default(uuid())
+  amount    Decimal        @db.Decimal(38, 18)
+  discount  Decimal        @default(0) @db.Decimal(38, 18)
+  fees      Decimal        @default(0) @db.Decimal(38, 18)
+  paidOn    DateTime       @db.Date
+  method    PaymentMethod?
+  notes     String?
+  voidedAt  DateTime?
+  expense   Expense        @relation(fields: [expenseId], references: [id])
+  expenseId String
+  userId    String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([expenseId])
+  @@index([userId, paidOn])
+  @@map("expense_payments")
+}
+
+/// The installments are `expenses` rows; the plan's totals are computed from
+/// them, so a corrected installment never leaves a stale total behind.
+model InstallmentPlan {
+  id              String              @id @default(uuid())
+  description     String
+  category        ExpenseCategory
+  subcategory     String?
+  currency        String
+  /// How often the installments fall due, each counted from the first due date.
+  frequency       RecurrenceFrequency @default(MONTHLY)
+  /// The cash price, when known: the plan's financing cost is its total minus it.
+  principalAmount Decimal?            @db.Decimal(38, 18)
+  paymentMethod   PaymentMethod?
+  account         String?
+  notes           String?
+  entryDate       DateTime            @db.Date
+  cancelledAt     DateTime?
+  installments    Expense[]
+  userId          String
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([userId])
+  @@map("installment_plans")
+}
+
+/// The occurrences are `expenses` rows, generated ahead up to a horizon.
+/// `generatedThrough` is the last day generation covered, so it resumes after
+/// it and an occurrence is never generated twice.
+model RecurringExpense {
+  id               String              @id @default(uuid())
+  description      String
+  category         ExpenseCategory
+  subcategory      String?
+  amount           Decimal             @db.Decimal(38, 18)
+  isVariable       Boolean             @default(false)
+  currency         String
+  frequency        RecurrenceFrequency
+  startDate        DateTime            @db.Date
+  endDate          DateTime?           @db.Date
+  paymentMethod    PaymentMethod?
+  account          String?
+  notes            String?
+  generatedThrough DateTime            @db.Date
+  cancelledAt      DateTime?
+  occurrences      Expense[]
+  userId           String
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([userId])
+  @@map("recurring_expenses")
+}
+
+/// The change history of a finance record: append-only, never edited.
+model FinanceEvent {
+  id         String            @id @default(uuid())
+  recordType FinanceRecordType
+  recordId   String
+  type       FinanceEventType
+  /// Each changed field's value before and after, or the values recorded.
+  changes    Json
+  userId     String
+  createdAt  DateTime          @default(now())
+
+  @@index([recordType, recordId, createdAt])
+  @@index([userId])
+  @@map("finance_events")
+}
+
+/// Which in-app reminders the user wants: overdue bills, and the bills and
+/// installments falling due within `reminderLeadDays`.
+model FinanceSettings {
+  id                         String   @id @default(uuid())
+  userId                     String   @unique
+  reminderLeadDays           Int      @default(3)
+  remindOverdue              Boolean  @default(true)
+  remindUpcomingBills        Boolean  @default(true)
+  remindUpcomingInstallments Boolean  @default(true)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  @@map("finance_settings")
 }

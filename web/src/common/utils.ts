@@ -48,6 +48,18 @@ export const formatMoney = (
   options?: Intl.NumberFormatOptions
 ) => formatNumber(value, { style: 'currency', currency, ...options });
 
+/** For an axis tick, where the exact amount is in the tooltip and the table. */
+export const formatCompactMoney = (
+  value: number | DecimalString,
+  currency: string
+) =>
+  formatNumber(value, {
+    style: 'currency',
+    currency,
+    notation: 'compact',
+    maximumFractionDigits: 1
+  });
+
 export const formatPrice = (price: DecimalString, currency: string) =>
   formatMoney(price, currency, {
     maximumFractionDigits: Math.max(

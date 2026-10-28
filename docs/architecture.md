@@ -58,10 +58,12 @@ computed in floating point — a value, not database access.
 
 **Responsibility:** render the state the API delivers and capture user intent.
 It computes no domain number: average cost, market value, allocation and return
-arrive ready, in the base currency the response states.
+arrive ready, in the base currency the response states, and so do what a bill
+still owes, a plan's balance and a report's totals; a chart turns an amount
+into a number only to size a bar.
 
 `web/src/app` is the App Router, in two groups: `(public)` with sign-in and
-sign-up, `(protected)` with overview, assets and account. `web/src/proxy.ts`
+sign-up, `(protected)` with overview, assets, finances and account. `web/src/proxy.ts`
 runs ahead of every page request, decides the session and emits the CSP with a
 nonce. `components/ui` are primitives over Radix and Tailwind; `components` are
 the product's composites. `providers/app-provider.tsx` wires the `QueryClient`,
@@ -111,6 +113,16 @@ positions start from `readPortfolioHoldings` and `quoteHoldings`, in
 `services/portfolio/QuotedHoldings.ts`, which read the portfolio's positions
 and quote, in a single batch, the ones each of them values.
 
+Personal finance hangs off the user, not a portfolio: every finance list
+filters by `userId`, and every write first finds its record by id together
+with `userId`, inside the transaction that then changes it — a payment must
+also be one of that bill's own — so another user's bill, plan or series
+answers 404 like one that does not exist. A
+refused write comes back from the repository as an outcome, and
+`financeRefusalError` in `services/finance/FinanceRefusalError.ts` is the one
+place that turns it into a 400, 409 or 422
+([`financial-management.md`](financial-management.md#api)).
+
 Controllers and services are singletons with `getInstance`, composed by hand in
 the `index.ts` of each controller folder. The handler a route registers builds
 the graph for that use case and delegates; because every piece is a singleton,
@@ -129,6 +141,12 @@ values. No I/O, no Prisma beyond the decimal type, no `Request`.
 | `PortfolioValuation` | portfolio positions in the base currency, filtering, sorting and allocation |
 | `PortfolioPerformance` | daily series of value, net contribution and time-weighted return |
 | `PriceHistory` | the window of days still missing and the cut by closing price |
+| `CalendarDay` | a due date as a UTC calendar day: parsing, month arithmetic that holds the month's end, and leap years |
+| `FinanceMoney` | finance amounts at the currency's minor units without floating point, the split of a total into installments and a series' monthly equivalent |
+| `ExpenseSettlement` | what a bill has settled and still owes, and the status derived from it |
+| `InstallmentSchedule` | a plan's due dates at its frequency, its progress — paid, balance, next due, completion — and which installments a reschedule may move |
+| `Recurrence` | a series' occurrence days, weekly, monthly or yearly, the next one and the series' status |
+| `FinanceAggregates` | the overview's and reports' totals, months and category shares from the persisted rows |
 | `models` | the domain types, independent of database rows |
 | `MarketDataProvider` | the **port** prices come in through, defined here and implemented outside |
 
@@ -149,6 +167,16 @@ into a domain model — a decimal becomes a string, never a `number`. When an
 operation spans more than one table it runs in a serializable transaction:
 opened by the repository itself, as in `UserRepository.delete`, or received as
 a `TransactionClient` from the larger operation, as in `TransactionRepository`.
+
+Personal finance has its own repositories — `Expense`, `InstallmentPlan`,
+`RecurringExpense`, and `FinanceReport`, which reads the aggregates and keeps
+the reminder settings — sharing row conversion and the change history in
+`FinanceRecords.ts`. Every write to a bill, plan or series opens its own
+serializable transaction, because it changes the expense rows, their payments
+and `finance_events` together; the reminder settings are one row, upserted on
+their own. None of them reads or writes an investment table;
+`UserRepository.delete` also removes the user's finance rows, in the same
+transaction as the rest of the account.
 
 The schema and the migrations live in `backend/prisma`. No domain write happens
 outside a transaction when it touches more than one table: recording a
@@ -221,7 +249,8 @@ decisions, and what has already been fixed, are in
 
 ## Known limits
 
-* Routes register their handlers with `as Application` in 29 places: the
+* Routes register their handlers with `as Application` in 59 places, 28 of
+  them in `FinanceRoutes.ts`, which follows the existing routes: the
   controllers return `Promise<Response>`, and the Express 5 signature expects
   `void`. `HealthRoutes.ts` shows the way without the cast — respond and return
   `void`.

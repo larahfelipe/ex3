@@ -131,9 +131,9 @@ export const unitsOf = (value: string, scale: number) => {
 export const decimalOfUnits = (units: bigint, scale: number) => {
   const digits = units.toString().padStart(scale + 1, '0');
 
-  return scale === 0
-    ? digits
-    : `${digits.slice(0, -scale)}.${digits.slice(-scale)}`;
+  return (
+    scale === 0 ? digits : `${digits.slice(0, -scale)}.${digits.slice(-scale)}`
+  ) as DecimalString;
 };
 
 /** To `scale` decimal places, halves away from zero, for a storable `value`. */

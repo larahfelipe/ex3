@@ -1,4 +1,15 @@
-import type { InstrumentType, TransactionType } from '@/domain/models';
+import type {
+  ExpenseCategory,
+  ExpenseKind,
+  ExpenseStatus,
+  ExpenseStatusFilter,
+  InstallmentPlanStatus,
+  InstrumentType,
+  PaymentMethod,
+  RecurrenceFrequency,
+  RecurringExpenseStatus,
+  TransactionType
+} from '@/domain/models';
 
 /**
  * The categories an API failure is classified into. The category name is the
@@ -335,3 +346,169 @@ export const SortOrderTypes = {
   ASCENDENT: 'asc',
   DESCENDENT: 'desc'
 } as const;
+
+export const ExpenseCategories: Record<ExpenseCategory, ExpenseCategory> = {
+  HOUSING: 'HOUSING',
+  UTILITIES: 'UTILITIES',
+  FOOD: 'FOOD',
+  TRANSPORTATION: 'TRANSPORTATION',
+  HEALTH: 'HEALTH',
+  EDUCATION: 'EDUCATION',
+  LEISURE: 'LEISURE',
+  SUBSCRIPTIONS: 'SUBSCRIPTIONS',
+  INSURANCE: 'INSURANCE',
+  TAXES: 'TAXES',
+  DEBT: 'DEBT',
+  SHOPPING: 'SHOPPING',
+  PERSONAL_CARE: 'PERSONAL_CARE',
+  OTHER: 'OTHER'
+} as const;
+
+export const PaymentMethods: Record<PaymentMethod, PaymentMethod> = {
+  CASH: 'CASH',
+  DEBIT_CARD: 'DEBIT_CARD',
+  CREDIT_CARD: 'CREDIT_CARD',
+  BANK_TRANSFER: 'BANK_TRANSFER',
+  PIX: 'PIX',
+  BOLETO: 'BOLETO',
+  DIRECT_DEBIT: 'DIRECT_DEBIT',
+  OTHER: 'OTHER'
+} as const;
+
+export const RecurrenceFrequencies: Record<
+  RecurrenceFrequency,
+  RecurrenceFrequency
+> = {
+  WEEKLY: 'WEEKLY',
+  MONTHLY: 'MONTHLY',
+  YEARLY: 'YEARLY'
+} as const;
+
+export const ExpenseStatuses: Record<ExpenseStatus, ExpenseStatus> = {
+  PENDING: 'PENDING',
+  OVERDUE: 'OVERDUE',
+  PAID: 'PAID',
+  CANCELLED: 'CANCELLED'
+} as const;
+
+export const ExpenseStatusFilters: Record<
+  ExpenseStatusFilter,
+  ExpenseStatusFilter
+> = { ...ExpenseStatuses, OPEN: 'OPEN' } as const;
+
+export const ExpenseKinds: Record<ExpenseKind, ExpenseKind> = {
+  ONE_TIME: 'ONE_TIME',
+  INSTALLMENT: 'INSTALLMENT',
+  RECURRING: 'RECURRING'
+} as const;
+
+export const InstallmentPlanStatuses: Record<
+  InstallmentPlanStatus,
+  InstallmentPlanStatus
+> = {
+  ACTIVE: 'ACTIVE',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED'
+} as const;
+
+export const RecurringExpenseStatuses: Record<
+  RecurringExpenseStatus,
+  RecurringExpenseStatus
+> = {
+  ACTIVE: 'ACTIVE',
+  ENDED: 'ENDED',
+  CANCELLED: 'CANCELLED'
+} as const;
+
+export const ExpenseSortFields = {
+  DUE_DATE: 'dueDate',
+  AMOUNT: 'amount',
+  DESCRIPTION: 'description',
+  CREATED_AT: 'createdAt'
+} as const;
+
+/**
+ * Bounds of what a client can store or ask for in personal finance (OWASP
+ * API4:2023, unrestricted resource consumption). Assumed, not measured:
+ * `INSTALLMENT_MAX_COUNT` covers a 30-year monthly financing;
+ * `OCCURRENCE_HORIZON_MONTHS` is how far ahead a recurring expense's
+ * occurrences exist, the window planning projects over; `REPORT_MAX_MONTHS`
+ * bounds the rows a report reads; `REFERENCE_DAY_TOLERANCE_DAYS` is how far the
+ * caller's calendar day may be from the server's UTC day, the span of the
+ * world's time zones.
+ */
+export const FinanceLimits = {
+  DESCRIPTION_MAX_LENGTH: 120,
+  SUBCATEGORY_MAX_LENGTH: 60,
+  ACCOUNT_MAX_LENGTH: 60,
+  NOTES_MAX_LENGTH: 500,
+  SEARCH_MAX_LENGTH: 120,
+  INSTALLMENT_MAX_COUNT: 360,
+  OCCURRENCE_HORIZON_MONTHS: 12,
+  REPORT_MAX_MONTHS: 24,
+  REMINDER_MAX_LEAD_DAYS: 30,
+  REMINDER_DEFAULT_LEAD_DAYS: 3,
+  UPCOMING_LIMIT: 5,
+  SUMMARY_TREND_MONTHS: 6,
+  SUMMARY_COMMITMENT_MONTHS: 6,
+  ALERT_ITEMS_LIMIT: 10,
+  REFERENCE_DAY_TOLERANCE_DAYS: 1
+} as const;
+
+export const FinanceMessages = {
+  EXPENSE_NOT_FOUND: 'Expense not found',
+  PAYMENT_NOT_FOUND: 'Payment not found for this expense',
+  INSTALLMENT_PLAN_NOT_FOUND: 'Installment plan not found',
+  RECURRING_EXPENSE_NOT_FOUND: 'Recurring expense not found',
+  AMOUNT_PRECISION:
+    'Amount has more decimal places than the currency has minor units',
+  AMOUNT_BELOW_SETTLED:
+    'The amount cannot be less than what the payments already settled',
+  PAYMENT_EXCEEDS_OUTSTANDING:
+    'The payment settles more than the expense still owes',
+  ALREADY_SETTLED: 'The expense is already paid in full',
+  EXPENSE_CANCELLED: 'The expense is cancelled',
+  EXPENSE_HAS_PAYMENTS:
+    'An expense with payments cannot be cancelled or deleted; void its payments first',
+  EXPENSE_MANAGED_BY_ORIGIN:
+    'Installments and recurring occurrences are deleted through their plan or series; cancel this one instead',
+  EXPENSE_ORIGIN_CANCELLED:
+    'The plan or series this expense belongs to is cancelled',
+  PLAN_HAS_PAYMENTS:
+    'A plan with payments cannot be deleted; cancel it to keep its history',
+  PLAN_CANCELLED: 'The installment plan is cancelled',
+  RESCHEDULE_BEFORE_KEPT:
+    'The next due date cannot be before the due date of the last installment with payments',
+  PAYMENT_EMPTY: 'A payment must settle an amount or a discount above zero',
+  PAYMENT_IN_FUTURE: 'Payment date cannot be in the future',
+  END_BEFORE_START: 'End date must not be before the start date',
+  INSTALLMENT_SPLIT_TOO_SMALL:
+    'The amount is too small to split into that many installments',
+  SERIES_HAS_PAYMENTS:
+    'A recurring expense with payments cannot be deleted; cancel it to keep its history',
+  SERIES_CANCELLED: 'The recurring expense is cancelled',
+  END_BEFORE_PAID_OCCURRENCE:
+    'The end date would remove an occurrence that already has payments',
+  EFFECTIVE_FROM_AFTER_HORIZON: `Effective from cannot be later than the day after the ${FinanceLimits.OCCURRENCE_HORIZON_MONTHS} months bills are created ahead`,
+  REFERENCE_DAY_OUT_OF_RANGE:
+    'The reference day must be within one day of the current date',
+  EXPENSE_CREATED: 'Expense created successfully',
+  EXPENSE_UPDATED: 'Expense updated successfully',
+  EXPENSE_DELETED: 'Expense deleted successfully',
+  PAYMENT_RECORDED: 'Payment recorded successfully',
+  PAYMENT_UPDATED: 'Payment corrected successfully',
+  PAYMENT_VOIDED: 'Payment voided successfully',
+  PLAN_CREATED: 'Installment plan created successfully',
+  PLAN_UPDATED: 'Installment plan updated successfully',
+  PLAN_RESCHEDULED: 'Installment plan rescheduled successfully',
+  PLAN_CANCELLED_SUCCESSFULLY: 'Installment plan cancelled successfully',
+  PLAN_DELETED: 'Installment plan deleted successfully',
+  SERIES_CREATED: 'Recurring expense created successfully',
+  SERIES_UPDATED: 'Recurring expense updated successfully',
+  SERIES_CANCELLED_SUCCESSFULLY: 'Recurring expense cancelled successfully',
+  SERIES_DELETED: 'Recurring expense deleted successfully',
+  SETTINGS_UPDATED: 'Finance settings updated successfully'
+};
+
+/** What a finance aggregate is computed in when the query names no currency: the web's default. */
+export const DEFAULT_FINANCE_CURRENCY = 'BRL';

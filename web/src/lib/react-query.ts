@@ -1,6 +1,15 @@
 import { QueryClient } from '@tanstack/react-query';
 
 import type {
+  ExpenseFilters,
+  FinanceCalendarParams,
+  FinanceReportParams,
+  FinanceSummaryParams,
+  InstallmentPlanFilters,
+  PaymentFilters,
+  RecurringExpenseFilters
+} from '@/app/api/v1/finances';
+import type {
   PerformanceParams,
   PositionListingParams
 } from '@/app/api/v1/portfolio';
@@ -50,6 +59,9 @@ const visibleInstruments = () => ['instruments'] as const;
 const portfolioScope = (portfolioId: PortfolioId) =>
   ['portfolio', portfolioId] as const;
 
+/** Cash flow only: no investment query lives under it, and no finance write touches the portfolio scope. */
+const financeScope = () => ['finances'] as const;
+
 export const queryKeys = {
   currentUser: () => ['user'] as const,
   visibleInstruments,
@@ -81,5 +93,29 @@ export const queryKeys = {
   performance: (portfolioId: PortfolioId, params: PerformanceParams) =>
     [...portfolioScope(portfolioId), 'performance', params] as const,
   transactions: (portfolioId: PortfolioId, filters: TransactionFilters) =>
-    [...portfolioScope(portfolioId), 'transactions', filters] as const
+    [...portfolioScope(portfolioId), 'transactions', filters] as const,
+  finances: financeScope,
+  financeSummary: (params: FinanceSummaryParams) =>
+    [...financeScope(), 'summary', params] as const,
+  financeCalendar: (params: FinanceCalendarParams) =>
+    [...financeScope(), 'calendar', params] as const,
+  financeReport: (params: FinanceReportParams) =>
+    [...financeScope(), 'report', params] as const,
+  financeAlerts: (today: string) =>
+    [...financeScope(), 'alerts', today] as const,
+  financeSettings: () => [...financeScope(), 'settings'] as const,
+  expenses: (filters: ExpenseFilters, today: string) =>
+    [...financeScope(), 'expenses', filters, today] as const,
+  expense: (expenseId: string, today: string) =>
+    [...financeScope(), 'expense', expenseId, today] as const,
+  payments: (filters: PaymentFilters) =>
+    [...financeScope(), 'payments', filters] as const,
+  installmentPlans: (filters: InstallmentPlanFilters) =>
+    [...financeScope(), 'installment-plans', filters] as const,
+  installmentPlan: (planId: string, today: string) =>
+    [...financeScope(), 'installment-plan', planId, today] as const,
+  recurringExpenses: (filters: RecurringExpenseFilters, today: string) =>
+    [...financeScope(), 'recurring-expenses', filters, today] as const,
+  recurringExpense: (seriesId: string, today: string) =>
+    [...financeScope(), 'recurring-expense', seriesId, today] as const
 };

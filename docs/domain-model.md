@@ -9,6 +9,11 @@ The mathematical definition of each metric derived from these entities —
 average cost, cost, P&L, allocation, performance, income and benchmarks — is in
 [`financial-rules.md`](financial-rules.md).
 
+Personal finance — bills, installment plans and recurring expenses — is a
+separate domain, owned directly by the `User` and related to no entity here: an
+expense is not a transaction, and a payment never moves a position. Its model
+and rules are in [`financial-management.md`](financial-management.md).
+
 ## Entities
 
 ```text

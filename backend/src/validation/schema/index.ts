@@ -1,4 +1,5 @@
 export * from './asset';
+export * from './finance';
 export * from './instrument';
 export * from './PaginationQuerySchema';
 export * from './portfolio';

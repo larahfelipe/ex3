@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Loader2,
   LogOut,
+  ReceiptText,
   Wallet
 } from 'lucide-react';
 
@@ -20,6 +21,7 @@ import {
   APP_STORAGE_KEYS,
   NAVIGATION_STATES
 } from '@/common/constants';
+import { useFinanceAlerts } from '@/hooks/use-finances';
 import { useCurrentUser, useSignOut } from '@/hooks/use-user';
 import { cn } from '@/lib/utils';
 
@@ -31,7 +33,8 @@ type NavigationSection = Record<'name' | 'path', string> &
 
 type NavigationLinkProps = NavigationSection &
   Record<'isActive', boolean> &
-  Partial<Record<'detail', string>>;
+  Partial<Record<'detail', string>> &
+  Partial<Record<'alertCount', number>>;
 
 type SidebarProps = Record<'initialState', NavigationState>;
 
@@ -52,6 +55,16 @@ const PORTFOLIO_SECTIONS: Array<NavigationSection> = [
     icon: <Wallet size={18} />
   }
 ];
+
+/** Cash flow, kept apart from the investment sections it never mixes with. */
+const FINANCE_SECTION: NavigationSection = {
+  name: 'Finances',
+  path: APP_ROUTES.Protected.Finances,
+  icon: <ReceiptText size={18} />
+};
+
+/** Past this, the badge reads "99+": the exact count is on the finance overview. */
+const ALERT_BADGE_MAX = 99;
 
 const ACCOUNT_SECTION: NavigationSection = {
   name: 'Account',
@@ -83,6 +96,7 @@ const NavigationLink: FC<NavigationLinkProps> = ({
   path,
   icon,
   detail,
+  alertCount,
   isActive
 }) => (
   <Link
@@ -97,12 +111,24 @@ const NavigationLink: FC<NavigationLinkProps> = ({
       />
     )}
 
-    <span aria-hidden="true" className={NAVIGATION_ICON_CLASS}>
+    <span aria-hidden="true" className={cn(NAVIGATION_ICON_CLASS, 'relative')}>
       {icon}
+
+      {alertCount !== undefined && alertCount > 0 && (
+        <span className="absolute -top-1 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-negative px-1 text-[0.625rem] leading-none font-semibold text-negative-foreground navigation-expanded:-top-2 navigation-expanded:-right-2.5">
+          {alertCount > ALERT_BADGE_MAX ? `${ALERT_BADGE_MAX}+` : alertCount}
+        </span>
+      )}
     </span>
 
     <span className="flex max-w-full min-w-0 flex-col items-center navigation-expanded:items-start">
-      <span className="max-w-full truncate">{name}</span>
+      <span className="max-w-full truncate">
+        {name}
+
+        {alertCount !== undefined && alertCount > 0 && (
+          <span className="sr-only">{`, ${alertCount} overdue`}</span>
+        )}
+      </span>
 
       {detail !== undefined && (
         <span className="hidden max-w-full truncate text-xs font-normal text-muted-foreground navigation-expanded:block">
@@ -120,6 +146,8 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
 
   const { mutate: signOut, isPending: isSigningOut } = useSignOut();
   const { data: user } = useCurrentUser();
+  // A badge that fails to load is left out: the finance pages show the same count with their own error state.
+  const { data: financeAlerts } = useFinanceAlerts();
 
   const isExpanded = navigationState === NAVIGATION_STATES.Expanded;
   const toggleLabel = isExpanded ? 'Collapse navigation' : 'Expand navigation';
@@ -170,6 +198,16 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
               />
             </li>
           ))}
+        </ul>
+
+        <ul className="flex flex-1 sm:mt-3 sm:flex-none sm:flex-col sm:gap-1 sm:border-t sm:pt-3">
+          <li className="flex flex-1">
+            <NavigationLink
+              {...FINANCE_SECTION}
+              alertCount={financeAlerts?.overdue.count}
+              isActive={isCurrentPath(pathname, FINANCE_SECTION.path)}
+            />
+          </li>
         </ul>
 
         <ul className="flex flex-1 sm:mt-auto sm:flex-none sm:flex-col sm:gap-1 sm:border-t sm:pt-3">
