@@ -21,6 +21,7 @@ Requires Docker Engine with the Compose v2 plugin (`docker compose`).
 cp .env.example .env
 # POSTGRES_PASSWORD: openssl rand -hex 24   (hex: the password goes into the connection URL unescaped)
 # JWT_SECRET:        openssl rand -base64 48
+# HOST_UID, HOST_GID: id -u, id -g   (Linux, when they are not 1000)
 docker compose up --build
 ```
 
@@ -62,12 +63,13 @@ docker compose exec postgres psql --username=ex3 --dbname=ex3 \
 4. `web` (`pnpm dev`), once `web-deps` has finished and `backend` has started.
 
 The development services use the `dev` stage: an image with Node and pnpm, code
-mounted from the host, process running as `node`. Each package's `node_modules`
-lives in a volume, because the host's native binaries (`bcrypt`, Prisma, SWC)
-do not serve the container's Linux. The pnpm store is a volume shared by both
-packages, so that a reinstall does not download again what was already
-downloaded. The `build/` of `next dev` has its own volume and does not fight
-over the directory with a `pnpm build` run on the host.
+mounted from the host, process running as `node` with the host user's uid and
+gid. Each package's `node_modules` lives in a volume, because the host's native
+binaries (`bcrypt`, Prisma, SWC) do not serve the container's Linux. The pnpm
+store is a volume shared by both packages, so that a reinstall does not
+download again what was already downloaded. The `build/` of `next dev` has its
+own volume and does not fight over the directory with a `pnpm build` run on the
+host.
 
 `backend` has a health check on `GET /ready`, which answers for the database,
 which is why `web` waits for `service_healthy` rather than for a started
@@ -78,9 +80,24 @@ depending on `curl` being in the image, every 10s, with a 60s start period and
 three consecutive failures to become `unhealthy`. See
 [`observability.md`](observability.md).
 
-On Linux, the container's `node` user (uid 1000) writes into the mounted code
-(`dist/`, `next-env.d.ts`, `build/`). With a different uid on the host those
-writes fail. On Docker Desktop for macOS the ownership mapping is transparent.
+On Linux, the mounted code keeps the host's ownership, and the container's
+`node` user writes into it (`dist/`, `next-env.d.ts`, `build/`). The `dev`
+stage therefore recreates `node` with the `HOST_UID` and `HOST_GID` build args,
+which Compose takes from `.env` and defaults to 1000. When they differ from the
+host's ids, those writes fail: `next dev` reports `EACCES` on `next-env.d.ts`
+and leaves every request hanging, while its TCP health check still passes. On
+Docker Desktop for macOS the ownership mapping is transparent, and the defaults
+serve.
+
+Docker copies an image directory's ownership into a named volume only when the
+volume is created, so changing either id also requires recreating the volumes
+that hold the old ones. The development database is not among them:
+
+```sh
+docker compose down
+docker volume rm ex3_backend-node-modules ex3_web-node-modules ex3_web-dev-build ex3_pnpm-store
+docker compose up --build
+```
 
 ## Environment variables
 

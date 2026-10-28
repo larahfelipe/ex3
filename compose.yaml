@@ -1,10 +1,15 @@
 name: ex3
 
+x-dev-user-args: &dev-user-args
+  HOST_UID: ${HOST_UID:-1000}
+  HOST_GID: ${HOST_GID:-1000}
+
 x-backend-workspace: &backend-workspace
   image: ex3-backend-dev
   build:
     context: ./backend
     target: dev
+    args: *dev-user-args
   init: true
   volumes:
     - ./backend:/usr/src/app/backend
@@ -16,6 +21,7 @@ x-web-workspace: &web-workspace
   build:
     context: ./web
     target: dev
+    args: *dev-user-args
   init: true
   volumes:
     - ./web:/usr/src/app/web

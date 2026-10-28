@@ -64,6 +64,7 @@ the Finances section.
 cp .env.example .env
 # POSTGRES_PASSWORD: openssl rand -hex 24   (hex goes into the connection URL unescaped)
 # JWT_SECRET:        openssl rand -base64 48
+# HOST_UID, HOST_GID: id -u, id -g   (Linux, when they are not 1000)
 docker compose up --build
 ```
 
