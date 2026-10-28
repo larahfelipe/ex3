@@ -1,49 +1,60 @@
-/* eslint-disable react/jsx-newline */
 import type { Metadata } from 'next';
-import Link from 'next/link';
 
-import { twMerge } from 'tailwind-merge';
+import {
+  APP_ROUTES,
+  SIGN_IN_PARAMS,
+  SIGN_IN_REASONS
+} from '@/common/constants';
 
-import { APP_ROUTES, raleway } from '@/common/constants';
-
+import { AuthAlternative } from '../_components/auth-alternative';
+import { AuthNotice } from '../_components/auth-notice';
+import { PublicPageHeader } from '../_components/public-page-header';
 import { SignInForm } from './_components/sign-in-form';
 
 export const metadata: Metadata = {
-  title: 'EX3 | Sign In'
+  title: 'Sign in'
 };
 
-export default function SignIn() {
+/**
+ * The return path arrives in the address bar, so only a path on this origin is
+ * followed: a second `/` or a `\` right after the first, or a tab or line break
+ * anywhere, which URL parsing drops, would let it name another host.
+ */
+const RETURN_PATH_PATTERN = /^\/(?![/\\])[^\\\s]*$/;
+
+type SignInProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function SignIn({ searchParams }: SignInProps) {
+  const params = await searchParams;
+  const requestedReturnPath = params[SIGN_IN_PARAMS.ReturnPath];
+  const destination =
+    typeof requestedReturnPath === 'string' &&
+    RETURN_PATH_PATTERN.test(requestedReturnPath)
+      ? requestedReturnPath
+      : APP_ROUTES.Protected.Overview;
+  const hasSessionExpired =
+    params[SIGN_IN_PARAMS.Reason] === SIGN_IN_REASONS.SessionExpired;
+
   return (
     <>
-      <section className="mx-auto space-y-1.5">
-        <h2
-          className={twMerge(
-            'text-lg font-semibold text-center',
-            raleway.className
-          )}
-        >
-          EX3
-        </h2>
+      <PublicPageHeader title="Sign in to your account" />
 
-        <div className="w-full h-[1px] bg-gray-700" />
+      <section>
+        {hasSessionExpired && (
+          <AuthNotice tone="warning" className="mb-6">
+            Your session expired. Sign in again to continue.
+          </AuthNotice>
+        )}
 
-        <h2 className="text-md text-gray-400 text-center">
-          Sign in to your account
-        </h2>
-      </section>
+        <SignInForm destination={destination} />
 
-      <section className="w-full flex flex-col justify-center mx-auto px-6 sm:w-[400px] sm:px-0">
-        <SignInForm />
-
-        <p className="mt-6 text-center text-sm text-gray-400">
-          Not registered?{' '}
-          <Link
-            href={APP_ROUTES.Public.SignUp}
-            className="leading-6 text-white hover:text-white/90"
-          >
-            Create account
-          </Link>
-        </p>
+        <AuthAlternative
+          question="Not registered?"
+          href={APP_ROUTES.Public.SignUp}
+          label="Create account"
+        />
       </section>
     </>
   );

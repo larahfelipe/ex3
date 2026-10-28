@@ -1,7 +1,7 @@
-import { PortfolioMessages } from '@/config';
 import type { Portfolio } from '@/domain/models';
-import { NotFoundError } from '@/errors';
 import type { PortfolioRepository } from '@/infra/database';
+
+import { requireOwnedPortfolio } from '../PortfolioAccess';
 
 export class GetPortfolioService {
   private static INSTANCE: GetPortfolioService;
@@ -21,17 +21,19 @@ export class GetPortfolioService {
   }
 
   async execute({
-    userId
+    userId,
+    portfolioId
   }: GetPortfolioService.DTO): Promise<GetPortfolioService.Result> {
-    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
+    const portfolio = await requireOwnedPortfolio(this.portfolioRepository, {
+      userId,
+      portfolioId
+    });
 
-    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
-
-    return { ...portfolioExists };
+    return { ...portfolio };
   }
 }
 
 namespace GetPortfolioService {
-  export type DTO = Record<'userId', string>;
-  export type Result = Omit<Portfolio, 'assets'>;
+  export type DTO = Record<'userId' | 'portfolioId', string>;
+  export type Result = Omit<Portfolio, 'positions'>;
 }

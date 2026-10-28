@@ -1,10 +1,12 @@
 import { config } from 'dotenv';
 
-config();
+import { parseEnvs } from './EnvsSchema';
 
-export const envs = {
-  port: process.env.PORT || 8080,
-  dbAccessUrl: process.env.DATABASE_URL,
-  bcryptSalt: process.env.BCRYPT_SALT || 12,
-  jwtSecret: process.env.JWT_SECRET || 'jwtSecret'
-};
+/**
+ * Under test the environment is the one `--env-file=.env.test` declares. Layering
+ * the developer's `.env` under it would let a value the suite never declared —
+ * a remote database, a real API key — decide what a test run reaches.
+ */
+if (process.env.NODE_ENV !== 'test') config({ quiet: true });
+
+export const envs = parseEnvs(process.env);

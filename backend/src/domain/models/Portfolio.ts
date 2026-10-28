@@ -1,7 +1,11 @@
-import type { Asset } from './Asset';
+import type { Position } from './Position';
 
 export type Portfolio = {
   id: string;
-  assets: Array<Asset>;
+  name: string;
+  baseCurrency: string;
+  positions: Array<Position>;
   userId: string;
+  createdAt: Date;
+  updatedAt: Date;
 };

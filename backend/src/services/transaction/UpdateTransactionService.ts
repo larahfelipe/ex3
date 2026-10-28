@@ -1,102 +1,47 @@
-import {
-  AssetMessages,
-  PortfolioMessages,
-  TransactionMessages,
-  TransactionTypes
-} from '@/config';
-import type { Transaction } from '@/domain/models';
-import { BadRequestError, NotFoundError } from '@/errors';
-import type {
-  AssetRepository,
-  PortfolioRepository,
-  TransactionRepository
-} from '@/infra/database';
+import { TransactionMessages } from '@/config';
+import type { Transaction, TransactionEntry } from '@/domain/models';
+import { NotFoundError } from '@/errors';
+import type { TransactionRepository } from '@/infra/database';
+
+import { ledgerRefusalError } from './LedgerRefusalError';
 
 export class UpdateTransactionService {
   private static INSTANCE: UpdateTransactionService;
   private readonly transactionRepository: TransactionRepository;
-  private readonly portfolioRepository: PortfolioRepository;
-  private readonly assetRepository: AssetRepository;
 
-  private constructor(
-    transactionRepository: TransactionRepository,
-    portfolioRepository: PortfolioRepository,
-    assetRepository: AssetRepository
-  ) {
+  private constructor(transactionRepository: TransactionRepository) {
     this.transactionRepository = transactionRepository;
-    this.portfolioRepository = portfolioRepository;
-    this.assetRepository = assetRepository;
   }
 
-  static getInstance(
-    transactionRepository: TransactionRepository,
-    portfolioRepository: PortfolioRepository,
-    assetRepository: AssetRepository
-  ) {
+  static getInstance(transactionRepository: TransactionRepository) {
     if (!UpdateTransactionService.INSTANCE)
       UpdateTransactionService.INSTANCE = new UpdateTransactionService(
-        transactionRepository,
-        portfolioRepository,
-        assetRepository
+        transactionRepository
       );
 
     return UpdateTransactionService.INSTANCE;
   }
 
-  async execute({
-    id,
-    type,
-    price,
-    amount,
-    userId
-  }: UpdateTransactionService.DTO): Promise<UpdateTransactionService.Result> {
-    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
+  async execute(
+    transaction: UpdateTransactionService.DTO
+  ): Promise<UpdateTransactionService.Result> {
+    const ledgerWrite = await this.transactionRepository.update(transaction);
 
-    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
-
-    const transactionExists = await this.transactionRepository.getById(id);
-
-    if (!transactionExists)
+    if (ledgerWrite.outcome === 'not-found')
       throw new NotFoundError(TransactionMessages.NOT_FOUND);
 
-    const assetExists = await this.assetRepository.getBySymbol({
-      symbol: transactionExists.assetSymbol,
-      portfolioId: portfolioExists.id
-    });
-
-    if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
-
-    if (type === TransactionTypes.SELL && assetExists.amount < amount)
-      throw new BadRequestError(TransactionMessages.ACC_NEGATIVE_AMOUNT);
-
-    const updatedTransaction = await this.transactionRepository.update({
-      id,
-      type,
-      price,
-      amount
-    });
-
-    await this.assetRepository.updatePosition({
-      operation:
-        updatedTransaction.type === TransactionTypes.BUY
-          ? 'increment'
-          : 'decrement',
-      amount: updatedTransaction.amount,
-      balance: updatedTransaction.price * updatedTransaction.amount,
-      symbol: updatedTransaction.assetSymbol
-    });
+    if (ledgerWrite.outcome !== 'recorded')
+      throw ledgerRefusalError(ledgerWrite);
 
     return {
-      message: TransactionMessages.CREATED
+      message: TransactionMessages.UPDATED
     };
   }
 }
 
 namespace UpdateTransactionService {
-  export type DTO = Omit<
-    Transaction,
-    'assetSymbol' | 'createdAt' | 'updatedAt'
-  > &
+  export type DTO = TransactionEntry &
+    Pick<Transaction, 'id'> &
     Record<'userId', string>;
   export type Result = Record<'message', string>;
 }

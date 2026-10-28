@@ -1,49 +1,28 @@
-/* eslint-disable react/jsx-newline */
 import type { Metadata } from 'next';
-import Link from 'next/link';
 
-import { twMerge } from 'tailwind-merge';
+import { APP_ROUTES } from '@/common/constants';
 
-import { APP_ROUTES, raleway } from '@/common/constants';
-
+import { AuthAlternative } from '../_components/auth-alternative';
+import { PublicPageHeader } from '../_components/public-page-header';
 import { SignUpForm } from './_components/sign-up-form';
 
 export const metadata: Metadata = {
-  title: 'EX3 | Sign Up'
+  title: 'Create account'
 };
 
 export default function SignUp() {
   return (
     <>
-      <section className="mx-auto space-y-1.5">
-        <h2
-          className={twMerge(
-            'text-lg font-semibold text-center',
-            raleway.className
-          )}
-        >
-          EX3
-        </h2>
+      <PublicPageHeader title="Create your account" />
 
-        <div className="w-full h-[1px] bg-gray-700" />
-
-        <h2 className="text-md text-gray-400 text-center">
-          Create your account
-        </h2>
-      </section>
-
-      <section className="w-full flex flex-col justify-center mx-auto px-6 sm:w-[400px] sm:px-0">
+      <section>
         <SignUpForm />
 
-        <p className="mt-6 text-center text-sm text-gray-400">
-          Already registered?{' '}
-          <Link
-            href={APP_ROUTES.Public.SignIn}
-            className="leading-6 text-white hover:text-white/90"
-          >
-            Login instead
-          </Link>
-        </p>
+        <AuthAlternative
+          question="Already registered?"
+          href={APP_ROUTES.Public.SignIn}
+          label="Sign in instead"
+        />
       </section>
     </>
   );

@@ -21,9 +21,13 @@ export class GetTransactionService {
   }
 
   async execute({
-    id
+    id,
+    userId
   }: GetTransactionService.DTO): Promise<GetTransactionService.Result> {
-    const transactionExists = await this.transactionRepository.getById(id);
+    const transactionExists = await this.transactionRepository.getById({
+      id,
+      userId
+    });
 
     if (!transactionExists)
       throw new NotFoundError(TransactionMessages.NOT_FOUND);
@@ -33,6 +37,6 @@ export class GetTransactionService {
 }
 
 namespace GetTransactionService {
-  export type DTO = Pick<Transaction, 'id'>;
+  export type DTO = Pick<Transaction, 'id'> & Record<'userId', string>;
   export type Result = Transaction;
 }

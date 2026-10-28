@@ -1,0 +1,33 @@
+name: Setup pnpm package
+description: Installs pnpm and Node, then installs a package's dependencies from its lockfile.
+
+inputs:
+  package:
+    description: Directory of the pnpm package, relative to the repository root.
+    required: true
+  install-args:
+    description: Flags appended to `pnpm install --frozen-lockfile`.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      # An action step runs at the repository root, which has no `package.json`,
+      # so the version has to be pointed at the package's.
+      with:
+        package_json_file: ${{ inputs.package }}/package.json
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: .node-version
+        cache: pnpm
+        cache-dependency-path: ${{ inputs.package }}/pnpm-lock.yaml
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ inputs.package }}
+      run: pnpm install --frozen-lockfile ${{ inputs.install-args }}

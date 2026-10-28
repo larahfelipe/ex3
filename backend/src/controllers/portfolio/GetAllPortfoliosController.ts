@@ -1,9 +1,9 @@
 import type { Request, Response } from 'express';
 
-import { Errors } from '@/config';
-import type { ApplicationError } from '@/errors';
 import type { Controller } from '@/interfaces';
 import type { GetAllPortfoliosService } from '@/services/portfolio';
+import { validate } from '@/validation';
+import { PaginationQuerySchema } from '@/validation/schema';
 
 export class GetAllPortfoliosController implements Controller {
   private static INSTANCE: GetAllPortfoliosController;
@@ -23,22 +23,16 @@ export class GetAllPortfoliosController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    const { user } = req;
+    const { user, query } = req;
 
-    try {
-      const result = await this.getAllPortfoliosService.execute({
-        userIsAdmin: user.isAdmin
-      });
+    const { page, limit } = await validate(PaginationQuerySchema, query);
 
-      return res.status(200).json(result);
-    } catch (e) {
-      const {
-        status = Errors.INTERNAL_SERVER_ERROR.status,
-        name = Errors.INTERNAL_SERVER_ERROR.name,
-        message = Errors.INTERNAL_SERVER_ERROR.message
-      } = e as ApplicationError;
+    const result = await this.getAllPortfoliosService.execute({
+      userId: user.id,
+      page,
+      limit
+    });
 
-      return res.status(status).json({ name, message });
-    }
+    return res.status(200).json(result);
   }
 }

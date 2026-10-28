@@ -1,21 +1,20 @@
 import { z } from 'zod';
 
-export const GetTransactionsQuerySchema = z.object({
-  page: z.coerce.number().positive('Page must be greater than zero').optional(),
-  limit: z.coerce
-    .number()
-    .positive('Limit must be greater than zero')
-    .optional(),
-  lastId: z
-    .string()
-    .transform((value) => value.trim())
-    .optional()
-});
+import { AssetSymbolSchema } from '../asset/AssetSymbolSchema';
+import { PageQuerySchema } from '../PaginationQuerySchema';
+import { PortfolioScopeSchema } from '../PortfolioScopeSchema';
+import {
+  ExecutionTimeSchema,
+  TransactionBrokerSchema
+} from './TransactionEntrySchema';
+import { TransactionTypeSchema } from './TransactionTypeSchema';
 
-export const GetTransactionsParamsSchema = z.object({
-  assetSymbol: z
-    .string()
-    .min(1, 'Asset symbol must have at least 1 character')
-    .max(6, 'Asset symbol must have at most 6 characters')
-    .transform((value) => value.trim().toUpperCase())
+export const GetTransactionsQuerySchema = z.object({
+  ...PortfolioScopeSchema.shape,
+  ...PageQuerySchema.shape,
+  symbol: AssetSymbolSchema.optional(),
+  type: TransactionTypeSchema.optional(),
+  broker: TransactionBrokerSchema.optional(),
+  dateFrom: ExecutionTimeSchema.optional(),
+  dateTo: ExecutionTimeSchema.optional()
 });

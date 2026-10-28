@@ -1,36 +1,29 @@
 import { UserMessages } from '@/config';
-import type { User } from '@/domain/models';
-import { BadRequestError } from '@/errors';
+import type { Portfolio, User } from '@/domain/models';
+import { ConflictError } from '@/errors';
 import type { Jwt } from '@/infra/cryptography';
-import type { PortfolioRepository, UserRepository } from '@/infra/database';
+import type { UserRepository } from '@/infra/database';
+
+/**
+ * The portfolio every account starts with when the sign-up names none, and the
+ * name the migration gave to the ones created before an account could hold
+ * more than one.
+ */
+const FIRST_PORTFOLIO_NAME = 'Main';
 
 export class CreateUserService {
   private static INSTANCE: CreateUserService;
   private readonly userRepository: UserRepository;
-  private readonly portfolioRepository: PortfolioRepository;
   private readonly jwt: Jwt;
 
-  private constructor(
-    userRepository: UserRepository,
-    portfolioRepository: PortfolioRepository,
-    jwt: Jwt
-  ) {
+  private constructor(userRepository: UserRepository, jwt: Jwt) {
     this.userRepository = userRepository;
-    this.portfolioRepository = portfolioRepository;
     this.jwt = jwt;
   }
 
-  static getInstance(
-    userRepository: UserRepository,
-    portfolioRepository: PortfolioRepository,
-    jwt: Jwt
-  ) {
+  static getInstance(userRepository: UserRepository, jwt: Jwt) {
     if (!CreateUserService.INSTANCE)
-      CreateUserService.INSTANCE = new CreateUserService(
-        userRepository,
-        portfolioRepository,
-        jwt
-      );
+      CreateUserService.INSTANCE = new CreateUserService(userRepository, jwt);
 
     return CreateUserService.INSTANCE;
   }
@@ -38,42 +31,41 @@ export class CreateUserService {
   async execute({
     name,
     email,
-    password
+    password,
+    baseCurrency,
+    portfolioName
   }: CreateUserService.DTO): Promise<CreateUserService.Result> {
-    const userAlreadyExists = await this.userRepository.getByEmail(email);
-
-    if (userAlreadyExists)
-      throw new BadRequestError(UserMessages.ALREADY_EXISTS);
-
-    const newUser = await this.userRepository.add({
+    const account = await this.userRepository.add({
       email,
       password,
-      name: name ?? ''
+      name: name ?? '',
+      portfolio: { name: portfolioName ?? FIRST_PORTFOLIO_NAME, baseCurrency }
     });
 
-    await this.portfolioRepository.add(newUser.id);
+    if (!account) throw new ConflictError(UserMessages.ALREADY_EXISTS);
 
-    const encryptedAccessToken = await this.jwt.encrypt(newUser.id);
+    const { sessionVersion, ...newUser } = account;
 
-    await this.userRepository.updateAccessToken({
-      id: newUser.id,
-      accessToken: encryptedAccessToken
+    // The row was created by this call, so no other token carries its version.
+    const accessToken = await this.jwt.encrypt({
+      sub: newUser.id,
+      sessionVersion
     });
 
     return {
-      user: {
-        ...newUser,
-        accessToken: encryptedAccessToken
-      },
+      user: { ...newUser, accessToken },
       message: UserMessages.CREATED
     };
   }
 }
 
 namespace CreateUserService {
-  export type DTO = Pick<User, 'name' | 'email' | 'password'>;
+  export type DTO = Pick<User, 'name' | 'email' | 'password'> &
+    Pick<Portfolio, 'baseCurrency'> &
+    Partial<Record<'portfolioName', Portfolio['name']>>;
   export type Result = {
-    user: Omit<User, 'password' | 'isAdmin' | 'portfolio'>;
+    user: Omit<User, 'password' | 'isAdmin' | 'sessionVersion' | 'portfolios'> &
+      Record<'accessToken', string>;
     message: string;
   };
 }

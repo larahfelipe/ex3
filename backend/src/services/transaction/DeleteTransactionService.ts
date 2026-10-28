@@ -1,42 +1,22 @@
-import {
-  PortfolioMessages,
-  TransactionMessages,
-  TransactionTypes
-} from '@/config';
+import { TransactionMessages } from '@/config';
 import type { Transaction } from '@/domain/models';
 import { NotFoundError } from '@/errors';
-import type {
-  AssetRepository,
-  PortfolioRepository,
-  TransactionRepository
-} from '@/infra/database';
+import type { TransactionRepository } from '@/infra/database';
+
+import { ledgerRefusalError } from './LedgerRefusalError';
 
 export class DeleteTransactionService {
   private static INSTANCE: DeleteTransactionService;
   private readonly transactionRepository: TransactionRepository;
-  private readonly portfolioRepository: PortfolioRepository;
-  private readonly assetRepository: AssetRepository;
 
-  private constructor(
-    transactionRepository: TransactionRepository,
-    portfolioRepository: PortfolioRepository,
-    assetRepository: AssetRepository
-  ) {
+  private constructor(transactionRepository: TransactionRepository) {
     this.transactionRepository = transactionRepository;
-    this.portfolioRepository = portfolioRepository;
-    this.assetRepository = assetRepository;
   }
 
-  static getInstance(
-    transactionRepository: TransactionRepository,
-    portfolioRepository: PortfolioRepository,
-    assetRepository: AssetRepository
-  ) {
+  static getInstance(transactionRepository: TransactionRepository) {
     if (!DeleteTransactionService.INSTANCE)
       DeleteTransactionService.INSTANCE = new DeleteTransactionService(
-        transactionRepository,
-        portfolioRepository,
-        assetRepository
+        transactionRepository
       );
 
     return DeleteTransactionService.INSTANCE;
@@ -46,26 +26,13 @@ export class DeleteTransactionService {
     id,
     userId
   }: DeleteTransactionService.DTO): Promise<DeleteTransactionService.Result> {
-    const portfolioExists = this.portfolioRepository.getByUserId(userId);
+    const ledgerWrite = await this.transactionRepository.delete({ id, userId });
 
-    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
-
-    const transactionExists = await this.transactionRepository.getById(id);
-
-    if (!transactionExists)
+    if (ledgerWrite.outcome === 'not-found')
       throw new NotFoundError(TransactionMessages.NOT_FOUND);
 
-    await this.transactionRepository.delete(id);
-
-    await this.assetRepository.updatePosition({
-      operation:
-        transactionExists.type === TransactionTypes.BUY
-          ? 'decrement'
-          : 'increment',
-      amount: transactionExists.amount,
-      balance: transactionExists.price * transactionExists.amount,
-      symbol: transactionExists.assetSymbol
-    });
+    if (ledgerWrite.outcome !== 'recorded')
+      throw ledgerRefusalError(ledgerWrite);
 
     return {
       message: TransactionMessages.DELETED

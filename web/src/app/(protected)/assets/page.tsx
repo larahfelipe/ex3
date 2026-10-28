@@ -1,255 +1,107 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { FormProvider, useForm } from 'react-hook-form';
+import { useEffect, useRef, useState } from 'react';
 
-import { useSearchParams } from 'next/navigation';
+import { Plus } from 'lucide-react';
 
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import type { AxiosResponse } from 'axios';
-import { toast } from 'sonner';
+import { APP_ROUTES } from '@/common/constants';
+import { AssetDialogs, type AssetDialog } from '@/components/asset-dialogs';
+import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
+import { PageHeader } from '@/components/page-header';
+import { Button } from '@/components/ui';
+import { useActivePortfolio } from '@/hooks/use-portfolio';
+import type { Maybe } from '@/types';
 
-import type {
-  Asset,
-  CreateAssetRequestPayload,
-  CreateAssetResponseData,
-  DeleteAssetRequestPayload,
-  DeleteAssetResponseData,
-  GetAssetWithTotalBalanceResponseData
-} from '@/app/api/v1/assets';
-import type {
-  CreateTransactionRequestPayload,
-  CreateTransactionResponseData
-} from '@/app/api/v1/transactions';
-import { ASSET_DIALOG_ACTIONS, TRANSACTION_TYPES } from '@/common/constants';
-import { replaceUrl } from '@/common/utils';
-import { Card } from '@/components/ui';
-import { useDisclosure } from '@/hooks/use-disclosure';
-import api, { type ApiProxyErrorData } from '@/lib/axios';
-import type { Maybe, Pagination as TPagination } from '@/types';
-
-import {
-  AddAssetDialog,
-  AddAssetSchema,
-  type AddAssetSchemaType
-} from './_components/add-asset-dialog';
-import {
-  AddAssetTransactionDialog,
-  AddAssetTransactionSchema,
-  type AddAssetTransactionSchemaType
-} from './_components/add-asset-transaction-dialog';
-import { AssetsTable, type DispatchType } from './_components/assets-table';
-import { DeleteAssetDialog } from './_components/delete-asset-dialog';
-
-type AssetDialogActions =
-  (typeof ASSET_DIALOG_ACTIONS)[keyof typeof ASSET_DIALOG_ACTIONS];
-
-export const LimitPerPageOptions = ['5', '10', '25', '50'];
-
-export const PaginationInitialState = {
-  page: 1,
-  limit: +LimitPerPageOptions[0]
-} as TPagination;
+import { PositionsTable } from './_components/positions-table';
 
 export default function Assets() {
-  const [dialogAction, setDialogAction] = useState('' as AssetDialogActions);
-  const [selectedAsset, setSelectedAsset] = useState<Maybe<Asset>>(null);
-  const [pagination, setPagination] = useState<TPagination>(
-    PaginationInitialState
-  );
+  const [assetDialog, setAssetDialog] = useState<Maybe<AssetDialog>>(null);
+  const [hasDeletedAsset, setHasDeletedAsset] = useState(false);
 
-  const [opened, { toggle }] = useDisclosure(false);
+  const addAssetButtonRef = useRef<HTMLButtonElement>(null);
 
-  const searchParams = useSearchParams();
+  const {
+    data: portfolio,
+    isPending,
+    isError,
+    isSuccess,
+    refetch
+  } = useActivePortfolio();
 
-  const addAssetFormMethods = useForm<AddAssetSchemaType>({
-    mode: 'onChange',
-    resolver: zodResolver(AddAssetSchema),
-    defaultValues: {
-      symbol: ''
-    }
-  });
-
-  const addAssetTransactionFormMethods = useForm<AddAssetTransactionSchemaType>(
-    {
-      mode: 'onBlur',
-      resolver: zodResolver(AddAssetTransactionSchema),
-      defaultValues: {
-        type: TRANSACTION_TYPES[0],
-        price: 0
-      }
-    }
-  );
-
-  const handleToggleDialog = useCallback(
-    (action?: AssetDialogActions) => {
-      if (opened && !action) replaceUrl(window.location.pathname);
-      if (action && action !== dialogAction) setDialogAction(action);
-
-      toggle();
-    },
-    [dialogAction, opened, toggle]
-  );
-
-  const { data, isLoading, isRefetching, refetch } = useQuery<
-    AxiosResponse<GetAssetWithTotalBalanceResponseData>,
-    ApiProxyErrorData,
-    GetAssetWithTotalBalanceResponseData
-  >({
-    queryKey: ['assets', pagination],
-    queryFn: () =>
-      api.getInstance().get('/v1/assets', {
-        params: {
-          sort: 'desc',
-          page: pagination.page,
-          limit: pagination.limit
-        }
-      }),
-    select: ({ data }) => data,
-    staleTime: 60_000
-  });
-
-  const { mutateAsync: createAssetMutation } = useMutation<
-    AxiosResponse<CreateAssetResponseData>,
-    ApiProxyErrorData,
-    CreateAssetRequestPayload
-  >({
-    mutationFn: (payload) =>
-      api.getInstance().post('/v1/assets/create', payload),
-    onSuccess: async ({ data }) => {
-      toast.success(data.message);
-      await refetch();
-    },
-    onError: (e) => toast.error(e.message)
-  });
-
-  const { mutateAsync: createAssetTransactionMutation } = useMutation<
-    AxiosResponse<CreateTransactionResponseData>,
-    ApiProxyErrorData,
-    CreateTransactionRequestPayload
-  >({
-    mutationFn: (payload) =>
-      api.getInstance().post('/v1/transactions', payload),
-    onSuccess: async ({ data }) => {
-      toast.success(data.message);
-      if (searchParams.size) replaceUrl(window.location.pathname);
-      await refetch();
-    },
-    onError: (e) => toast.error(e.message)
-  });
-
-  const { mutateAsync: deleteAssetMutation } = useMutation<
-    AxiosResponse<DeleteAssetResponseData>,
-    ApiProxyErrorData,
-    DeleteAssetRequestPayload
-  >({
-    mutationFn: ({ symbol }) =>
-      api.getInstance().delete(`/v1/assets/${symbol}`),
-    onSuccess: async ({ data }) => {
-      toast.success(data.message);
-      await refetch();
-    },
-    onError: (e) => toast.error(e.message)
-  });
-
-  const handleDispatch = useCallback(
-    async (type: DispatchType, payload?: unknown) => {
-      try {
-        switch (type) {
-          case 'refetchAssets':
-            await refetch();
-            break;
-          case 'createAsset':
-            handleToggleDialog(ASSET_DIALOG_ACTIONS.Add);
-            break;
-          case 'createAssetTransaction':
-            handleToggleDialog(ASSET_DIALOG_ACTIONS.AddTransaction);
-            break;
-          // TODO:
-          // case 'editAsset':
-          //   if (!payload) throw new Error('EditAssetError: Missing asset');
-          //   setSelectedAsset(payload as Asset);
-          //   break;
-          case 'deleteAsset':
-            if (!payload) throw new Error('Missing asset data');
-            setSelectedAsset(payload as Asset);
-            handleToggleDialog(ASSET_DIALOG_ACTIONS.Delete);
-            break;
-          case 'setSelectedAsset':
-            setSelectedAsset(payload as Asset);
-            break;
-          case 'setPage':
-            if (!payload) throw new Error('Missing page number');
-            setPagination((state) => ({ ...state, page: payload as number }));
-            break;
-          case 'setLimit':
-            if (!payload) throw new Error('Missing limit param');
-            setPagination((state) => ({ ...state, limit: payload as number }));
-            break;
-          // TODO:
-          // case 'setSortOrder':
-          //   if (!payload)
-          //     throw new Error('setSortOrderError: Missing sort param');
-          //   break;
-          default:
-            throw new Error(`Dispatch type for "${type}" is not defined`);
-        }
-      } catch (e) {
-        const { message } = e as Error;
-        toast.error(message);
-      }
-    },
-    [refetch, handleToggleDialog]
-  );
+  const openDialogFor =
+    (kind: 'add-transaction' | 'delete-asset') => (symbol: string) =>
+      setAssetDialog({ kind, symbol });
 
   useEffect(() => {
-    if (!searchParams.size) return;
+    if (!hasDeletedAsset || assetDialog !== null) return;
 
-    const maybeDialogAction = searchParams.get('action') as AssetDialogActions;
-    if (!maybeDialogAction) return;
-
-    const maybeAssetSymbol = searchParams.get('symbol');
-    if (maybeAssetSymbol)
-      setSelectedAsset({ symbol: maybeAssetSymbol.toUpperCase() } as Asset);
-
-    if (!opened) handleToggleDialog(maybeDialogAction);
-  }, [searchParams, opened, handleToggleDialog]);
+    setHasDeletedAsset(false);
+    addAssetButtonRef.current?.focus();
+  }, [hasDeletedAsset, assetDialog]);
 
   return (
-    <>
-      <FormProvider {...addAssetFormMethods}>
-        <AddAssetDialog
-          open={opened && dialogAction === ASSET_DIALOG_ACTIONS.Add}
-          data={selectedAsset as Asset}
-          onCancel={handleToggleDialog}
-          onConfirm={createAssetMutation}
-        />
-      </FormProvider>
-
-      <FormProvider {...addAssetTransactionFormMethods}>
-        <AddAssetTransactionDialog
-          open={opened && dialogAction === ASSET_DIALOG_ACTIONS.AddTransaction}
-          data={selectedAsset as Asset}
-          onCancel={handleToggleDialog}
-          onConfirm={createAssetTransactionMutation}
-        />
-      </FormProvider>
-
-      <DeleteAssetDialog
-        open={opened && dialogAction === ASSET_DIALOG_ACTIONS.Delete}
-        data={selectedAsset as Asset}
-        onCancel={handleToggleDialog}
-        onConfirm={deleteAssetMutation}
+    <div className="space-y-6">
+      <PageHeader
+        title="Assets"
+        isPending={isPending}
+        description={
+          portfolio
+            ? `${portfolio.name} · Base currency ${portfolio.baseCurrency}`
+            : undefined
+        }
+        action={
+          portfolio && (
+            <Button
+              ref={addAssetButtonRef}
+              size="sm"
+              className="gap-1.5 max-sm:w-full"
+              onClick={() => setAssetDialog({ kind: 'add-asset' })}
+            >
+              <Plus size={16} aria-hidden="true" />
+              Add asset
+            </Button>
+          )
+        }
       />
 
-      <Card className="h-fit mt-8 px-5 py-8 mx-3 shadow-none sm:mx-4 sm:pt-6 sm:pb-2">
-        <AssetsTable
-          data={{ pagination, selectedAsset, result: data }}
-          loading={isLoading || isRefetching}
-          onDispatch={handleDispatch}
+      {isPending && (
+        <LoadingState label="Loading your portfolio" className="h-96" />
+      )}
+
+      {isError && !portfolio && (
+        <ErrorState
+          message="Your portfolio could not be loaded"
+          onRetry={refetch}
         />
-      </Card>
-    </>
+      )}
+
+      {isSuccess && !portfolio && (
+        <EmptyState
+          message="No portfolio found for this account"
+          action={{
+            label: 'Create a portfolio',
+            href: APP_ROUTES.Protected.Portfolios
+          }}
+        />
+      )}
+
+      {portfolio && (
+        <>
+          <PositionsTable
+            portfolio={portfolio}
+            onAddAsset={() => setAssetDialog({ kind: 'add-asset' })}
+            onAddTransaction={openDialogFor('add-transaction')}
+            onDeleteAsset={openDialogFor('delete-asset')}
+          />
+
+          <AssetDialogs
+            portfolio={portfolio}
+            dialog={assetDialog}
+            onDialogChange={setAssetDialog}
+            onAssetDeleted={() => setHasDeletedAsset(true)}
+          />
+        </>
+      )}
+    </div>
   );
 }

@@ -1,9 +1,9 @@
-import type { ZodError, ZodSchema } from 'zod';
+import type { ZodError, ZodType } from 'zod';
 
-import { BadRequestError } from '@/errors';
+import { ValidationError } from '@/errors';
 
 export const validate = async <T>(
-  schema: ZodSchema<T>,
+  schema: ZodType<T>,
   payload: unknown
 ): Promise<T> => {
   try {
@@ -14,6 +14,12 @@ export const validate = async <T>(
     const { issues } = e as ZodError;
     const parsedMessages = issues.map((issue) => issue.message).join(', ');
 
-    throw new BadRequestError(parsedMessages);
+    throw new ValidationError(
+      parsedMessages,
+      issues.map(({ path, message }) => ({
+        path: path.map(String).join('.'),
+        message
+      }))
+    );
   }
 };

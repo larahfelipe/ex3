@@ -1,5 +1,5 @@
 import type { User } from '@/domain/models';
-import { ForbiddenError } from '@/errors';
+import { AuthorizationError } from '@/errors';
 import type { UserRepository } from '@/infra/database';
 
 export class GetAllUsersService {
@@ -20,17 +20,18 @@ export class GetAllUsersService {
   async execute({
     isAdmin
   }: GetAllUsersService.DTO): Promise<GetAllUsersService.Result> {
-    if (!isAdmin) throw new ForbiddenError();
-
-    const allUsers = await this.userRepository.getAll();
+    if (!isAdmin) throw new AuthorizationError();
 
     return {
-      users: allUsers as Array<User>
+      users: await this.userRepository.getAll()
     };
   }
 }
 
 namespace GetAllUsersService {
   export type DTO = Pick<User, 'isAdmin'>;
-  export type Result = Record<'users', Array<User>>;
+  export type Result = Record<
+    'users',
+    Array<Omit<User, 'password' | 'sessionVersion' | 'portfolios'>>
+  >;
 }

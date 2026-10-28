@@ -1,52 +1,19 @@
-/* eslint-disable react/jsx-newline */
-'use client';
-
-import Image from 'next/image';
-import Link from 'next/link';
-
-import { Loader2 } from 'lucide-react';
-
-import { useUser } from '@/hooks/use-user';
 import type { Children } from '@/types';
 
-import pkg from '../../../package.json';
+import { SessionCacheDisposal } from './_components/session-cache-disposal';
 
 export default function Layout({ children }: Children) {
-  const { isLoading } = useUser();
-
-  if (isLoading)
-    return (
-      <main className="h-screen flex">
-        <Loader2 className="m-auto size-6 animate-spin" />
-      </main>
-    );
-
   return (
-    <main className="h-screen bg-black lg:grid lg:grid-cols-2">
-      <aside className="h-full min-h-[42rem] flex flex-col justify-center align-center relative space-y-8">
-        {children}
+    <div className="min-h-dvh bg-background lg:grid lg:grid-cols-2">
+      <SessionCacheDisposal />
 
-        <Link
-          href={pkg.author.url}
-          rel="noopener noreferrer"
-          className="absolute bottom-3 self-center"
-        >
-          <p className="text-sm text-gray-500">
-            © {pkg.author.name} {new Date().getFullYear()} - v.{pkg.version}
-          </p>
-        </Link>
-      </aside>
+      <main className="flex min-h-dvh flex-col px-6 py-12">
+        <div className="m-auto w-full max-w-100 space-y-10 duration-500 ease-out animate-in fade-in-0 slide-in-from-bottom-2">
+          {children}
+        </div>
+      </main>
 
-      <aside className="relative max-sm:hidden">
-        <Image
-          priority
-          fill
-          src="/login-hero.jpeg"
-          alt="Login Hero"
-          className="w-full h-full absolute"
-          style={{ objectFit: 'cover' }}
-        />
-      </aside>
-    </main>
+      <div className="relative bg-[url('/login-hero.jpeg')] bg-cover bg-center before:absolute before:inset-y-0 before:left-0 before:w-24 before:bg-linear-to-r before:from-background before:to-transparent max-lg:hidden" />
+    </div>
   );
 }

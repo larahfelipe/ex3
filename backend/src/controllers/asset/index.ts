@@ -2,30 +2,31 @@ import type { Request, Response } from 'express';
 
 import {
   AssetRepository,
-  PortfolioRepository,
-  TransactionRepository
+  InstrumentRepository,
+  PortfolioRepository
 } from '@/infra/database';
+import { YahooFinanceProvider } from '@/infra/market-data';
 import {
   CreateAssetService,
   DeleteAssetService,
-  GetAllAssetsService,
-  GetAssetService,
   UpdateAssetService
 } from '@/services/asset';
 
 import { CreateAssetController } from './CreateAssetController';
 import { DeleteAssetController } from './DeleteAssetController';
-import { GetAllAssetsController } from './GetAllAssetsController';
-import { GetAssetController } from './GetAssetController';
 import { UpdateAssetController } from './UpdateAssetController';
 
 export const createAssetControllerHandler = (req: Request, res: Response) => {
   const assetRepository = AssetRepository.getInstance();
+  const instrumentRepository = InstrumentRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
+  const marketDataProvider = YahooFinanceProvider.getInstance();
 
   const createAssetService = CreateAssetService.getInstance(
     assetRepository,
-    portfolioRepository
+    instrumentRepository,
+    portfolioRepository,
+    marketDataProvider
   );
 
   const createAssetController =
@@ -37,12 +38,10 @@ export const createAssetControllerHandler = (req: Request, res: Response) => {
 export const deleteAssetControllerHandler = (req: Request, res: Response) => {
   const assetRepository = AssetRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
-  const transactionRepository = TransactionRepository.getInstance();
 
   const deleteAssetService = DeleteAssetService.getInstance(
     assetRepository,
-    portfolioRepository,
-    transactionRepository
+    portfolioRepository
   );
 
   const deleteAssetController =
@@ -51,41 +50,14 @@ export const deleteAssetControllerHandler = (req: Request, res: Response) => {
   return deleteAssetController.handle(req, res);
 };
 
-export const getAllAssetsControllerHandler = (req: Request, res: Response) => {
-  const assetRepository = AssetRepository.getInstance();
-  const portfolioRepository = PortfolioRepository.getInstance();
-
-  const getAllAssetsService = GetAllAssetsService.getInstance(
-    assetRepository,
-    portfolioRepository
-  );
-
-  const getAllAssetsController =
-    GetAllAssetsController.getInstance(getAllAssetsService);
-
-  return getAllAssetsController.handle(req, res);
-};
-
-export const getAssetControllerHandler = (req: Request, res: Response) => {
-  const assetRepository = AssetRepository.getInstance();
-  const portfolioRepository = PortfolioRepository.getInstance();
-
-  const getAssetService = GetAssetService.getInstance(
-    assetRepository,
-    portfolioRepository
-  );
-
-  const getAssetController = GetAssetController.getInstance(getAssetService);
-
-  return getAssetController.handle(req, res);
-};
-
 export const updateAssetControllerHandler = (req: Request, res: Response) => {
   const assetRepository = AssetRepository.getInstance();
+  const instrumentRepository = InstrumentRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
 
   const updateAssetService = UpdateAssetService.getInstance(
     assetRepository,
+    instrumentRepository,
     portfolioRepository
   );
 

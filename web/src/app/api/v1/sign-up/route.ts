@@ -1,35 +1,37 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { APP_STORAGE_KEYS, COOKIE_OPTIONS } from '@/common/constants';
-import api, { type ApiProxyError, type ApiProxyErrorData } from '@/lib/axios';
-import type { WithMessage } from '@/types';
+import { toApiProxyErrorResponse } from '@/lib/api-error-response';
+import { clientAddressHeaders, jsonPayload } from '@/lib/api-proxy';
+import api from '@/lib/axios';
+import { setSessionCookies } from '@/lib/session';
 
-import type { User } from '../sign-in';
-import type { SignUpRequestPayload, SignUpResponseData } from './types';
+import type {
+  SignUpApiResponseData,
+  SignUpRequestPayload,
+  SignUpResponseData
+} from './types';
 
 export const POST = async (req: NextRequest) => {
   try {
-    const payload = (await req.json()) as SignUpRequestPayload;
+    const payload = await jsonPayload<SignUpRequestPayload>(req);
 
     const { data, status, statusText } = await api
       .getInstance()
-      .post<User & WithMessage>('/v1/user/create', payload);
+      .post<SignUpApiResponseData>('/v1/user/create', payload, {
+        headers: await clientAddressHeaders()
+      });
 
-    const { accessToken, message, ...user } = data;
+    const { accessToken, ...user } = data.user;
 
-    if (accessToken)
-      cookies().set(APP_STORAGE_KEYS.Token, accessToken, COOKIE_OPTIONS);
+    if (accessToken) await setSessionCookies(accessToken);
 
     const res: SignUpResponseData = {
       user,
-      message
+      message: data.message
     };
 
     return NextResponse.json<SignUpResponseData>(res, { status, statusText });
   } catch (e) {
-    const { status, statusText, ...error } = e as ApiProxyError;
-
-    return NextResponse.json<ApiProxyErrorData>(error, { status, statusText });
+    return toApiProxyErrorResponse(e);
   }
 };

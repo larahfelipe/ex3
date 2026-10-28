@@ -1,24 +1,52 @@
 name: Migrate database
 
 on:
-  push:
-    branches:
-      - master
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+
+# Cancelling `prisma migrate deploy` part-way leaves the database partly migrated.
+concurrency:
+  group: migrate-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+  migrate:
+    name: Prisma migrate deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # A pull request opened from a fork whose branch is also named `master`
+    # produces a CI run that passes the trigger's branch filter, so only a push
+    # to this repository may reach the production database.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    environment: production
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Node setup
-        uses: actions/setup-node@v3
-      - name: Install dependencies
-        run: cd backend && npm install
-      - name: Build
-        run: cd backend && npm run build
+        uses: actions/checkout@v4
+        # `workflow_run` checks out the default branch by default, which may
+        # already be ahead of the commit whose CI passed.
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Setup backend
+        uses: ./.github/actions/setup-pnpm-package
+        with:
+          package: backend
+          install-args: --prod
+
       - name: Prisma migration
-        run: cd backend && npx prisma migrate deploy
+        run: pnpm exec prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}

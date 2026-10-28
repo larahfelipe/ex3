@@ -1,40 +1,29 @@
-import type { Maybe, Pagination, WithId, WithMessage } from '@/types';
-
-export type WithDominance = Record<'dominance', Maybe<string>>;
+import type { ListingReference } from '@/app/api/v1/instruments';
+import type { DecimalString, WithId, WithMessage } from '@/types';
 
 export type AssetProperties = {
   symbol: string;
-  amount: number;
-  balance: number;
+  quantity: DecimalString;
+  averageCost: DecimalString;
+  investedValue: DecimalString;
   portfolioId: string;
 };
 
-export interface Asset extends WithId, WithDominance, AssetProperties {}
+export type Asset = WithId & AssetProperties;
 
-export type GetAssetRequestParams = {
-  page?: number;
-  limit?: number;
-  sort?: 'asc' | 'desc';
+/**
+ * With `listing`, the symbol is registered as a private instrument of the
+ * caller from what the quote provider lists in that market and currency.
+ */
+export type CreateAssetRequestPayload = Pick<
+  AssetProperties,
+  'symbol' | 'portfolioId'
+> & {
+  listing?: ListingReference;
 };
 
-export type GetAssetResponseData = {
-  assets: Array<Asset>;
-  pagination: Pagination;
-  sort: {
-    field: string;
-    order: GetAssetRequestParams['sort'];
-  };
-};
-
-export type GetAssetWithTotalBalanceResponseData = GetAssetResponseData &
-  Record<'totalBalance', number>;
-
-export type CreateAssetRequestPayload = Pick<AssetProperties, 'symbol'>;
-
-export interface CreateAssetResponseData extends WithMessage {
-  asset: Asset;
-}
+export type CreateAssetResponseData = WithMessage & Record<'asset', Asset>;
 
 export type DeleteAssetRequestPayload = Pick<Asset, 'symbol'>;
 
-export interface DeleteAssetResponseData extends WithMessage {}
+export type DeleteAssetResponseData = WithMessage;

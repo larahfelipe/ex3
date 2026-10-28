@@ -1,100 +1,89 @@
 'use client';
 
-import {
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-  Input,
-  Label
-} from '@/components/ui';
-import { useUser } from '@/hooks/use-user';
+import { useId } from 'react';
+
+import { Loader2, LogOut } from 'lucide-react';
+
+import { ErrorState, LoadingState } from '@/components/data-state';
+import { PageHeader } from '@/components/page-header';
+import { SectionHeader } from '@/components/section-header';
+import { Button, Card, CardContent } from '@/components/ui';
+import { useCurrentUser, useSignOut } from '@/hooks/use-user';
+
+import { PasswordForm } from './_components/password-form';
+import { ProfileForm } from './_components/profile-form';
 
 export default function Account() {
-  const { user } = useUser();
+  const { data: user, isError, refetch } = useCurrentUser();
+  const { mutate: signOut, isPending: isSigningOut } = useSignOut();
 
-  if (!user) return null;
+  const profileHeadingId = useId();
+  const securityHeadingId = useId();
 
   return (
-    <div className="space-y-8 my-2 sm:mx-4">
-      <Card className="mt-8 shadow-none">
-        <CardHeader>
-          <CardTitle>Profile</CardTitle>
+    <div className="space-y-6">
+      <PageHeader
+        title="Account"
+        description="Your profile and security details"
+        action={
+          <Button
+            variant="outline"
+            className="gap-2 sm:hidden"
+            aria-disabled={isSigningOut}
+            onClick={() => {
+              if (!isSigningOut) signOut();
+            }}
+          >
+            {isSigningOut ? (
+              <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+            ) : (
+              <LogOut aria-hidden="true" className="size-4" />
+            )}
 
-          <CardDescription>Your account details</CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-5">
-          <section className="space-y-1.5">
-            <Label htmlFor="name">Name</Label>
-
-            <Input
-              disabled
-              id="name"
-              value={user.name}
-              className="bg-zinc-900"
-            />
-          </section>
-
-          <section className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
-
-            <Input
-              disabled
-              id="email"
-              value={user.email}
-              className="bg-zinc-900"
-            />
-          </section>
-        </CardContent>
-
-        <CardFooter className="flex justify-end">
-          <Button disabled variant="secondary" className="h-9 max-sm:w-full">
-            Update
+            <span>Sign out</span>
           </Button>
-        </CardFooter>
-      </Card>
+        }
+      />
 
-      <Card className="shadow-none">
-        <CardHeader>
-          <CardTitle>Security</CardTitle>
+      <section aria-labelledby={profileHeadingId} className="min-w-0">
+        <Card>
+          <SectionHeader
+            id={profileHeadingId}
+            title="Profile"
+            description="Your name and the email you sign in with"
+          />
 
-          <CardDescription>
-            Manage your account security details
-          </CardDescription>
-        </CardHeader>
+          {user !== undefined ? (
+            <ProfileForm user={user} />
+          ) : (
+            <CardContent>
+              {isError ? (
+                <ErrorState
+                  message="Your account details could not be loaded"
+                  onRetry={refetch}
+                />
+              ) : (
+                <LoadingState
+                  label="Loading your account details"
+                  className="h-24"
+                />
+              )}
+            </CardContent>
+          )}
+        </Card>
+      </section>
 
-        <CardContent className="space-y-5">
-          <section className="space-y-1.5">
-            <Label>Old password</Label>
+      <section aria-labelledby={securityHeadingId} className="min-w-0">
+        <Card>
+          <SectionHeader
+            id={securityHeadingId}
+            title="Security"
+            description="The password you sign in with"
+          />
 
-            <Input
-              type="password"
-              placeholder="Enter your password"
-              className="bg-zinc-900"
-            />
-          </section>
-
-          <section className="space-y-1.5">
-            <Label>New password</Label>
-
-            <Input
-              type="password"
-              placeholder="Enter your new password"
-              className="bg-zinc-900"
-            />
-          </section>
-        </CardContent>
-
-        <CardFooter className="flex justify-end">
-          <Button disabled variant="secondary" className="h-9 max-sm:w-full">
-            Update
-          </Button>
-        </CardFooter>
-      </Card>
+          <PasswordForm email={user?.email} />
+        </Card>
+      </section>
     </div>
   );
 }

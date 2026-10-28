@@ -1,7 +1,5 @@
 import type { Request, Response } from 'express';
 
-import { Errors } from '@/config';
-import type { ApplicationError } from '@/errors';
 import type { Controller } from '@/interfaces';
 import type { GetUserService } from '@/services/user';
 import { validate } from '@/validation';
@@ -23,20 +21,10 @@ export class GetUserController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    try {
-      const { email, password } = await validate(GetUserSchema, req.body);
+    const { email, password } = await validate(GetUserSchema, req.body);
 
-      const result = await this.getUserService.execute({ email, password });
+    const result = await this.getUserService.execute({ email, password });
 
-      return res.status(200).json(result);
-    } catch (e) {
-      const {
-        status = Errors.INTERNAL_SERVER_ERROR.status,
-        name = Errors.INTERNAL_SERVER_ERROR.name,
-        message = Errors.INTERNAL_SERVER_ERROR.message
-      } = e as ApplicationError;
-
-      return res.status(status).json({ name, message });
-    }
+    return res.status(200).json(result);
   }
 }

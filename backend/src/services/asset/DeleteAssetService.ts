@@ -1,38 +1,31 @@
-import { AssetMessages, PortfolioMessages } from '@/config';
-import type { Asset } from '@/domain/models';
-import { BadRequestError, NotFoundError } from '@/errors';
-import type {
-  AssetRepository,
-  PortfolioRepository,
-  TransactionRepository
-} from '@/infra/database';
+import { AssetMessages } from '@/config';
+import type { Position } from '@/domain/models';
+import { NotFoundError } from '@/errors';
+import type { AssetRepository, PortfolioRepository } from '@/infra/database';
+
+import { requireOwnedPortfolio } from '../PortfolioAccess';
 
 export class DeleteAssetService {
   private static INSTANCE: DeleteAssetService;
   private readonly assetRepository: AssetRepository;
   private readonly portfolioRepository: PortfolioRepository;
-  private readonly transactionRepository: TransactionRepository;
 
   private constructor(
     assetRepository: AssetRepository,
-    portfolioRepository: PortfolioRepository,
-    transactionRepository: TransactionRepository
+    portfolioRepository: PortfolioRepository
   ) {
     this.assetRepository = assetRepository;
     this.portfolioRepository = portfolioRepository;
-    this.transactionRepository = transactionRepository;
   }
 
   static getInstance(
     assetRepository: AssetRepository,
-    portfolioRepository: PortfolioRepository,
-    transactionRepository: TransactionRepository
+    portfolioRepository: PortfolioRepository
   ) {
     if (!DeleteAssetService.INSTANCE)
       DeleteAssetService.INSTANCE = new DeleteAssetService(
         assetRepository,
-        portfolioRepository,
-        transactionRepository
+        portfolioRepository
       );
 
     return DeleteAssetService.INSTANCE;
@@ -40,29 +33,24 @@ export class DeleteAssetService {
 
   async execute({
     userId,
+    portfolioId,
     symbol
   }: DeleteAssetService.DTO): Promise<DeleteAssetService.Result> {
-    const portfolioExists = await this.portfolioRepository.getByUserId(userId);
-
-    if (!portfolioExists) throw new NotFoundError(PortfolioMessages.NOT_FOUND);
+    const portfolio = await requireOwnedPortfolio(this.portfolioRepository, {
+      userId,
+      portfolioId
+    });
 
     const assetExists = await this.assetRepository.getBySymbol({
       symbol,
-      portfolioId: portfolioExists.id
+      portfolioId: portfolio.id
     });
 
-    if (!assetExists) throw new BadRequestError(AssetMessages.NOT_FOUND);
-
-    const assetHasTransactions = await this.transactionRepository.count();
-
-    if (assetHasTransactions)
-      await this.transactionRepository.deleteAllByAssetSymbol(
-        assetExists.symbol
-      );
+    if (!assetExists) throw new NotFoundError(AssetMessages.NOT_FOUND);
 
     await this.assetRepository.delete({
-      symbol,
-      portfolioId: portfolioExists.id
+      instrumentId: assetExists.instrumentId,
+      portfolioId: portfolio.id
     });
 
     return {
@@ -72,6 +60,7 @@ export class DeleteAssetService {
 }
 
 namespace DeleteAssetService {
-  export type DTO = Pick<Asset, 'symbol'> & Record<'userId', string>;
+  export type DTO = Pick<Position, 'symbol' | 'portfolioId'> &
+    Record<'userId', string>;
   export type Result = Record<'message', string>;
 }

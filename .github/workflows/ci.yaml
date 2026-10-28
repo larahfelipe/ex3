@@ -5,45 +5,106 @@ on:
     branches:
       - master
       - develop
+  pull_request:
+    branches:
+      - master
+      - develop
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # A run on `master` gates the production migration, so it is never cancelled.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+permissions:
+  contents: read
 
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    name: Backend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        # Credentials match backend/.env.test, which is the only connection
+        # string the test suite reads.
+        env:
+          POSTGRES_USER: ex3
+          POSTGRES_PASSWORD: ex3
+          POSTGRES_DB: ex3_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username=ex3 --dbname=ex3_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Node setup
-        uses: actions/setup-node@v3
-      - name: Cache dependencies
-        uses: actions/cache@v2
+        uses: actions/checkout@v4
         with:
-          path: backend/node_modules
-          key: ${{ runner.os }}-backend-${{ hashFiles('backend/package-lock.json') }}
-      - name: Install dependencies
-        run: cd backend && npm install
-      - name: Build
-        run: cd backend && npm run build
+          persist-credentials: false
+
+      - name: Setup backend
+        uses: ./.github/actions/setup-pnpm-package
+        with:
+          package: backend
+
       - name: Lint
-        run: cd backend && npm run lint
+        run: pnpm lint
+
+      - name: Format
+        run: pnpm prettier
+
       - name: Type check
-        run: cd backend && npm run typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: Integration tests
+        run: pnpm test:integration
+
+      - name: Build
+        run: pnpm build
+
+      # Last so that a newly published advisory, which the commit under test did
+      # not introduce, never masks a lint, type or test failure.
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
+
   web:
-    runs-on: ubuntu-latest
+    name: Web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Node setup
-        uses: actions/setup-node@v3
-      - name: Cache dependencies
-        uses: actions/cache@v2
+        uses: actions/checkout@v4
         with:
-          path: web/node_modules
-          key: ${{ runner.os }}-web-${{ hashFiles('web/package-lock.json') }}
-      - name: Install dependencies
-        run: cd web && npm install
-      - name: Build
-        run: cd web && npm run build
+          persist-credentials: false
+
+      - name: Setup web
+        uses: ./.github/actions/setup-pnpm-package
+        with:
+          package: web
+
       - name: Lint
-        run: cd web && npm run lint
+        run: pnpm lint
+
+      - name: Format
+        run: pnpm prettier
+
       - name: Type check
-        run: cd web && npm run typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high

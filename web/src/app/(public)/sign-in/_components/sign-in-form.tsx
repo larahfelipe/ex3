@@ -4,29 +4,43 @@ import { type FC } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
-import { Button, Input, Label } from '@/components/ui';
-import { useUser } from '@/hooks/use-user';
+import { FormField } from '@/components/form-field';
+import { SubmitButton } from '@/components/submit-button';
+import { Input } from '@/components/ui';
+import { useSignIn } from '@/hooks/use-user';
+import { EmailSchema } from '@/lib/account-schema';
+import { presentSubmitError } from '@/lib/submit-error';
+
+import { AuthNotice } from '../../_components/auth-notice';
 
 type SignInFormValues = z.infer<typeof signInSchema>;
 
 const signInSchema = z.object({
-  email: z.string().trim().email(),
-  password: z.string().trim().min(1, 'Password is required')
+  email: EmailSchema,
+  password: z.string().min(1, 'Password is required')
 });
 
-export const SignInForm: FC = () => {
-  const { signInMutationFn } = useUser();
+const SIGN_IN_FIELDS = signInSchema.keyof().options;
+
+const isSignInField = (path: string): path is keyof SignInFormValues =>
+  SIGN_IN_FIELDS.some((field) => field === path);
+
+type SignInFormProps = Record<'destination', string>;
+
+export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
+  const { mutateAsync: signIn } = useSignIn(destination);
 
   const {
     register,
-    reset,
     handleSubmit,
+    setError,
+    trigger,
     formState: { errors, isSubmitting }
   } = useForm<SignInFormValues>({
-    mode: 'onChange',
+    mode: 'onSubmit',
+    reValidateMode: 'onSubmit',
     resolver: zodResolver(signInSchema),
     defaultValues: {
       email: '',
@@ -35,55 +49,51 @@ export const SignInForm: FC = () => {
   });
 
   const handleSignIn: SubmitHandler<SignInFormValues> = async (formData) => {
-    await signInMutationFn(formData);
-    reset();
+    try {
+      await signIn(formData);
+    } catch (error) {
+      presentSubmitError(error, {
+        setError,
+        fieldOf: (path) => (isSignInField(path) ? path : undefined)
+      });
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit(handleSignIn)}>
-      <div className="flex-col align-center space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-
-          <Input
-            type="email"
-            id="email"
-            autoComplete="off"
-            disabled={isSubmitting}
-            {...register('email')}
-          />
-
-          {!!errors.email?.message && (
-            <small className="text-red-500">{errors.email.message}</small>
+    <form noValidate onSubmit={handleSubmit(handleSignIn)}>
+      <div className="space-y-5">
+        <FormField label="Email" error={errors.email?.message}>
+          {(control) => (
+            <Input
+              {...control}
+              type="email"
+              autoComplete="username"
+              {...register('email', { onChange: () => void trigger('email') })}
+            />
           )}
-        </div>
+        </FormField>
 
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-
-          <Input
-            type="password"
-            id="password"
-            disabled={isSubmitting}
-            {...register('password')}
-          />
-
-          {!!errors.password?.message && (
-            <small className="text-red-500">{errors.password.message}</small>
+        <FormField label="Password" error={errors.password?.message}>
+          {(control) => (
+            <Input
+              {...control}
+              type="password"
+              autoComplete="current-password"
+              {...register('password')}
+            />
           )}
-        </div>
+        </FormField>
+
+        {errors.root?.server?.message !== undefined && (
+          <AuthNotice tone="negative" role="alert">
+            {errors.root.server.message}
+          </AuthNotice>
+        )}
       </div>
 
-      <Button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full mt-12 p-6 space-x-2"
-        aria-label="Login"
-      >
-        {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-
-        <span>Login</span>
-      </Button>
+      <SubmitButton isPending={isSubmitting} size="lg" className="mt-8 w-full">
+        Sign in
+      </SubmitButton>
     </form>
   );
 };

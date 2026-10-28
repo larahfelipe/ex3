@@ -1,9 +1,9 @@
 import type { Request, Response } from 'express';
 
-import { Errors } from '@/config';
-import type { ApplicationError } from '@/errors';
 import type { Controller } from '@/interfaces';
 import type { GetPortfolioService } from '@/services/portfolio';
+import { validate } from '@/validation';
+import { PortfolioScopeSchema } from '@/validation/schema';
 
 export class GetPortfolioController implements Controller {
   private static INSTANCE: GetPortfolioController;
@@ -23,22 +23,15 @@ export class GetPortfolioController implements Controller {
   }
 
   async handle(req: Request, res: Response) {
-    const { user } = req;
+    const { user, query } = req;
 
-    try {
-      const result = await this.getPortfolioService.execute({
-        userId: user.id
-      });
+    const { portfolioId } = await validate(PortfolioScopeSchema, query);
 
-      return res.status(200).json(result);
-    } catch (e) {
-      const {
-        status = Errors.INTERNAL_SERVER_ERROR.status,
-        name = Errors.INTERNAL_SERVER_ERROR.name,
-        message = Errors.INTERNAL_SERVER_ERROR.message
-      } = e as ApplicationError;
+    const result = await this.getPortfolioService.execute({
+      userId: user.id,
+      portfolioId
+    });
 
-      return res.status(status).json({ name, message });
-    }
+    return res.status(200).json(result);
   }
 }

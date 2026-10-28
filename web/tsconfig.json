@@ -11,17 +11,18 @@
     "strict": true,
     "noEmit": true,
     "forceConsistentCasingInFileNames": true,
-    "noImplicitAny": true,
     "noUnusedLocals": true,
-    "noImplicitThis": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "allowUnreachableCode": false,
-    "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
@@ -38,7 +39,8 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    "build/types/**/*.ts"
+    "build/types/**/*.ts",
+    "build/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

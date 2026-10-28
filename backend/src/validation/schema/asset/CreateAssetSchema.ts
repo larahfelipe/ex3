@@ -1,9 +1,19 @@
 import { z } from 'zod';
 
+import { InstrumentAttributesSchema } from '../instrument/InstrumentAttributesSchema';
+import { PortfolioScopeSchema } from '../PortfolioScopeSchema';
+import { NewAssetSymbolSchema } from './AssetSymbolSchema';
+
+/**
+ * With `listing`, the symbol is registered from what the quote provider lists
+ * in that market and currency, so no attribute of the instrument is taken from
+ * the client.
+ */
 export const CreateAssetSchema = z.object({
-  symbol: z
-    .string()
-    .min(1, 'Asset symbol must have at least 1 character')
-    .max(6, 'Asset symbol must have at most 6 characters')
-    .transform((value) => value.trim().toUpperCase())
+  ...PortfolioScopeSchema.shape,
+  symbol: NewAssetSymbolSchema,
+  listing: InstrumentAttributesSchema.pick({
+    market: true,
+    currency: true
+  }).optional()
 });

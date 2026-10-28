@@ -1,38 +1,62 @@
-import type { Pagination, WithId, WithMessage, WithTimestamps } from '@/types';
+import type {
+  DecimalString,
+  Maybe,
+  Page,
+  PageParams,
+  WithId,
+  WithMessage,
+  WithTimestamps
+} from '@/types';
 
 import type { Asset } from '../assets';
+import type { PortfolioScopeParams } from '../portfolio';
 
-export type TransactionType = 'BUY' | 'SELL';
+export type TransactionType =
+  'BUY' | 'SELL' | 'DIVIDEND' | 'JCP' | 'INTEREST' | 'BONUS';
 
 export type TransactionProperties = {
   type: TransactionType;
-  amount: number;
-  price: number;
-  assetId: string;
+  quantity: DecimalString;
+  unitPrice: DecimalString;
+  fees: DecimalString;
+  taxes: DecimalString;
+  currency: string;
+  executedAt: string;
+  broker: Maybe<string>;
+  notes: Maybe<string>;
+  portfolioId: string;
+  instrumentId: string;
 };
 
-export interface Transaction
-  extends WithId,
-    WithTimestamps,
-    TransactionProperties {}
+export type Transaction = WithId & WithTimestamps & TransactionProperties;
 
-export type GetTransactionRequestPayload = Pick<Asset, 'symbol'>;
+export type ListedTransaction = Transaction & Pick<Asset, 'symbol'>;
 
-export type GetTransactionsResponseData = {
-  transactions: Array<Transaction>;
-  pagination: Pagination;
-};
+export type TransactionFilters = PageParams &
+  Partial<
+    Pick<TransactionProperties, 'type'> &
+      Record<'symbol' | 'broker' | 'dateFrom' | 'dateTo', string>
+  >;
 
-export type GetTransactionCountRequestPayload = Pick<Asset, 'symbol'>;
+export type GetTransactionsRequestParams = PortfolioScopeParams &
+  TransactionFilters;
 
-export type GetTransactionCountResponseData = Record<'buy' | 'sell', number>;
+export type GetTransactionsResponseData = Page<ListedTransaction>;
 
-export type CreateTransactionRequestPayload = Omit<
+export type TransactionEntryPayload = Pick<
   TransactionProperties,
-  'assetId' & WithTimestamps
+  'type' | 'currency' | 'executedAt' | 'broker' | 'notes'
 > &
-  Record<'assetSymbol', string>;
+  Record<'quantity' | 'unitPrice' | 'fees' | 'taxes', string>;
 
-export interface CreateTransactionResponseData extends WithMessage {
-  transaction: Transaction;
-}
+export type CreateTransactionRequestPayload = TransactionEntryPayload &
+  Record<'assetSymbol' | 'portfolioId', string>;
+
+export type CreateTransactionResponseData = WithMessage &
+  Record<'transaction', Transaction>;
+
+export type UpdateTransactionRequestPayload = TransactionEntryPayload;
+
+export type UpdateTransactionResponseData = WithMessage;
+
+export type DeleteTransactionResponseData = WithMessage;

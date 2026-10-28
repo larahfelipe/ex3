@@ -1,144 +1,255 @@
 'use client';
 
-import { useState, type FC, type HTMLAttributes } from 'react';
-import { LuUser } from 'react-icons/lu';
-import { RxDashboard, RxExit } from 'react-icons/rx';
+import { useState, type FC, type ReactNode } from 'react';
 
-import { useRouter } from 'next/navigation';
-
-import { Loader2 } from 'lucide-react';
-import { twMerge } from 'tailwind-merge';
-
-import { APP_ROUTES, raleway } from '@/common/constants';
-import { useUser } from '@/hooks/use-user';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 import {
-  Button,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-  type ButtonProps
-} from './ui';
+  ChartCandlestick,
+  ChevronLeft,
+  CircleUserRound,
+  LayoutDashboard,
+  Loader2,
+  LogOut,
+  ReceiptText,
+  Wallet
+} from 'lucide-react';
 
-type SectionButtonProps = Pick<ButtonProps, 'variant' | 'onClick'> & {
-  text?: string;
-  path?: string;
-  left?: JSX.Element;
-  className?: {
-    button?: HTMLAttributes<HTMLButtonElement>['className'];
-    text?: HTMLAttributes<HTMLSpanElement>['className'];
-  };
-};
+import {
+  APP_ROUTES,
+  APP_STORAGE_KEYS,
+  NAVIGATION_STATES
+} from '@/common/constants';
+import { useFinanceAlerts } from '@/hooks/use-finances';
+import { useCurrentUser, useSignOut } from '@/hooks/use-user';
+import { cn } from '@/lib/utils';
 
-const sections = [
+type NavigationState =
+  (typeof NAVIGATION_STATES)[keyof typeof NAVIGATION_STATES];
+
+type NavigationSection = Record<'name' | 'path', string> &
+  Record<'icon', ReactNode>;
+
+type NavigationLinkProps = NavigationSection &
+  Record<'isActive', boolean> &
+  Partial<Record<'detail', string>> &
+  Partial<Record<'alertCount', number>>;
+
+type SidebarProps = Record<'initialState', NavigationState>;
+
+const PORTFOLIO_SECTIONS: Array<NavigationSection> = [
   {
-    name: 'Assets',
-    path: APP_ROUTES.Protected.Assets
+    name: 'Overview',
+    path: APP_ROUTES.Protected.Overview,
+    icon: <LayoutDashboard size={18} />
   },
   {
-    name: 'Account',
-    path: APP_ROUTES.Protected.Account
+    name: 'Assets',
+    path: APP_ROUTES.Protected.Assets,
+    icon: <ChartCandlestick size={18} />
+  },
+  {
+    name: 'Portfolios',
+    path: APP_ROUTES.Protected.Portfolios,
+    icon: <Wallet size={18} />
   }
-] as const;
+];
 
-export const Sidebar: FC = () => {
-  const [activeSectionPath, setActiveSectionPath] = useState<string>(
-    sections[0].path
-  );
+/** Cash flow, kept apart from the investment sections it never mixes with. */
+const FINANCE_SECTION: NavigationSection = {
+  name: 'Finances',
+  path: APP_ROUTES.Protected.Finances,
+  icon: <ReceiptText size={18} />
+};
 
-  const { user, signOutMutationFn } = useUser();
+/** Past this, the badge reads "99+": the exact count is on the finance overview. */
+const ALERT_BADGE_MAX = 99;
 
-  const { push } = useRouter();
+const ACCOUNT_SECTION: NavigationSection = {
+  name: 'Account',
+  path: APP_ROUTES.Protected.Account,
+  icon: <CircleUserRound size={18} />
+};
 
-  const changeActiveSectionPath = (path: string) => {
-    setActiveSectionPath(path);
-    push(path);
+const NAVIGATION_STATE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+
+/** WCAG 2.5.5 asks for a 44px target, above the default button height. */
+const NAVIGATION_ITEM_CLASS =
+  'group/item relative flex min-h-11 w-full min-w-11 flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 text-[0.6875rem] font-medium text-muted-foreground outline-hidden ring-offset-background transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 aria-disabled:pointer-events-none aria-disabled:opacity-50 motion-safe:active:scale-95 aria-[current=page]:text-foreground sm:py-2 navigation-expanded:flex-row navigation-expanded:justify-start navigation-expanded:gap-3 navigation-expanded:px-3 navigation-expanded:text-sm navigation-expanded:hover:bg-accent navigation-expanded:aria-[current=page]:bg-accent';
+
+const NAVIGATION_ICON_CLASS =
+  'flex h-7 w-12 shrink-0 items-center justify-center rounded-full transition-colors group-hover/item:bg-accent group-aria-[current=page]/item:bg-primary/15 group-aria-[current=page]/item:text-primary navigation-expanded:h-auto navigation-expanded:w-auto navigation-expanded:bg-transparent navigation-expanded:group-hover/item:bg-transparent navigation-expanded:group-aria-[current=page]/item:bg-transparent';
+
+/**
+ * The toggle sits on the rail's border, centred on the brand's line: 24 px
+ * drawn, with a 44 px target (WCAG 2.5.5) from the pseudo-element around it.
+ */
+const NAVIGATION_TOGGLE_CLASS =
+  'absolute top-3.5 right-0 z-10 hidden size-6 translate-x-1/2 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-surface ring-offset-background transition-colors before:absolute before:-inset-2.5 hover:border-input hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-90 lg:flex';
+
+const isCurrentPath = (pathname: string, path: string) =>
+  pathname === path || pathname.startsWith(`${path}/`);
+
+const NavigationLink: FC<NavigationLinkProps> = ({
+  name,
+  path,
+  icon,
+  detail,
+  alertCount,
+  isActive
+}) => (
+  <Link
+    href={path}
+    aria-current={isActive ? 'page' : undefined}
+    className={NAVIGATION_ITEM_CLASS}
+  >
+    {isActive && (
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-2 left-0 hidden w-1 rounded-full bg-primary navigation-expanded:block"
+      />
+    )}
+
+    <span aria-hidden="true" className={cn(NAVIGATION_ICON_CLASS, 'relative')}>
+      {icon}
+
+      {alertCount !== undefined && alertCount > 0 && (
+        <span className="absolute -top-1 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-negative px-1 text-[0.625rem] leading-none font-semibold text-negative-foreground navigation-expanded:-top-2 navigation-expanded:-right-2.5">
+          {alertCount > ALERT_BADGE_MAX ? `${ALERT_BADGE_MAX}+` : alertCount}
+        </span>
+      )}
+    </span>
+
+    <span className="flex max-w-full min-w-0 flex-col items-center navigation-expanded:items-start">
+      <span className="max-w-full truncate">
+        {name}
+
+        {alertCount !== undefined && alertCount > 0 && (
+          <span className="sr-only">{`, ${alertCount} overdue`}</span>
+        )}
+      </span>
+
+      {detail !== undefined && (
+        <span className="hidden max-w-full truncate text-xs font-normal text-muted-foreground navigation-expanded:block">
+          {detail}
+        </span>
+      )}
+    </span>
+  </Link>
+);
+
+export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
+  const pathname = usePathname();
+
+  const [navigationState, setNavigationState] = useState(initialState);
+
+  const { mutate: signOut, isPending: isSigningOut } = useSignOut();
+  const { data: user } = useCurrentUser();
+  // A badge that fails to load is left out: the finance pages show the same count with their own error state.
+  const { data: financeAlerts } = useFinanceAlerts();
+
+  const isExpanded = navigationState === NAVIGATION_STATES.Expanded;
+  const toggleLabel = isExpanded ? 'Collapse navigation' : 'Expand navigation';
+
+  const toggleNavigation = () => {
+    const nextState = isExpanded
+      ? NAVIGATION_STATES.Collapsed
+      : NAVIGATION_STATES.Expanded;
+
+    setNavigationState(nextState);
+    document.cookie = `${APP_STORAGE_KEYS.Navigation}=${nextState}; path=/; max-age=${NAVIGATION_STATE_MAX_AGE_SECONDS}; samesite=lax`;
   };
 
-  const handleSignOut = () => signOutMutationFn();
-
-  const SidebarBtn = ({
-    onClick,
-    left,
-    path,
-    text,
-    className,
-    variant = 'secondary'
-  }: SectionButtonProps) => (
-    <TooltipProvider>
-      <Tooltip delayDuration={500}>
-        <TooltipTrigger asChild>
-          <Button
-            variant={path === activeSectionPath ? variant : 'ghost'}
-            aria-label={text}
-            className={twMerge(
-              `transition-all duration-200 sm:w-full active:scale-90 ${path === activeSectionPath && 'bg-muted/70'}`,
-              className?.button
-            )}
-            onClick={onClick}
-          >
-            {!text && <Loader2 className="size-4 animate-spin" />}
-
-            {text && (
-              <>
-                {left}
-
-                <span
-                  className={twMerge('ml-1.5 max-sm:hidden', className?.text)}
-                >
-                  {text}
-                </span>
-              </>
-            )}
-          </Button>
-        </TooltipTrigger>
-
-        <TooltipContent>
-          <p>{text}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-
   return (
-    <nav className="h-[60px] flex items-center relative sm:w-[160px] sm:h-screen sm:flex-col sm:fixed">
-      <section className="max-sm:ml-4 sm:mt-3">
-        <h2
-          className={twMerge(
-            'text-lg font-bold text-center cursor-default hover:animate-pulse',
-            raleway.className
+    <nav
+      aria-label="Main"
+      data-navigation-state={navigationState}
+      className="fixed inset-x-0 bottom-0 z-40 flex h-(--navigation-bar) border-t bg-background px-1 sm:sticky sm:inset-auto sm:top-0 sm:h-dvh sm:w-(--navigation-rail) sm:shrink-0 sm:self-start sm:border-t-0 sm:border-r sm:px-0 sm:transition-[width,border-color] lg:has-[>button:hover]:border-input navigation-expanded:w-(--navigation-sidebar)"
+    >
+      <button
+        type="button"
+        className={NAVIGATION_TOGGLE_CLASS}
+        aria-label={toggleLabel}
+        title={toggleLabel}
+        onClick={toggleNavigation}
+      >
+        <ChevronLeft
+          size={14}
+          aria-hidden="true"
+          className={cn(
+            'motion-safe:transition-transform',
+            !isExpanded && 'rotate-180'
           )}
-        >
-          EX3
-        </h2>
-      </section>
-
-      <menu className="max-sm:ml-8 sm:w-[95%] sm:mt-8">
-        <SidebarBtn
-          text={sections[0].name}
-          path={sections[0].path}
-          onClick={() => changeActiveSectionPath(sections[0].path)}
-          left={<RxDashboard size={18} />}
         />
-      </menu>
+      </button>
 
-      <menu className="flex gap-2 absolute max-sm:right-1 sm:w-[95%] sm:flex-col sm:items-center sm:bottom-3">
-        <SidebarBtn
-          text={user?.name}
-          path={sections[1].path}
-          onClick={() => changeActiveSectionPath(sections[1].path)}
-          left={<LuUser size={18} />}
-        />
+      <div className="contents sm:flex sm:min-h-0 sm:flex-1 sm:flex-col sm:overflow-y-auto sm:px-2 sm:py-3 navigation-expanded:px-3">
+        <div className="hidden sm:flex sm:justify-center navigation-expanded:justify-start navigation-expanded:pl-3">
+          <p className="font-display text-lg font-bold">EX3</p>
+        </div>
 
-        <SidebarBtn
-          text="Logout"
-          variant="ghost"
-          onClick={handleSignOut}
-          className={{ button: 'hover:bg-red-950/40', text: 'text-red-500' }}
-          left={<RxExit size={18} className="text-red-500" />}
-        />
-      </menu>
+        <ul className="flex flex-3 sm:mt-6 sm:flex-none sm:flex-col sm:gap-1">
+          {PORTFOLIO_SECTIONS.map((section) => (
+            <li key={section.path} className="flex flex-1">
+              <NavigationLink
+                {...section}
+                isActive={isCurrentPath(pathname, section.path)}
+              />
+            </li>
+          ))}
+        </ul>
+
+        <ul className="flex flex-1 sm:mt-3 sm:flex-none sm:flex-col sm:gap-1 sm:border-t sm:pt-3">
+          <li className="flex flex-1">
+            <NavigationLink
+              {...FINANCE_SECTION}
+              alertCount={financeAlerts?.overdue.count}
+              isActive={isCurrentPath(pathname, FINANCE_SECTION.path)}
+            />
+          </li>
+        </ul>
+
+        <ul className="flex flex-1 sm:mt-auto sm:flex-none sm:flex-col sm:gap-1 sm:border-t sm:pt-3">
+          <li className="flex flex-1">
+            <NavigationLink
+              {...ACCOUNT_SECTION}
+              detail={user?.name ?? undefined}
+              isActive={isCurrentPath(pathname, ACCOUNT_SECTION.path)}
+            />
+          </li>
+
+          <li className="flex flex-1 max-sm:hidden">
+            <button
+              type="button"
+              aria-disabled={isSigningOut}
+              className={cn(
+                NAVIGATION_ITEM_CLASS,
+                'hover:text-negative navigation-expanded:hover:bg-negative/10'
+              )}
+              onClick={() => {
+                if (!isSigningOut) signOut();
+              }}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  NAVIGATION_ICON_CLASS,
+                  'group-hover/item:bg-negative/10'
+                )}
+              >
+                {isSigningOut ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <LogOut size={18} />
+                )}
+              </span>
+
+              <span className="max-w-full truncate">Sign out</span>
+            </button>
+          </li>
+        </ul>
+      </div>
     </nav>
   );
 };

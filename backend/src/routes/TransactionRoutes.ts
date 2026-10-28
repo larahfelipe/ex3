@@ -5,7 +5,6 @@ import {
   deleteTransactionControllerHandler,
   getAllTransactionsControllerHandler,
   getTransactionControllerHandler,
-  getTransactionsCountControllerHandler,
   updateTransactionControllerHandler
 } from '@/controllers/transaction';
 import { authMiddleware } from '@/middleware';
@@ -14,37 +13,31 @@ const transactionRouter = Router();
 
 transactionRouter.get(
   '/v1/transaction/:id',
-  authMiddleware as Application,
+  authMiddleware,
   getTransactionControllerHandler as Application
 );
 
 transactionRouter.get(
-  '/v1/transactions/:assetSymbol',
-  authMiddleware as Application,
+  '/v1/transactions',
+  authMiddleware,
   getAllTransactionsControllerHandler as Application
-);
-
-transactionRouter.get(
-  '/v1/transactions/:assetSymbol/count',
-  authMiddleware as Application,
-  getTransactionsCountControllerHandler as Application
 );
 
 transactionRouter.post(
   '/v1/transaction',
-  authMiddleware as Application,
+  authMiddleware,
   createTransactionControllerHandler as Application
 );
 
 transactionRouter.patch(
   '/v1/transaction/:id',
-  authMiddleware as Application,
+  authMiddleware,
   updateTransactionControllerHandler as Application
 );
 
 transactionRouter.delete(
   '/v1/transaction/:id',
-  authMiddleware as Application,
+  authMiddleware,
   deleteTransactionControllerHandler as Application
 );
 
