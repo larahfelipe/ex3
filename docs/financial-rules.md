@@ -204,8 +204,7 @@ date still receives it. Two rules:
 A position's income is summed in
 `GET /v1/portfolio/positions/:symbol/indicators` (see Position indicators,
 below). For the portfolio there is no aggregation: no route returns a monthly
-total, a yearly total or the whole portfolio's `yield` (TD-062 in
-[`../TODO.md`](../TODO.md)).
+total, a yearly total or the whole portfolio's `yield`.
 
 ## Position indicators
 
@@ -334,9 +333,8 @@ a caveat. Empty when the first close is zero or the window has no close.
 
 **Not implemented.** No route returns `maxDrawdown`, `currentDrawdown`,
 `recovery`, volatility, Sharpe, beta or correlation, and there is no domain
-function that computes them (TD-063 in [`../TODO.md`](../TODO.md)). The series
-of `GET /v1/portfolio/performance` is the input those numbers would need, and no
-web screen displays a risk measure.
+function that computes them. The series of `GET /v1/portfolio/performance` is
+the input those numbers would need, and no web screen displays a risk measure.
 
 ## What these definitions do not do
 

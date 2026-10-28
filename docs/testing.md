@@ -331,9 +331,9 @@ under the incremental `double` arithmetic used before, which was checked before
 they became a test.
 
 **Open items.** What the task found without it being necessary to conclude the
-task is in [`TODO.md`](../TODO.md): TD-002 (pagination of the transaction
-listing). TD-001 (numeric type) and TD-009 (upper bound on `amount` and `price`)
-were resolved by the [reshaped transaction](#reshaped-transaction).
+task stayed open: the pagination of the transaction listing. The numeric type
+and the upper bound on `amount` and `price` were resolved by the
+[reshaped transaction](#reshaped-transaction).
 
 ## Instrument catalog
 

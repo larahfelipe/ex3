@@ -194,7 +194,7 @@ limits are in [`docs/testing.md`](docs/testing.md).
 
 `docker compose --profile check up` runs both packages' gates in a container,
 the way CI does. The web has no test runner yet, and its gates are `lint`,
-`typecheck` and `build` (TD-058 in [`TODO.md`](TODO.md)).
+`typecheck` and `build`.
 
 ## Deployment
 
@@ -232,7 +232,6 @@ variables, `GET /ready` and `GET /health` probes — live outside it (TD-060).
 | [`docs/component-inventory.md`](docs/component-inventory.md) | the web's reusable components, what to keep and what to rewrite |
 | [`docs/accessibility.md`](docs/accessibility.md), [`docs/responsiveness.md`](docs/responsiveness.md), [`docs/performance.md`](docs/performance.md) | normative frontend criteria |
 | [`docs/toolchain.md`](docs/toolchain.md) | pinned versions and why |
-| [`TODO.md`](TODO.md) | open (`TD-NNN`) and resolved technical debt |
 
 ## License
 

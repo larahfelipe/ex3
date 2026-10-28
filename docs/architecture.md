@@ -258,4 +258,4 @@ decisions, and what has already been fixed, are in
   It is explicit and needs no injection container, at the cost of repetition
   when a service gains a dependency.
 * The frontend has no test runner; its gates are `lint`, `typecheck` and
-  `build` (TD-058 in [`../TODO.md`](../TODO.md)).
+  `build`.
