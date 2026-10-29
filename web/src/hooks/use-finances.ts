@@ -10,6 +10,7 @@ import {
 } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import { toast } from 'sonner';
+import { useTranslations } from 'use-intl';
 
 import type {
   CancelRecurringExpenseRequestPayload,
@@ -56,10 +57,11 @@ import type {
   UpdateRecurringExpenseRequestPayload,
   VoidPaymentResponseData
 } from '@/app/api/v1/finances';
+import type { Translator } from '@/i18n/translator';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
 import { calendarDayOf, currentInstant } from '@/lib/dates';
 import { queryKeys } from '@/lib/react-query';
-import type { Maybe, WithId, WithMessage } from '@/types';
+import type { Maybe, WithId } from '@/types';
 
 type FinanceChangeAnnouncement = Record<'title', string> &
   Partial<Record<'description', string>>;
@@ -106,19 +108,22 @@ const useAnnounceFinanceChange = () => {
   );
 };
 
-const useFinanceMutation = <Variables, Data extends WithMessage>(
+/** The toast is written here, not taken from the response: the API answers in English. */
+const useFinanceMutation = <Variables, Data>(
   request: (variables: Variables) => Promise<AxiosResponse<Data>>,
   announcementOf: (
+    t: Translator<'finances.notifications'>,
     data: Data,
     variables: Variables
-  ) => FinanceChangeAnnouncement = ({ message }) => ({ title: message })
+  ) => FinanceChangeAnnouncement
 ) => {
+  const t = useTranslations('finances.notifications');
   const announceChange = useAnnounceFinanceChange();
 
   return useMutation<AxiosResponse<Data>, ApiProxyErrorData, Variables>({
     mutationFn: request,
     onSuccess: ({ data }, variables) =>
-      announceChange(announcementOf(data, variables))
+      announceChange(announcementOf(t, data, variables))
   });
 };
 
@@ -294,7 +299,7 @@ export const useCreateExpense = () =>
   useFinanceMutation<CreateExpenseRequestPayload, CreateExpenseResponseData>(
     (payload) =>
       api.getInstance().post('/v1/finances/expenses/create', payload),
-    (_data, { description }) => ({ title: 'Bill added', description })
+    (t, _data, { description }) => ({ title: t('billAdded'), description })
   );
 
 export const useUpdateExpense = () =>
@@ -306,48 +311,54 @@ export const useUpdateExpense = () =>
       api
         .getInstance()
         .patch(expensePath(id), payload satisfies UpdateExpenseRequestPayload),
-    ({ message }, { cancelled }) => {
-      if (cancelled === true) return { title: 'Bill cancelled' };
-      if (cancelled === false) return { title: 'Bill restored' };
+    (t, _data, { cancelled }) => {
+      if (cancelled === true) return { title: t('billCancelled') };
+      if (cancelled === false) return { title: t('billRestored') };
 
-      return { title: message };
+      return { title: t('billUpdated') };
     }
   );
 
 export const useDeleteExpense = () =>
-  useFinanceMutation<WithId, DeleteExpenseResponseData>(({ id }) =>
-    api.getInstance().delete(expensePath(id))
+  useFinanceMutation<WithId, DeleteExpenseResponseData>(
+    ({ id }) => api.getInstance().delete(expensePath(id)),
+    (t) => ({ title: t('billDeleted') })
   );
 
 export const useRecordPayment = () =>
   useFinanceMutation<
     PaymentEntryPayload & Record<'expenseId', string>,
     RecordPaymentResponseData
-  >(({ expenseId, ...payload }) =>
-    api
-      .getInstance()
-      .post(
-        `${expensePath(expenseId)}/payments/create`,
-        payload satisfies PaymentEntryPayload
-      )
+  >(
+    ({ expenseId, ...payload }) =>
+      api
+        .getInstance()
+        .post(
+          `${expensePath(expenseId)}/payments/create`,
+          payload satisfies PaymentEntryPayload
+        ),
+    (t) => ({ title: t('paymentRecorded') })
   );
 
 export const useUpdatePayment = () =>
   useFinanceMutation<
     UpdatePaymentRequestPayload & PaymentTarget,
     UpdatePaymentResponseData
-  >(({ expenseId, paymentId, ...payload }) =>
-    api
-      .getInstance()
-      .patch(
-        paymentPath({ expenseId, paymentId }),
-        payload satisfies UpdatePaymentRequestPayload
-      )
+  >(
+    ({ expenseId, paymentId, ...payload }) =>
+      api
+        .getInstance()
+        .patch(
+          paymentPath({ expenseId, paymentId }),
+          payload satisfies UpdatePaymentRequestPayload
+        ),
+    (t) => ({ title: t('paymentUpdated') })
   );
 
 export const useVoidPayment = () =>
-  useFinanceMutation<PaymentTarget, VoidPaymentResponseData>((target) =>
-    api.getInstance().delete(paymentPath(target))
+  useFinanceMutation<PaymentTarget, VoidPaymentResponseData>(
+    (target) => api.getInstance().delete(paymentPath(target)),
+    (t) => ({ title: t('paymentVoided') })
   );
 
 export const useCreateInstallmentPlan = () =>
@@ -357,9 +368,12 @@ export const useCreateInstallmentPlan = () =>
   >(
     (payload) =>
       api.getInstance().post('/v1/finances/installment-plans/create', payload),
-    (_data, { description, installmentCount }) => ({
-      title: 'Installment plan added',
-      description: `${description} in ${installmentCount} installments`
+    (t, _data, { description, installmentCount }) => ({
+      title: t('planAdded'),
+      description: t('planAddedDetail', {
+        description,
+        count: installmentCount
+      })
     })
   );
 
@@ -367,36 +381,42 @@ export const useUpdateInstallmentPlan = () =>
   useFinanceMutation<
     UpdateInstallmentPlanRequestPayload & WithId,
     InstallmentPlanChangeResponseData
-  >(({ id, ...payload }) =>
-    api
-      .getInstance()
-      .patch(
-        installmentPlanPath(id),
-        payload satisfies UpdateInstallmentPlanRequestPayload
-      )
+  >(
+    ({ id, ...payload }) =>
+      api
+        .getInstance()
+        .patch(
+          installmentPlanPath(id),
+          payload satisfies UpdateInstallmentPlanRequestPayload
+        ),
+    (t) => ({ title: t('planUpdated') })
   );
 
 export const useRescheduleInstallmentPlan = () =>
   useFinanceMutation<
     RescheduleInstallmentPlanRequestPayload & WithId,
     InstallmentPlanChangeResponseData
-  >(({ id, ...payload }) =>
-    api
-      .getInstance()
-      .post(
-        `${installmentPlanPath(id)}/reschedule`,
-        payload satisfies RescheduleInstallmentPlanRequestPayload
-      )
+  >(
+    ({ id, ...payload }) =>
+      api
+        .getInstance()
+        .post(
+          `${installmentPlanPath(id)}/reschedule`,
+          payload satisfies RescheduleInstallmentPlanRequestPayload
+        ),
+    (t) => ({ title: t('planRescheduled') })
   );
 
 export const useCancelInstallmentPlan = () =>
-  useFinanceMutation<WithId, InstallmentPlanChangeResponseData>(({ id }) =>
-    api.getInstance().post(`${installmentPlanPath(id)}/cancel`, {})
+  useFinanceMutation<WithId, InstallmentPlanChangeResponseData>(
+    ({ id }) => api.getInstance().post(`${installmentPlanPath(id)}/cancel`, {}),
+    (t) => ({ title: t('planCancelled') })
   );
 
 export const useDeleteInstallmentPlan = () =>
-  useFinanceMutation<WithId, InstallmentPlanChangeResponseData>(({ id }) =>
-    api.getInstance().delete(installmentPlanPath(id))
+  useFinanceMutation<WithId, InstallmentPlanChangeResponseData>(
+    ({ id }) => api.getInstance().delete(installmentPlanPath(id)),
+    (t) => ({ title: t('planDeleted') })
   );
 
 export const useCreateRecurringExpense = () =>
@@ -406,41 +426,43 @@ export const useCreateRecurringExpense = () =>
   >(
     (payload) =>
       api.getInstance().post('/v1/finances/recurring-expenses/create', payload),
-    (_data, { description }) => ({
-      title: 'Recurring expense added',
-      description
-    })
+    (t, _data, { description }) => ({ title: t('seriesAdded'), description })
   );
 
 export const useUpdateRecurringExpense = () =>
   useFinanceMutation<
     UpdateRecurringExpenseRequestPayload & WithId,
     RecurringExpenseChangeResponseData
-  >(({ id, ...payload }) =>
-    api
-      .getInstance()
-      .patch(
-        recurringExpensePath(id),
-        payload satisfies UpdateRecurringExpenseRequestPayload
-      )
+  >(
+    ({ id, ...payload }) =>
+      api
+        .getInstance()
+        .patch(
+          recurringExpensePath(id),
+          payload satisfies UpdateRecurringExpenseRequestPayload
+        ),
+    (t) => ({ title: t('seriesUpdated') })
   );
 
 export const useCancelRecurringExpense = () =>
   useFinanceMutation<
     CancelRecurringExpenseRequestPayload & WithId,
     RecurringExpenseChangeResponseData
-  >(({ id, ...payload }) =>
-    api
-      .getInstance()
-      .post(
-        `${recurringExpensePath(id)}/cancel`,
-        payload satisfies CancelRecurringExpenseRequestPayload
-      )
+  >(
+    ({ id, ...payload }) =>
+      api
+        .getInstance()
+        .post(
+          `${recurringExpensePath(id)}/cancel`,
+          payload satisfies CancelRecurringExpenseRequestPayload
+        ),
+    (t) => ({ title: t('seriesStopped') })
   );
 
 export const useDeleteRecurringExpense = () =>
-  useFinanceMutation<WithId, RecurringExpenseChangeResponseData>(({ id }) =>
-    api.getInstance().delete(recurringExpensePath(id))
+  useFinanceMutation<WithId, RecurringExpenseChangeResponseData>(
+    ({ id }) => api.getInstance().delete(recurringExpensePath(id)),
+    (t) => ({ title: t('seriesDeleted') })
   );
 
 export const useUpdateFinanceSettings = () =>
@@ -449,20 +471,20 @@ export const useUpdateFinanceSettings = () =>
     UpdateFinanceSettingsResponseData
   >(
     (payload) => api.getInstance().put('/v1/finances/settings', payload),
-    ({ settings }) => {
+    (t, { settings }) => {
       const { reminderLeadDays, remindOverdue } = settings;
       const remindsUpcoming =
         settings.remindUpcomingBills || settings.remindUpcomingInstallments;
 
       return {
-        title: 'Reminders updated',
+        title: t('remindersUpdated'),
         description: !remindsUpcoming
           ? remindOverdue
-            ? 'Only overdue bills are flagged'
-            : 'No bill is flagged'
+            ? t('remindersOverdueOnly')
+            : t('remindersOff')
           : reminderLeadDays === 0
-            ? 'Bills are flagged on their due day'
-            : `Bills are flagged ${reminderLeadDays} ${reminderLeadDays === 1 ? 'day' : 'days'} before they are due`
+            ? t('remindersOnDueDay')
+            : t('remindersLeadDays', { days: reminderLeadDays })
       };
     }
   );

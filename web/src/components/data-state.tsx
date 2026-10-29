@@ -3,6 +3,7 @@ import type { FC, ReactNode } from 'react';
 import Link from 'next/link';
 
 import { LoaderCircle, TriangleAlert } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import { Button, Skeleton } from '@/components/ui';
 import { APPEAR_CLASS } from '@/lib/motion';
@@ -24,14 +25,9 @@ type NoResultsStateProps = Record<'message', string> &
 type ErrorStateProps = Record<'message', string> &
   Record<'onRetry', VoidFunction>;
 
-type StaleStateProps = ErrorStateProps & Record<'isRetrying', boolean>;
-
-const RETRY_LABEL = 'Try again';
-
-export const STALE_DATA_MESSAGE =
-  'This could not be refreshed and may be out of date';
-
-const CLEAR_REFINEMENTS_LABEL = 'Clear search and filters';
+type StaleStateProps = Omit<ErrorStateProps, 'message'> &
+  Partial<Record<'message', string>> &
+  Record<'isRetrying', boolean>;
 
 const StateActionButton: FC<StateAction> = (action) =>
   'href' in action ? (
@@ -77,50 +73,63 @@ export const EmptyState: FC<EmptyStateProps> = ({ message, action }) => (
 export const NoResultsState: FC<NoResultsStateProps> = ({
   message,
   onClear
-}) => (
-  <EmptyState
-    message={message}
-    action={{ label: CLEAR_REFINEMENTS_LABEL, onSelect: onClear }}
-  />
-);
+}) => {
+  const t = useTranslations('common.actions');
 
-export const ErrorState: FC<ErrorStateProps> = ({ message, onRetry }) => (
-  <div
-    role="alert"
-    className={cn('flex flex-col items-start gap-3', APPEAR_CLASS)}
-  >
-    <p className="text-sm text-negative">{message}</p>
+  return (
+    <EmptyState
+      message={message}
+      action={{ label: t('clearRefinements'), onSelect: onClear }}
+    />
+  );
+};
 
-    <StateActionButton label={RETRY_LABEL} onSelect={onRetry} />
-  </div>
-);
+export const ErrorState: FC<ErrorStateProps> = ({ message, onRetry }) => {
+  const t = useTranslations('common.actions');
 
+  return (
+    <div
+      role="alert"
+      className={cn('flex flex-col items-start gap-3', APPEAR_CLASS)}
+    >
+      <p className="text-sm text-negative">{message}</p>
+
+      <StateActionButton label={t('retry')} onSelect={onRetry} />
+    </div>
+  );
+};
+
+/** Data shown from before a refresh that failed; the message defaults to saying so. */
 export const StaleState: FC<StaleStateProps> = ({
   message,
   onRetry,
   isRetrying
-}) => (
-  <div
-    role="alert"
-    className="flex flex-col items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-3 sm:flex-row sm:items-center sm:justify-between"
-  >
-    <p className="flex items-center gap-2 text-sm text-warning">
-      <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
+}) => {
+  const t = useTranslations('common');
 
-      {message}
-    </p>
-
-    <Button
-      variant="secondary"
-      size="sm"
-      className="gap-2 max-sm:w-full"
-      onClick={() => onRetry()}
+  return (
+    <div
+      role="alert"
+      className="flex flex-col items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-3 sm:flex-row sm:items-center sm:justify-between"
     >
-      {isRetrying && (
-        <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
-      )}
+      <p className="flex items-center gap-2 text-sm text-warning">
+        <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />
 
-      {RETRY_LABEL}
-    </Button>
-  </div>
-);
+        {message ?? t('states.stale')}
+      </p>
+
+      <Button
+        variant="secondary"
+        size="sm"
+        className="gap-2 max-sm:w-full"
+        onClick={() => onRetry()}
+      >
+        {isRetrying && (
+          <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
+        )}
+
+        {t('actions.retry')}
+      </Button>
+    </div>
+  );
+};

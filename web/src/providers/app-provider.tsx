@@ -11,11 +11,20 @@ import {
 } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Loader2, RefreshCw } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import { Toaster } from '@/components/toaster';
 import { Button } from '@/components/ui';
+import type { Locale } from '@/i18n/config';
+import type { Messages } from '@/i18n/messages/catalog';
 import { queryClient } from '@/lib/react-query';
 import type { Children } from '@/types';
+
+import { LocaleProvider } from './locale-provider';
+
+type AppProviderProps = Children &
+  Record<'locale', Locale> &
+  Record<'messages', Messages>;
 
 type FallbackContentProps = {
   error?: unknown;
@@ -26,11 +35,13 @@ const FallbackContent: FC<FallbackContentProps> = ({
   error,
   resetErrorBoundary
 }) => {
+  const t = useTranslations('common');
+
   if (!error)
     return (
       <main className="h-lvh flex">
         <output className="m-auto">
-          <span className="sr-only">Loading</span>
+          <span className="sr-only">{t('states.loading')}</span>
 
           <Loader2 aria-hidden="true" className="size-6 animate-spin" />
         </output>
@@ -40,7 +51,7 @@ const FallbackContent: FC<FallbackContentProps> = ({
   return (
     <main className="h-screen flex">
       <div className="flex flex-col justify-center gap-4 m-auto">
-        <h1 className="text-lg font-semibold">Oops, something went wrong</h1>
+        <h1 className="text-lg font-semibold">{t('fallback.title')}</h1>
 
         <Button
           variant="secondary"
@@ -49,35 +60,46 @@ const FallbackContent: FC<FallbackContentProps> = ({
         >
           <RefreshCw size={16} aria-hidden="true" />
 
-          <span>Try again</span>
+          <span>{t('fallback.retry')}</span>
         </Button>
       </div>
     </main>
   );
 };
 
-export const AppProvider: FC<Children> = ({ children }) => (
-  <QueryClientProvider client={queryClient}>
-    <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-right" />
+/**
+ * The catalog arrives from the server layout, so only the locale it renders in
+ * is sent; the handlers stay on the client because a function cannot cross
+ * that edge.
+ */
+export const AppProvider: FC<AppProviderProps> = ({
+  locale,
+  messages,
+  children
+}) => (
+  <LocaleProvider locale={locale} messages={messages}>
+    <QueryClientProvider client={queryClient}>
+      <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-right" />
 
-    <AppProgressBar
-      shallowRouting
-      height="3px"
-      color="hsl(var(--primary))"
-      options={{ showSpinner: false }}
-    />
+      <AppProgressBar
+        shallowRouting
+        height="3px"
+        color="hsl(var(--primary))"
+        options={{ showSpinner: false }}
+      />
 
-    <Toaster />
+      <Toaster />
 
-    <QueryErrorResetBoundary>
-      {({ reset }) => (
-        <ErrorBoundary
-          onReset={reset}
-          fallbackRender={(props) => <FallbackContent {...props} />}
-        >
-          <Suspense fallback={<FallbackContent />}>{children}</Suspense>
-        </ErrorBoundary>
-      )}
-    </QueryErrorResetBoundary>
-  </QueryClientProvider>
+      <QueryErrorResetBoundary>
+        {({ reset }) => (
+          <ErrorBoundary
+            onReset={reset}
+            fallbackRender={(props) => <FallbackContent {...props} />}
+          >
+            <Suspense fallback={<FallbackContent />}>{children}</Suspense>
+          </ErrorBoundary>
+        )}
+      </QueryErrorResetBoundary>
+    </QueryClientProvider>
+  </LocaleProvider>
 );

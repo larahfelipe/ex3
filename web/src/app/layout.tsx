@@ -5,18 +5,19 @@ import {
   APP_THEME,
   APP_THEME_COLOR,
   APP_TITLE,
-  APP_TITLE_TEMPLATE,
-  inter,
-  raleway
+  APP_TITLE_TEMPLATE
 } from '@/common/constants';
+import { inter, raleway } from '@/common/fonts';
+import { MESSAGES } from '@/i18n/messages';
+import { getRequestLocale, getServerTranslator } from '@/i18n/server';
 import { AppProvider } from '@/providers/app-provider';
 import type { Children } from '@/types';
 import './globals.css';
 
-export const metadata: Metadata = {
+export const generateMetadata = async (): Promise<Metadata> => ({
   title: { default: APP_TITLE, template: APP_TITLE_TEMPLATE },
-  description: 'EX3 - Portfolio Tracker'
-};
+  description: (await getServerTranslator('navigation'))('appDescription')
+});
 
 /**
  * `resizes-content` shrinks the layout viewport — and with it every `dvh` — when
@@ -36,9 +37,11 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: Children) {
   await connection();
 
+  const locale = await getRequestLocale();
+
   return (
     <html
-      lang="en"
+      lang={locale}
       className={`${APP_THEME} ${inter.variable} ${raleway.variable}`}
     >
       <head>
@@ -48,7 +51,9 @@ export default async function RootLayout({ children }: Children) {
       </head>
 
       <body className="font-sans">
-        <AppProvider>{children}</AppProvider>
+        <AppProvider locale={locale} messages={MESSAGES[locale]}>
+          {children}
+        </AppProvider>
       </body>
     </html>
   );

@@ -257,5 +257,6 @@ decisions, and what has already been fixed, are in
 * Per-use-case composition is written by hand in the controllers' `index.ts`.
   It is explicit and needs no injection container, at the cost of repetition
   when a service gains a dependency.
-* The frontend has no test runner; its gates are `lint`, `typecheck` and
-  `build`.
+* The frontend's unit tests cover formatting, dates, decimals, error wording,
+  the catalogs and component markup; there is no browser or end-to-end
+  runner. Its gates are `lint`, `typecheck`, `test` and `build`.

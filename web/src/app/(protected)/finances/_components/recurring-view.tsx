@@ -1,31 +1,27 @@
 'use client';
 
-import { useId, useState, type FC } from 'react';
+import { useId, useState, type FC, type ReactNode } from 'react';
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 import { Plus } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import type {
   RecurringExpense,
   RecurringExpenseStatus
 } from '@/app/api/v1/finances';
 import {
-  EXPENSE_CATEGORY_LABELS,
-  RECURRENCE_FREQUENCY_LABELS,
-  RECURRENCE_FREQUENCY_UNITS,
   RECURRING_EXPENSE_DETAIL_PARAM,
-  RECURRING_EXPENSE_STATUS_LABELS,
   RECURRING_EXPENSE_STATUSES
 } from '@/common/constants';
-import { formatMoney, updateUrlQuery } from '@/common/utils';
+import { updateUrlQuery } from '@/common/utils';
 import {
   EmptyState,
   ErrorState,
   LoadingState,
   NoResultsState,
-  STALE_DATA_MESSAGE,
   StaleState
 } from '@/components/data-state';
 import { Money } from '@/components/financial';
@@ -49,6 +45,7 @@ import {
   useRecurringExpenses,
   useReferenceDay
 } from '@/hooks/use-finances';
+import { useFormat } from '@/i18n/format';
 import { FIRST_PAGE, pageNumberFrom } from '@/lib/pagination';
 import { cn } from '@/lib/utils';
 
@@ -70,37 +67,36 @@ const SKELETON_ROWS = Array.from({ length: 5 }, (_, row) => row);
 const NextBillText: FC<
   Record<'series', RecurringExpense> & Record<'today', string>
 > = ({ series: { status, nextDueDate, endDate }, today }) => {
-  if (status === 'CANCELLED') return 'No more bills';
+  const t = useTranslations('recurring.row');
+  const tFinances = useTranslations('finances');
+
+  if (status === 'CANCELLED') return t('noMoreBills');
 
   if (status === 'ENDED' && endDate !== null)
-    return (
-      <>
-        {'Ended '}
+    return t.rich('ended', { day: () => <CalendarDayText day={endDate} /> });
 
-        <CalendarDayText day={endDate} />
-      </>
-    );
+  if (nextDueDate === null) return t('noBillAhead');
 
-  if (nextDueDate === null) return 'No bill ahead';
+  const distance = dueDistanceOf(nextDueDate, today, tFinances);
+  const day = () => <CalendarDayText day={nextDueDate} />;
 
-  const distance = dueDistanceOf(nextDueDate, today);
-
-  return (
-    <>
-      {'Next '}
-
-      <CalendarDayText day={nextDueDate} />
-
-      {distance !== null && ` · ${distance}`}
-    </>
-  );
+  return distance === null
+    ? t.rich('next', { day })
+    : t.rich('nextWithDistance', { day, distance });
 };
+
+const mutedText = (chunks: ReactNode) => (
+  <span className="font-normal text-muted-foreground">{chunks}</span>
+);
 
 const SeriesRow: FC<
   Record<'series', RecurringExpense> &
     Record<'href', string> &
     Record<'today', string>
 > = ({ series, href, today }) => {
+  const t = useTranslations('recurring.row');
+  const tFinances = useTranslations('finances');
+  const { formatMoney } = useFormat();
   const {
     description,
     category,
@@ -124,7 +120,10 @@ const SeriesRow: FC<
         </Link>
 
         <span className="text-xs text-muted-foreground">
-          {`${EXPENSE_CATEGORY_LABELS[category]} · ${RECURRENCE_FREQUENCY_LABELS[frequency]}`}
+          {t('meta', {
+            category: tFinances(`categories.${category}`),
+            frequency: tFinances(`frequencies.${frequency}`)
+          })}
         </span>
 
         <span className="text-xs text-muted-foreground">
@@ -135,20 +134,18 @@ const SeriesRow: FC<
       <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-end sm:gap-1">
         <div className="flex flex-col whitespace-nowrap sm:items-end">
           <span className="font-medium tabular-nums">
-            {isVariable && (
-              <span className="font-normal text-muted-foreground">about </span>
-            )}
-
-            <Money value={amount} currency={currency} />
-
-            <span className="font-normal text-muted-foreground">
-              {` a ${RECURRENCE_FREQUENCY_UNITS[frequency]}`}
-            </span>
+            {t.rich(isVariable ? 'estimatedAmount' : 'amount', {
+              period: tFinances(`perPeriod.${frequency}`),
+              money: () => <Money value={amount} currency={currency} />,
+              muted: mutedText
+            })}
           </span>
 
           {frequency !== 'MONTHLY' && (
             <span className="text-xs text-muted-foreground">
-              {`about ${formatMoney(monthlyEquivalent, currency)} a month`}
+              {t('monthlyEquivalent', {
+                amount: formatMoney(monthlyEquivalent, currency)
+              })}
             </span>
           )}
         </div>
@@ -160,6 +157,8 @@ const SeriesRow: FC<
 };
 
 export const RecurringView: FC = () => {
+  const t = useTranslations('recurring');
+  const tFinances = useTranslations('finances');
   const searchParams = useSearchParams();
   const today = useReferenceDay();
   const headingId = useId();
@@ -219,7 +218,7 @@ export const RecurringView: FC = () => {
   const statusFilter = (
     <div className="flex items-center gap-2 max-sm:w-full">
       <Label htmlFor={statusId} className="sr-only">
-        Status
+        {t('status')}
       </Label>
 
       <Select
@@ -244,11 +243,11 @@ export const RecurringView: FC = () => {
         </SelectTrigger>
 
         <SelectContent>
-          <SelectItem value={ALL_OPTION}>All statuses</SelectItem>
+          <SelectItem value={ALL_OPTION}>{t('allStatuses')}</SelectItem>
 
           {RECURRING_EXPENSE_STATUSES.map((option) => (
             <SelectItem key={option} value={option}>
-              {RECURRING_EXPENSE_STATUS_LABELS[option]}
+              {tFinances(`seriesStatuses.${option}`)}
             </SelectItem>
           ))}
         </SelectContent>
@@ -259,8 +258,8 @@ export const RecurringView: FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Recurring"
-        description="Expenses that repeat every week, month or year, and the bills each one adds ahead of time"
+        title={t('title')}
+        description={t('description')}
         action={
           <Button
             size="sm"
@@ -268,7 +267,8 @@ export const RecurringView: FC = () => {
             onClick={() => setIsAdding(true)}
           >
             <Plus size={16} aria-hidden="true" />
-            Add recurring expense
+
+            {t('add')}
           </Button>
         }
       />
@@ -277,7 +277,7 @@ export const RecurringView: FC = () => {
         <Card>
           <SectionHeader
             id={headingId}
-            title="Recurring expenses"
+            title={t('list')}
             action={statusFilter}
           />
 
@@ -286,7 +286,7 @@ export const RecurringView: FC = () => {
             className="space-y-4"
           >
             {isLoading && (
-              <LoadingState label="Loading recurring expenses">
+              <LoadingState label={t('loading')}>
                 <div aria-hidden="true" className="divide-y">
                   {SKELETON_ROWS.map((row) => (
                     <div
@@ -307,25 +307,18 @@ export const RecurringView: FC = () => {
             )}
 
             {data === undefined && isError && (
-              <ErrorState
-                message="The recurring expenses could not be loaded"
-                onRetry={refetch}
-              />
+              <ErrorState message={t('loadFailed')} onRetry={refetch} />
             )}
 
             {isRefetchError && (
-              <StaleState
-                message={STALE_DATA_MESSAGE}
-                isRetrying={isFetching}
-                onRetry={refetch}
-              />
+              <StaleState isRetrying={isFetching} onRetry={refetch} />
             )}
 
             {data?.total === 0 && status === undefined && (
               <EmptyState
-                message="No recurring expenses yet"
+                message={t('empty')}
                 action={{
-                  label: 'Add recurring expense',
+                  label: t('add'),
                   onSelect: () => setIsAdding(true)
                 }}
               />
@@ -333,7 +326,7 @@ export const RecurringView: FC = () => {
 
             {data?.total === 0 && status !== undefined && (
               <NoResultsState
-                message={`No ${RECURRING_EXPENSE_STATUS_LABELS[status].toLowerCase()} recurring expenses`}
+                message={t('noResults', { status })}
                 onClear={() => updateListing({ status: undefined })}
               />
             )}
@@ -342,9 +335,9 @@ export const RecurringView: FC = () => {
               data.total > 0 &&
               data.items.length === 0 && (
                 <EmptyState
-                  message={`No recurring expenses on page ${data.page}`}
+                  message={t('emptyPage', { page: data.page })}
                   action={{
-                    label: `Go to page ${data.totalPages}`,
+                    label: t('goToPage', { page: data.totalPages }),
                     onSelect: () => updateListing({ page: data.totalPages })
                   }}
                 />
@@ -352,7 +345,7 @@ export const RecurringView: FC = () => {
 
             {data !== undefined && data.items.length > 0 && (
               <ul
-                aria-label="Recurring expenses"
+                aria-label={t('list')}
                 className={cn(
                   'divide-y transition-opacity',
                   isPlaceholderData && 'opacity-60'
@@ -372,10 +365,10 @@ export const RecurringView: FC = () => {
             {data !== undefined && data.total > 0 && (
               <div className="flex justify-end">
                 <PageNavigation
-                  label="Recurring expense pages"
+                  label={t('pages')}
                   page={data.page}
                   totalPages={data.totalPages}
-                  detail={`${data.total} recurring ${data.total === 1 ? 'expense' : 'expenses'}`}
+                  detail={t('count', { count: data.total })}
                   onPageChange={(nextPage) => updateListing({ page: nextPage })}
                 />
               </div>

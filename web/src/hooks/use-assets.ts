@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
+import { useTranslations } from 'use-intl';
 
 import type {
   CreateAssetRequestPayload,
@@ -20,6 +21,7 @@ export const useCreateAsset = (
 ) => {
   const queryClient = useQueryClient();
   const announceChange = useAnnouncePortfolioChange(portfolio);
+  const t = useTranslations('investments.assets.notifications');
 
   return useMutation<
     AxiosResponse<CreateAssetResponseData>,
@@ -33,12 +35,12 @@ export const useCreateAsset = (
       } satisfies CreateAssetRequestPayload),
     onSuccess: ({ data: { asset } }, { listing }) => {
       announceChange({
-        title: 'Asset added',
+        title: t('added'),
         description: portfolio
-          ? `${asset.symbol} is now in ${portfolio.name}`
+          ? t('addedTo', { symbol: asset.symbol, portfolio: portfolio.name })
           : undefined,
         action: addTransactionFor && {
-          label: 'Add transaction',
+          label: t('addTransaction'),
           onSelect: () => addTransactionFor(asset.symbol)
         }
       });
@@ -53,6 +55,7 @@ export const useCreateAsset = (
 
 export const useDeleteAsset = (portfolio: Maybe<Portfolio>) => {
   const announceChange = useAnnouncePortfolioChange(portfolio);
+  const t = useTranslations('investments.assets.notifications');
 
   return useMutation<
     AxiosResponse<DeleteAssetResponseData>,
@@ -63,6 +66,6 @@ export const useDeleteAsset = (portfolio: Maybe<Portfolio>) => {
       api.getInstance().delete(`/v1/assets/${encodeURIComponent(symbol)}`, {
         params: { portfolioId: requirePortfolio(portfolio).id }
       }),
-    onSuccess: ({ data }) => announceChange({ title: data.message })
+    onSuccess: () => announceChange({ title: t('deleted') })
   });
 };

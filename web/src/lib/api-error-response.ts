@@ -11,13 +11,13 @@ import {
  * would also copy the AxiosError internals that carry the upstream request.
  */
 export const toApiProxyErrorResponse = (e: unknown) => {
-  const { message, _error, status, statusText } =
+  const { message, _error, retryAfterSeconds, status, statusText } =
     e instanceof ApiProxyError
       ? e
       : new ApiProxyError(UNEXPECTED_ERROR_MESSAGE);
 
   return NextResponse.json<ApiProxyErrorData>(
-    { message, _error },
+    { message, _error, retryAfterSeconds },
     { status, statusText }
   );
 };

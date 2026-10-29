@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState, type FC, type SubmitEvent } from 'react';
+import { useId, useMemo, useState, type FC, type SubmitEvent } from 'react';
 import { flushSync } from 'react-dom';
 import {
   useForm,
@@ -10,6 +10,7 @@ import {
 } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 
 import { DEFAULT_CURRENCY, OFFERED_CURRENCIES } from '@/common/constants';
@@ -24,57 +25,55 @@ import {
   SegmentedControlItem
 } from '@/components/ui';
 import { useSignUp } from '@/hooks/use-user';
+import type { Translator } from '@/i18n/translator';
 import {
-  AccountNameSchema,
-  EmailSchema,
+  accountNameSchemaFor,
+  emailSchemaFor,
   isDerivedFromEmail,
-  NewPasswordSchema,
-  PASSWORD_DERIVED_FROM_EMAIL_MESSAGE
+  newPasswordSchemaFor
 } from '@/lib/account-schema';
 import { ApiProxyError, isConflictError } from '@/lib/axios';
 import type { SlideDirection } from '@/lib/motion';
 import {
   PORTFOLIO_NAME_MAX_LENGTH,
-  PortfolioNameSchema
+  portfolioNameSchemaFor
 } from '@/lib/portfolio-schema';
 import { presentSubmitError } from '@/lib/submit-error';
 
 import { AuthNotice } from '../../_components/auth-notice';
 
-type SignUpFormValues = z.infer<typeof signUpSchema>;
+type SignUpFormValues = z.infer<ReturnType<typeof signUpSchemaFor>>;
 
 type SignUpField = keyof SignUpFormValues;
 
-/** The name the API gives the first portfolio when the sign-up sends none. */
-const FIRST_PORTFOLIO_NAME = 'Main';
-
-const signUpSchema = z
-  .object({
-    name: AccountNameSchema,
-    email: EmailSchema,
-    password: NewPasswordSchema,
-    confirmPassword: z.string().min(1, 'Confirm your password'),
-    portfolioName: PortfolioNameSchema,
-    baseCurrency: z.enum(OFFERED_CURRENCIES, 'Select a valid base currency')
-  })
-  .refine(({ email, password }) => !isDerivedFromEmail(password, email), {
-    message: PASSWORD_DERIVED_FROM_EMAIL_MESSAGE,
-    path: ['password']
-  })
-  .refine(({ password, confirmPassword }) => password === confirmPassword, {
-    message: 'Passwords do not match',
-    path: ['confirmPassword']
-  });
-
-const SIGN_UP_FIELDS = signUpSchema.keyof().options;
+const signUpSchemaFor = (t: Translator<'validation'>) =>
+  z
+    .object({
+      name: accountNameSchemaFor(t),
+      email: emailSchemaFor(t),
+      password: newPasswordSchemaFor(t),
+      confirmPassword: z.string().min(1, t('password.confirmRequired')),
+      portfolioName: portfolioNameSchemaFor(t),
+      baseCurrency: z.enum(OFFERED_CURRENCIES, t('currency.invalid'))
+    })
+    .refine(({ email, password }) => !isDerivedFromEmail(password, email), {
+      message: t('password.derivedFromEmail'),
+      path: ['password']
+    })
+    .refine(({ password, confirmPassword }) => password === confirmPassword, {
+      message: t('password.mismatch'),
+      path: ['confirmPassword']
+    });
 
 const SIGN_UP_STEPS = [
-  { title: 'Your details', fields: ['name', 'email'] },
-  { title: 'Security', fields: ['password', 'confirmPassword'] },
-  { title: 'Portfolio', fields: ['portfolioName', 'baseCurrency'] }
+  { title: 'details', fields: ['name', 'email'] },
+  { title: 'security', fields: ['password', 'confirmPassword'] },
+  { title: 'portfolio', fields: ['portfolioName', 'baseCurrency'] }
 ] as const satisfies ReadonlyArray<
   Record<'title', string> & Record<'fields', ReadonlyArray<SignUpField>>
 >;
+
+const SIGN_UP_FIELDS = SIGN_UP_STEPS.flatMap(({ fields }) => fields);
 
 const LAST_STEP = SIGN_UP_STEPS.length - 1;
 
@@ -88,6 +87,14 @@ const stepOf = (field: SignUpField) =>
 
 export const SignUpForm: FC = () => {
   const { mutateAsync: signUp } = useSignUp();
+  const t = useTranslations('auth');
+  const tValidation = useTranslations('validation');
+  const tErrors = useTranslations('errors');
+  const tActions = useTranslations('common.actions');
+  const signUpSchema = useMemo(
+    () => signUpSchemaFor(tValidation),
+    [tValidation]
+  );
 
   const [step, setStep] = useState(0);
   const [stepDirection, setStepDirection] = useState<SlideDirection>(1);
@@ -112,7 +119,7 @@ export const SignUpForm: FC = () => {
       email: '',
       password: '',
       confirmPassword: '',
-      portfolioName: FIRST_PORTFOLIO_NAME,
+      portfolioName: t('signUp.firstPortfolioName'),
       baseCurrency: DEFAULT_CURRENCY
     }
   });
@@ -161,7 +168,7 @@ export const SignUpForm: FC = () => {
       if (error instanceof ApiProxyError && isConflictError(error)) {
         setError('email', {
           type: 'server',
-          message: 'This email is already registered. Sign in instead.'
+          message: t('signUp.emailTaken')
         });
         goToStep(stepOf('email'), 'email');
         return;
@@ -169,7 +176,8 @@ export const SignUpForm: FC = () => {
 
       presentSubmitError(error, {
         setError,
-        fieldOf: (path) => (isSignUpField(path) ? path : undefined)
+        fieldOf: (path) => (isSignUpField(path) ? path : undefined),
+        t: tErrors
       });
 
       const invalidField = SIGN_UP_FIELDS.find(
@@ -201,11 +209,11 @@ export const SignUpForm: FC = () => {
           className="flex items-baseline justify-between gap-4"
         >
           <h2 id={stepTitleId} className="font-semibold">
-            {title}
+            {t(`signUp.steps.${title}`)}
           </h2>
 
           <p className="text-sm text-muted-foreground tabular-nums">
-            {`Step ${stepNumber} of ${stepCount}`}
+            {t('signUp.progress', { step: stepNumber, count: stepCount })}
           </p>
         </div>
 
@@ -215,7 +223,10 @@ export const SignUpForm: FC = () => {
           aria-valuemin={1}
           aria-valuemax={stepCount}
           aria-valuenow={stepNumber}
-          aria-valuetext={`Step ${stepNumber} of ${stepCount}`}
+          aria-valuetext={t('signUp.progress', {
+            step: stepNumber,
+            count: stepCount
+          })}
           className="h-1.5 overflow-hidden rounded-full bg-muted"
         >
           <div
@@ -232,7 +243,10 @@ export const SignUpForm: FC = () => {
           <div className="space-y-5">
             {step === stepOf('name') && (
               <>
-                <FormField label="Name" error={errors.name?.message}>
+                <FormField
+                  label={t('fields.name')}
+                  error={errors.name?.message}
+                >
                   {(control) => (
                     <Input
                       {...control}
@@ -243,7 +257,10 @@ export const SignUpForm: FC = () => {
                   )}
                 </FormField>
 
-                <FormField label="Email" error={errors.email?.message}>
+                <FormField
+                  label={t('fields.email')}
+                  error={errors.email?.message}
+                >
                   {(control) => (
                     <Input
                       {...control}
@@ -267,7 +284,7 @@ export const SignUpForm: FC = () => {
                 />
 
                 <FormField
-                  label="Password"
+                  label={t('fields.password')}
                   hint={<PasswordRequirements />}
                   error={errors.password?.message}
                 >
@@ -282,7 +299,7 @@ export const SignUpForm: FC = () => {
                 </FormField>
 
                 <FormField
-                  label="Confirm password"
+                  label={t('fields.confirmPassword')}
                   error={errors.confirmPassword?.message}
                 >
                   {(control) => (
@@ -300,8 +317,8 @@ export const SignUpForm: FC = () => {
             {step === stepOf('portfolioName') && (
               <>
                 <FormField
-                  label="Portfolio name"
-                  hint="You can rename it and add other portfolios later."
+                  label={t('fields.portfolioName')}
+                  hint={t('signUp.portfolioNameHint')}
                   error={errors.portfolioName?.message}
                 >
                   {(control) => (
@@ -319,8 +336,8 @@ export const SignUpForm: FC = () => {
                 </FormField>
 
                 <ChoiceField
-                  legend="Base currency"
-                  hint="The portfolio reports every value in this currency."
+                  legend={t('fields.baseCurrency')}
+                  hint={t('signUp.baseCurrencyHint')}
                   error={errors.baseCurrency?.message}
                 >
                   <SegmentedControl className="grid grid-cols-3">
@@ -357,17 +374,17 @@ export const SignUpForm: FC = () => {
             className="flex-1"
             onClick={() => goToStep(step - 1)}
           >
-            Back
+            {tActions('back')}
           </Button>
         )}
 
         {isLastStep ? (
           <SubmitButton isPending={isSubmitting} size="lg" className="flex-1">
-            Create account
+            {t('signUp.submit')}
           </SubmitButton>
         ) : (
           <Button type="submit" size="lg" className="flex-1">
-            Continue
+            {t('signUp.continue')}
           </Button>
         )}
       </div>

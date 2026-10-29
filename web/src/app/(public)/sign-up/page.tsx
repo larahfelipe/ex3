@@ -1,27 +1,30 @@
 import type { Metadata } from 'next';
 
 import { APP_ROUTES } from '@/common/constants';
+import { getServerTranslator } from '@/i18n/server';
 
 import { AuthAlternative } from '../_components/auth-alternative';
 import { PublicPageHeader } from '../_components/public-page-header';
 import { SignUpForm } from './_components/sign-up-form';
 
-export const metadata: Metadata = {
-  title: 'Create account'
-};
+export const generateMetadata = async (): Promise<Metadata> => ({
+  title: (await getServerTranslator('navigation.pages'))('signUp')
+});
 
-export default function SignUp() {
+export default async function SignUp() {
+  const t = await getServerTranslator('auth.signUp');
+
   return (
     <>
-      <PublicPageHeader title="Create your account" />
+      <PublicPageHeader title={t('title')} />
 
       <section>
         <SignUpForm />
 
         <AuthAlternative
-          question="Already registered?"
+          question={t('hasAccount')}
           href={APP_ROUTES.Public.SignIn}
-          label="Sign in instead"
+          label={t('signInInstead')}
         />
       </section>
     </>

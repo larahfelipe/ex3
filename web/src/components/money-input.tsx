@@ -1,13 +1,30 @@
-import type { ChangeEvent, ClipboardEvent, FC } from 'react';
+import type {
+  AriaAttributes,
+  ChangeEvent,
+  ClipboardEvent,
+  FC,
+  ReactNode,
+  Ref
+} from 'react';
 
-import { formatDecimal } from '@/common/utils';
-import { Input, type InputProps } from '@/components/ui';
+import { useTranslations } from 'use-intl';
+
+import { OFFERED_CURRENCIES } from '@/common/constants';
+import {
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  type InputProps
+} from '@/components/ui';
+import { useFormat } from '@/i18n/format';
 import {
   decimalOfUnits,
   decimalPlacesOf,
   INTEGER_DIGITS,
   isStorableDecimal,
-  readDecimal,
   unitsOf,
   type DecimalReading
 } from '@/lib/decimal';
@@ -25,6 +42,21 @@ type MoneyInputProps = Omit<
   onValueChange: (value: string) => void;
   onRejectedPaste: (reading: RejectedAmount) => void;
 };
+
+type CurrencyAmountInputProps = Omit<MoneyInputProps, 'leftElement'> &
+  Record<'currency', string> &
+  Partial<Record<'currencyControl', ReactNode>>;
+
+type CurrencySelectProps = Record<'value', string> &
+  Record<'onValueChange', (currency: string) => void> &
+  Partial<Record<'name', string>> &
+  Partial<Record<'onBlur', VoidFunction>> &
+  Partial<Record<'ref', Ref<HTMLButtonElement>>> &
+  Pick<AriaAttributes, 'aria-invalid' | 'aria-describedby'>;
+
+/** What closes an amount field, the code or its selector, joined to the field's edge. */
+const CURRENCY_ADDON_CLASS =
+  'relative -ml-px h-10 shrink-0 rounded-l-none rounded-r-md border border-input px-3 text-sm font-medium focus-visible:z-10 group-data-invalid/amount:border-negative';
 
 const NON_DIGIT = /\D/g;
 
@@ -65,6 +97,7 @@ export const MoneyInput: FC<MoneyInputProps> = ({
   className,
   ...props
 }) => {
+  const { formatDecimal, readDecimal } = useFormat();
   const scale = Math.max(decimals, decimalPlacesOf(value));
 
   const enterDigits = (event: ChangeEvent<HTMLInputElement>) => {
@@ -108,5 +141,102 @@ export const MoneyInput: FC<MoneyInputProps> = ({
       onChange={enterDigits}
       onPaste={pasteAmount}
     />
+  );
+};
+
+/**
+ * The amount with its currency attached: the symbol leads the figures, and the
+ * code closes the field, as text or as `currencyControl`, a selector of it.
+ * The amount is held apart from the currency, so choosing another one leaves
+ * the figures as typed: nothing is converted.
+ */
+export const CurrencyAmountInput: FC<CurrencyAmountInputProps> = ({
+  currency,
+  currencyControl,
+  className,
+  ...props
+}) => {
+  const { currencySymbolOf } = useFormat();
+
+  return (
+    <div
+      data-invalid={props['aria-invalid'] === true || undefined}
+      className="group/amount flex"
+    >
+      <div className="min-w-0 flex-1">
+        <MoneyInput
+          {...props}
+          className={cn(
+            'relative rounded-r-none focus-visible:z-10',
+            className
+          )}
+          leftElement={
+            <span aria-hidden className="text-sm text-muted-foreground">
+              {currencySymbolOf(currency)}
+            </span>
+          }
+        />
+      </div>
+
+      {currencyControl ?? (
+        <span
+          aria-hidden
+          className={cn(
+            CURRENCY_ADDON_CLASS,
+            'inline-flex items-center bg-muted/50 text-muted-foreground'
+          )}
+        >
+          {currency}
+        </span>
+      )}
+    </div>
+  );
+};
+
+/** The offered currencies, and the one given when it is not among them, such as a stored record's. */
+export const CurrencySelect: FC<CurrencySelectProps> = ({
+  value,
+  name,
+  ref,
+  onValueChange,
+  onBlur,
+  ...aria
+}) => {
+  const t = useTranslations('common.form');
+  const { currencyNameOf, currencySymbolOf } = useFormat();
+  const currencies: ReadonlyArray<string> = OFFERED_CURRENCIES.some(
+    (currency) => currency === value
+  )
+    ? OFFERED_CURRENCIES
+    : [...OFFERED_CURRENCIES, value];
+
+  return (
+    <Select name={name} value={value} onValueChange={onValueChange}>
+      <SelectTrigger
+        {...aria}
+        ref={ref}
+        aria-label={t('currency')}
+        className={cn(CURRENCY_ADDON_CLASS, 'w-auto gap-1.5 hover:bg-accent')}
+        onBlur={onBlur}
+      >
+        <SelectValue>{value}</SelectValue>
+      </SelectTrigger>
+
+      <SelectContent align="end">
+        {currencies.map((currency) => (
+          <SelectItem key={currency} value={currency}>
+            <span className="font-medium">{currency}</span>
+
+            <span className="ml-2 text-muted-foreground">
+              {currencySymbolOf(currency)}
+
+              {' · '}
+
+              {currencyNameOf(currency)}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 };

@@ -1,28 +1,33 @@
 'use client';
 
-import { type FC } from 'react';
+import { useMemo, type FC } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 
 import { FormField } from '@/components/form-field';
 import { SubmitButton } from '@/components/submit-button';
 import { Input } from '@/components/ui';
 import { useSignIn } from '@/hooks/use-user';
-import { EmailSchema } from '@/lib/account-schema';
+import type { Translator } from '@/i18n/translator';
+import { emailSchemaFor } from '@/lib/account-schema';
 import { presentSubmitError } from '@/lib/submit-error';
 
 import { AuthNotice } from '../../_components/auth-notice';
 
-type SignInFormValues = z.infer<typeof signInSchema>;
+type SignInFormValues = z.infer<ReturnType<typeof signInSchemaFor>>;
 
-const signInSchema = z.object({
-  email: EmailSchema,
-  password: z.string().min(1, 'Password is required')
-});
+const signInSchemaFor = (t: Translator<'validation'>) =>
+  z.object({
+    email: emailSchemaFor(t),
+    password: z.string().min(1, t('password.required'))
+  });
 
-const SIGN_IN_FIELDS = signInSchema.keyof().options;
+const SIGN_IN_FIELDS = ['email', 'password'] as const satisfies ReadonlyArray<
+  keyof SignInFormValues
+>;
 
 const isSignInField = (path: string): path is keyof SignInFormValues =>
   SIGN_IN_FIELDS.some((field) => field === path);
@@ -31,6 +36,13 @@ type SignInFormProps = Record<'destination', string>;
 
 export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
   const { mutateAsync: signIn } = useSignIn(destination);
+  const t = useTranslations('auth');
+  const tValidation = useTranslations('validation');
+  const tErrors = useTranslations('errors');
+  const signInSchema = useMemo(
+    () => signInSchemaFor(tValidation),
+    [tValidation]
+  );
 
   const {
     register,
@@ -54,7 +66,8 @@ export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
     } catch (error) {
       presentSubmitError(error, {
         setError,
-        fieldOf: (path) => (isSignInField(path) ? path : undefined)
+        fieldOf: (path) => (isSignInField(path) ? path : undefined),
+        t: tErrors
       });
     }
   };
@@ -62,7 +75,7 @@ export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
   return (
     <form noValidate onSubmit={handleSubmit(handleSignIn)}>
       <div className="space-y-5">
-        <FormField label="Email" error={errors.email?.message}>
+        <FormField label={t('fields.email')} error={errors.email?.message}>
           {(control) => (
             <Input
               {...control}
@@ -73,7 +86,10 @@ export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
           )}
         </FormField>
 
-        <FormField label="Password" error={errors.password?.message}>
+        <FormField
+          label={t('fields.password')}
+          error={errors.password?.message}
+        >
           {(control) => (
             <Input
               {...control}
@@ -92,7 +108,7 @@ export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
       </div>
 
       <SubmitButton isPending={isSubmitting} size="lg" className="mt-8 w-full">
-        Sign in
+        {t('signIn.submit')}
       </SubmitButton>
     </form>
   );

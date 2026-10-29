@@ -1,5 +1,7 @@
 import type { FC } from 'react';
 
+import { useTranslations } from 'use-intl';
+
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { AddAssetDialog } from '@/components/add-asset-dialog';
 import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
@@ -29,6 +31,7 @@ export const AssetDialogs: FC<AssetDialogsProps> = ({
   onDialogChange,
   onAssetDeleted
 }) => {
+  const t = useTranslations('investments.assets.deletion');
   const closeDialog = () => onDialogChange(null);
 
   const { mutateAsync: createAsset } = useCreateAsset(portfolio, (symbol) =>
@@ -69,10 +72,13 @@ export const AssetDialogs: FC<AssetDialogsProps> = ({
     case 'delete-asset':
       return (
         <ConfirmDeletionDialog
-          title={`Delete ${dialog.symbol}?`}
-          description={`Every transaction of ${dialog.symbol} in ${portfolio.name} is deleted with it, and this cannot be undone.`}
-          confirmLabel="Delete asset"
-          failureMessage="The asset could not be deleted"
+          title={t('title', { symbol: dialog.symbol })}
+          description={t('description', {
+            symbol: dialog.symbol,
+            portfolio: portfolio.name
+          })}
+          confirmLabel={t('confirm')}
+          failureMessage={t('failed')}
           onCancel={closeDialog}
           onConfirm={async () => {
             await deleteAsset({ symbol: dialog.symbol });

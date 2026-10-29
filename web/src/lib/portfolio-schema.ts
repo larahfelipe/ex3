@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import type { Translator } from '@/i18n/translator';
+
 /** Mirrors `CreatePortfolioSchema` in the API. */
 export const PORTFOLIO_NAME_MAX_LENGTH = 60;
 
@@ -13,18 +15,16 @@ const normalizePortfolioName = (name: string) =>
 export const portfolioNameKey = (name: string) =>
   normalizePortfolioName(name).toLowerCase();
 
-export const PORTFOLIO_NAME_TAKEN_MESSAGE =
-  'You already have a portfolio with this name';
-
-export const PortfolioNameSchema = z
-  .string()
-  .transform(normalizePortfolioName)
-  .pipe(
-    z
-      .string()
-      .min(1, 'Name is required')
-      .max(
-        PORTFOLIO_NAME_MAX_LENGTH,
-        `Name must have at most ${PORTFOLIO_NAME_MAX_LENGTH} characters`
-      )
-  );
+export const portfolioNameSchemaFor = (t: Translator<'validation'>) =>
+  z
+    .string()
+    .transform(normalizePortfolioName)
+    .pipe(
+      z
+        .string()
+        .min(1, t('name.required'))
+        .max(
+          PORTFOLIO_NAME_MAX_LENGTH,
+          t('name.tooLong', { max: PORTFOLIO_NAME_MAX_LENGTH })
+        )
+    );

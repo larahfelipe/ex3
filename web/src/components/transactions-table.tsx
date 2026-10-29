@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState, type FC } from 'react';
 
+import { useTranslations } from 'use-intl';
+
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import type { ListedTransaction } from '@/app/api/v1/transactions';
-import {
-  TRANSACTION_TYPE_LABELS,
-  TRANSACTION_TYPE_TONES
-} from '@/common/constants';
-import { formatQuantity } from '@/common/utils';
+import { TRANSACTION_TYPE_TONES } from '@/common/constants';
 import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
 import { Price, Quantity } from '@/components/financial';
 import { TransactionDetailsDialog } from '@/components/transaction-details-dialog';
@@ -26,7 +24,7 @@ import {
   useDeleteTransaction,
   useUpdateTransaction
 } from '@/hooks/use-transactions';
-import { formatExecutionDay } from '@/lib/dates';
+import { useFormat } from '@/i18n/format';
 
 type TransactionsTableProps = Record<'portfolio', Portfolio> &
   Record<'transactions', ReadonlyArray<ListedTransaction>> &
@@ -42,6 +40,8 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   transactions,
   hasAssetColumn
 }) => {
+  const t = useTranslations('transactions');
+  const { formatExecutionDay, formatQuantity } = useFormat();
   const [selection, setSelection] = useState<TransactionSelection | null>(null);
   const [deletedId, setDeletedId] = useState<string | null>(null);
   const firstDetailsRef = useRef<HTMLButtonElement>(null);
@@ -59,27 +59,27 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
 
   return (
     <>
-      <Table label="Transactions table">
-        <TableCaption className="sr-only">
-          Transactions, newest first
-        </TableCaption>
+      <Table label={t('table.label')}>
+        <TableCaption className="sr-only">{t('table.caption')}</TableCaption>
 
         <TableHeader>
           <TableRow>
-            <TableHead>Date</TableHead>
+            <TableHead>{t('fields.date')}</TableHead>
 
-            <TableHead>Type</TableHead>
+            <TableHead>{t('fields.type')}</TableHead>
 
-            {hasAssetColumn && <TableHead>Asset</TableHead>}
-
-            <TableHead className="text-right max-sm:hidden">Quantity</TableHead>
+            {hasAssetColumn && <TableHead>{t('fields.asset')}</TableHead>}
 
             <TableHead className="text-right max-sm:hidden">
-              Unit price
+              {t('fields.quantity')}
+            </TableHead>
+
+            <TableHead className="text-right max-sm:hidden">
+              {t('fields.unitPrice')}
             </TableHead>
 
             <TableHead>
-              <span className="sr-only">Details</span>
+              <span className="sr-only">{t('table.details')}</span>
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -94,7 +94,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
               </TableRowHeader>
 
               <TableCell className={TRANSACTION_TYPE_TONES[transaction.type]}>
-                {TRANSACTION_TYPE_LABELS[transaction.type]}
+                {t(`types.${transaction.type}`)}
               </TableCell>
 
               {hasAssetColumn && (
@@ -125,10 +125,14 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                     setSelection({ transaction, action: 'details' })
                   }
                 >
-                  Details
-                  <span className="sr-only">
-                    {` for ${TRANSACTION_TYPE_LABELS[transaction.type]} ${transaction.symbol} on ${formatExecutionDay(transaction.executedAt)}`}
-                  </span>
+                  {t.rich('table.detailsOf', {
+                    type: t(`types.${transaction.type}`),
+                    symbol: transaction.symbol,
+                    date: formatExecutionDay(transaction.executedAt),
+                    hidden: (chunks) => (
+                      <span className="sr-only">{chunks}</span>
+                    )
+                  })}
                 </Button>
               </TableCell>
             </TableRow>
@@ -163,10 +167,15 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
 
       {selection?.action === 'delete' && (
         <ConfirmDeletionDialog
-          title="Delete this transaction?"
-          description={`${TRANSACTION_TYPE_LABELS[selection.transaction.type]} of ${formatQuantity(selection.transaction.quantity)} ${selection.transaction.symbol} on ${formatExecutionDay(selection.transaction.executedAt)}. The position is recalculated without it, and this cannot be undone.`}
-          confirmLabel="Delete transaction"
-          failureMessage="The transaction could not be deleted"
+          title={t('deletion.title')}
+          description={t('deletion.description', {
+            type: t(`types.${selection.transaction.type}`),
+            quantity: formatQuantity(selection.transaction.quantity),
+            symbol: selection.transaction.symbol,
+            date: formatExecutionDay(selection.transaction.executedAt)
+          })}
+          confirmLabel={t('deletion.confirm')}
+          failureMessage={t('deletion.failed')}
           onCancel={() => setSelection({ ...selection, action: 'details' })}
           onConfirm={async () => {
             await deleteTransaction({ id: selection.transaction.id });

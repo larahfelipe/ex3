@@ -1,4 +1,4 @@
-import { useId, type FC } from 'react';
+import { useId, useMemo, type FC } from 'react';
 import {
   FormProvider,
   useForm,
@@ -7,6 +7,7 @@ import {
 } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 
 import type {
@@ -19,12 +20,10 @@ import type {
 import {
   DEFAULT_CURRENCY,
   FINANCE_LIMITS,
-  RECURRENCE_FREQUENCIES,
-  RECURRENCE_FREQUENCY_LABELS,
-  RECURRENCE_FREQUENCY_UNITS
+  RECURRENCE_FREQUENCIES
 } from '@/common/constants';
-import { currencyFractionDigits, formatMoney } from '@/common/utils';
-import { ChoiceField, FormField } from '@/components/form-field';
+import { currencyFractionDigits } from '@/common/utils';
+import { ChoiceField, FormField, FormSection } from '@/components/form-field';
 import { InfoNote } from '@/components/info-note';
 import { SubmitButton } from '@/components/submit-button';
 import {
@@ -40,7 +39,9 @@ import {
   SegmentedControlItem
 } from '@/components/ui';
 import { useReferenceDay } from '@/hooks/use-finances';
-import { formatCalendarDay } from '@/lib/dates';
+import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
+import { type Format, useFormat } from '@/i18n/format';
+import type { Translator } from '@/i18n/translator';
 import {
   decimalOfUnits,
   decimalPlacesOf,
@@ -51,20 +52,22 @@ import {
 import { presentSubmitError } from '@/lib/submit-error';
 
 import {
-  CurrencyField,
   DayField,
+  DESCRIPTION_FORM_FIELDS,
   DescriptionFields,
-  DescriptionFormFields,
+  descriptionFormFieldsFor,
   EMPTY_DESCRIPTION_FORM,
   fieldOfPath,
   FormRootError,
   MoneyField,
-  optionalPositiveMoneyField,
-  positiveMoneyField,
-  requiredDayField,
+  optionalPositiveMoneyFieldFor,
+  PaymentDetailsFields,
+  positiveMoneyFieldFor,
+  requiredDayFieldFor,
   requireMinorUnitsOf,
   toDescriptionFormValues,
-  useSubmitter
+  useSubmitter,
+  type ValidationTranslator
 } from './finance-form';
 import { occurrenceDayAt } from './recurring-expense-forms';
 
@@ -78,17 +81,19 @@ type ScheduleTerms = Record<'currency' | 'amount' | 'firstDueDate', string> &
   Record<'installmentCount', string> &
   Partial<Record<'principalAmount', string>>;
 
-type PlanDraft = z.output<typeof PlanFormSchema>;
+type PlanDraft = z.output<ReturnType<typeof planFormSchemaFor>>;
 
-type PlanFormInput = z.input<typeof PlanFormSchema>;
+type PlanFormInput = z.input<ReturnType<typeof planFormSchemaFor>>;
 
-type PlanEditDraft = z.output<typeof PlanEditFields>;
+type PlanEditDraft = z.output<ReturnType<typeof planEditFieldsFor>>;
 
-type PlanEditInput = z.input<typeof PlanEditFields>;
+type PlanEditInput = z.input<ReturnType<typeof planEditFieldsFor>>;
 
-type RescheduleDraft = z.output<typeof RescheduleFormFields>;
+type RescheduleDraft = z.output<ReturnType<typeof rescheduleFormFieldsFor>>;
 
-type RescheduleFormInput = z.input<typeof RescheduleFormFields>;
+type RescheduleFormInput = z.input<ReturnType<typeof rescheduleFormFieldsFor>>;
+
+type SummaryTranslator = Translator<'installments.summary'>;
 
 type FormDialogProps<Payload> = Record<'onCancel', VoidFunction> &
   Record<'onSubmit', (payload: Payload) => Promise<unknown>>;
@@ -98,37 +103,30 @@ type PlanDialogProps<Payload> = FormDialogProps<Payload> &
 
 const AMOUNT_MODES = ['total', 'installment'] as const;
 
-const AMOUNT_MODE_LABELS: Record<AmountMode, string> = {
-  total: 'Total',
-  installment: 'Each installment'
-};
-
-const AMOUNT_LABELS: Record<AmountMode, string> = {
-  total: 'Total amount',
-  installment: 'Installment amount'
-};
-
-const AMOUNT_HINTS: Record<AmountMode, string> = {
-  total:
-    'Split evenly; the first installment takes the cents that do not divide',
-  installment: 'Every installment owes this amount'
-};
-
 /** The API schedules a day past the 28th on the last day of a shorter month. */
 const LAST_SHARED_DAY_OF_MONTH = 28;
 
-const installmentCountHint = (frequency: RecurrenceFrequency) =>
-  `1 to ${FINANCE_LIMITS.InstallmentMaxCount}, one a ${RECURRENCE_FREQUENCY_UNITS[frequency]}`;
-
-const installmentCountField = (field: string) =>
+const installmentCountFieldFor = (t: ValidationTranslator) =>
   z.coerce
-    .number<string>(`Enter the number of ${field}`)
-    .int(`Enter a whole number of ${field}`)
-    .min(1, `At least 1 of the ${field}`)
+    .number<string>(t('installments.countRequired'))
+    .int(t('installments.countWhole'))
+    .min(1, t('installments.countMin'))
     .max(
       FINANCE_LIMITS.InstallmentMaxCount,
-      `At most ${FINANCE_LIMITS.InstallmentMaxCount} ${field}`
+      t('installments.countMax', { max: FINANCE_LIMITS.InstallmentMaxCount })
     );
+
+const InstallmentCountHint: FC<Record<'frequency', RecurrenceFrequency>> = ({
+  frequency
+}) => {
+  const t = useTranslations('installments.form');
+  const tFinances = useTranslations('finances');
+
+  return t('countHint', {
+    max: FINANCE_LIMITS.InstallmentMaxCount,
+    period: tFinances(`perPeriod.${frequency}`)
+  });
+};
 
 /** A count the form would accept, or null while it is being typed. */
 const installmentCountOf = (value: string | number) => {
@@ -163,50 +161,73 @@ const splitOf = (total: bigint, count: number): InstallmentSplit | null => {
     : { first: rest + (total - rest * BigInt(count)), rest };
 };
 
-const moneyOfUnits = (units: bigint, currency: string) =>
+const moneyOfUnits = (
+  units: bigint,
+  currency: string,
+  { formatMoney }: Format
+) =>
   formatMoney(
     decimalOfUnits(units, currencyFractionDigits(currency)),
     currency
   );
 
-const tooSmallToSplitMessage = (count: number, currency: string) =>
-  `Too small to give each of the ${count} installments at least ${moneyOfUnits(1n, currency)}`;
+const tooSmallToSplitMessage = (
+  count: number,
+  currency: string,
+  t: ValidationTranslator,
+  format: Format
+) =>
+  t('installments.tooSmallToSplit', {
+    count,
+    amount: moneyOfUnits(1n, currency, format)
+  });
 
-const PlanFormFields = DescriptionFormFields.extend({
-  currency: z.string().min(1, 'Currency is required'),
-  amountMode: z.enum(AMOUNT_MODES),
-  amount: positiveMoneyField('Amount'),
-  installmentCount: installmentCountField('installments'),
-  frequency: z.enum(RECURRENCE_FREQUENCIES),
-  firstDueDate: requiredDayField('First due date'),
-  principalAmount: optionalPositiveMoneyField('Cash price')
-});
+const planFormSchemaFor = (t: ValidationTranslator, format: Format) => {
+  const requirePlanMinorUnits = requireMinorUnitsOf(
+    ['amount', 'principalAmount'],
+    t
+  );
 
-const requirePlanMinorUnits = requireMinorUnitsOf([
-  'amount',
-  'principalAmount'
-]);
+  return descriptionFormFieldsFor(t)
+    .extend({
+      currency: z.string().min(1, t('currency.required')),
+      amountMode: z.enum(AMOUNT_MODES),
+      amount: positiveMoneyFieldFor(t),
+      installmentCount: installmentCountFieldFor(t),
+      frequency: z.enum(RECURRENCE_FREQUENCIES),
+      firstDueDate: requiredDayFieldFor(t),
+      principalAmount: optionalPositiveMoneyFieldFor(t)
+    })
+    .superRefine((plan, ctx) => {
+      requirePlanMinorUnits(plan, ctx);
 
-const PlanFormSchema = PlanFormFields.superRefine((plan, ctx) => {
-  requirePlanMinorUnits(plan, ctx);
+      const total = minorUnitsOf(plan.amount, plan.currency);
+      const count = installmentCountOf(plan.installmentCount);
 
-  const total = minorUnitsOf(plan.amount, plan.currency);
-  const count = installmentCountOf(plan.installmentCount);
-
-  if (
-    plan.amountMode === 'total' &&
-    total !== null &&
-    count !== null &&
-    splitOf(total, count) === null
-  )
-    ctx.addIssue({
-      code: 'custom',
-      path: ['amount'],
-      message: tooSmallToSplitMessage(count, plan.currency)
+      if (
+        plan.amountMode === 'total' &&
+        total !== null &&
+        count !== null &&
+        splitOf(total, count) === null
+      )
+        ctx.addIssue({
+          code: 'custom',
+          path: ['amount'],
+          message: tooSmallToSplitMessage(count, plan.currency, t, format)
+        });
     });
-});
+};
 
-const PLAN_FORM_FIELDS = PlanFormFields.keyof().options;
+const PLAN_FORM_FIELDS = [
+  ...DESCRIPTION_FORM_FIELDS,
+  'currency',
+  'amountMode',
+  'amount',
+  'installmentCount',
+  'frequency',
+  'firstDueDate',
+  'principalAmount'
+] as const satisfies ReadonlyArray<keyof PlanFormInput>;
 
 /** The API names the amount after its mode; the form has one field for both. */
 const planFieldOf = (path: string) =>
@@ -223,21 +244,39 @@ const planPayloadOf = ({
     ? { ...plan, totalAmount: amount }
     : { ...plan, installmentAmount: amount };
 
-const PlanEditFields = DescriptionFormFields.extend({
-  principalAmount: optionalPositiveMoneyField('Cash price')
-});
+const planEditFieldsFor = (t: ValidationTranslator) =>
+  descriptionFormFieldsFor(t).extend({
+    principalAmount: optionalPositiveMoneyFieldFor(t)
+  });
 
-const planEditFieldOf = fieldOfPath(PlanEditFields.keyof().options);
+const planEditSchemaFor = (t: ValidationTranslator, currency: string) => {
+  const requirePrincipalMinorUnits = requireMinorUnitsOf(
+    ['principalAmount'],
+    t
+  );
 
-const RescheduleFormFields = z.object({
-  remainingAmount: positiveMoneyField('Amount left'),
-  remainingCount: installmentCountField('installments'),
-  nextDueDate: requiredDayField('Next due date')
-});
+  return planEditFieldsFor(t).superRefine((draft, ctx) =>
+    requirePrincipalMinorUnits({ ...draft, currency }, ctx)
+  );
+};
 
-const rescheduleFieldOf = fieldOfPath(RescheduleFormFields.keyof().options);
+const planEditFieldOf = fieldOfPath([
+  ...DESCRIPTION_FORM_FIELDS,
+  'principalAmount'
+] as const satisfies ReadonlyArray<keyof PlanEditInput>);
 
-const requireRescheduleMinorUnits = requireMinorUnitsOf(['remainingAmount']);
+const rescheduleFormFieldsFor = (t: ValidationTranslator) =>
+  z.object({
+    remainingAmount: positiveMoneyFieldFor(t),
+    remainingCount: installmentCountFieldFor(t),
+    nextDueDate: requiredDayFieldFor(t)
+  });
+
+const rescheduleFieldOf = fieldOfPath([
+  'remainingAmount',
+  'remainingCount',
+  'nextDueDate'
+] as const satisfies ReadonlyArray<keyof RescheduleFormInput>);
 
 /** The last installment a reschedule keeps, and the owed ones it replaces. */
 const rescheduleSplitOf = ({
@@ -260,10 +299,28 @@ const rescheduleSplitOf = ({
   };
 };
 
-const rescheduleSchemaFor = (plan: InstallmentPlanDetail) => {
+/** The number of the last installment a reschedule keeps, or null when it keeps none. */
+const lastKeptNumberOf = (plan: InstallmentPlanDetail) => {
   const { lastKept } = rescheduleSplitOf(plan);
 
-  return RescheduleFormFields.superRefine((terms, ctx) => {
+  return lastKept === null
+    ? null
+    : (lastKept.installmentNumber ?? plan.keptThroughInstallment ?? 0);
+};
+
+const rescheduleSchemaFor = (
+  plan: InstallmentPlanDetail,
+  t: ValidationTranslator,
+  format: Format
+) => {
+  const { lastKept } = rescheduleSplitOf(plan);
+  const lastKeptNumber = lastKeptNumberOf(plan);
+  const requireRescheduleMinorUnits = requireMinorUnitsOf(
+    ['remainingAmount'],
+    t
+  );
+
+  return rescheduleFormFieldsFor(t).superRefine((terms, ctx) => {
     requireRescheduleMinorUnits({ ...terms, currency: plan.currency }, ctx);
 
     const total = minorUnitsOf(terms.remainingAmount, plan.currency);
@@ -273,18 +330,22 @@ const rescheduleSchemaFor = (plan: InstallmentPlanDetail) => {
       ctx.addIssue({
         code: 'custom',
         path: ['remainingAmount'],
-        message: tooSmallToSplitMessage(count, plan.currency)
+        message: tooSmallToSplitMessage(count, plan.currency, t, format)
       });
 
     if (
       lastKept !== null &&
+      lastKeptNumber !== null &&
       terms.nextDueDate !== '' &&
       terms.nextDueDate < lastKept.dueDate
     )
       ctx.addIssue({
         code: 'custom',
         path: ['nextDueDate'],
-        message: `On or after ${formatCalendarDay(lastKept.dueDate) ?? lastKept.dueDate}, when installment ${lastKept.installmentNumber} is due`
+        message: t('installments.afterKept', {
+          day: format.formatCalendarDay(lastKept.dueDate) ?? lastKept.dueDate,
+          number: lastKeptNumber
+        })
       });
   });
 };
@@ -311,8 +372,8 @@ const rescheduleDefaultsOf = (
   };
 };
 
-/** How the API moves a day the later months or years lack, in words. */
-const shorterPeriodTextOf = (
+/** How the API moves a day the later months or years lack. */
+const shorterPeriodNoteOf = (
   frequency: RecurrenceFrequency,
   firstDueDate: string
 ) => {
@@ -320,17 +381,19 @@ const shorterPeriodTextOf = (
     frequency === 'MONTHLY' &&
     Number(firstDueDate.slice(-2)) > LAST_SHARED_DAY_OF_MONTH
   )
-    return ', on the last day of shorter months';
+    return 'lastDayOfMonth' as const;
   if (frequency === 'YEARLY' && firstDueDate.endsWith('-02-29'))
-    return ', on 28 February outside leap years';
+    return 'february28' as const;
 
-  return '';
+  return null;
 };
 
-const dueSpanText = (
+const dueSpanOf = (
   firstDueDate: string,
   count: number,
-  frequency: RecurrenceFrequency
+  frequency: RecurrenceFrequency,
+  t: SummaryTranslator,
+  { formatCalendarDay }: Format
 ) => {
   const first = formatCalendarDay(firstDueDate);
   const lastDueDate = occurrenceDayAt(frequency, firstDueDate, count - 1);
@@ -339,34 +402,77 @@ const dueSpanText = (
   if (first === null || last === null) return null;
 
   return count === 1
-    ? `Due on ${first}`
-    : `Due ${RECURRENCE_FREQUENCY_LABELS[frequency].toLowerCase()} from ${first} to ${last}${shorterPeriodTextOf(frequency, firstDueDate)}`;
+    ? { label: t('dueOn'), value: first }
+    : { label: t('dueSpan'), value: t('dueSpanValue', { first, last }) };
 };
 
-const cashPriceText = (total: bigint, principal: bigint, currency: string) => {
-  if (total === principal) return 'The same as the cash price';
+/** The cash price difference's share of the cash price, as a fraction of one. */
+const PERCENT_SCALE = 6;
 
-  return total > principal
-    ? `${moneyOfUnits(total - principal, currency)} more than the cash price`
-    : `${moneyOfUnits(principal - total, currency)} less than the cash price`;
+/** How much more or less than the cash price the installments total, or null when they are the same. */
+const cashPriceDifferenceOf = (
+  total: bigint,
+  principal: bigint,
+  currency: string,
+  t: SummaryTranslator,
+  format: Format
+) => {
+  if (total === principal) return null;
+
+  const difference = total > principal ? total - principal : principal - total;
+  const share = decimalOfUnits(
+    (difference * 10n ** BigInt(PERCENT_SCALE)) / principal,
+    PERCENT_SCALE
+  );
+
+  return t('difference', {
+    amount: moneyOfUnits(difference, currency, format),
+    direction: total > principal ? 'more' : 'less',
+    percent: format.formatPercent(share)
+  });
 };
 
-/** What the API will schedule from the terms as typed, line by line. */
-const scheduleLinesOf = ({
-  currency,
-  amountMode,
-  amount,
-  installmentCount,
-  frequency,
-  firstDueDate,
-  principalAmount
-}: ScheduleTerms) => {
+/** The cash price of a plan whose total is known, measured against that total once it is typed. */
+const CashPriceHint: FC<
+  Record<'total', bigint | null> &
+    Record<'principalAmount' | 'currency', string>
+> = ({ total, principalAmount, currency }) => {
+  const t = useTranslations('installments.form');
+  const tSummary = useTranslations('installments.summary');
+  const format = useFormat();
+  const principal = isNonzeroDecimal(principalAmount)
+    ? minorUnitsOf(principalAmount, currency)
+    : null;
+
+  if (total === null || principal === null) return t('cashPriceHint');
+
+  return t('cashPriceCompared', {
+    total: moneyOfUnits(total, currency, format),
+    difference:
+      cashPriceDifferenceOf(total, principal, currency, tSummary, format) ??
+      t('cashPriceSame')
+  });
+};
+
+/** What the API will schedule from the terms as typed, or null while they are incomplete. */
+const scheduleOf = (
+  {
+    currency,
+    amountMode,
+    amount,
+    installmentCount,
+    frequency,
+    firstDueDate,
+    principalAmount
+  }: ScheduleTerms,
+  t: SummaryTranslator,
+  format: Format
+) => {
   const count = installmentCountOf(installmentCount);
   const units = minorUnitsOf(amount, currency);
 
   if (count === null || units === null || units === 0n) return null;
 
-  const total = amountMode === 'total' ? units : units * BigInt(count);
   const split =
     amountMode === 'total'
       ? splitOf(units, count)
@@ -379,48 +485,111 @@ const scheduleLinesOf = ({
       ? null
       : minorUnitsOf(principalAmount, currency);
 
-  const shares =
-    count === 1
-      ? `1 installment of ${moneyOfUnits(split.first, currency)}`
-      : split.first === split.rest
-        ? `${count} installments of ${moneyOfUnits(split.rest, currency)}`
-        : `${count} installments: the first of ${moneyOfUnits(split.first, currency)}, then ${count - 1} of ${moneyOfUnits(split.rest, currency)}`;
-
-  return [
-    `${shares}, ${moneyOfUnits(total, currency)} in all`,
-    dueSpanText(firstDueDate, count, frequency),
-    principal === null ? null : cashPriceText(total, principal, currency)
-  ].filter((line) => line !== null);
+  return {
+    count,
+    split,
+    total: amountMode === 'total' ? units : units * BigInt(count),
+    principal,
+    dueSpan: dueSpanOf(firstDueDate, count, frequency, t, format),
+    note: shorterPeriodNoteOf(frequency, firstDueDate)
+  };
 };
 
-const SchedulePreview: FC<Record<'terms', ScheduleTerms>> = ({ terms }) => {
-  const lines = scheduleLinesOf(terms);
+const SummaryFigure: FC<Record<'label' | 'value', string>> = ({
+  label,
+  value
+}) => (
+  <div className="min-w-0 space-y-0.5">
+    <dt className="text-xs text-muted-foreground">{label}</dt>
+
+    <dd className="font-medium tabular-nums">{value}</dd>
+  </div>
+);
+
+/** The installments, the total and the dates the terms as typed schedule, kept in step with the fields. */
+const ScheduleSummary: FC<Record<'terms', ScheduleTerms>> = ({ terms }) => {
+  const t = useTranslations('installments.summary');
+  const tFinances = useTranslations('finances');
+  const format = useFormat();
+  const schedule = scheduleOf(terms, t, format);
+  const { currency, frequency } = terms;
 
   return (
-    <div
+    <section
+      aria-label={t('label')}
       aria-live="polite"
-      className="space-y-1 rounded-md border bg-muted/40 px-3 py-2.5 text-sm"
+      className="rounded-lg border bg-muted/40 p-4 text-sm"
     >
-      {lines === null ? (
-        <p className="text-muted-foreground">
-          The schedule appears here once the amount and the number of
-          installments are filled in.
-        </p>
+      {schedule === null ? (
+        <p className="text-muted-foreground">{t('empty')}</p>
       ) : (
-        lines.map((line, index) => (
-          <p
-            key={line}
-            className={index === 0 ? 'font-medium' : 'text-muted-foreground'}
-          >
-            {line}
-          </p>
-        ))
+        <div className="space-y-3">
+          <div className="space-y-0.5">
+            <p className="text-lg font-semibold tabular-nums">
+              {schedule.count > 1
+                ? t.rich('installmentsPerPeriod', {
+                    count: schedule.count,
+                    amount: moneyOfUnits(schedule.split.rest, currency, format),
+                    period: tFinances(`perPeriod.${frequency}`),
+                    muted: (chunks) => (
+                      <span className="text-sm font-normal text-muted-foreground">
+                        {chunks}
+                      </span>
+                    )
+                  })
+                : t('installments', {
+                    count: schedule.count,
+                    amount: moneyOfUnits(schedule.split.rest, currency, format)
+                  })}
+            </p>
+
+            {schedule.split.first !== schedule.split.rest && (
+              <p className="text-muted-foreground tabular-nums">
+                {t('firstDiffers', {
+                  amount: moneyOfUnits(schedule.split.first, currency, format)
+                })}
+              </p>
+            )}
+          </div>
+
+          <dl className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-x-4 gap-y-3">
+            <SummaryFigure
+              label={t('total')}
+              value={moneyOfUnits(schedule.total, currency, format)}
+            />
+
+            {schedule.dueSpan !== null && (
+              <SummaryFigure {...schedule.dueSpan} />
+            )}
+
+            {schedule.principal !== null && (
+              <SummaryFigure
+                label={t('comparedWithCashPrice')}
+                value={
+                  cashPriceDifferenceOf(
+                    schedule.total,
+                    schedule.principal,
+                    currency,
+                    t,
+                    format
+                  ) ?? t('noDifference')
+                }
+              />
+            )}
+          </dl>
+
+          {schedule.note !== null && (
+            <p className="text-xs text-muted-foreground">
+              {t(`notes.${schedule.note}`)}
+            </p>
+          )}
+        </div>
       )}
-    </div>
+    </section>
   );
 };
 
-const PlanSchedulePreview: FC = () => {
+const PlanScheduleSummary: FC = () => {
   const { control } = useFormContext<PlanFormInput>();
   const [
     currency,
@@ -444,7 +613,7 @@ const PlanSchedulePreview: FC = () => {
   });
 
   return (
-    <SchedulePreview
+    <ScheduleSummary
       terms={{
         currency,
         amountMode,
@@ -461,12 +630,22 @@ const PlanSchedulePreview: FC = () => {
 export const CreatePlanDialog: FC<
   FormDialogProps<CreateInstallmentPlanRequestPayload>
 > = ({ onCancel, onSubmit }) => {
+  const t = useTranslations('installments.form');
+  const tFinances = useTranslations('finances');
+  const tValidation = useTranslations('validation');
+  const tErrors = useTranslations('errors');
+  const tActions = useTranslations('common.actions');
   const formId = useId();
   const today = useReferenceDay();
+  const format = useFormat();
+  const schema = useMemo(
+    () => planFormSchemaFor(tValidation, format),
+    [tValidation, format]
+  );
 
   const methods = useForm<PlanFormInput, unknown, PlanDraft>({
     mode: 'onChange',
-    resolver: zodResolver(PlanFormSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       ...EMPTY_DESCRIPTION_FORM,
       currency: DEFAULT_CURRENCY,
@@ -478,6 +657,8 @@ export const CreatePlanDialog: FC<
       principalAmount: ''
     }
   });
+
+  useRevalidateOnLocaleChange(methods.formState.errors, methods.trigger);
 
   const {
     control,
@@ -502,7 +683,8 @@ export const CreatePlanDialog: FC<
     presentSubmitError(error, {
       setError,
       fieldOf: planFieldOf,
-      fallbackMessage: 'The plan could not be saved'
+      t: tErrors,
+      fallbackMessage: t('failed')
     })
   );
 
@@ -513,105 +695,108 @@ export const CreatePlanDialog: FC<
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Add an installment plan</DialogTitle>
+          <DialogTitle>{t('addTitle')}</DialogTitle>
 
-          <DialogDescription>
-            Each installment becomes a bill, owed until you record its payment.
-          </DialogDescription>
+          <DialogDescription>{t('addDescription')}</DialogDescription>
         </DialogHeader>
 
         <FormProvider {...methods}>
           <form
             id={formId}
             noValidate
-            className="grid gap-4"
+            className="grid gap-6"
             onSubmit={handleSubmit(submit)}
           >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <ChoiceField
-                legend="Amount entered"
-                error={errors.amountMode?.message}
-                className="sm:col-span-2"
-              >
-                <SegmentedControl className="grid grid-cols-2 sm:flex sm:w-fit">
-                  {AMOUNT_MODES.map((mode) => (
-                    <SegmentedControlItem
-                      key={mode}
-                      value={mode}
-                      {...register('amountMode', {
+            <FormSection
+              title={t('scheduleSection')}
+              action={
+                <fieldset>
+                  <legend className="sr-only">{t('amountMode')}</legend>
+
+                  <SegmentedControl>
+                    {AMOUNT_MODES.map((mode) => (
+                      <SegmentedControlItem
+                        key={mode}
+                        value={mode}
+                        {...register('amountMode', {
+                          onChange: revalidateAmount
+                        })}
+                      >
+                        {t(`amountModes.${mode}`)}
+                      </SegmentedControlItem>
+                    ))}
+                  </SegmentedControl>
+                </fieldset>
+              }
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <MoneyField
+                  name="amount"
+                  currencyName="currency"
+                  label={t(`amounts.${amountMode}`)}
+                  currency={currency}
+                  hint={t(`amountHints.${amountMode}`)}
+                />
+
+                <MoneyField
+                  isOptional
+                  name="principalAmount"
+                  label={t('cashPrice')}
+                  currency={currency}
+                  hint={t('cashPriceHint')}
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-[8rem_auto_minmax(0,1fr)]">
+                <FormField
+                  label={t('count')}
+                  hint={<InstallmentCountHint frequency={frequency} />}
+                  error={errors.installmentCount?.message}
+                >
+                  {(fieldControl) => (
+                    <Input
+                      {...fieldControl}
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={FINANCE_LIMITS.InstallmentMaxCount}
+                      step={1}
+                      className="tabular-nums"
+                      {...register('installmentCount', {
                         onChange: revalidateAmount
                       })}
-                    >
-                      {AMOUNT_MODE_LABELS[mode]}
-                    </SegmentedControlItem>
-                  ))}
-                </SegmentedControl>
-              </ChoiceField>
+                    />
+                  )}
+                </FormField>
 
-              <MoneyField
-                name="amount"
-                label={AMOUNT_LABELS[amountMode]}
-                currency={currency}
-                hint={AMOUNT_HINTS[amountMode]}
-              />
+                <ChoiceField
+                  legend={t('frequency')}
+                  error={errors.frequency?.message}
+                >
+                  <SegmentedControl className="grid h-10 grid-cols-3 sm:flex">
+                    {RECURRENCE_FREQUENCIES.map((option) => (
+                      <SegmentedControlItem
+                        key={option}
+                        value={option}
+                        {...register('frequency')}
+                      >
+                        {tFinances(`frequencies.${option}`)}
+                      </SegmentedControlItem>
+                    ))}
+                  </SegmentedControl>
+                </ChoiceField>
 
-              <CurrencyField name="currency" />
+                <DayField name="firstDueDate" label={t('firstDueDate')} />
+              </div>
 
-              <ChoiceField
-                legend="Installments due"
-                error={errors.frequency?.message}
-                className="sm:col-span-2"
-              >
-                <SegmentedControl className="grid grid-cols-3 sm:flex sm:w-fit">
-                  {RECURRENCE_FREQUENCIES.map((option) => (
-                    <SegmentedControlItem
-                      key={option}
-                      value={option}
-                      {...register('frequency')}
-                    >
-                      {RECURRENCE_FREQUENCY_LABELS[option]}
-                    </SegmentedControlItem>
-                  ))}
-                </SegmentedControl>
-              </ChoiceField>
-
-              <FormField
-                label="Installments"
-                hint={installmentCountHint(frequency)}
-                error={errors.installmentCount?.message}
-              >
-                {(fieldControl) => (
-                  <Input
-                    {...fieldControl}
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={FINANCE_LIMITS.InstallmentMaxCount}
-                    step={1}
-                    {...register('installmentCount', {
-                      onChange: revalidateAmount
-                    })}
-                  />
-                )}
-              </FormField>
-
-              <DayField name="firstDueDate" label="First due date" />
-
-              <MoneyField
-                isOptional
-                name="principalAmount"
-                label="Cash price"
-                currency={currency}
-                hint="What paying at once would cost, to show what the installments add"
-                className="sm:col-span-2"
-              />
-            </div>
-
-            <PlanSchedulePreview />
+              <PlanScheduleSummary />
+            </FormSection>
 
             <DescriptionFields />
+
+            <PaymentDetailsFields />
 
             <FormRootError />
           </form>
@@ -619,11 +804,11 @@ export const CreatePlanDialog: FC<
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
-            Cancel
+            {tActions('cancel')}
           </Button>
 
           <SubmitButton form={formId} isPending={isSubmitting}>
-            Add plan
+            {t('submitAdd')}
           </SubmitButton>
         </DialogFooter>
       </DialogContent>
@@ -631,26 +816,53 @@ export const CreatePlanDialog: FC<
   );
 };
 
+const PlanCashPriceField: FC<Record<'plan', InstallmentPlanDetail>> = ({
+  plan
+}) => {
+  const t = useTranslations('installments.form');
+  const { control } = useFormContext<PlanEditInput>();
+  const principalAmount = useWatch({ control, name: 'principalAmount' });
+
+  return (
+    <MoneyField
+      isOptional
+      name="principalAmount"
+      label={t('cashPrice')}
+      currency={plan.currency}
+      hint={
+        <CashPriceHint
+          total={minorUnitsOf(plan.totalAmount, plan.currency)}
+          principalAmount={principalAmount}
+          currency={plan.currency}
+        />
+      }
+    />
+  );
+};
+
 export const EditPlanDialog: FC<
   PlanDialogProps<UpdateInstallmentPlanRequestPayload>
 > = ({ plan, onCancel, onSubmit }) => {
+  const t = useTranslations('installments.form');
+  const tValidation = useTranslations('validation');
+  const tErrors = useTranslations('errors');
+  const tActions = useTranslations('common.actions');
   const formId = useId();
+  const schema = useMemo(
+    () => planEditSchemaFor(tValidation, plan.currency),
+    [tValidation, plan.currency]
+  );
 
   const methods = useForm<PlanEditInput, unknown, PlanEditDraft>({
     mode: 'onChange',
-    resolver: zodResolver(
-      PlanEditFields.superRefine((draft, ctx) =>
-        requireMinorUnitsOf(['principalAmount'])(
-          { ...draft, currency: plan.currency },
-          ctx
-        )
-      )
-    ),
+    resolver: zodResolver(schema),
     defaultValues: {
       ...toDescriptionFormValues(plan),
       principalAmount: plan.principalAmount ?? ''
     }
   });
+
+  useRevalidateOnLocaleChange(methods.formState.errors, methods.trigger);
 
   const {
     handleSubmit,
@@ -665,7 +877,8 @@ export const EditPlanDialog: FC<
       presentSubmitError(error, {
         setError,
         fieldOf: planEditFieldOf,
-        fallbackMessage: 'The plan could not be saved'
+        t: tErrors,
+        fallbackMessage: t('failed')
       })
   );
 
@@ -678,10 +891,10 @@ export const EditPlanDialog: FC<
     >
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Edit plan</DialogTitle>
+          <DialogTitle>{t('editTitle')}</DialogTitle>
 
           <DialogDescription>
-            {`Amounts in ${plan.currency}. To change what is still owed, reschedule the plan instead.`}
+            {t('editDescription', { currency: plan.currency })}
           </DialogDescription>
         </DialogHeader>
 
@@ -689,23 +902,16 @@ export const EditPlanDialog: FC<
           <form
             id={formId}
             noValidate
-            className="grid gap-4"
+            className="grid gap-6"
             onSubmit={handleSubmit(submit)}
           >
-            <InfoNote>
-              The description reaches the installments still owed, except those
-              you edited on their own. Paid installments keep theirs.
-            </InfoNote>
+            <InfoNote>{t('editNote')}</InfoNote>
 
-            <MoneyField
-              isOptional
-              name="principalAmount"
-              label="Cash price"
-              currency={plan.currency}
-              hint="What paying at once would cost, to show what the installments add"
-            />
+            <PlanCashPriceField plan={plan} />
 
             <DescriptionFields />
+
+            <PaymentDetailsFields />
 
             <FormRootError />
           </form>
@@ -713,11 +919,11 @@ export const EditPlanDialog: FC<
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
-            Cancel
+            {tActions('cancel')}
           </Button>
 
           <SubmitButton form={formId} isPending={isSubmitting}>
-            Save changes
+            {tActions('saveChanges')}
           </SubmitButton>
         </DialogFooter>
       </DialogContent>
@@ -725,7 +931,7 @@ export const EditPlanDialog: FC<
   );
 };
 
-const RescheduleSchedulePreview: FC<
+const RescheduleScheduleSummary: FC<
   Record<'currency', string> & Record<'frequency', RecurrenceFrequency>
 > = ({ currency, frequency }) => {
   const { control } = useFormContext<RescheduleFormInput>();
@@ -735,7 +941,7 @@ const RescheduleSchedulePreview: FC<
   });
 
   return (
-    <SchedulePreview
+    <ScheduleSummary
       terms={{
         currency,
         amountMode: 'total',
@@ -748,40 +954,48 @@ const RescheduleSchedulePreview: FC<
   );
 };
 
-const owedText = (count: number) =>
-  count === 1
-    ? 'the 1 installment still owed is'
-    : `the ${count} still owed are`;
+const keptTextOf = (
+  plan: InstallmentPlanDetail,
+  t: Translator<'installments.reschedule'>
+) => {
+  const { replaced } = rescheduleSplitOf(plan);
+  const lastKeptNumber = lastKeptNumberOf(plan);
+  const replacedText = t('replaced', { count: replaced.length });
 
-const keptTextOf = (plan: InstallmentPlanDetail) => {
-  const { lastKept, replaced } = rescheduleSplitOf(plan);
-
-  if (lastKept === null)
+  if (lastKeptNumber === null)
     return replaced.length === 0
-      ? 'No installment is owed: the new ones are all the plan will owe.'
-      : `No installment has a payment yet, so ${owedText(replaced.length)} replaced.`;
+      ? t('noneOwed')
+      : t('noPayments', { replaced: replacedText });
 
-  const kept =
-    lastKept.installmentNumber === 1
-      ? 'Installment 1 has a payment and stays as it is'
-      : `Installments 1 to ${lastKept.installmentNumber} stay as they are, up to the last one with a payment`;
+  const kept = t('kept', { number: lastKeptNumber });
 
   return replaced.length === 0
-    ? `${kept}; the new installments are added after it.`
-    : `${kept}. After it, ${owedText(replaced.length)} replaced.`;
+    ? t('keptThenAdded', { kept })
+    : t('keptThenReplaced', { kept, replaced: replacedText });
 };
 
 export const ReschedulePlanDialog: FC<
   PlanDialogProps<RescheduleInstallmentPlanRequestPayload>
 > = ({ plan, onCancel, onSubmit }) => {
+  const t = useTranslations('installments.reschedule');
+  const tValidation = useTranslations('validation');
+  const tErrors = useTranslations('errors');
+  const tActions = useTranslations('common.actions');
   const formId = useId();
   const today = useReferenceDay();
+  const format = useFormat();
+  const schema = useMemo(
+    () => rescheduleSchemaFor(plan, tValidation, format),
+    [plan, tValidation, format]
+  );
 
   const methods = useForm<RescheduleFormInput, unknown, RescheduleDraft>({
     mode: 'onChange',
-    resolver: zodResolver(rescheduleSchemaFor(plan)),
+    resolver: zodResolver(schema),
     defaultValues: rescheduleDefaultsOf(plan, today)
   });
+
+  useRevalidateOnLocaleChange(methods.formState.errors, methods.trigger);
 
   const {
     register,
@@ -803,7 +1017,8 @@ export const ReschedulePlanDialog: FC<
       presentSubmitError(error, {
         setError,
         fieldOf: rescheduleFieldOf,
-        fallbackMessage: 'The plan could not be rescheduled'
+        t: tErrors,
+        fallbackMessage: t('failed')
       })
   );
 
@@ -816,10 +1031,12 @@ export const ReschedulePlanDialog: FC<
     >
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle className="wrap-anywhere">{`Reschedule ${plan.description}`}</DialogTitle>
+          <DialogTitle className="wrap-anywhere">
+            {t('title', { description: plan.description })}
+          </DialogTitle>
 
           <DialogDescription>
-            {`Replaces what is left to pay with new ${RECURRENCE_FREQUENCY_LABELS[plan.frequency].toLowerCase()} installments. Paid installments, and their history, are kept.`}
+            {t('description', { frequency: plan.frequency })}
           </DialogDescription>
         </DialogHeader>
 
@@ -830,20 +1047,20 @@ export const ReschedulePlanDialog: FC<
             className="grid gap-4"
             onSubmit={handleSubmit(submit)}
           >
-            <InfoNote>{keptTextOf(plan)}</InfoNote>
+            <InfoNote>{keptTextOf(plan, t)}</InfoNote>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <MoneyField
                 name="remainingAmount"
-                label="Amount left"
+                label={t('amount')}
                 currency={plan.currency}
-                hint="Split evenly; the first new installment takes the cents that do not divide"
+                hint={t('amountHint')}
                 className="sm:col-span-2"
               />
 
               <FormField
-                label="Installments"
-                hint={installmentCountHint(plan.frequency)}
+                label={t('count')}
+                hint={<InstallmentCountHint frequency={plan.frequency} />}
                 error={errors.remainingCount?.message}
               >
                 {(fieldControl) => (
@@ -854,6 +1071,7 @@ export const ReschedulePlanDialog: FC<
                     min={1}
                     max={FINANCE_LIMITS.InstallmentMaxCount}
                     step={1}
+                    className="tabular-nums"
                     {...register('remainingCount', {
                       onChange: revalidateAmount
                     })}
@@ -861,10 +1079,10 @@ export const ReschedulePlanDialog: FC<
                 )}
               </FormField>
 
-              <DayField name="nextDueDate" label="Next due date" />
+              <DayField name="nextDueDate" label={t('nextDueDate')} />
             </div>
 
-            <RescheduleSchedulePreview
+            <RescheduleScheduleSummary
               currency={plan.currency}
               frequency={plan.frequency}
             />
@@ -875,11 +1093,11 @@ export const ReschedulePlanDialog: FC<
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
-            Cancel
+            {tActions('cancel')}
           </Button>
 
           <SubmitButton form={formId} isPending={isSubmitting}>
-            Reschedule
+            {t('submit')}
           </SubmitButton>
         </DialogFooter>
       </DialogContent>

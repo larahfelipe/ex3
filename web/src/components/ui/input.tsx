@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { Eye, EyeClosed } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import { cn } from '@/lib/utils';
 
@@ -17,6 +18,7 @@ const Input = ({
   ...props
 }: InputProps) => {
   const [showPassword, setShowPassword] = React.useState(false);
+  const t = useTranslations('common.form');
 
   const isPasswordType = type === 'password';
   const passwordState = showPassword ? 'text' : 'password';
@@ -48,7 +50,7 @@ const Input = ({
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={showPassword ? 'Hide password' : 'Show password'}
+          aria-label={showPassword ? t('hidePassword') : t('showPassword')}
           className="absolute right-1 size-8 text-muted-foreground"
           disabled={disabled}
           onClick={togglePasswordVisibility}

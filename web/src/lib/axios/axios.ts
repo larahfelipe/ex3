@@ -16,6 +16,17 @@ const baseAxiosConfig: CreateAxiosDefaults = {
   timeout: 20_000
 };
 
+const THROTTLED_STATUS = 429;
+
+/** The API's message says only "later"; its `Retry-After`, in seconds, says when. */
+const retryAfterSecondsOf = (retryAfter: unknown) => {
+  if (typeof retryAfter !== 'string') return null;
+
+  const seconds = Number(retryAfter);
+
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
+};
+
 const proxyApi = axios.create({
   ...baseAxiosConfig,
   baseURL: '/api'
@@ -71,14 +82,17 @@ proxyApi.interceptors.response.use(
       await pendingSessionExpiry;
     }
     const data = err.response?.data ?? { message: UNEXPECTED_ERROR_MESSAGE };
+    const error = new ApiProxyError(data.message, {
+      ...data,
+      status: err.response?.status,
+      statusText: err.response?.statusText
+    });
 
-    return Promise.reject(
-      new ApiProxyError(data.message, {
-        ...data,
-        status: err.response?.status,
-        statusText: err.response?.statusText
-      })
-    );
+    // A request that got no answer keeps why, so the interface can tell a
+    // timeout or a lost connection from a failure of the server.
+    if (err.response === undefined) error.code = err.code;
+
+    return Promise.reject(error);
   }
 );
 
@@ -101,22 +115,6 @@ const logUpstreamFailure = (err: unknown, error: ApiProxyError) => {
   );
 };
 
-const THROTTLED_STATUS = 429;
-const SECONDS_PER_MINUTE = 60;
-
-/** The API's message says only "later"; its `Retry-After`, in seconds, says when. */
-const throttledMessageFor = (retryAfter: unknown) => {
-  if (typeof retryAfter !== 'string') return null;
-
-  const seconds = Number(retryAfter);
-
-  if (!Number.isFinite(seconds) || seconds <= 0) return null;
-
-  const minutes = Math.ceil(seconds / SECONDS_PER_MINUTE);
-
-  return `Too many requests. Try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`;
-};
-
 serverApi.interceptors.response.use(
   (res) => res,
   (err) => {
@@ -128,8 +126,7 @@ serverApi.interceptors.response.use(
       if (statusText) error.statusText = statusText;
       if (status) error.status = status;
       if (status === THROTTLED_STATUS)
-        error.message =
-          throttledMessageFor(headers?.['retry-after']) ?? error.message;
+        error.retryAfterSeconds = retryAfterSecondsOf(headers?.['retry-after']);
     }
     logUpstreamFailure(err, error);
     return Promise.reject(error);

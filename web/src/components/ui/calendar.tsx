@@ -8,6 +8,7 @@ import {
   type ChevronProps,
   type DropdownProps
 } from 'react-day-picker';
+import { enUS, ptBR } from 'react-day-picker/locale';
 
 import {
   ChevronDown,
@@ -15,12 +16,11 @@ import {
   ChevronRight,
   ChevronUp
 } from 'lucide-react';
+import { useLocale } from 'use-intl';
 
-import {
-  formatShortMonth,
-  startOfMonthInYear,
-  startOfMonthNumbered
-} from '@/lib/dates';
+import type { Locale } from '@/i18n/config';
+import { useFormat } from '@/i18n/format';
+import { startOfMonthInYear, startOfMonthNumbered } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
 import { buttonVariants } from './button';
@@ -39,6 +39,12 @@ type CalendarProps = React.ComponentProps<typeof DayPicker> &
 type CalendarDropdownProps = DropdownProps & {
   onValueChange: (value: number) => void;
 };
+
+/** DayPicker's own wording, such as the month buttons' labels, and its week, which starts on Sunday in Brazil and in the United States. */
+const DAY_PICKER_LOCALES = {
+  'pt-BR': ptBR,
+  'en-US': enUS
+} satisfies Record<Locale, CalendarProps['locale']>;
 
 const CHEVRONS = {
   left: ChevronLeft,
@@ -128,9 +134,12 @@ const Calendar = ({
   ...props
 }: CalendarProps) => {
   const defaultClassNames = getDefaultClassNames();
+  const locale = useLocale();
+  const { formatShortMonth } = useFormat();
 
   return (
     <DayPicker
+      locale={DAY_PICKER_LOCALES[locale]}
       showOutsideDays={showOutsideDays}
       className={cn('text-sm', className)}
       classNames={{

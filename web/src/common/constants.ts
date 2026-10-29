@@ -1,12 +1,10 @@
 import { type ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies';
-import { Inter, Raleway } from 'next/font/google';
 
 import type {
   ExpenseCategory,
   ExpenseKind,
   ExpenseStatus,
   ExpenseStatusFilter,
-  FinanceEventType,
   InstallmentPlanStatus,
   PaymentMethod,
   RecurrenceFrequency,
@@ -14,18 +12,6 @@ import type {
 } from '@/app/api/v1/finances';
 import type { InstrumentType } from '@/app/api/v1/portfolio';
 import type { TransactionType } from '@/app/api/v1/transactions';
-
-export const inter = Inter({
-  weight: ['400', '500', '700'],
-  subsets: ['latin'],
-  variable: '--font-inter'
-});
-
-export const raleway = Raleway({
-  weight: ['400', '500', '700'],
-  subsets: ['latin'],
-  variable: '--font-raleway'
-});
 
 export const COOKIE_OPTIONS: Partial<ResponseCookie> = {
   httpOnly: true,
@@ -37,8 +23,12 @@ export const APP_STORAGE_KEYS = {
   Token: 'ex3:token',
   Session: 'ex3:session',
   ActivePortfolio: 'ex3:active-portfolio',
-  Navigation: 'ex3:navigation'
+  Navigation: 'ex3:navigation',
+  Locale: 'ex3:locale'
 };
+
+/** How long a preference kept in a cookie, such as the navigation's state or the language, lasts: a year. */
+export const PREFERENCE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 export const NAVIGATION_STATES = {
   Expanded: 'expanded',
@@ -70,15 +60,6 @@ export const TRANSACTION_TYPES: Array<TransactionType> = [
   'BONUS'
 ];
 
-export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
-  BUY: 'Buy',
-  SELL: 'Sell',
-  DIVIDEND: 'Dividend',
-  JCP: 'JCP',
-  INTEREST: 'Interest',
-  BONUS: 'Bonus'
-};
-
 export const TRANSACTION_TYPE_TONES: Record<TransactionType, string> = {
   BUY: 'text-positive',
   SELL: 'text-negative',
@@ -86,27 +67,6 @@ export const TRANSACTION_TYPE_TONES: Record<TransactionType, string> = {
   JCP: 'text-info',
   INTEREST: 'text-info',
   BONUS: 'text-primary'
-};
-
-export const TRANSACTION_UNIT_PRICE_LABELS: Record<TransactionType, string> = {
-  BUY: 'Unit price',
-  SELL: 'Unit price',
-  DIVIDEND: 'Amount per unit',
-  JCP: 'Amount per unit',
-  INTEREST: 'Amount per unit',
-  BONUS: 'Attributed cost per unit'
-};
-
-export const INSTRUMENT_TYPE_LABELS: Record<InstrumentType, string> = {
-  STOCK: 'Stocks',
-  ETF: 'ETFs',
-  FUND: 'Funds',
-  REIT: 'REITs',
-  CRYPTO: 'Crypto',
-  BOND: 'Bonds',
-  TREASURY: 'Treasuries',
-  CASH: 'Cash',
-  OTHER: 'Other'
 };
 
 /**
@@ -199,23 +159,6 @@ export const EXPENSE_CATEGORIES: Array<ExpenseCategory> = [
   'OTHER'
 ];
 
-export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
-  HOUSING: 'Housing',
-  UTILITIES: 'Utilities',
-  FOOD: 'Food',
-  TRANSPORTATION: 'Transportation',
-  HEALTH: 'Health',
-  EDUCATION: 'Education',
-  LEISURE: 'Leisure',
-  SUBSCRIPTIONS: 'Subscriptions',
-  INSURANCE: 'Insurance',
-  TAXES: 'Taxes',
-  DEBT: 'Debt',
-  SHOPPING: 'Shopping',
-  PERSONAL_CARE: 'Personal care',
-  OTHER: 'Other'
-};
-
 export const PAYMENT_METHODS: Array<PaymentMethod> = [
   'PIX',
   'BOLETO',
@@ -227,35 +170,11 @@ export const PAYMENT_METHODS: Array<PaymentMethod> = [
   'OTHER'
 ];
 
-export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  CASH: 'Cash',
-  DEBIT_CARD: 'Debit card',
-  CREDIT_CARD: 'Credit card',
-  BANK_TRANSFER: 'Bank transfer',
-  PIX: 'Pix',
-  BOLETO: 'Boleto',
-  DIRECT_DEBIT: 'Direct debit',
-  OTHER: 'Other'
-};
-
 export const RECURRENCE_FREQUENCIES: Array<RecurrenceFrequency> = [
   'MONTHLY',
   'WEEKLY',
   'YEARLY'
 ];
-
-export const RECURRENCE_FREQUENCY_LABELS: Record<RecurrenceFrequency, string> =
-  {
-    WEEKLY: 'Weekly',
-    MONTHLY: 'Monthly',
-    YEARLY: 'Yearly'
-  };
-
-export const RECURRENCE_FREQUENCY_UNITS: Record<RecurrenceFrequency, string> = {
-  WEEKLY: 'week',
-  MONTHLY: 'month',
-  YEARLY: 'year'
-};
 
 export const EXPENSE_STATUSES: Array<ExpenseStatus> = [
   'OVERDUE',
@@ -264,20 +183,10 @@ export const EXPENSE_STATUSES: Array<ExpenseStatus> = [
   'CANCELLED'
 ];
 
-export const EXPENSE_STATUS_LABELS: Record<ExpenseStatus, string> = {
-  PENDING: 'Pending',
-  OVERDUE: 'Overdue',
-  PAID: 'Paid',
-  CANCELLED: 'Cancelled'
-};
-
 export const EXPENSE_STATUS_FILTERS: Array<ExpenseStatusFilter> = [
   'OPEN',
   ...EXPENSE_STATUSES
 ];
-
-export const EXPENSE_STATUS_FILTER_LABELS: Record<ExpenseStatusFilter, string> =
-  { OPEN: 'Unpaid', ...EXPENSE_STATUS_LABELS };
 
 /** A status is never told by its color alone: each tone sits beside the status's name. */
 export const EXPENSE_STATUS_TONES: Record<ExpenseStatus, string> = {
@@ -293,26 +202,11 @@ export const EXPENSE_KINDS: Array<ExpenseKind> = [
   'RECURRING'
 ];
 
-export const EXPENSE_KIND_LABELS: Record<ExpenseKind, string> = {
-  ONE_TIME: 'One-time',
-  INSTALLMENT: 'Installment',
-  RECURRING: 'Recurring'
-};
-
 export const INSTALLMENT_PLAN_STATUSES: Array<InstallmentPlanStatus> = [
   'ACTIVE',
   'COMPLETED',
   'CANCELLED'
 ];
-
-export const INSTALLMENT_PLAN_STATUS_LABELS: Record<
-  InstallmentPlanStatus,
-  string
-> = {
-  ACTIVE: 'Active',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled'
-};
 
 export const INSTALLMENT_PLAN_STATUS_TONES: Record<
   InstallmentPlanStatus,
@@ -329,15 +223,6 @@ export const RECURRING_EXPENSE_STATUSES: Array<RecurringExpenseStatus> = [
   'CANCELLED'
 ];
 
-export const RECURRING_EXPENSE_STATUS_LABELS: Record<
-  RecurringExpenseStatus,
-  string
-> = {
-  ACTIVE: 'Active',
-  ENDED: 'Ended',
-  CANCELLED: 'Stopped'
-};
-
 export const RECURRING_EXPENSE_STATUS_TONES: Record<
   RecurringExpenseStatus,
   string
@@ -345,17 +230,6 @@ export const RECURRING_EXPENSE_STATUS_TONES: Record<
   ACTIVE: 'border-primary/40 bg-primary/10 text-primary',
   ENDED: 'border-border bg-muted text-muted-foreground',
   CANCELLED: 'border-border bg-muted text-muted-foreground'
-};
-
-export const FINANCE_EVENT_LABELS: Record<FinanceEventType, string> = {
-  CREATED: 'Created',
-  UPDATED: 'Edited',
-  CANCELLED: 'Cancelled',
-  RESTORED: 'Restored',
-  PAYMENT_RECORDED: 'Payment recorded',
-  PAYMENT_CORRECTED: 'Payment corrected',
-  PAYMENT_VOIDED: 'Payment voided',
-  RESCHEDULED: 'Rescheduled'
 };
 
 /** The query parameter that opens a bill's details on the bills page. */

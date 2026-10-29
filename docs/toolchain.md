@@ -24,6 +24,10 @@ Record of the pinned versions and of the decisions that cannot be deduced from
 Everything above is on the latest stable, with one deliberate exception:
 `typescript`.
 
+The web's i18n library, `use-intl` 4.14.9, and `intl-messageformat` 11.2.15,
+the version it bundles, which the catalog test parses with, are pinned exactly
+so that the two stay the same; [`i18n.md`](i18n.md#library) explains both.
+
 ## Why TypeScript 5.9 and not 7.0
 
 `typescript@7.0.2` is the native compiler distribution and **no longer

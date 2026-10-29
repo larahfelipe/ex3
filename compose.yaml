@@ -157,7 +157,7 @@ services:
   web-check:
     <<: *web-workspace
     profiles: [check]
-    command: ['sh', '-c', 'pnpm lint && pnpm typecheck && pnpm build']
+    command: ['sh', '-c', 'pnpm lint && pnpm typecheck && pnpm test && pnpm build']
     depends_on:
       web-deps:
         condition: service_completed_successfully

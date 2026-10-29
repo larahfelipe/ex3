@@ -2,6 +2,8 @@ import type { FC } from 'react';
 
 import Link from 'next/link';
 
+import { useTranslations } from 'use-intl';
+
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { APP_ROUTES, assetDetailRoute } from '@/common/constants';
 import { EmptyState, LoadingState } from '@/components/data-state';
@@ -45,49 +47,63 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
     page: requestedPage,
     pageSize: POSITIONS_PAGE_SIZE
   });
+  const t = useTranslations('investments');
 
   return (
     <QuerySection
-      title="Positions"
+      title={t('overview.positions.title')}
       className={className}
       query={positionsQuery}
-      errorMessage="The positions could not be loaded"
-      loading={<LoadingState label="Loading positions" className="h-48" />}
+      errorMessage={t('overview.positions.loadFailed')}
+      loading={
+        <LoadingState
+          label={t('overview.positions.loading')}
+          className="h-48"
+        />
+      }
       isEmpty={({ total }) => total === 0}
       empty={
         <EmptyState
-          message="No positions yet"
-          action={{ label: 'Add asset', onSelect: onAddAsset }}
+          message={t('overview.positions.empty')}
+          action={{ label: t('overview.addAsset'), onSelect: onAddAsset }}
         />
       }
       action={
         <Button asChild variant="link" size="sm" className="h-auto p-0">
-          <Link href={APP_ROUTES.Protected.Assets}>Manage assets</Link>
+          <Link href={APP_ROUTES.Protected.Assets}>
+            {t('overview.positions.manage')}
+          </Link>
         </Button>
       }
     >
       {({ items, page, totalPages }) => (
         <div className="space-y-4">
-          <Table label="Positions summary">
+          <Table label={t('overview.positions.table')}>
             <TableCaption className="sr-only">
-              {`Positions valued in ${portfolio.baseCurrency}`}
+              {t('overview.positions.caption', {
+                currency: portfolio.baseCurrency
+              })}
             </TableCaption>
 
             <TableHeader>
               <TableRow>
-                <TableHead>Asset</TableHead>
+                <TableHead>{t('metrics.asset')}</TableHead>
 
                 <TableHead className="text-right max-sm:hidden">
-                  Quantity
+                  {t('metrics.quantity')}
                 </TableHead>
 
-                <TableHead className="text-right">Market value</TableHead>
+                <TableHead className="text-right">
+                  {t('metrics.marketValue')}
+                </TableHead>
 
                 <TableHead className="text-right max-sm:hidden">
-                  Allocation
+                  {t('metrics.allocation')}
                 </TableHead>
 
-                <TableHead className="text-right">Profit/Loss</TableHead>
+                <TableHead className="text-right">
+                  {t('metrics.profitLoss')}
+                </TableHead>
               </TableRow>
             </TableHeader>
 
@@ -141,7 +157,7 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
 
           {totalPages > FIRST_PAGE && (
             <PageNavigation
-              label="Positions pages"
+              label={t('overview.positions.pages')}
               page={page}
               totalPages={totalPages}
               onPageChange={goToPage}

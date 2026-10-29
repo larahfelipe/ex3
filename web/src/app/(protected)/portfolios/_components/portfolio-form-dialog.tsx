@@ -1,7 +1,8 @@
-import { useId, useState, type FC } from 'react';
+import { useId, useMemo, useState, type FC } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
@@ -20,19 +21,22 @@ import {
   SegmentedControl,
   SegmentedControlItem
 } from '@/components/ui';
+import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
+import type { Translator } from '@/i18n/translator';
 import { ApiProxyError, isConflictError } from '@/lib/axios';
 import {
   PORTFOLIO_NAME_MAX_LENGTH,
-  PORTFOLIO_NAME_TAKEN_MESSAGE,
-  PortfolioNameSchema,
-  portfolioNameKey
+  portfolioNameKey,
+  portfolioNameSchemaFor
 } from '@/lib/portfolio-schema';
 import { presentSubmitError } from '@/lib/submit-error';
 
 export type PortfolioFormTarget =
   { kind: 'create' } | { kind: 'edit'; portfolio: Portfolio };
 
-export type PortfolioDraft = z.output<typeof PortfolioFormSchema>;
+export type PortfolioDraft = z.output<
+  ReturnType<typeof portfolioFormSchemaFor>
+>;
 
 type PortfolioFormDialogProps = {
   target: PortfolioFormTarget;
@@ -42,20 +46,24 @@ type PortfolioFormDialogProps = {
   onSubmit: (draft: PortfolioDraft) => Promise<unknown>;
 };
 
-type PortfolioFormInput = z.input<typeof PortfolioFormSchema>;
+type PortfolioFormInput = z.input<ReturnType<typeof portfolioFormSchemaFor>>;
 
 type PortfolioFormField = keyof PortfolioFormInput;
 
 const CURRENCY_CODE_PATTERN = /^[A-Z]{3}$/;
 
-const PortfolioFormSchema = z.object({
-  name: PortfolioNameSchema,
-  baseCurrency: z
-    .string()
-    .regex(CURRENCY_CODE_PATTERN, 'Choose the base currency')
-});
+const portfolioFormSchemaFor = (t: Translator<'validation'>) =>
+  z.object({
+    name: portfolioNameSchemaFor(t),
+    baseCurrency: z
+      .string()
+      .regex(CURRENCY_CODE_PATTERN, t('currency.required'))
+  });
 
-const PORTFOLIO_FORM_FIELDS = PortfolioFormSchema.keyof().options;
+const PORTFOLIO_FORM_FIELDS = [
+  'name',
+  'baseCurrency'
+] as const satisfies ReadonlyArray<PortfolioFormField>;
 
 const isPortfolioFormField = (path: string): path is PortfolioFormField =>
   PORTFOLIO_FORM_FIELDS.some((field) => field === path);
@@ -67,6 +75,14 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
   onSubmit
 }) => {
   const formId = useId();
+  const t = useTranslations('portfolios.form');
+  const tValidation = useTranslations('validation');
+  const tErrors = useTranslations('errors');
+  const tActions = useTranslations('common.actions');
+  const portfolioFormSchema = useMemo(
+    () => portfolioFormSchemaFor(tValidation),
+    [tValidation]
+  );
   const [rejectedNameKeys, setRejectedNameKeys] = useState<ReadonlySet<string>>(
     new Set()
   );
@@ -93,18 +109,21 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
     register,
     handleSubmit,
     setError,
+    trigger,
     formState: { errors, isDirty, isSubmitting }
   } = useForm<PortfolioFormInput, unknown, PortfolioDraft>({
     mode: 'onChange',
     /** `useForm` takes its options anew on every render, so validation always sees the latest taken names. */
     resolver: zodResolver(
-      PortfolioFormSchema.refine(
+      portfolioFormSchema.refine(
         ({ name }) => !takenNameKeys.has(portfolioNameKey(name)),
-        { message: PORTFOLIO_NAME_TAKEN_MESSAGE, path: ['name'] }
+        { message: tValidation('portfolio.nameTaken'), path: ['name'] }
       )
     ),
     defaultValues
   });
+
+  useRevalidateOnLocaleChange(errors, trigger);
 
   const submitDraft = async (draft: PortfolioDraft) => {
     try {
@@ -117,7 +136,8 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
 
       presentSubmitError(error, {
         setError,
-        fieldOf: (path) => (isPortfolioFormField(path) ? path : undefined)
+        fieldOf: (path) => (isPortfolioFormField(path) ? path : undefined),
+        t: tErrors
       });
     }
   };
@@ -132,18 +152,17 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="wrap-anywhere">
-            {isEditing ? `Edit ${target.portfolio.name}` : 'New portfolio'}
+            {isEditing
+              ? t('editTitle', { name: target.portfolio.name })
+              : t('newTitle')}
           </DialogTitle>
 
-          <DialogDescription>
-            Positions and transactions of a portfolio are valued in its base
-            currency.
-          </DialogDescription>
+          <DialogDescription>{t('description')}</DialogDescription>
         </DialogHeader>
 
         <form id={formId} noValidate onSubmit={handleSubmit(submitDraft)}>
           <div className="grid gap-4">
-            <FormField label="Name" error={errors.name?.message}>
+            <FormField label={t('name')} error={errors.name?.message}>
               {(control) => (
                 <Input
                   {...control}
@@ -156,12 +175,8 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
             </FormField>
 
             <ChoiceField
-              legend="Base currency"
-              hint={
-                isEditing
-                  ? 'The base currency can change only while the portfolio has no transactions.'
-                  : undefined
-              }
+              legend={t('baseCurrency')}
+              hint={isEditing ? t('baseCurrencyLockedHint') : undefined}
               error={errors.baseCurrency?.message}
             >
               <SegmentedControl className="grid grid-cols-3 sm:flex sm:w-fit">
@@ -187,7 +202,7 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
-            Cancel
+            {tActions('cancel')}
           </Button>
 
           <SubmitButton
@@ -195,7 +210,7 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
             isPending={isSubmitting}
             disabled={isEditing && !isDirty}
           >
-            {isEditing ? 'Save changes' : 'Create portfolio'}
+            {isEditing ? tActions('saveChanges') : t('create')}
           </SubmitButton>
         </DialogFooter>
       </DialogContent>

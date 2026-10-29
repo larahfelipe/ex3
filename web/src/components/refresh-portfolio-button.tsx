@@ -1,6 +1,7 @@
 import { type FC, useState } from 'react';
 
 import { RefreshCw } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { Button } from '@/components/ui';
@@ -25,6 +26,7 @@ export const RefreshPortfolioButton: FC<RefreshPortfolioButtonProps> = ({
 }) => {
   const refreshPortfolio = useRefreshPortfolio(portfolio);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const t = useTranslations('common.actions');
 
   return (
     <Button
@@ -44,7 +46,8 @@ export const RefreshPortfolioButton: FC<RefreshPortfolioButtonProps> = ({
         aria-hidden="true"
         className={cn('size-4', isRefreshing && 'animate-spin')}
       />
-      Refresh
+
+      {t('refresh')}
     </Button>
   );
 };

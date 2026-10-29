@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { Plus } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import { APP_ROUTES } from '@/common/constants';
 import { AssetDialogs, type AssetDialog } from '@/components/asset-dialogs';
@@ -19,6 +20,8 @@ export default function Assets() {
   const [hasDeletedAsset, setHasDeletedAsset] = useState(false);
 
   const addAssetButtonRef = useRef<HTMLButtonElement>(null);
+  const t = useTranslations('investments.overview');
+  const tNavigation = useTranslations('navigation.pages');
 
   const {
     data: portfolio,
@@ -42,11 +45,14 @@ export default function Assets() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Assets"
+        title={tNavigation('assets')}
         isPending={isPending}
         description={
           portfolio
-            ? `${portfolio.name} · Base currency ${portfolio.baseCurrency}`
+            ? t('description', {
+                name: portfolio.name,
+                currency: portfolio.baseCurrency
+              })
             : undefined
         }
         action={
@@ -58,28 +64,24 @@ export default function Assets() {
               onClick={() => setAssetDialog({ kind: 'add-asset' })}
             >
               <Plus size={16} aria-hidden="true" />
-              Add asset
+
+              {t('addAsset')}
             </Button>
           )
         }
       />
 
-      {isPending && (
-        <LoadingState label="Loading your portfolio" className="h-96" />
-      )}
+      {isPending && <LoadingState label={t('loading')} className="h-96" />}
 
       {isError && !portfolio && (
-        <ErrorState
-          message="Your portfolio could not be loaded"
-          onRetry={refetch}
-        />
+        <ErrorState message={t('loadFailed')} onRetry={refetch} />
       )}
 
       {isSuccess && !portfolio && (
         <EmptyState
-          message="No portfolio found for this account"
+          message={t('noPortfolio')}
           action={{
-            label: 'Create a portfolio',
+            label: t('createPortfolio'),
             href: APP_ROUTES.Protected.Portfolios
           }}
         />

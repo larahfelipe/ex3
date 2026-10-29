@@ -2,11 +2,14 @@ import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import utc from 'dayjs/plugin/utc';
 
+import type { Locale } from '@/i18n/config';
+
 /**
  * The API takes and returns instants as ISO 8601 and stores them in UTC; a day
  * of a performance series is its midnight UTC. Every date the web reads,
  * converts or shows passes through here: an instant in the browser's zone, a
- * series day in UTC.
+ * series day in UTC. dayjs reads and counts; `Intl` writes, in the locale each
+ * formatter takes first, which `useFormat` (`@/i18n/format`) binds.
  */
 
 dayjs.extend(customParseFormat);
@@ -14,9 +17,53 @@ dayjs.extend(utc);
 
 export const CALENDAR_DAY_FORMAT = 'YYYY-MM-DD';
 
-const QUOTE_TIME_FORMAT = 'MMM D, hh:mm A';
-const DAY_FORMAT = 'MMM D, YYYY';
-const SHORT_MONTH_FORMAT = 'MMM';
+const UTC = 'UTC';
+
+const QUOTE_TIME_FORMAT: Intl.DateTimeFormatOptions = {
+  day: '2-digit',
+  month: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit'
+};
+const DAY_FORMAT: Intl.DateTimeFormatOptions = {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric'
+};
+const SHORT_MONTH_FORMAT: Intl.DateTimeFormatOptions = { month: 'short' };
+
+/** As with the number formatters, building one costs far more than using it, so each set of options builds once. */
+const dateFormats = new Map<string, Intl.DateTimeFormat>();
+
+const dateFormatOf = (locale: Locale, options: Intl.DateTimeFormatOptions) => {
+  const key = `${locale} ${JSON.stringify(options)}`;
+  const cached = dateFormats.get(key);
+
+  if (cached !== undefined) return cached;
+
+  const format = new Intl.DateTimeFormat(locale, options);
+  dateFormats.set(key, format);
+
+  return format;
+};
+
+/** In the browser's zone, the one a person reads an instant in. */
+const formatInstant = (
+  locale: Locale,
+  instant: dayjs.Dayjs,
+  options: Intl.DateTimeFormatOptions
+) => dateFormatOf(locale, options).format(instant.toDate());
+
+/**
+ * A calendar day or month has no zone: it is written at its UTC midnight and
+ * read back in UTC, so no offset can name the day before or after it.
+ */
+const formatUtcDay = (
+  locale: Locale,
+  utcStart: dayjs.Dayjs,
+  options: Intl.DateTimeFormatOptions
+) =>
+  dateFormatOf(locale, { ...options, timeZone: UTC }).format(utcStart.toDate());
 
 const calendarDayOrNull = (day: string) => {
   const parsed = dayjs(day, CALENDAR_DAY_FORMAT, true);
@@ -24,22 +71,43 @@ const calendarDayOrNull = (day: string) => {
   return parsed.isValid() ? parsed : null;
 };
 
-export const formatQuoteTime = (timestamp: string) =>
-  dayjs(timestamp).format(QUOTE_TIME_FORMAT);
+const utcCalendarDayOrNull = (day: string) => {
+  const parsed = dayjs.utc(day, CALENDAR_DAY_FORMAT, true);
+
+  return parsed.isValid() ? parsed : null;
+};
+
+export const formatQuoteTime = (locale: Locale, timestamp: string) =>
+  formatInstant(locale, dayjs(timestamp), QUOTE_TIME_FORMAT);
 
 /** A transaction records the day it was executed, picked in the browser's zone. */
-export const formatExecutionDay = (timestamp: string) =>
-  dayjs(timestamp).format(DAY_FORMAT);
+export const formatExecutionDay = (locale: Locale, timestamp: string) =>
+  formatInstant(locale, dayjs(timestamp), DAY_FORMAT);
 
 /** A series day is a calendar day at midnight UTC, and a local zone would name the day before it. */
-export const formatSeriesDay = (timestamp: string) =>
-  dayjs.utc(timestamp).format(DAY_FORMAT);
+export const formatSeriesDay = (locale: Locale, timestamp: string) =>
+  formatUtcDay(locale, dayjs.utc(timestamp), DAY_FORMAT);
 
-export const formatCalendarDay = (day: string) =>
-  calendarDayOrNull(day)?.format(DAY_FORMAT) ?? null;
+const formatCalendarDayWith = (
+  locale: Locale,
+  day: string,
+  options: Intl.DateTimeFormatOptions
+) => {
+  const utcStart = utcCalendarDayOrNull(day);
 
-export const formatShortMonth = (month: Date) =>
-  dayjs(month).format(SHORT_MONTH_FORMAT);
+  return utcStart === null ? null : formatUtcDay(locale, utcStart, options);
+};
+
+export const formatCalendarDay = (locale: Locale, day: string) =>
+  formatCalendarDayWith(locale, day, DAY_FORMAT);
+
+/** The UTC midnight that starts `day`, for a message that writes the day itself, in its zone, UTC. */
+export const utcDateOfCalendarDay = (day: string) =>
+  utcCalendarDayOrNull(day)?.toDate() ?? null;
+
+/** The calendar's own months are local midnights, so the month is read in the browser's zone. */
+export const formatShortMonth = (locale: Locale, month: Date) =>
+  formatInstant(locale, dayjs(month), SHORT_MONTH_FORMAT);
 
 export const currentInstant = () => dayjs().toISOString();
 
@@ -77,10 +145,25 @@ export const instantOfCalendarDay = (day: string) => {
 
 export const CALENDAR_MONTH_FORMAT = 'YYYY-MM';
 
-const MONTH_FORMAT = 'MMM YYYY';
-const LONG_MONTH_FORMAT = 'MMMM YYYY';
-const WEEKDAY_DAY_FORMAT = 'ddd, MMM D';
-const LONG_WEEKDAY_DAY_FORMAT = 'dddd, MMMM D, YYYY';
+const MONTH_FORMAT: Intl.DateTimeFormatOptions = {
+  month: 'short',
+  year: 'numeric'
+};
+const LONG_MONTH_FORMAT: Intl.DateTimeFormatOptions = {
+  month: 'long',
+  year: 'numeric'
+};
+const WEEKDAY_DAY_FORMAT: Intl.DateTimeFormatOptions = {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short'
+};
+const LONG_WEEKDAY_DAY_FORMAT: Intl.DateTimeFormatOptions = {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric'
+};
 
 const calendarMonthOrNull = (month: string) => {
   const parsed = dayjs(month, CALENDAR_MONTH_FORMAT, true);
@@ -122,20 +205,42 @@ export const monthSpanOf = (from: string, to: string) => {
   return start === null || end === null ? null : end.diff(start, 'month') + 1;
 };
 
-export const formatCalendarMonth = (month: string) =>
-  calendarMonthOrNull(month)?.format(MONTH_FORMAT) ?? null;
+const formatCalendarMonthWith = (
+  locale: Locale,
+  month: string,
+  options: Intl.DateTimeFormatOptions
+) => {
+  const utcStart = dayjs.utc(month, CALENDAR_MONTH_FORMAT, true);
 
-export const formatLongCalendarMonth = (month: string) =>
-  calendarMonthOrNull(month)?.format(LONG_MONTH_FORMAT) ?? null;
+  return utcStart.isValid() ? formatUtcDay(locale, utcStart, options) : null;
+};
 
-export const formatShortCalendarMonth = (month: string) =>
-  calendarMonthOrNull(month)?.format(SHORT_MONTH_FORMAT) ?? null;
+export const formatCalendarMonth = (locale: Locale, month: string) =>
+  formatCalendarMonthWith(locale, month, MONTH_FORMAT);
 
-export const formatWeekdayCalendarDay = (day: string) =>
-  calendarDayOrNull(day)?.format(WEEKDAY_DAY_FORMAT) ?? null;
+export const formatLongCalendarMonth = (locale: Locale, month: string) =>
+  formatCalendarMonthWith(locale, month, LONG_MONTH_FORMAT);
 
-export const formatLongWeekdayCalendarDay = (day: string) =>
-  calendarDayOrNull(day)?.format(LONG_WEEKDAY_DAY_FORMAT) ?? null;
+export const formatShortCalendarMonth = (locale: Locale, month: string) =>
+  formatCalendarMonthWith(locale, month, SHORT_MONTH_FORMAT);
+
+export const formatWeekdayCalendarDay = (locale: Locale, day: string) =>
+  formatCalendarDayWith(locale, day, WEEKDAY_DAY_FORMAT);
+
+export const formatLongWeekdayCalendarDay = (locale: Locale, day: string) =>
+  formatCalendarDayWith(locale, day, LONG_WEEKDAY_DAY_FORMAT);
+
+/** Weekday names from Sunday, in the form `format` asks for, such as "dom." or "domingo". */
+export const weekdayNames = (
+  locale: Locale,
+  format: 'narrow' | 'short' | 'long'
+) =>
+  Array.from({ length: 7 }, (_, weekday) =>
+    // 2023-01-01 was a Sunday.
+    formatUtcDay(locale, dayjs.utc('2023-01-01').add(weekday, 'day'), {
+      weekday: format
+    })
+  );
 
 /** `count` months after `day`, on the month's last day when it is shorter, as the API schedules. */
 export const shiftCalendarDayByMonths = (day: string, count: number) =>

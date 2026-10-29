@@ -1,6 +1,7 @@
 import { useId, useState, type FC, type Ref } from 'react';
 
 import { CalendarDays } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import type { FieldControlProps } from '@/components/form-field';
 import {
@@ -10,11 +11,8 @@ import {
   PopoverContent,
   PopoverTrigger
 } from '@/components/ui';
-import {
-  calendarDayOfDate,
-  dateOfCalendarDay,
-  formatCalendarDay
-} from '@/lib/dates';
+import { useFormat } from '@/i18n/format';
+import { calendarDayOfDate, dateOfCalendarDay } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
 type DatePickerProps = Omit<FieldControlProps, 'required'> & {
@@ -25,8 +23,6 @@ type DatePickerProps = Omit<FieldControlProps, 'required'> & {
   onValueChange: (day: string) => void;
   onBlur?: VoidFunction;
 };
-
-const PLACEHOLDER = 'Pick a date';
 
 /**
  * A label names a button in place of its content, so the chosen day, which
@@ -43,6 +39,8 @@ export const DatePicker: FC<DatePickerProps> = ({
   'aria-describedby': describedBy
 }) => {
   const valueId = useId();
+  const t = useTranslations('common.form');
+  const { formatCalendarDay } = useFormat();
 
   const [isOpen, setIsOpen] = useState(false);
 
@@ -68,7 +66,7 @@ export const DatePicker: FC<DatePickerProps> = ({
         >
           <CalendarDays size={16} aria-hidden="true" />
 
-          <span id={valueId}>{shownDay ?? PLACEHOLDER}</span>
+          <span id={valueId}>{shownDay ?? t('datePlaceholder')}</span>
         </Button>
       </PopoverTrigger>
 

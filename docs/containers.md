@@ -119,7 +119,7 @@ The `check` profile's services repeat the CI gates:
 
 ```sh
 docker compose run --rm backend-check     # lint, typecheck, test:unit, test:integration, build
-docker compose run --rm web-check         # lint, typecheck, build
+docker compose run --rm web-check         # lint, typecheck, test, build
 docker compose run --rm backend-check pnpm test:unit   # a single command
 docker compose rm --stop --force postgres-test   # shut the test database down
 ```

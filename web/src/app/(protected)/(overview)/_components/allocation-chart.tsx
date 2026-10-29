@@ -1,8 +1,12 @@
 import { useId, useState, type FC } from 'react';
 
-import type { PortfolioAllocation } from '@/app/api/v1/portfolio';
+import { useTranslations } from 'use-intl';
+
+import type {
+  InstrumentType,
+  PortfolioAllocation
+} from '@/app/api/v1/portfolio';
 import type { Portfolio } from '@/app/api/v1/portfolios';
-import { INSTRUMENT_TYPE_LABELS } from '@/common/constants';
 import { EmptyState, LoadingState } from '@/components/data-state';
 import { Money, Percentage } from '@/components/financial';
 import { QuerySection } from '@/components/query-section';
@@ -42,14 +46,6 @@ type RingArc = Record<'key' | 'className', string> &
   Record<'start' | 'length', number>;
 
 const ALLOCATION_VIEWS: AllocationView[] = ['asset', 'type'];
-
-const ALLOCATION_VIEW_LABELS: Record<
-  AllocationView,
-  Record<'name' | 'caption', string>
-> = {
-  type: { name: 'Class', caption: 'Allocation by class' },
-  asset: { name: 'Asset', caption: 'Allocation by asset' }
-};
 
 const ALLOCATION_COLORS: AllocationColor[] = [
   { arc: 'stroke-chart-1', swatch: 'bg-chart-1' },
@@ -92,13 +88,14 @@ const compareShareDescending = (
 
 const selectAllocationGroups = (
   { byType, byAsset }: PortfolioAllocation,
-  view: AllocationView
+  view: AllocationView,
+  typeLabelOf: (type: InstrumentType) => string
 ): AllocationGroup[] => {
   const groups: Array<Omit<AllocationGroup, 'color'>> =
     view === 'type'
       ? byType.map(({ type, ...share }) => ({
           key: type,
-          label: INSTRUMENT_TYPE_LABELS[type],
+          label: typeLabelOf(type),
           ...share
         }))
       : byAsset.map(({ symbol, name, ...share }) => ({
@@ -173,6 +170,7 @@ const AllocationRing: FC<Record<'groups', AllocationGroup[]>> = ({
 
 export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
   const allocationQuery = useAllocation(portfolio);
+  const t = useTranslations('investments');
   const [viewSelection, setViewSelection] = useState<AllocationViewSelection>({
     view: 'asset',
     direction: 1
@@ -185,13 +183,13 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
 
   return (
     <QuerySection
-      title="Allocation"
+      title={t('allocation.title')}
       query={allocationQuery}
-      errorMessage="The allocation could not be loaded"
+      errorMessage={t('allocation.loadFailed')}
       action={
         hasGroups && (
           <fieldset>
-            <legend className="sr-only">Group allocation by</legend>
+            <legend className="sr-only">{t('allocation.groupBy')}</legend>
 
             <SegmentedControl>
               {ALLOCATION_VIEWS.map((view) => (
@@ -211,7 +209,7 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
                     })
                   }
                 >
-                  {ALLOCATION_VIEW_LABELS[view].name}
+                  {t(`allocation.views.${view}`)}
                 </SegmentedControlItem>
               ))}
             </SegmentedControl>
@@ -219,7 +217,7 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
         )
       }
       loading={
-        <LoadingState label="Loading the allocation">
+        <LoadingState label={t('allocation.loading')}>
           <div className="@container">
             <div className={CHART_LAYOUT_CLASS_NAME}>
               <Skeleton
@@ -232,15 +230,16 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
           </div>
         </LoadingState>
       }
-      empty={<EmptyState message="No allocation to display" />}
+      empty={<EmptyState message={t('allocation.empty')} />}
       isEmpty={({ byType }) => byType.length === 0}
     >
       {(portfolioAllocation) => {
         const groups = selectAllocationGroups(
           portfolioAllocation,
-          selectedView
+          selectedView,
+          (type) => t(`instrumentTypes.${type}`)
         );
-        const { name, caption } = ALLOCATION_VIEW_LABELS[selectedView];
+        const caption = t(`allocation.captions.${selectedView}`);
 
         return (
           <SlideTransition
@@ -256,11 +255,17 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
 
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{name}</TableHead>
+                      <TableHead>
+                        {t(`allocation.views.${selectedView}`)}
+                      </TableHead>
 
-                      <TableHead className="text-right">Share</TableHead>
+                      <TableHead className="text-right">
+                        {t('metrics.share')}
+                      </TableHead>
 
-                      <TableHead className="text-right">Value</TableHead>
+                      <TableHead className="text-right">
+                        {t('metrics.value')}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
 

@@ -11,6 +11,9 @@ const Select = SelectPrimitive.Root;
 
 const SelectValue = SelectPrimitive.Value;
 
+/** Opens the list from a control of its own, through `asChild`, such as a navigation item. */
+const UnstyledSelectTrigger = SelectPrimitive.Trigger;
+
 const SelectTrigger = ({
   className,
   children,
@@ -124,5 +127,6 @@ export {
   SelectScrollDownButton,
   SelectScrollUpButton,
   SelectTrigger,
-  SelectValue
+  SelectValue,
+  UnstyledSelectTrigger
 };

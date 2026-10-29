@@ -104,7 +104,7 @@ const SegmentedControlItem = ({
 
       <span
         className={cn(
-          'relative block rounded-sm px-3 py-1 text-center text-sm font-medium text-muted-foreground ring-offset-background transition-colors peer-not-checked:hover:text-foreground peer-checked:text-primary-foreground peer-checked:duration-300 peer-focus-visible:ring-2 peer-focus-visible:ring-focus peer-focus-visible:ring-offset-2 peer-disabled:pointer-events-none peer-disabled:opacity-50',
+          'relative flex h-full items-center justify-center rounded-sm px-3 py-1 text-center text-sm font-medium text-muted-foreground ring-offset-background transition-colors peer-not-checked:hover:text-foreground peer-checked:text-primary-foreground peer-checked:duration-300 peer-focus-visible:ring-2 peer-focus-visible:ring-focus peer-focus-visible:ring-offset-2 peer-disabled:pointer-events-none peer-disabled:opacity-50',
           checkedValue === null && 'peer-checked:bg-primary'
         )}
       >

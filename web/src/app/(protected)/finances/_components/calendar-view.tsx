@@ -6,15 +6,15 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 import { Check, ChevronLeft, ChevronRight, CircleAlert } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import type { CalendarDayFigures, Expense } from '@/app/api/v1/finances';
-import { BILL_DETAIL_PARAM, EXPENSE_CATEGORY_LABELS } from '@/common/constants';
-import { formatMoney, updateUrlQuery } from '@/common/utils';
+import { BILL_DETAIL_PARAM } from '@/common/constants';
+import { updateUrlQuery } from '@/common/utils';
 import {
   EmptyState,
   ErrorState,
   LoadingState,
-  STALE_DATA_MESSAGE,
   StaleState
 } from '@/components/data-state';
 import { Money } from '@/components/financial';
@@ -27,12 +27,11 @@ import {
   useFinanceCalendar,
   useReferenceDay
 } from '@/hooks/use-finances';
+import { type Format, useFormat } from '@/i18n/format';
+import type { Translator } from '@/i18n/translator';
 import {
   calendarMonthOfDay,
   daysOfCalendarMonth,
-  formatLongCalendarMonth,
-  formatLongWeekdayCalendarDay,
-  formatWeekdayCalendarDay,
   isCalendarDay,
   isCalendarMonth,
   shiftCalendarMonth
@@ -59,20 +58,16 @@ const DAY_PAGE_SIZE = 20;
 
 const DAYS_IN_WEEK = 7;
 
-const WEEKDAYS = [
-  { short: 'Sun', long: 'Sunday' },
-  { short: 'Mon', long: 'Monday' },
-  { short: 'Tue', long: 'Tuesday' },
-  { short: 'Wed', long: 'Wednesday' },
-  { short: 'Thu', long: 'Thursday' },
-  { short: 'Fri', long: 'Friday' },
-  { short: 'Sat', long: 'Saturday' }
-] as const;
+const weekdaysOf = ({ weekdayNames }: Format) => {
+  const longNames = weekdayNames('long');
+
+  return weekdayNames('short').map((short, weekday) => ({
+    short,
+    long: longNames[weekday]
+  }));
+};
 
 const SKELETON_WEEKS = Array.from({ length: 5 }, (_, week) => week);
-
-const countText = (count: number, noun: string) =>
-  `${count} ${noun}${count === 1 ? '' : 's'}`;
 
 /** The month's days in weeks from Sunday, with null for the cells outside it. */
 const weeksOf = (month: string) => {
@@ -104,21 +99,26 @@ const dayCountsOf = ({
   paid: paidCount
 });
 
-const daySummaryOf = (figures: CalendarDayFigures | undefined) => {
-  if (figures === undefined) return 'nothing due';
+const daySummaryOf = (
+  figures: CalendarDayFigures | undefined,
+  t: Translator<'calendar.daySummary'>,
+  { formatList }: Format
+) => {
+  if (figures === undefined) return t('none');
 
   const { overdue, due, paid } = dayCountsOf(figures);
 
-  return [
-    overdue > 0 && `${overdue} overdue`,
-    due > 0 && `${countText(due, 'bill')} due`,
-    paid > 0 && `${paid} paid`
-  ]
-    .filter(Boolean)
-    .join(', ');
+  return formatList(
+    [
+      overdue > 0 && t('overdue', { count: overdue }),
+      due > 0 && t('due', { count: due }),
+      paid > 0 && t('paid', { count: paid })
+    ].filter((part) => part !== false)
+  );
 };
 
 const DayMarkers: FC<Record<'figures', CalendarDayFigures>> = ({ figures }) => {
+  const t = useTranslations('calendar.markers');
   const { overdue, due, paid } = dayCountsOf(figures);
 
   return (
@@ -132,7 +132,9 @@ const DayMarkers: FC<Record<'figures', CalendarDayFigures>> = ({ figures }) => {
 
           {overdue}
 
-          <span className="max-md:hidden">overdue</span>
+          <span className="max-md:hidden">
+            {t('overdue', { count: overdue })}
+          </span>
         </span>
       )}
 
@@ -142,7 +144,7 @@ const DayMarkers: FC<Record<'figures', CalendarDayFigures>> = ({ figures }) => {
 
           {due}
 
-          <span className="max-md:hidden">due</span>
+          <span className="max-md:hidden">{t('due')}</span>
         </span>
       )}
 
@@ -152,7 +154,7 @@ const DayMarkers: FC<Record<'figures', CalendarDayFigures>> = ({ figures }) => {
 
           {paid}
 
-          <span className="max-md:hidden">paid</span>
+          <span className="max-md:hidden">{t('paid', { count: paid })}</span>
         </span>
       )}
     </span>
@@ -165,71 +167,95 @@ const DayCell: FC<DayCellProps> = ({
   isSelected,
   isToday,
   onSelect
-}) => (
-  <td className="p-0.5 align-top">
-    <button
-      type="button"
-      aria-pressed={isSelected}
-      aria-current={isToday ? 'date' : undefined}
-      aria-label={`${formatLongWeekdayCalendarDay(day) ?? day}: ${daySummaryOf(figures)}`}
-      className={cn(
-        'flex min-h-16 w-full flex-col items-start gap-1 rounded-md border p-1 text-left ring-offset-background transition-colors hover:bg-accent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 sm:min-h-24 sm:p-1.5',
-        isSelected ? 'border-primary bg-primary/10' : 'border-transparent'
-      )}
-      onClick={onSelect}
-    >
-      <span
+}) => {
+  const t = useTranslations('calendar');
+  const tSummary = useTranslations('calendar.daySummary');
+  const format = useFormat();
+
+  return (
+    <td className="p-0.5 align-top">
+      <button
+        type="button"
+        aria-pressed={isSelected}
+        aria-current={isToday ? 'date' : undefined}
+        aria-label={t('dayLabel', {
+          day: format.formatLongWeekdayCalendarDay(day) ?? day,
+          summary: daySummaryOf(figures, tSummary, format)
+        })}
         className={cn(
-          'flex size-6 items-center justify-center rounded-full text-xs tabular-nums',
-          isToday && 'bg-primary font-semibold text-primary-foreground'
+          'flex min-h-16 w-full flex-col items-start gap-1 rounded-md border p-1 text-left ring-offset-background transition-colors hover:bg-accent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 sm:min-h-24 sm:p-1.5',
+          isSelected ? 'border-primary bg-primary/10' : 'border-transparent'
         )}
+        onClick={onSelect}
       >
-        {Number(day.slice(-2))}
+        <span
+          className={cn(
+            'flex size-6 items-center justify-center rounded-full text-xs tabular-nums',
+            isToday && 'bg-primary font-semibold text-primary-foreground'
+          )}
+        >
+          {Number(day.slice(-2))}
+        </span>
+
+        {figures !== undefined && <DayMarkers figures={figures} />}
+      </button>
+    </td>
+  );
+};
+
+const MonthGridSkeleton: FC = () => {
+  const t = useTranslations('calendar');
+  const weekdays = weekdaysOf(useFormat());
+
+  return (
+    <LoadingState label={t('loading')}>
+      <div aria-hidden="true" className="grid grid-cols-7 gap-1">
+        {SKELETON_WEEKS.flatMap((week) =>
+          weekdays.map(({ short }) => (
+            <Skeleton key={`${week}-${short}`} className="h-16 sm:h-24" />
+          ))
+        )}
+      </div>
+    </LoadingState>
+  );
+};
+
+const Legend: FC = () => {
+  const t = useTranslations('calendar.legend');
+
+  return (
+    <p
+      aria-hidden="true"
+      className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
+    >
+      <span className="flex items-center gap-1">
+        <CircleAlert className="size-3 text-negative" />
+
+        {t('overdue')}
       </span>
 
-      {figures !== undefined && <DayMarkers figures={figures} />}
-    </button>
-  </td>
-);
+      <span className="flex items-center gap-1">
+        <span className="mx-0.5 size-2 rounded-full bg-primary" />
 
-const MonthGridSkeleton: FC = () => (
-  <LoadingState label="Loading the calendar">
-    <div aria-hidden="true" className="grid grid-cols-7 gap-1">
-      {SKELETON_WEEKS.flatMap((week) =>
-        WEEKDAYS.map(({ short }) => (
-          <Skeleton key={`${week}-${short}`} className="h-16 sm:h-24" />
-        ))
-      )}
-    </div>
-  </LoadingState>
-);
+        {t('due')}
+      </span>
 
-const Legend: FC = () => (
-  <p
-    aria-hidden="true"
-    className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
-  >
-    <span className="flex items-center gap-1">
-      <CircleAlert className="size-3 text-negative" />
-      Overdue
-    </span>
+      <span className="flex items-center gap-1">
+        <Check className="size-3" />
 
-    <span className="flex items-center gap-1">
-      <span className="mx-0.5 size-2 rounded-full bg-primary" />
-      Due
-    </span>
-
-    <span className="flex items-center gap-1">
-      <Check className="size-3" />
-      Paid
-    </span>
-  </p>
-);
+        {t('paid')}
+      </span>
+    </p>
+  );
+};
 
 const DayBillRow: FC<Record<'expense', Expense> & Record<'href', string>> = ({
   expense,
   href
 }) => {
+  const t = useTranslations('calendar.day');
+  const tFinances = useTranslations('finances');
+  const { formatMoney } = useFormat();
   const {
     description,
     category,
@@ -254,7 +280,10 @@ const DayBillRow: FC<Record<'expense', Expense> & Record<'href', string>> = ({
         </Link>
 
         <span className="text-xs text-muted-foreground">
-          {`${originLabelOf(expense)} · ${EXPENSE_CATEGORY_LABELS[category]}`}
+          {t('meta', {
+            origin: originLabelOf(expense, tFinances),
+            category: tFinances(`categories.${category}`)
+          })}
         </span>
       </div>
 
@@ -265,7 +294,9 @@ const DayBillRow: FC<Record<'expense', Expense> & Record<'href', string>> = ({
 
         {isPartlySettled && (
           <span className="text-xs text-muted-foreground">
-            {`${formatMoney(outstandingAmount, currency)} left`}
+            {t('outstanding', {
+              amount: formatMoney(outstandingAmount, currency)
+            })}
           </span>
         )}
 
@@ -280,6 +311,12 @@ const DayBills: FC<
     Record<'figures', CalendarDayFigures | undefined> &
     Record<'billHref', (expenseId: string) => string>
 > = ({ day, figures, billHref }) => {
+  const t = useTranslations('calendar.day');
+  const {
+    formatLongWeekdayCalendarDay,
+    formatMoney,
+    formatWeekdayCalendarDay
+  } = useFormat();
   const headingId = useId();
   const [page, setPage] = useState(FIRST_PAGE);
 
@@ -305,10 +342,16 @@ const DayBills: FC<
   );
   const description =
     owed === undefined
-      ? 'Nothing due'
+      ? t('nothingDue')
       : owed.length === 0
-        ? 'All paid'
-        : `${owed.map(({ outstanding, currency }) => formatMoney(outstanding, currency)).join(' · ')} left to pay`;
+        ? t('allPaid')
+        : t('leftToPay', {
+            amounts: owed
+              .map(({ outstanding, currency }) =>
+                formatMoney(outstanding, currency)
+              )
+              .join(' · ')
+          });
 
   return (
     <section aria-labelledby={headingId} className="min-w-0">
@@ -324,7 +367,7 @@ const DayBills: FC<
           className="space-y-3"
         >
           {isLoading && (
-            <LoadingState label="Loading the day's bills">
+            <LoadingState label={t('loading')}>
               <div aria-hidden="true" className="space-y-3">
                 <Skeleton className="h-10 w-full" />
 
@@ -334,25 +377,20 @@ const DayBills: FC<
           )}
 
           {data === undefined && isError && (
-            <ErrorState
-              message="The day's bills could not be loaded"
-              onRetry={refetch}
-            />
+            <ErrorState message={t('loadFailed')} onRetry={refetch} />
           )}
 
           {isRefetchError && (
-            <StaleState
-              message={STALE_DATA_MESSAGE}
-              isRetrying={isFetching}
-              onRetry={refetch}
-            />
+            <StaleState isRetrying={isFetching} onRetry={refetch} />
           )}
 
-          {data?.total === 0 && <EmptyState message="No bills due this day" />}
+          {data?.total === 0 && <EmptyState message={t('empty')} />}
 
           {data !== undefined && data.items.length > 0 && (
             <ul
-              aria-label={`Bills due ${formatLongWeekdayCalendarDay(day) ?? day}`}
+              aria-label={t('list', {
+                day: formatLongWeekdayCalendarDay(day) ?? day
+              })}
               className={cn(
                 'divide-y transition-opacity',
                 isPlaceholderData && 'opacity-60'
@@ -370,10 +408,10 @@ const DayBills: FC<
 
           {data !== undefined && data.totalPages > 1 && (
             <PageNavigation
-              label="Day bill pages"
+              label={t('pages')}
               page={data.page}
               totalPages={data.totalPages}
-              detail={countText(data.total, 'bill')}
+              detail={t('count', { count: data.total })}
               onPageChange={setPage}
             />
           )}
@@ -384,6 +422,9 @@ const DayBills: FC<
 };
 
 export const CalendarView: FC = () => {
+  const t = useTranslations('calendar');
+  const format = useFormat();
+  const weekdays = weekdaysOf(format);
   const searchParams = useSearchParams();
   const today = useReferenceDay();
   const headingId = useId();
@@ -454,17 +495,17 @@ export const CalendarView: FC = () => {
     updateUrlQuery(params);
   };
 
-  const monthLabel = formatLongCalendarMonth(month) ?? month;
+  const monthLabel = format.formatLongCalendarMonth(month) ?? month;
 
   const monthNavigation = (
-    <nav aria-label="Months" className="flex items-center gap-1">
+    <nav aria-label={t('months')} className="flex items-center gap-1">
       {month !== currentMonth && (
         <Button
           variant="outline"
           size="sm"
           onClick={() => showMonth(currentMonth)}
         >
-          This month
+          {t('thisMonth')}
         </Button>
       )}
 
@@ -476,7 +517,7 @@ export const CalendarView: FC = () => {
       >
         <ChevronLeft aria-hidden="true" className="size-4" />
 
-        <span className="sr-only">Previous month</span>
+        <span className="sr-only">{t('previousMonth')}</span>
       </Button>
 
       <Button
@@ -487,17 +528,14 @@ export const CalendarView: FC = () => {
       >
         <ChevronRight aria-hidden="true" className="size-4" />
 
-        <span className="sr-only">Next month</span>
+        <span className="sr-only">{t('nextMonth')}</span>
       </Button>
     </nav>
   );
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Calendar"
-        description="Bills by the day they are due: what is overdue, still due and paid each day of the month"
-      />
+      <PageHeader title={t('title')} description={t('description')} />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
         <section aria-labelledby={headingId} className="min-w-0">
@@ -515,18 +553,11 @@ export const CalendarView: FC = () => {
               {isLoading && <MonthGridSkeleton />}
 
               {data === undefined && isError && (
-                <ErrorState
-                  message="The calendar could not be loaded"
-                  onRetry={refetch}
-                />
+                <ErrorState message={t('loadFailed')} onRetry={refetch} />
               )}
 
               {isRefetchError && (
-                <StaleState
-                  message={STALE_DATA_MESSAGE}
-                  isRetrying={isFetching}
-                  onRetry={refetch}
-                />
+                <StaleState isRetrying={isFetching} onRetry={refetch} />
               )}
 
               {data !== undefined && (
@@ -537,11 +568,13 @@ export const CalendarView: FC = () => {
                       isPlaceholderData && 'opacity-60'
                     )}
                   >
-                    <caption className="sr-only">{`Bills due in ${monthLabel}`}</caption>
+                    <caption className="sr-only">
+                      {t('caption', { month: monthLabel })}
+                    </caption>
 
                     <thead>
                       <tr>
-                        {WEEKDAYS.map(({ short, long }) => (
+                        {weekdays.map(({ short, long }) => (
                           <th
                             key={short}
                             scope="col"
@@ -559,7 +592,7 @@ export const CalendarView: FC = () => {
                         <tr key={week.find((day) => day !== null)}>
                           {week.map((day, weekday) =>
                             day === null ? (
-                              <td key={WEEKDAYS[weekday].short} />
+                              <td key={weekdays[weekday].short} />
                             ) : (
                               <DayCell
                                 key={day}
@@ -580,7 +613,7 @@ export const CalendarView: FC = () => {
 
                   {data.days.length === 0 && (
                     <p className="text-sm text-muted-foreground">
-                      {`Nothing is due in ${monthLabel}.`}
+                      {t('nothingDueInMonth', { month: monthLabel })}
                     </p>
                   )}
                 </>
@@ -592,9 +625,7 @@ export const CalendarView: FC = () => {
         {selectedDay === null ? (
           <Card>
             <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">
-                Choose a day to see the bills due on it.
-              </p>
+              <p className="text-sm text-muted-foreground">{t('chooseDay')}</p>
             </CardContent>
           </Card>
         ) : (

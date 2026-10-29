@@ -2,6 +2,8 @@ import { useId, useMemo, useState, type FC } from 'react';
 
 import { useSearchParams } from 'next/navigation';
 
+import { useTranslations } from 'use-intl';
+
 import type {
   PerformancePoint,
   PerformanceRange,
@@ -28,7 +30,7 @@ import {
   TableRowHeader
 } from '@/components/ui';
 import { usePerformance } from '@/hooks/use-portfolio';
-import { formatSeriesDay } from '@/lib/dates';
+import { useFormat } from '@/i18n/format';
 import { cn } from '@/lib/utils';
 
 type PerformanceChartProps = Record<'portfolio', Portfolio> &
@@ -53,19 +55,6 @@ const PERFORMANCE_RANGES: PerformanceRange[] = [
   'YTD',
   'MAX'
 ];
-
-const PERFORMANCE_RANGE_LABELS: Record<
-  PerformanceRange,
-  Record<'name' | 'period', string>
-> = {
-  '1W': { name: '1W', period: 'in the last week' },
-  '1M': { name: '1M', period: 'in the last month' },
-  '3M': { name: '3M', period: 'in the last three months' },
-  '6M': { name: '6M', period: 'in the last six months' },
-  '1Y': { name: '1Y', period: 'in the last year' },
-  YTD: { name: 'YTD', period: 'this year' },
-  MAX: { name: 'All', period: 'since the first transaction' }
-};
 
 /**
  * Keeps the last point whatever the stride: it is the current value, the one
@@ -95,6 +84,8 @@ const PerformanceSeries: FC<PerformanceSeriesProps> = ({
   period
 }) => {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const t = useTranslations('investments.performance');
+  const { formatSeriesDay } = useFormat();
 
   const plotted = useMemo(() => plottedSeriesOf(series), [series]);
   const values = useMemo(() => plotted.map(({ value }) => value), [plotted]);
@@ -111,10 +102,7 @@ const PerformanceSeries: FC<PerformanceSeriesProps> = ({
         <p className="flex items-center gap-0.5 text-sm font-medium">
           <Trend value={readPoint.twr} />
 
-          <InfoTip label="About this return">
-            Time-weighted return: money added or withdrawn does not count as a
-            gain or a loss, so it can differ from profit/loss.
-          </InfoTip>
+          <InfoTip label={t('returnTip')}>{t('returnExplanation')}</InfoTip>
         </p>
 
         <p className="text-sm text-muted-foreground">
@@ -150,11 +138,13 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
   symbol
 }) => {
   const searchParams = useSearchParams();
+  const { formatSeriesDay } = useFormat();
   const selectedRange =
     PERFORMANCE_RANGES.find(
       (range) => range === searchParams.get(RANGE_PARAM)
     ) ?? DEFAULT_RANGE;
   const [isTableOpen, setIsTableOpen] = useState(false);
+  const t = useTranslations('investments.performance');
   const performanceQuery = usePerformance(portfolio, {
     range: selectedRange,
     symbol
@@ -194,13 +184,13 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
 
   return (
     <QuerySection
-      title="Performance"
+      title={t('title')}
       query={performanceQuery}
-      errorMessage="The performance could not be loaded"
+      errorMessage={t('loadFailed')}
       action={
         hasRangesToChoose && (
           <fieldset>
-            <legend className="sr-only">Period</legend>
+            <legend className="sr-only">{t('period')}</legend>
 
             <SegmentedControl className="flex-wrap">
               {PERFORMANCE_RANGES.map((range) => (
@@ -211,7 +201,7 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
                   checked={range === selectedRange}
                   onChange={() => selectRange(range)}
                 >
-                  {PERFORMANCE_RANGE_LABELS[range].name}
+                  {t(`ranges.${range}`)}
                 </SegmentedControlItem>
               ))}
             </SegmentedControl>
@@ -219,7 +209,7 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
         )
       }
       loading={
-        <LoadingState label="Loading the performance">
+        <LoadingState label={t('loading')}>
           <div className="space-y-4">
             <Skeleton aria-hidden="true" className="h-8 w-56" />
 
@@ -229,18 +219,17 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
       }
       empty={
         <EmptyState
-          message={
-            hasRangesToChoose
-              ? 'No performance to display for this period'
-              : 'No performance to display yet'
-          }
+          message={hasRangesToChoose ? t('emptyPeriod') : t('empty')}
         />
       }
       isEmpty={({ series }) => series.length === 0}
     >
       {({ series, baseCurrency }) => {
-        const { period } = PERFORMANCE_RANGE_LABELS[selectedRange];
-        const caption = `${symbol ?? 'Portfolio'} value and return on each trading day ${period}`;
+        const period = t(`periods.${selectedRange}`);
+        const caption =
+          symbol === undefined
+            ? t('portfolioCaption', { period })
+            : t('assetCaption', { symbol, period });
 
         return (
           <div
@@ -264,29 +253,32 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
               }
             >
               <summary className="cursor-pointer rounded-sm text-sm font-medium text-muted-foreground ring-offset-background transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2">
-                Performance as a table
+                {t('showTable')}
               </summary>
 
               {isTableOpen && (
-                <Table
-                  label="Performance table"
-                  regionClassName="mt-3 max-h-72"
-                >
+                <Table label={t('table')} regionClassName="mt-3 max-h-72">
                   <TableCaption className="sr-only">{caption}</TableCaption>
 
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Day</TableHead>
-
-                      <TableHead className="text-right">Value</TableHead>
-
-                      <TableHead className="text-right">Invested</TableHead>
+                      <TableHead>{t('columns.day')}</TableHead>
 
                       <TableHead className="text-right">
-                        Net contribution
+                        {t('columns.value')}
                       </TableHead>
 
-                      <TableHead className="text-right">Return</TableHead>
+                      <TableHead className="text-right">
+                        {t('columns.invested')}
+                      </TableHead>
+
+                      <TableHead className="text-right">
+                        {t('columns.netContribution')}
+                      </TableHead>
+
+                      <TableHead className="text-right">
+                        {t('columns.return')}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
 

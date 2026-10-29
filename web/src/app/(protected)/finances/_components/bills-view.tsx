@@ -7,7 +7,8 @@ import {
   useMemo,
   useRef,
   useState,
-  type FC
+  type FC,
+  type ReactNode
 } from 'react';
 
 import Link from 'next/link';
@@ -18,8 +19,10 @@ import {
   ArrowUpNarrowWide,
   Plus,
   Search,
+  SlidersHorizontal,
   X
 } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import type {
   Expense,
@@ -31,21 +34,18 @@ import type {
 } from '@/app/api/v1/finances';
 import {
   BILL_DETAIL_PARAM,
+  billsRouteFor,
   EXPENSE_CATEGORIES,
-  EXPENSE_CATEGORY_LABELS,
-  EXPENSE_KIND_LABELS,
   EXPENSE_KINDS,
-  EXPENSE_STATUS_FILTER_LABELS,
   EXPENSE_STATUS_FILTERS,
   FINANCE_LIMITS
 } from '@/common/constants';
-import { formatMoney, updateUrlQuery } from '@/common/utils';
+import { updateUrlQuery } from '@/common/utils';
 import {
   EmptyState,
   ErrorState,
   LoadingState,
   NoResultsState,
-  STALE_DATA_MESSAGE,
   StaleState
 } from '@/components/data-state';
 import { DatePicker } from '@/components/date-picker';
@@ -78,17 +78,22 @@ import {
   useCreateExpense,
   useExpenses,
   useFinanceAlerts,
+  useRecordPayment,
   useReferenceDay
 } from '@/hooks/use-finances';
-import { isCalendarDay } from '@/lib/dates';
+import { type Format, useFormat } from '@/i18n/format';
+import { srOnly } from '@/i18n/rich-text';
+import type { Translator } from '@/i18n/translator';
+import { isCalendarDay, shiftCalendarDay } from '@/lib/dates';
 import {
   DECIMAL_COLUMN,
   isNonzeroDecimal,
-  readDecimal,
+  isStorableDecimal,
   unitsOf
 } from '@/lib/decimal';
 import { FIRST_PAGE, pageNumberFrom } from '@/lib/pagination';
 import { cn } from '@/lib/utils';
+import type { DecimalString } from '@/types';
 
 import { BillDialogs } from './bill-dialogs';
 import { ExpenseFormDialog } from './expense-form-dialog';
@@ -100,6 +105,7 @@ import {
   originLabelOf
 } from './finance-display';
 import { AlertTotals } from './finance-summary';
+import { PaymentFormDialog } from './payment-form-dialog';
 
 type BillListing = Record<'page', number> &
   Record<'sortBy', ExpenseSortField> &
@@ -108,13 +114,17 @@ type BillListing = Record<'page', number> &
   Partial<Record<'status', ExpenseStatusFilter>> &
   Partial<Record<'kind', ExpenseKind>> &
   Partial<Record<'category', ExpenseCategory>> &
-  Partial<Record<'dueFrom' | 'dueTo' | 'minAmount' | 'maxAmount', string>>;
+  Partial<Record<'dueFrom' | 'dueTo', string>> &
+  Partial<Record<'minAmount' | 'maxAmount', DecimalString>>;
 
 type Refine = (refinement: Partial<BillListing>) => void;
 
+type ActiveFilter = Record<'label', string> &
+  Record<'refinement', Partial<BillListing>>;
+
 type AmountFilterProps = Record<'label', string> &
-  Record<'value', string | undefined> &
-  Record<'onCommit', (value: string | undefined) => void>;
+  Record<'value', DecimalString | undefined> &
+  Record<'onCommit', (value: DecimalString | undefined) => void>;
 
 const PAGE_SIZE = 20;
 const DEFAULT_SORT_FIELD: ExpenseSortField = 'dueDate';
@@ -144,23 +154,11 @@ const SORT_FIELDS: Array<ExpenseSortField> = [
   'createdAt'
 ];
 
-const SORT_FIELD_LABELS: Record<ExpenseSortField, string> = {
-  dueDate: 'Due date',
-  amount: 'Amount',
-  description: 'Description',
-  createdAt: 'Date added'
-};
-
 const SORT_ORDERS: Array<SortOrder> = ['asc', 'desc'];
 
 const REVERSED_ORDER: Record<SortOrder, SortOrder> = {
   asc: 'desc',
   desc: 'asc'
-};
-
-const ARIA_SORT: Record<SortOrder, string> = {
-  asc: 'ascending',
-  desc: 'descending'
 };
 
 const firstOrderOf = (field: ExpenseSortField): SortOrder =>
@@ -178,13 +176,9 @@ const COLUMN_VISIBILITY = {
 const dayParamOf = (value: string | null) =>
   value !== null && isCalendarDay(value) ? value : undefined;
 
-const amountParamOf = (value: string | null) => {
-  if (value === null) return undefined;
-
-  const reading = readDecimal(value);
-
-  return reading.outcome === 'read' ? reading.value : undefined;
-};
+/** The address holds the amount as the API takes it, never as a person types it. */
+const amountParamOf = (value: string | null) =>
+  value !== null && isStorableDecimal(value) ? value : undefined;
 
 const listingFrom = (params: URLSearchParams): BillListing => {
   const sortBy =
@@ -283,6 +277,92 @@ const hasRefinementIn = (listing: BillListing) =>
     (key) => listing[key as keyof BillListing] !== undefined
   );
 
+/** The filters the panel holds, counted on its toggle while it is closed. */
+const PANEL_FILTERS = [
+  'kind',
+  'category',
+  'dueFrom',
+  'dueTo',
+  'minAmount',
+  'maxAmount'
+] as const satisfies ReadonlyArray<keyof BillListing>;
+
+const dayText = (day: string, { formatCalendarDay }: Format) =>
+  formatCalendarDay(day) ?? day;
+
+/** Each filter in force, in words, with what removes it; the search shows in its own field. */
+const activeFiltersOf = (
+  {
+    status,
+    kind,
+    category,
+    currency,
+    dueFrom,
+    dueTo,
+    minAmount,
+    maxAmount
+  }: BillListing,
+  t: Translator<'bills.filters.chips'>,
+  tFinances: Translator<'finances'>,
+  format: Format
+): Array<ActiveFilter> =>
+  [
+    status === undefined
+      ? null
+      : {
+          label: t('status', { value: tFinances(`statusFilters.${status}`) }),
+          refinement: { status: undefined }
+        },
+    kind === undefined
+      ? null
+      : {
+          label: t('kind', { value: tFinances(`kinds.${kind}`) }),
+          refinement: { kind: undefined }
+        },
+    category === undefined
+      ? null
+      : {
+          label: t('category', {
+            value: tFinances(`categories.${category}`)
+          }),
+          refinement: { category: undefined }
+        },
+    currency === undefined
+      ? null
+      : {
+          label: t('currency', { currency }),
+          refinement: { currency: undefined }
+        },
+    dueFrom === undefined
+      ? null
+      : {
+          label: t('dueFrom', { day: dayText(dueFrom, format) }),
+          refinement: { dueFrom: undefined }
+        },
+    dueTo === undefined
+      ? null
+      : {
+          label: t('dueTo', { day: dayText(dueTo, format) }),
+          refinement: { dueTo: undefined }
+        },
+    minAmount === undefined
+      ? null
+      : {
+          label: t('minAmount', {
+            amount: format.formatQuantity(minAmount)
+          }),
+          refinement: { minAmount: undefined }
+        },
+    maxAmount === undefined
+      ? null
+      : {
+          label: t('maxAmount', {
+            amount: format.formatQuantity(maxAmount)
+          }),
+          refinement: { maxAmount: undefined }
+        }
+  ].filter((filter) => filter !== null);
+
 const unitsOfAmount = (amount: string) => unitsOf(amount, DECIMAL_COLUMN.SCALE);
 
 /** A range given backwards still means the span between its ends. */
@@ -295,16 +375,40 @@ const orderedRange = (
     ? { from: to, to: from }
     : { from, to };
 
+/** Which bills of how many the page shows, such as "21–40 de 134 contas". */
+const pageDetailOf = (
+  {
+    page,
+    total,
+    items
+  }: Record<'page' | 'total', number> & Record<'items', ReadonlyArray<Expense>>,
+  t: Translator<'bills'>
+) => {
+  if (items.length === 0) return t('count', { total });
+
+  const first = (page - 1) * PAGE_SIZE + 1;
+
+  return t('range', { first, last: first + items.length - 1, total });
+};
+
+const amountTextOf = (
+  value: DecimalString | undefined,
+  { decimalInputTextOf }: Format
+) => (value === undefined ? '' : decimalInputTextOf(value));
+
 const AmountFilter: FC<AmountFilterProps> = ({ label, value, onCommit }) => {
+  const t = useTranslations('bills.filters');
+  const format = useFormat();
   const inputId = useId();
   const errorId = useId();
-  const [text, setText] = useState(value ?? '');
+  const [text, setText] = useState(() => amountTextOf(value, format));
   const [isInvalid, setIsInvalid] = useState(false);
 
+  // Also on a change of language, so the applied amount reads in its separators.
   useEffect(() => {
-    setText(value ?? '');
+    setText(amountTextOf(value, format));
     setIsInvalid(false);
-  }, [value]);
+  }, [value, format]);
 
   const commit = () => {
     const trimmed = text.trim();
@@ -316,7 +420,7 @@ const AmountFilter: FC<AmountFilterProps> = ({ label, value, onCommit }) => {
       return;
     }
 
-    const reading = readDecimal(trimmed);
+    const reading = format.readDecimal(trimmed);
 
     if (reading.outcome !== 'read') {
       setIsInvalid(true);
@@ -338,7 +442,7 @@ const AmountFilter: FC<AmountFilterProps> = ({ label, value, onCommit }) => {
         id={inputId}
         inputMode="decimal"
         autoComplete="off"
-        placeholder="Any"
+        placeholder={t('anyAmount')}
         value={text}
         aria-invalid={isInvalid}
         aria-describedby={isInvalid ? errorId : undefined}
@@ -352,7 +456,7 @@ const AmountFilter: FC<AmountFilterProps> = ({ label, value, onCommit }) => {
 
       {isInvalid && (
         <p id={errorId} className="text-xs text-negative">
-          Enter an amount such as 150 or 150.50
+          {t('amountInvalid')}
         </p>
       )}
     </div>
@@ -364,6 +468,7 @@ const DayFilter: FC<
     Record<'value', string | undefined> &
     Record<'onChange', (value: string | undefined) => void>
 > = ({ label, value, onChange }) => {
+  const t = useTranslations('bills.filters');
   const pickerId = useId();
 
   return (
@@ -391,7 +496,7 @@ const DayFilter: FC<
             variant="ghost"
             size="icon"
             className="size-9 shrink-0"
-            aria-label={`Clear ${label.toLowerCase()}`}
+            aria-label={t('clearDay', { label })}
             onClick={() => onChange(undefined)}
           >
             <X aria-hidden="true" className="size-4" />
@@ -402,259 +507,325 @@ const DayFilter: FC<
   );
 };
 
-const BillFilters: FC<
-  Record<'listing', BillListing> &
-    Record<'refine', Refine> &
-    Record<'onClear', VoidFunction>
-> = ({ listing, refine, onClear }) => {
-  const statusId = useId();
-  const kindId = useId();
-  const categoryId = useId();
+const FilterSelect: FC<
+  Record<'label' | 'allLabel' | 'value', string> &
+    Record<'options', ReadonlyArray<Record<'value' | 'label', string>>> &
+    Record<'isActive', boolean> &
+    Record<'onValueChange', (value: string) => void> &
+    Partial<Record<'isLabelHidden', boolean>> &
+    Partial<Record<'className', string>>
+> = ({
+  label,
+  allLabel,
+  value,
+  options,
+  isActive,
+  onValueChange,
+  isLabelHidden = false,
+  className
+}) => {
+  const triggerId = useId();
+
+  return (
+    <div className={cn('min-w-0 space-y-1', className)}>
+      <Label
+        htmlFor={triggerId}
+        className={isLabelHidden ? 'sr-only' : 'text-xs text-muted-foreground'}
+      >
+        {label}
+      </Label>
+
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger
+          id={triggerId}
+          className={cn('h-9', isActive && ACTIVE_FILTER_CLASS)}
+        >
+          <SelectValue />
+        </SelectTrigger>
+
+        <SelectContent>
+          <SelectItem value={ALL_OPTION}>{allLabel}</SelectItem>
+
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
+const BillSort: FC<
+  Record<'listing', BillListing> & Record<'refine', Refine>
+> = ({ listing, refine }) => {
+  const t = useTranslations('bills.sort');
   const sortId = useId();
-  const hasRefinement = hasRefinementIn(listing);
   const SortOrderIcon =
     listing.sortOrder === 'asc' ? ArrowUpNarrowWide : ArrowDownWideNarrow;
 
   return (
+    <div
+      role="group"
+      aria-label={t('label')}
+      className="flex items-center gap-2 max-sm:w-full"
+    >
+      <Label htmlFor={sortId} className="sr-only">
+        {t('by')}
+      </Label>
+
+      <Select
+        value={listing.sortBy}
+        onValueChange={(value) => {
+          const field = SORT_FIELDS.find((sortField) => sortField === value);
+
+          if (field !== undefined)
+            refine({ sortBy: field, sortOrder: firstOrderOf(field) });
+        }}
+      >
+        <SelectTrigger id={sortId} className="h-9 w-auto gap-1.5 max-sm:flex-1">
+          <span aria-hidden="true" className="text-muted-foreground">
+            {t('by')}
+          </span>
+
+          <SelectValue />
+        </SelectTrigger>
+
+        <SelectContent>
+          {SORT_FIELDS.map((field) => (
+            <SelectItem key={field} value={field}>
+              {t(`fields.${field}`)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Button
+        variant="outline"
+        size="icon"
+        className="size-9 shrink-0"
+        aria-label={t('descending')}
+        aria-pressed={listing.sortOrder === 'desc'}
+        title={t('descending')}
+        onClick={() => refine({ sortOrder: REVERSED_ORDER[listing.sortOrder] })}
+      >
+        <SortOrderIcon aria-hidden="true" className="size-4" />
+      </Button>
+    </div>
+  );
+};
+
+/**
+ * Search, status and sort stay in view; the rarer filters fold into a panel,
+ * open from the start when one of them is set. Every filter in force shows as
+ * a chip that removes it, whether the panel is open or not.
+ */
+const BillFilters: FC<
+  Record<'listing', BillListing> &
+    Record<'refine', Refine> &
+    Record<'searchField', ReactNode> &
+    Record<'onClear', VoidFunction>
+> = ({ listing, refine, searchField, onClear }) => {
+  const t = useTranslations('bills.filters');
+  const tChips = useTranslations('bills.filters.chips');
+  const tFinances = useTranslations('finances');
+  const tActions = useTranslations('common.actions');
+  const panelId = useId();
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const panelFilterCount = PANEL_FILTERS.filter(
+    (filter) => listing[filter] !== undefined
+  ).length;
+  const [isPanelOpen, setIsPanelOpen] = useState(() => panelFilterCount > 0);
+  const format = useFormat();
+  const activeFilters = activeFiltersOf(listing, tChips, tFinances, format);
+  const statusOptions = EXPENSE_STATUS_FILTERS.map((status) => ({
+    value: status,
+    label: tFinances(`statusFilters.${status}`)
+  }));
+  const kindOptions = EXPENSE_KINDS.map((kind) => ({
+    value: kind,
+    label: tFinances(`kinds.${kind}`)
+  }));
+  const categoryOptions = EXPENSE_CATEGORIES.map((category) => ({
+    value: category,
+    label: tFinances(`categories.${category}`)
+  }));
+
+  return (
     <div className="space-y-3">
-      <div className="grid gap-2 sm:grid-cols-3">
-        <div className="space-y-1">
-          <Label htmlFor={statusId} className="text-xs text-muted-foreground">
-            Status
-          </Label>
-
-          <Select
-            value={listing.status ?? ALL_OPTION}
-            onValueChange={(value) =>
-              refine({
-                status: EXPENSE_STATUS_FILTERS.find(
-                  (status) => status === value
-                )
-              })
-            }
-          >
-            <SelectTrigger
-              id={statusId}
-              className={cn(
-                'h-9',
-                listing.status !== undefined && ACTIVE_FILTER_CLASS
-              )}
-            >
-              <SelectValue />
-            </SelectTrigger>
-
-            <SelectContent>
-              <SelectItem value={ALL_OPTION}>All statuses</SelectItem>
-
-              {EXPENSE_STATUS_FILTERS.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {EXPENSE_STATUS_FILTER_LABELS[status]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-0 basis-full lg:basis-0 lg:flex-1">
+          {searchField}
         </div>
 
-        <div className="space-y-1">
-          <Label htmlFor={kindId} className="text-xs text-muted-foreground">
-            Type
-          </Label>
+        <FilterSelect
+          isLabelHidden
+          label={t('status')}
+          allLabel={t('allStatuses')}
+          value={listing.status ?? ALL_OPTION}
+          options={statusOptions}
+          isActive={listing.status !== undefined}
+          className="min-w-36 flex-1 lg:w-44 lg:flex-none"
+          onValueChange={(value) =>
+            refine({
+              status: EXPENSE_STATUS_FILTERS.find((status) => status === value)
+            })
+          }
+        />
 
-          <Select
-            value={listing.kind ?? ALL_OPTION}
-            onValueChange={(value) =>
-              refine({ kind: EXPENSE_KINDS.find((kind) => kind === value) })
-            }
-          >
-            <SelectTrigger
-              id={kindId}
-              className={cn(
-                'h-9',
-                listing.kind !== undefined && ACTIVE_FILTER_CLASS
-              )}
-            >
-              <SelectValue />
-            </SelectTrigger>
+        <Button
+          ref={toggleRef}
+          variant="outline"
+          size="sm"
+          aria-expanded={isPanelOpen}
+          aria-controls={panelId}
+          className={cn(
+            'gap-1.5',
+            panelFilterCount > 0 && !isPanelOpen && ACTIVE_FILTER_CLASS
+          )}
+          onClick={() => setIsPanelOpen((isOpen) => !isOpen)}
+        >
+          <SlidersHorizontal aria-hidden="true" className="size-4" />
 
-            <SelectContent>
-              <SelectItem value={ALL_OPTION}>All types</SelectItem>
+          <span>{t('more')}</span>
 
-              {EXPENSE_KINDS.map((kind) => (
-                <SelectItem key={kind} value={kind}>
-                  {EXPENSE_KIND_LABELS[kind]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+          {panelFilterCount > 0 && (
+            <span className="rounded-full bg-primary px-1.5 text-xs leading-5 font-semibold text-primary-foreground tabular-nums">
+              {t.rich('activeCount', {
+                count: panelFilterCount,
+                hidden: srOnly
+              })}
+            </span>
+          )}
+        </Button>
 
-        <div className="space-y-1">
-          <Label htmlFor={categoryId} className="text-xs text-muted-foreground">
-            Category
-          </Label>
-
-          <Select
-            value={listing.category ?? ALL_OPTION}
-            onValueChange={(value) =>
-              refine({
-                category: EXPENSE_CATEGORIES.find(
-                  (category) => category === value
-                )
-              })
-            }
-          >
-            <SelectTrigger
-              id={categoryId}
-              className={cn(
-                'h-9',
-                listing.category !== undefined && ACTIVE_FILTER_CLASS
-              )}
-            >
-              <SelectValue />
-            </SelectTrigger>
-
-            <SelectContent>
-              <SelectItem value={ALL_OPTION}>All categories</SelectItem>
-
-              {EXPENSE_CATEGORIES.map((category) => (
-                <SelectItem key={category} value={category}>
-                  {EXPENSE_CATEGORY_LABELS[category]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <BillSort listing={listing} refine={refine} />
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        id={panelId}
+        hidden={!isPanelOpen}
+        className="grid gap-3 rounded-lg border bg-muted/20 p-3 sm:grid-cols-2 lg:grid-cols-3"
+      >
+        <FilterSelect
+          label={t('kind')}
+          allLabel={t('allKinds')}
+          value={listing.kind ?? ALL_OPTION}
+          options={kindOptions}
+          isActive={listing.kind !== undefined}
+          onValueChange={(value) =>
+            refine({ kind: EXPENSE_KINDS.find((kind) => kind === value) })
+          }
+        />
+
+        <FilterSelect
+          label={t('category')}
+          allLabel={t('allCategories')}
+          value={listing.category ?? ALL_OPTION}
+          options={categoryOptions}
+          isActive={listing.category !== undefined}
+          className="lg:col-span-2"
+          onValueChange={(value) =>
+            refine({
+              category: EXPENSE_CATEGORIES.find(
+                (category) => category === value
+              )
+            })
+          }
+        />
+
         <DayFilter
-          label="Due from"
+          label={t('dueFrom')}
           value={listing.dueFrom}
           onChange={(dueFrom) => refine({ dueFrom })}
         />
 
         <DayFilter
-          label="Due to"
+          label={t('dueTo')}
           value={listing.dueTo}
           onChange={(dueTo) => refine({ dueTo })}
         />
 
-        <AmountFilter
-          label="Minimum amount"
-          value={listing.minAmount}
-          onCommit={(minAmount) => refine({ minAmount })}
-        />
+        <div className="grid grid-cols-2 gap-3 sm:col-span-2 lg:col-span-1">
+          <AmountFilter
+            label={t('minAmount')}
+            value={listing.minAmount}
+            onCommit={(minAmount) => refine({ minAmount })}
+          />
 
-        <AmountFilter
-          label="Maximum amount"
-          value={listing.maxAmount}
-          onCommit={(maxAmount) => refine({ maxAmount })}
-        />
+          <AmountFilter
+            label={t('maxAmount')}
+            value={listing.maxAmount}
+            onCommit={(maxAmount) => refine({ maxAmount })}
+          />
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          {listing.currency !== undefined && (
+      {hasRefinementIn(listing) && (
+        <div
+          role="group"
+          aria-label={t('inForce')}
+          className="flex flex-wrap items-center gap-2"
+        >
+          {activeFilters.map(({ label, refinement }) => (
             <Button
+              key={label}
               variant="outline"
-              size="sm"
-              className={cn('h-8 gap-1.5', ACTIVE_FILTER_CLASS)}
-              onClick={() => refine({ currency: undefined })}
+              size="xs"
+              className={cn('gap-1.5 font-normal', ACTIVE_FILTER_CLASS)}
+              onClick={() => {
+                refine(refinement);
+                toggleRef.current?.focus();
+              }}
             >
-              {`Only ${listing.currency}`}
+              {label}
 
               <X aria-hidden="true" className="size-3.5" />
 
-              <span className="sr-only">, remove this filter</span>
+              <span className="sr-only">{t('remove')}</span>
             </Button>
-          )}
-
-          {hasRefinement && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5 text-muted-foreground"
-              onClick={onClear}
-            >
-              <X aria-hidden="true" className="size-4" />
-              Clear filters
-            </Button>
-          )}
-        </div>
-
-        <div
-          role="group"
-          aria-label="Sort bills"
-          className="flex items-center gap-2 max-sm:w-full"
-        >
-          <Label htmlFor={sortId} className="sr-only">
-            Sort by
-          </Label>
-
-          <Select
-            value={listing.sortBy}
-            onValueChange={(value) => {
-              const field = SORT_FIELDS.find(
-                (sortField) => sortField === value
-              );
-
-              if (field !== undefined)
-                refine({ sortBy: field, sortOrder: firstOrderOf(field) });
-            }}
-          >
-            <SelectTrigger
-              id={sortId}
-              className="h-9 w-auto gap-1.5 max-sm:flex-1"
-            >
-              <span aria-hidden="true" className="text-muted-foreground">
-                Sort by
-              </span>
-
-              <SelectValue />
-            </SelectTrigger>
-
-            <SelectContent>
-              {SORT_FIELDS.map((field) => (
-                <SelectItem key={field} value={field}>
-                  {SORT_FIELD_LABELS[field]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          ))}
 
           <Button
-            variant="outline"
-            size="icon"
-            className="size-9 shrink-0"
-            aria-label="Descending order"
-            aria-pressed={listing.sortOrder === 'desc'}
-            title="Descending order"
-            onClick={() =>
-              refine({ sortOrder: REVERSED_ORDER[listing.sortOrder] })
-            }
+            variant="ghost"
+            size="xs"
+            className="gap-1.5 text-muted-foreground"
+            onClick={onClear}
           >
-            <SortOrderIcon aria-hidden="true" className="size-4" />
+            <X aria-hidden="true" className="size-4" />
+
+            {tActions('clearAll')}
           </Button>
         </div>
-      </div>
+      )}
     </div>
   );
 };
 
 const BillAmount: FC<Record<'expense', Expense>> = ({ expense }) => {
+  const t = useTranslations('bills');
+  const { formatMoney } = useFormat();
   const { amount, outstandingAmount, settledAmount, currency } = expense;
   const isPartlySettled =
     isOpenExpense(expense) && isNonzeroDecimal(settledAmount);
 
   return (
     <div className="flex flex-col items-end gap-0.5 whitespace-nowrap">
-      <span className="font-medium">
+      <span
+        className={cn(
+          'font-medium',
+          expense.status === 'CANCELLED' && 'line-through'
+        )}
+      >
         <Money value={amount} currency={currency} />
       </span>
 
       {isPartlySettled && (
         <span className="text-xs text-muted-foreground">
-          {`${formatMoney(outstandingAmount, currency)} left`}
+          {t('outstanding', {
+            amount: formatMoney(outstandingAmount, currency)
+          })}
         </span>
       )}
     </div>
@@ -662,15 +833,19 @@ const BillAmount: FC<Record<'expense', Expense>> = ({ expense }) => {
 };
 
 const BillRow: FC<
-  Record<'expense', Expense> & Record<'href', string> & Record<'today', string>
-> = ({ expense, href, today }) => {
+  Record<'expense', Expense> &
+    Record<'href', string> &
+    Record<'today', string> &
+    Record<'onPay', (expense: Expense) => void>
+> = ({ expense, href, today, onPay }) => {
+  const t = useTranslations('bills');
+  const tFinances = useTranslations('finances');
   const { description, category, dueDate, status } = expense;
-  const dueDistance = isOpenExpense(expense)
-    ? dueDistanceOf(dueDate, today)
-    : null;
+  const isOpen = isOpenExpense(expense);
+  const dueDistance = isOpen ? dueDistanceOf(dueDate, today, tFinances) : null;
 
   return (
-    <TableRow>
+    <TableRow className={cn(status === 'CANCELLED' && 'text-muted-foreground')}>
       <TableRowHeader className="relative py-3">
         <div className="flex min-w-0 flex-col items-start gap-0.5">
           <Link
@@ -682,13 +857,14 @@ const BillRow: FC<
           </Link>
 
           <span className="text-xs text-muted-foreground">
-            {`${originLabelOf(expense)} · ${EXPENSE_CATEGORY_LABELS[category]}`}
+            {t('meta', {
+              origin: originLabelOf(expense, tFinances),
+              category: tFinances(`categories.${category}`)
+            })}
           </span>
 
           <span className="text-xs text-muted-foreground md:hidden">
-            {'Due '}
-
-            <CalendarDayText day={dueDate} />
+            {t.rich('dueOn', { day: () => <CalendarDayText day={dueDate} /> })}
           </span>
 
           <ExpenseStatusBadge status={status} className="mt-1 sm:hidden" />
@@ -719,12 +895,28 @@ const BillRow: FC<
       <TableCell className={cn('text-right', COLUMN_VISIBILITY.status)}>
         <ExpenseStatusBadge status={status} />
       </TableCell>
+
+      <TableCell className="w-0 text-right">
+        {isOpen && (
+          <Button
+            variant="outline"
+            size="xs"
+            aria-label={t('payBill', { description })}
+            onClick={() => onPay(expense)}
+          >
+            {t('pay')}
+          </Button>
+        )}
+      </TableCell>
     </TableRow>
   );
 };
 
+/** Each alert opens the bills it counts, as the overview's do. */
 const AlertsStrip: FC = () => {
+  const t = useTranslations('bills.alerts');
   const { data } = useFinanceAlerts();
+  const today = useReferenceDay();
 
   if (data === undefined) return null;
 
@@ -738,16 +930,26 @@ const AlertsStrip: FC = () => {
       {overdue.count > 0 && (
         <AlertTotals
           tone="negative"
-          title={`${overdue.count} overdue ${overdue.count === 1 ? 'bill' : 'bills'}`}
+          title={t('overdue', { count: overdue.count })}
           totals={overdue.totals}
+          href={billsRouteFor({ status: 'OVERDUE' })}
         />
       )}
 
       {dueSoon.count > 0 && (
         <AlertTotals
           tone="warning"
-          title={`${dueSoon.count} due ${reminderLeadDays === 0 ? 'today' : `within ${reminderLeadDays} ${reminderLeadDays === 1 ? 'day' : 'days'}`}`}
+          title={t('dueSoon', {
+            count: dueSoon.count,
+            days: reminderLeadDays
+          })}
           totals={dueSoon.totals}
+          href={billsRouteFor({
+            status: 'PENDING',
+            dueFrom: today,
+            dueTo: shiftCalendarDay(today, reminderLeadDays) ?? today,
+            ...(reminders.remindUpcomingBills ? {} : { kind: 'INSTALLMENT' })
+          })}
         />
       )}
     </div>
@@ -755,12 +957,14 @@ const AlertsStrip: FC = () => {
 };
 
 export const BillsView: FC = () => {
+  const t = useTranslations('bills');
   const searchParams = useSearchParams();
   const today = useReferenceDay();
   const listing = useMemo(() => listingFrom(searchParams), [searchParams]);
   const openBillId = searchParams.get(BILL_DETAIL_PARAM);
 
   const [isAdding, setIsAdding] = useState(false);
+  const [payingExpense, setPayingExpense] = useState<Expense | null>(null);
   const [searchInput, setSearchInput] = useState(() => listing.search ?? '');
   const committedSearch = useRef(listing.search);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -768,6 +972,7 @@ export const BillsView: FC = () => {
   const searchId = useId();
 
   const { mutateAsync: createExpense } = useCreateExpense();
+  const { mutateAsync: recordPayment } = useRecordPayment();
 
   const dueRange = orderedRange(
     listing.dueFrom,
@@ -859,8 +1064,8 @@ export const BillsView: FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Bills"
-        description="Everything owed, paid or cancelled: one-time bills, installments and recurring expenses"
+        title={t('title')}
+        description={t('description')}
         action={
           <Button
             size="sm"
@@ -868,7 +1073,8 @@ export const BillsView: FC = () => {
             onClick={() => setIsAdding(true)}
           >
             <Plus size={16} aria-hidden="true" />
-            Add bill
+
+            {t('add')}
           </Button>
         }
       />
@@ -877,35 +1083,38 @@ export const BillsView: FC = () => {
 
       <section aria-labelledby={headingId} className="min-w-0">
         <Card>
-          <SectionHeader id={headingId} title="All bills" />
+          <SectionHeader id={headingId} title={t('allBills')} />
 
           <CardContent className="space-y-4">
-            <div role="search" aria-label="Filter bills" className="space-y-3">
-              <Label htmlFor={searchId} className="sr-only">
-                Search
-              </Label>
-
-              <Input
-                ref={searchInputRef}
-                id={searchId}
-                type="search"
-                placeholder="Search description, notes or account"
-                maxLength={FINANCE_LIMITS.SearchMaxLength}
-                value={searchInput}
-                onChange={({ target }) => setSearchInput(target.value)}
-                className="h-9"
-                leftElement={
-                  <Search
-                    aria-hidden="true"
-                    size={16}
-                    className="text-muted-foreground"
-                  />
-                }
-              />
-
+            <div role="search" aria-label={t('filter')}>
               <BillFilters
                 listing={listing}
                 refine={refine}
+                searchField={
+                  <>
+                    <Label htmlFor={searchId} className="sr-only">
+                      {t('search')}
+                    </Label>
+
+                    <Input
+                      ref={searchInputRef}
+                      id={searchId}
+                      type="search"
+                      placeholder={t('searchPlaceholder')}
+                      maxLength={FINANCE_LIMITS.SearchMaxLength}
+                      value={searchInput}
+                      onChange={({ target }) => setSearchInput(target.value)}
+                      className="h-9"
+                      leftElement={
+                        <Search
+                          aria-hidden="true"
+                          size={16}
+                          className="text-muted-foreground"
+                        />
+                      }
+                    />
+                  </>
+                }
                 onClear={clearRefinements}
               />
             </div>
@@ -915,7 +1124,7 @@ export const BillsView: FC = () => {
               className="space-y-4"
             >
               {isLoading && (
-                <LoadingState label="Loading bills">
+                <LoadingState label={t('loading')}>
                   <div aria-hidden="true" className="divide-y border-b">
                     {SKELETON_ROWS.map((row) => (
                       <div
@@ -940,6 +1149,8 @@ export const BillsView: FC = () => {
                             COLUMN_VISIBILITY.status
                           )}
                         />
+
+                        <Skeleton className="h-8 w-12" />
                       </div>
                     ))}
                   </div>
@@ -947,25 +1158,18 @@ export const BillsView: FC = () => {
               )}
 
               {data === undefined && isError && (
-                <ErrorState
-                  message="The bills could not be loaded"
-                  onRetry={refetch}
-                />
+                <ErrorState message={t('loadFailed')} onRetry={refetch} />
               )}
 
               {isRefetchError && (
-                <StaleState
-                  message={STALE_DATA_MESSAGE}
-                  isRetrying={isFetching}
-                  onRetry={refetch}
-                />
+                <StaleState isRetrying={isFetching} onRetry={refetch} />
               )}
 
               {data?.total === 0 && !hasRefinement && (
                 <EmptyState
-                  message="No bills yet"
+                  message={t('empty')}
                   action={{
-                    label: 'Add bill',
+                    label: t('add'),
                     onSelect: () => setIsAdding(true)
                   }}
                 />
@@ -973,7 +1177,7 @@ export const BillsView: FC = () => {
 
               {data?.total === 0 && hasRefinement && (
                 <NoResultsState
-                  message="No bills match the search and filters"
+                  message={t('noResults')}
                   onClear={clearRefinements}
                 />
               )}
@@ -982,9 +1186,9 @@ export const BillsView: FC = () => {
                 data.total > 0 &&
                 data.items.length === 0 && (
                   <EmptyState
-                    message={`No bills on page ${data.page}`}
+                    message={t('emptyPage', { page: data.page })}
                     action={{
-                      label: `Go to page ${data.totalPages}`,
+                      label: t('goToPage', { page: data.totalPages }),
                       onSelect: () => refine({ page: data.totalPages })
                     }}
                   />
@@ -992,30 +1196,39 @@ export const BillsView: FC = () => {
 
               {data !== undefined && data.items.length > 0 && (
                 <Table
-                  label="Bills table"
+                  label={t('table')}
                   className={cn(
                     'transition-opacity',
                     isPlaceholderData && 'opacity-60'
                   )}
                 >
                   <TableCaption className="sr-only">
-                    {`Bills sorted by ${SORT_FIELD_LABELS[listing.sortBy]}, ${ARIA_SORT[listing.sortOrder]}`}
+                    {t('caption', {
+                      field: t(`sort.fields.${listing.sortBy}`),
+                      order: listing.sortOrder
+                    })}
                   </TableCaption>
 
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      <TableHead>Bill</TableHead>
+                      <TableHead>{t('columns.bill')}</TableHead>
 
                       <TableHead className={COLUMN_VISIBILITY.due}>
-                        Due
+                        {t('columns.due')}
                       </TableHead>
 
-                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">
+                        {t('columns.amount')}
+                      </TableHead>
 
                       <TableHead
                         className={cn('text-right', COLUMN_VISIBILITY.status)}
                       >
-                        Status
+                        {t('columns.status')}
+                      </TableHead>
+
+                      <TableHead className="w-0">
+                        <span className="sr-only">{t('columns.actions')}</span>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1027,6 +1240,7 @@ export const BillsView: FC = () => {
                         expense={expense}
                         href={billHref(expense.id)}
                         today={today}
+                        onPay={setPayingExpense}
                       />
                     ))}
                   </TableBody>
@@ -1036,10 +1250,10 @@ export const BillsView: FC = () => {
               {data !== undefined && data.total > 0 && (
                 <div className="flex justify-end">
                   <PageNavigation
-                    label="Bills pages"
+                    label={t('pages')}
                     page={data.page}
                     totalPages={data.totalPages}
-                    detail={`${data.total} ${data.total === 1 ? 'bill' : 'bills'}`}
+                    detail={pageDetailOf(data, t)}
                     onPageChange={(page) => refine({ page })}
                   />
                 </div>
@@ -1050,6 +1264,17 @@ export const BillsView: FC = () => {
       </section>
 
       <BillDialogs expenseId={openBillId} onClose={closeBill} />
+
+      {payingExpense !== null && (
+        <PaymentFormDialog
+          target={{ kind: 'record', expense: payingExpense }}
+          onCancel={() => setPayingExpense(null)}
+          onSubmit={async (payment) => {
+            await recordPayment({ ...payment, expenseId: payingExpense.id });
+            setPayingExpense(null);
+          }}
+        />
+      )}
 
       {isAdding && (
         <ExpenseFormDialog

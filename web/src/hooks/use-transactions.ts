@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
+import { useTranslations } from 'use-intl';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import type {
@@ -13,10 +14,8 @@ import type {
   UpdateTransactionRequestPayload,
   UpdateTransactionResponseData
 } from '@/app/api/v1/transactions';
-import { TRANSACTION_TYPE_LABELS } from '@/common/constants';
-import { formatPrice, formatQuantity } from '@/common/utils';
+import { useFormat } from '@/i18n/format';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
-import { formatExecutionDay } from '@/lib/dates';
 import { queryKeys } from '@/lib/react-query';
 import type { Maybe } from '@/types';
 
@@ -45,6 +44,8 @@ export const useTransactions = (
 
 export const useCreateTransaction = (portfolio: Maybe<Portfolio>) => {
   const announceChange = useAnnouncePortfolioChange(portfolio);
+  const t = useTranslations('transactions.notifications');
+  const { formatExecutionDay, formatPrice, formatQuantity } = useFormat();
 
   return useMutation<
     AxiosResponse<CreateTransactionResponseData>,
@@ -62,14 +63,20 @@ export const useCreateTransaction = (portfolio: Maybe<Portfolio>) => {
     },
     onSuccess: ({ data: { transaction } }, { assetSymbol }) =>
       announceChange({
-        title: `${TRANSACTION_TYPE_LABELS[transaction.type]} recorded`,
-        description: `${formatQuantity(transaction.quantity)} ${assetSymbol} at ${formatPrice(transaction.unitPrice, transaction.currency)} on ${formatExecutionDay(transaction.executedAt)}`
+        title: t('recorded', { type: transaction.type }),
+        description: t('recordedDetail', {
+          quantity: formatQuantity(transaction.quantity),
+          symbol: assetSymbol,
+          price: formatPrice(transaction.unitPrice, transaction.currency),
+          date: formatExecutionDay(transaction.executedAt)
+        })
       })
   });
 };
 
 export const useUpdateTransaction = (portfolio: Maybe<Portfolio>) => {
   const announceChange = useAnnouncePortfolioChange(portfolio);
+  const t = useTranslations('transactions.notifications');
 
   return useMutation<
     AxiosResponse<UpdateTransactionResponseData>,
@@ -83,12 +90,13 @@ export const useUpdateTransaction = (portfolio: Maybe<Portfolio>) => {
           `/v1/transactions/${encodeURIComponent(id)}`,
           payload satisfies UpdateTransactionRequestPayload
         ),
-    onSuccess: ({ data }) => announceChange({ title: data.message })
+    onSuccess: () => announceChange({ title: t('updated') })
   });
 };
 
 export const useDeleteTransaction = (portfolio: Maybe<Portfolio>) => {
   const announceChange = useAnnouncePortfolioChange(portfolio);
+  const t = useTranslations('transactions.notifications');
 
   return useMutation<
     AxiosResponse<DeleteTransactionResponseData>,
@@ -97,6 +105,6 @@ export const useDeleteTransaction = (portfolio: Maybe<Portfolio>) => {
   >({
     mutationFn: ({ id }) =>
       api.getInstance().delete(`/v1/transactions/${encodeURIComponent(id)}`),
-    onSuccess: ({ data }) => announceChange({ title: data.message })
+    onSuccess: () => announceChange({ title: t('deleted') })
   });
 };

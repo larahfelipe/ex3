@@ -1,14 +1,10 @@
 import type { FC, ReactNode } from 'react';
 
-import {
-  formatMoney,
-  formatPercent,
-  formatPrice,
-  formatQuantity,
-  formatUnitAmount,
-  signedValueTone
-} from '@/common/utils';
+import { useTranslations } from 'use-intl';
+
+import { signedValueTone } from '@/common/utils';
 import { InfoTip } from '@/components/info-tip';
+import { useFormat } from '@/i18n/format';
 import { cn } from '@/lib/utils';
 import type { Children, DecimalString } from '@/types';
 
@@ -36,15 +32,21 @@ export const PROMINENT_VALUE_CLASS = 'text-lg font-semibold';
 
 const SIGNED_FORMAT: Intl.NumberFormatOptions = { signDisplay: 'exceptZero' };
 
-export const UnavailableValue: FC = () => (
-  <span className="text-muted-foreground">
-    <span aria-hidden="true">{NO_VALUE}</span>
+export const UnavailableValue: FC = () => {
+  const t = useTranslations('common.states');
 
-    <span className="sr-only">Not available</span>
-  </span>
-);
+  return (
+    <span className="text-muted-foreground">
+      <span aria-hidden="true">{NO_VALUE}</span>
+
+      <span className="sr-only">{t('notAvailable')}</span>
+    </span>
+  );
+};
 
 export const Money: FC<MoneyProps> = ({ value, currency, signed }) => {
+  const { formatMoney } = useFormat();
+
   if (value === undefined || currency === undefined)
     return <UnavailableValue />;
 
@@ -52,6 +54,8 @@ export const Money: FC<MoneyProps> = ({ value, currency, signed }) => {
 };
 
 export const Price: FC<PriceProps> = ({ value, currency, exact }) => {
+  const { formatPrice, formatUnitAmount } = useFormat();
+
   if (value === undefined || currency === undefined)
     return <UnavailableValue />;
 
@@ -60,13 +64,21 @@ export const Price: FC<PriceProps> = ({ value, currency, exact }) => {
     : formatUnitAmount(value, currency);
 };
 
-export const Quantity: FC<ValueProps> = ({ value }) =>
-  value === undefined ? <UnavailableValue /> : formatQuantity(value);
+export const Quantity: FC<ValueProps> = ({ value }) => {
+  const { formatQuantity } = useFormat();
 
-export const Percentage: FC<ValueProps> = ({ value }) =>
-  value === undefined ? <UnavailableValue /> : formatPercent(value);
+  return value === undefined ? <UnavailableValue /> : formatQuantity(value);
+};
+
+export const Percentage: FC<ValueProps> = ({ value }) => {
+  const { formatPercent } = useFormat();
+
+  return value === undefined ? <UnavailableValue /> : formatPercent(value);
+};
 
 export const Trend: FC<ValueProps> = ({ value }) => {
+  const { formatPercent } = useFormat();
+
   if (value === undefined) return <UnavailableValue />;
 
   return (
@@ -81,6 +93,8 @@ export const ProfitLoss: FC<ProfitLossProps> = ({
   percent,
   currency
 }) => {
+  const { formatMoney, formatPercent } = useFormat();
+
   if (value === undefined || currency === undefined)
     return <UnavailableValue />;
 
@@ -106,21 +120,27 @@ export const Metric: FC<MetricProps> = ({
   valueClassName,
   info,
   children
-}) => (
-  <div className={cn('min-w-0 space-y-1', className)}>
-    <dt
-      className={cn(
-        'text-sm text-muted-foreground',
-        info !== undefined && 'flex items-center gap-0.5'
-      )}
-    >
-      {label}
+}) => {
+  const t = useTranslations('common.metric');
 
-      {info !== undefined && <InfoTip label={`About ${label}`}>{info}</InfoTip>}
-    </dt>
+  return (
+    <div className={cn('min-w-0 space-y-1', className)}>
+      <dt
+        className={cn(
+          'text-sm text-muted-foreground',
+          info !== undefined && 'flex items-center gap-0.5'
+        )}
+      >
+        {label}
 
-    <dd className={cn('font-medium wrap-anywhere', valueClassName)}>
-      {children}
-    </dd>
-  </div>
-);
+        {info !== undefined && (
+          <InfoTip label={t('about', { label })}>{info}</InfoTip>
+        )}
+      </dt>
+
+      <dd className={cn('font-medium wrap-anywhere', valueClassName)}>
+        {children}
+      </dd>
+    </div>
+  );
+};

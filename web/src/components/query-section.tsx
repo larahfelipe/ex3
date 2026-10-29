@@ -2,11 +2,7 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 
 import type { UseQueryResult } from '@tanstack/react-query';
 
-import {
-  ErrorState,
-  STALE_DATA_MESSAGE,
-  StaleState
-} from '@/components/data-state';
+import { ErrorState, StaleState } from '@/components/data-state';
 import { SectionHeader } from '@/components/section-header';
 import { Card, CardContent } from '@/components/ui';
 import type { ApiProxyErrorData } from '@/lib/axios';
@@ -91,11 +87,7 @@ export const QuerySection = <Content,>({
         <CardContent aria-busy={isLoading}>
           {isRefetchError && (
             <div className="mb-4">
-              <StaleState
-                message={STALE_DATA_MESSAGE}
-                isRetrying={isFetching}
-                onRetry={refetch}
-              />
+              <StaleState isRetrying={isFetching} onRetry={refetch} />
             </div>
           )}
 

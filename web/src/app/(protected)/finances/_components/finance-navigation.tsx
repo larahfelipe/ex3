@@ -5,24 +5,27 @@ import type { FC } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { useTranslations } from 'use-intl';
+
 import { APP_ROUTES } from '@/common/constants';
 import { cn } from '@/lib/utils';
 
 const FINANCE_PAGES = [
-  { name: 'Overview', path: APP_ROUTES.Protected.Finances },
-  { name: 'Bills', path: APP_ROUTES.Protected.FinanceBills },
-  { name: 'Installments', path: APP_ROUTES.Protected.FinanceInstallments },
-  { name: 'Recurring', path: APP_ROUTES.Protected.FinanceRecurring },
-  { name: 'Calendar', path: APP_ROUTES.Protected.FinanceCalendar },
-  { name: 'Reports', path: APP_ROUTES.Protected.FinanceReports }
-];
+  { name: 'overview', path: APP_ROUTES.Protected.Finances },
+  { name: 'bills', path: APP_ROUTES.Protected.FinanceBills },
+  { name: 'installments', path: APP_ROUTES.Protected.FinanceInstallments },
+  { name: 'recurring', path: APP_ROUTES.Protected.FinanceRecurring },
+  { name: 'calendar', path: APP_ROUTES.Protected.FinanceCalendar },
+  { name: 'reports', path: APP_ROUTES.Protected.FinanceReports }
+] as const;
 
 export const FinanceNavigation: FC = () => {
+  const t = useTranslations('finances.navigation');
   const pathname = usePathname();
 
   return (
     <nav
-      aria-label="Finances"
+      aria-label={t('label')}
       className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0"
     >
       <ul className="flex w-max gap-1 border-b sm:w-auto">
@@ -39,7 +42,7 @@ export const FinanceNavigation: FC = () => {
                   isCurrent && 'border-primary text-foreground'
                 )}
               >
-                {name}
+                {t(name)}
               </Link>
             </li>
           );

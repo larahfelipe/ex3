@@ -4,6 +4,7 @@ import { type CSSProperties, useEffect, useRef } from 'react';
 
 import { CircleAlert, CircleCheck, Info, TriangleAlert } from 'lucide-react';
 import { Toaster as Sonner } from 'sonner';
+import { useTranslations } from 'use-intl';
 
 import { APP_THEME } from '@/common/constants';
 import { TOAST_LIFETIME_MS, toastLifetimeOf } from '@/lib/toast-lifetime';
@@ -18,6 +19,7 @@ const FOCUS_RING_CLASSES =
 
 export function Toaster() {
   const toasterRef = useRef<HTMLElement>(null);
+  const t = useTranslations('common.toasts');
 
   /**
    * sonner holds its timers while the document is hidden, and the countdown
@@ -51,6 +53,7 @@ export function Toaster() {
       position="bottom-right"
       theme={APP_THEME}
       closeButton
+      containerAriaLabel={t('region')}
       icons={{
         error: (
           <CircleAlert aria-hidden="true" size={22} className="text-negative" />
@@ -81,6 +84,7 @@ export function Toaster() {
       }
       toastOptions={{
         ...toastLifetimeOf(TOAST_LIFETIME_MS),
+        closeButtonAriaLabel: t('close'),
         classNames: {
           toast: 'items-start! gap-3! shadow-elevated!',
           icon: 'size-[22px]!',

@@ -12,6 +12,7 @@ import {
 } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import { toast } from 'sonner';
+import { useTranslations } from 'use-intl';
 
 import type {
   GetPortfolioAllocationResponseData,
@@ -47,7 +48,7 @@ import api, {
 import { FIRST_PAGE } from '@/lib/pagination';
 import { queryKeys } from '@/lib/react-query';
 import { toastLifetimeOf } from '@/lib/toast-lifetime';
-import type { Maybe, WithMessage } from '@/types';
+import type { Maybe } from '@/types';
 
 /** Portfolios are listed in creation order, so this page holds the one the account was created with. */
 const PRIMARY_PORTFOLIO_PAGE: GetPortfoliosRequestParams = {
@@ -262,22 +263,22 @@ export const usePortfolios = (requestedPage: GetPortfoliosRequestParams) =>
     placeholderData: keepPreviousData
   });
 
-const useAnnouncePortfoliosChange = () => {
+const useAnnouncePortfoliosChange = (
+  change: 'created' | 'updated' | 'deleted'
+) => {
   const queryClient = useQueryClient();
+  const t = useTranslations('portfolios.notifications');
 
-  return useCallback(
-    async ({ data }: AxiosResponse<WithMessage>) => {
-      toast.success(data.message);
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.portfolios()
-      });
-    },
-    [queryClient]
-  );
+  return useCallback(async () => {
+    toast.success(t(change));
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.portfolios()
+    });
+  }, [queryClient, change, t]);
 };
 
 export const useCreatePortfolio = () => {
-  const announceChange = useAnnouncePortfoliosChange();
+  const announceChange = useAnnouncePortfoliosChange('created');
 
   return useMutation<
     AxiosResponse<CreatePortfolioResponseData>,
@@ -291,13 +292,13 @@ export const useCreatePortfolio = () => {
           '/v1/portfolios/create',
           payload satisfies CreatePortfolioRequestPayload
         ),
-    onSuccess: announceChange
+    onSuccess: () => announceChange()
   });
 };
 
 export const useUpdatePortfolio = () => {
   const queryClient = useQueryClient();
-  const announceChange = useAnnouncePortfoliosChange();
+  const announceChange = useAnnouncePortfoliosChange('updated');
 
   return useMutation<
     AxiosResponse<UpdatePortfolioResponseData>,
@@ -311,9 +312,9 @@ export const useUpdatePortfolio = () => {
           '/v1/portfolio',
           payload satisfies UpdatePortfolioRequestPayload
         ),
-    onSuccess: async (response, { portfolioId }) => {
+    onSuccess: async (_response, { portfolioId }) => {
       await Promise.all([
-        announceChange(response),
+        announceChange(),
         queryClient.invalidateQueries({
           queryKey: queryKeys.portfolio(portfolioId)
         })
@@ -324,7 +325,7 @@ export const useUpdatePortfolio = () => {
 
 export const useDeletePortfolio = () => {
   const queryClient = useQueryClient();
-  const announceChange = useAnnouncePortfoliosChange();
+  const announceChange = useAnnouncePortfoliosChange('deleted');
 
   return useMutation<
     AxiosResponse<DeletePortfolioResponseData>,
@@ -335,7 +336,7 @@ export const useDeletePortfolio = () => {
       api.getInstance().delete('/v1/portfolio', {
         params: params satisfies PortfolioScopeParams
       }),
-    onSuccess: async (response, { portfolioId }) => {
+    onSuccess: async (_response, { portfolioId }) => {
       if (readActivePortfolioId() === portfolioId) selectActivePortfolio(null);
 
       queryClient.removeQueries({ queryKey: queryKeys.portfolio(portfolioId) });
@@ -343,7 +344,7 @@ export const useDeletePortfolio = () => {
         queryKey: queryKeys.portfolioDetails(portfolioId)
       });
 
-      await announceChange(response);
+      await announceChange();
     }
   });
 };

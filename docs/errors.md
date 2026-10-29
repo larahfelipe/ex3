@@ -66,3 +66,7 @@ the gap recorded in [`observability.md`](observability.md) during TASK 18.1.
   refused field. In every other category it is `[]`, always present.
 * No response carries a stack, SQL or driver message: see
   [`api-inventory.md`](api-inventory.md), §Response shape.
+* The web does not show `message` as it arrives:
+  `web/src/lib/api-error-message.ts` rewords a known message in Portuguese and
+  anything else by its `code`, as described in
+  [`i18n.md`](i18n.md#error-messages).

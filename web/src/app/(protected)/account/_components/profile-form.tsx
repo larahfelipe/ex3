@@ -1,37 +1,52 @@
-import type { FC } from 'react';
+import { useMemo, type FC } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 
 import type { GetCurrentUserResponseData } from '@/app/api/v1/user';
 import { FormField } from '@/components/form-field';
 import { SubmitButton } from '@/components/submit-button';
 import { CardContent, CardFooter, Input } from '@/components/ui';
+import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
 import { useUpdateProfile } from '@/hooks/use-user';
-import { AccountNameSchema } from '@/lib/account-schema';
+import type { Translator } from '@/i18n/translator';
+import { accountNameSchemaFor } from '@/lib/account-schema';
 import { presentSubmitError } from '@/lib/submit-error';
 
 type ProfileFormProps = Record<'user', GetCurrentUserResponseData['user']>;
 
-type ProfileFormValues = z.infer<typeof ProfileFormSchema>;
+type ProfileFormValues = z.infer<ReturnType<typeof profileFormSchemaFor>>;
 
-const ProfileFormSchema = z.object({ name: AccountNameSchema });
+const profileFormSchemaFor = (t: Translator<'validation'>) =>
+  z.object({ name: accountNameSchemaFor(t) });
 
 export const ProfileForm: FC<ProfileFormProps> = ({ user }) => {
   const { mutateAsync: updateProfile } = useUpdateProfile();
+  const t = useTranslations('account.profile');
+  const tValidation = useTranslations('validation');
+  const tErrors = useTranslations('errors');
+  const tActions = useTranslations('common.actions');
+  const profileFormSchema = useMemo(
+    () => profileFormSchemaFor(tValidation),
+    [tValidation]
+  );
 
   const {
     register,
     handleSubmit,
     reset,
     setError,
+    trigger,
     formState: { errors, isSubmitting }
   } = useForm<ProfileFormValues>({
     mode: 'onChange',
-    resolver: zodResolver(ProfileFormSchema),
+    resolver: zodResolver(profileFormSchema),
     defaultValues: { name: user.name ?? '' }
   });
+
+  useRevalidateOnLocaleChange(errors, trigger);
 
   const saveProfile = async ({ name }: ProfileFormValues) => {
     try {
@@ -40,7 +55,8 @@ export const ProfileForm: FC<ProfileFormProps> = ({ user }) => {
     } catch (error) {
       presentSubmitError(error, {
         setError,
-        fieldOf: (path) => (path === 'name' ? path : undefined)
+        fieldOf: (path) => (path === 'name' ? path : undefined),
+        t: tErrors
       });
     }
   };
@@ -48,7 +64,7 @@ export const ProfileForm: FC<ProfileFormProps> = ({ user }) => {
   return (
     <form noValidate onSubmit={handleSubmit(saveProfile)}>
       <CardContent className="space-y-5">
-        <FormField label="Name" error={errors.name?.message}>
+        <FormField label={t('name')} error={errors.name?.message}>
           {(control) => (
             <Input
               {...control}
@@ -60,7 +76,7 @@ export const ProfileForm: FC<ProfileFormProps> = ({ user }) => {
         </FormField>
 
         <dl className="space-y-1.5">
-          <dt className="text-sm font-medium leading-none">Email</dt>
+          <dt className="text-sm font-medium leading-none">{t('email')}</dt>
 
           <dd className="text-sm wrap-anywhere">{user.email}</dd>
         </dl>
@@ -78,7 +94,7 @@ export const ProfileForm: FC<ProfileFormProps> = ({ user }) => {
           size="sm"
           className="max-sm:w-full"
         >
-          Save changes
+          {tActions('saveChanges')}
         </SubmitButton>
       </CardFooter>
     </form>

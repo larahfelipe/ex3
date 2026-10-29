@@ -1,24 +1,18 @@
 'use client';
 
-import { useState, type FC, type ReactNode } from 'react';
+import { useMemo, useState, type FC, type ReactNode } from 'react';
 
 import Link from 'next/link';
 
 import { BellRing, Plus } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import type {
   Expense,
   FinanceSettings,
   GetFinanceSummaryResponseData
 } from '@/app/api/v1/finances';
-import {
-  APP_ROUTES,
-  billDetailRoute,
-  billsRouteFor,
-  EXPENSE_CATEGORY_LABELS,
-  RECURRENCE_FREQUENCY_LABELS
-} from '@/common/constants';
-import { formatMoney } from '@/common/utils';
+import { APP_ROUTES, billDetailRoute, billsRouteFor } from '@/common/constants';
 import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
 import { HEADLINE_VALUE_CLASS, Money } from '@/components/financial';
 import { PageHeader } from '@/components/page-header';
@@ -30,11 +24,8 @@ import {
   useFinanceSummary,
   useUpdateFinanceSettings
 } from '@/hooks/use-finances';
-import {
-  daySpanOfCalendarMonth,
-  formatLongCalendarMonth,
-  shiftCalendarDay
-} from '@/lib/dates';
+import { useFormat } from '@/i18n/format';
+import { daySpanOfCalendarMonth, shiftCalendarDay } from '@/lib/dates';
 import { isNonzeroDecimal } from '@/lib/decimal';
 
 import { ExpenseFormDialog } from './expense-form-dialog';
@@ -62,33 +53,15 @@ type Summary = GetFinanceSummaryResponseData;
 
 const [SCHEDULED_COLOR, PAID_COLOR, RECURRING_COLOR] = FINANCE_SERIES_COLORS;
 
-const TREND_SERIES: ReadonlyArray<ChartSeries<'scheduled' | 'paid'>> = [
-  { key: 'scheduled', label: 'Planned', color: SCHEDULED_COLOR },
-  { key: 'paid', label: 'Paid', color: PAID_COLOR }
-];
-
-const COMMITMENT_SERIES: ReadonlyArray<
-  ChartSeries<'oneTime' | 'installments' | 'recurring'>
-> = [
-  { key: 'oneTime', label: 'One-time', color: SCHEDULED_COLOR },
-  { key: 'installments', label: 'Installments', color: PAID_COLOR },
-  { key: 'recurring', label: 'Recurring', color: RECURRING_COLOR }
-];
-
-const countText = (count: number, noun: string, plural = `${noun}s`) =>
-  `${count} ${count === 1 ? noun : plural}`;
-
-const REMINDED_LIST = new Intl.ListFormat('en', { type: 'conjunction' });
-
 const remindsUpcoming = (reminders: FinanceSettings) =>
   reminders.remindUpcomingBills || reminders.remindUpcomingInstallments;
 
-/** What the reminders flag, in words. */
+/** What the reminders flag, as catalog keys. */
 const remindedOf = (reminders: FinanceSettings) =>
   [
-    reminders.remindOverdue && 'overdue bills',
-    reminders.remindUpcomingBills && 'bills due soon',
-    reminders.remindUpcomingInstallments && 'installments due soon'
+    reminders.remindOverdue && ('overdue' as const),
+    reminders.remindUpcomingBills && ('bills' as const),
+    reminders.remindUpcomingInstallments && ('installments' as const)
   ].filter((item) => item !== false);
 
 const capitalize = (text: string) =>
@@ -128,57 +101,72 @@ const isEmptySummary = ({
   commitments.every(({ total }) => !isNonzeroDecimal(total));
 
 const MonthMetrics: FC<Record<'summary', Summary>> = ({ summary }) => {
+  const t = useTranslations('financeOverview.metrics');
+  const tSummary = useTranslations('finances.summary');
+  const format = useFormat();
   const { currency, month, current, outstanding, overdue, change } = summary;
   const filters = { currency };
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       <LinkedMetric
-        label="Total outstanding"
+        label={t('outstanding')}
         href={billsRouteFor({ ...filters, status: 'OPEN' })}
         className="sm:col-span-2 xl:col-span-1"
         detail={
           outstanding.count === 0
-            ? 'Nothing owed'
-            : `${countText(outstanding.count, 'bill')}, whenever due; recurring ones through this month`
+            ? t('nothingOwed')
+            : t('outstandingDetail', { count: outstanding.count })
         }
       >
         <Money value={outstanding.amount} currency={currency} />
       </LinkedMetric>
 
       <LinkedMetric
-        label="Still owed this month"
+        label={t('owedThisMonth')}
         href={monthBillsRoute(month, filters)}
-        detail={countText(current.outstanding.count, 'bill')}
+        detail={t('bills', { count: current.outstanding.count })}
       >
         <Money value={current.outstanding.amount} currency={currency} />
       </LinkedMetric>
 
       <LinkedMetric
-        label="Overdue"
+        label={t('overdue')}
         href={billsRouteFor({ ...filters, status: 'OVERDUE' })}
         tone={overdue.count > 0 ? 'negative' : undefined}
         detail={
           overdue.count === 0
-            ? 'Nothing past due'
-            : `${countText(overdue.count, 'bill')} past due, from any month`
+            ? t('nothingOverdue')
+            : t('overdueDetail', { count: overdue.count })
         }
       >
         <Money value={overdue.amount} currency={currency} />
       </LinkedMetric>
 
       <LinkedMetric
-        label="Paid this month"
+        label={t('paidThisMonth')}
         href={reportRouteFor(month, currency)}
-        detail={changeTextOf(change.paid, currency, 'last month')}
+        detail={changeTextOf(
+          change.paid,
+          currency,
+          'lastMonth',
+          tSummary,
+          format
+        )}
       >
         <Money value={current.paid.amount} currency={currency} />
       </LinkedMetric>
 
       <LinkedMetric
-        label="Planned this month"
+        label={t('plannedThisMonth')}
         href={monthBillsRoute(month, filters)}
-        detail={changeTextOf(change.scheduled, currency, 'last month')}
+        detail={changeTextOf(
+          change.scheduled,
+          currency,
+          'lastMonth',
+          tSummary,
+          format
+        )}
       >
         <Money value={current.scheduled.amount} currency={currency} />
       </LinkedMetric>
@@ -188,78 +176,96 @@ const MonthMetrics: FC<Record<'summary', Summary>> = ({ summary }) => {
 
 const UpcomingBill: FC<
   Record<'expense', Expense> & Record<'today', string>
-> = ({ expense, today }) => (
-  <li>
-    <Link
-      href={billDetailRoute(expense.id)}
-      className="flex items-start justify-between gap-3 rounded-md px-2 py-2.5 ring-offset-background outline-hidden hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-focus"
-    >
-      <span className="min-w-0 space-y-0.5">
-        <span className="block truncate text-sm font-medium">
-          {expense.description}
-        </span>
+> = ({ expense, today }) => {
+  const tFinances = useTranslations('finances');
+  const details = [
+    dueDistanceOf(expense.dueDate, today, tFinances),
+    originLabelOf(expense, tFinances)
+  ].filter((detail) => detail !== null);
 
-        <span className="block text-xs text-muted-foreground">
-          <CalendarDayText day={expense.dueDate} />
+  return (
+    <li>
+      <Link
+        href={billDetailRoute(expense.id)}
+        className="flex items-start justify-between gap-3 rounded-md px-2 py-2.5 ring-offset-background outline-hidden hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-focus"
+      >
+        <span className="min-w-0 space-y-0.5">
+          <span className="block truncate text-sm font-medium">
+            {expense.description}
+          </span>
 
-          {` · ${dueDistanceOf(expense.dueDate, today) ?? ''} · ${originLabelOf(expense)}`}
-        </span>
-      </span>
+          <span className="block text-xs text-muted-foreground">
+            <CalendarDayText day={expense.dueDate} />
 
-      <span className="flex shrink-0 flex-col items-end gap-1">
-        <span className="text-sm font-medium tabular-nums">
-          <Money
-            value={expense.outstandingAmount}
-            currency={expense.currency}
-          />
-        </span>
+            {details.map((detail) => (
+              <span key={detail}>
+                {' · '}
 
-        <ExpenseStatusBadge status={expense.status} />
-      </span>
-    </Link>
-  </li>
-);
-
-const UpcomingBills: FC<Record<'summary', Summary>> = ({ summary }) => (
-  <section aria-labelledby="finance-upcoming" className="h-full min-w-0">
-    <Card className="h-full">
-      <SectionHeader
-        id="finance-upcoming"
-        title="Next bills"
-        action={
-          <Button asChild variant="link" size="sm" className="h-auto p-0">
-            <Link
-              href={billsRouteFor({
-                currency: summary.currency,
-                status: 'PENDING'
-              })}
-            >
-              All pending
-            </Link>
-          </Button>
-        }
-      />
-
-      <CardContent>
-        {summary.upcoming.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nothing pending in {summary.currency}
-          </p>
-        ) : (
-          <ul className="-mx-2 divide-y">
-            {summary.upcoming.map((expense) => (
-              <UpcomingBill
-                key={expense.id}
-                expense={expense}
-                today={summary.today}
-              />
+                {detail}
+              </span>
             ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  </section>
-);
+          </span>
+        </span>
+
+        <span className="flex shrink-0 flex-col items-end gap-1">
+          <span className="text-sm font-medium tabular-nums">
+            <Money
+              value={expense.outstandingAmount}
+              currency={expense.currency}
+            />
+          </span>
+
+          <ExpenseStatusBadge status={expense.status} />
+        </span>
+      </Link>
+    </li>
+  );
+};
+
+const UpcomingBills: FC<Record<'summary', Summary>> = ({ summary }) => {
+  const t = useTranslations('financeOverview.upcoming');
+
+  return (
+    <section aria-labelledby="finance-upcoming" className="h-full min-w-0">
+      <Card className="h-full">
+        <SectionHeader
+          id="finance-upcoming"
+          title={t('title')}
+          action={
+            <Button asChild variant="link" size="sm" className="h-auto p-0">
+              <Link
+                href={billsRouteFor({
+                  currency: summary.currency,
+                  status: 'PENDING'
+                })}
+              >
+                {t('allPending')}
+              </Link>
+            </Button>
+          }
+        />
+
+        <CardContent>
+          {summary.upcoming.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t('empty', { currency: summary.currency })}
+            </p>
+          ) : (
+            <ul className="-mx-2 divide-y">
+              {summary.upcoming.map((expense) => (
+                <UpcomingBill
+                  key={expense.id}
+                  expense={expense}
+                  today={summary.today}
+                />
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </section>
+  );
+};
 
 const ChartCard: FC<
   Record<'id' | 'title', string> &
@@ -278,19 +284,24 @@ const ChartCard: FC<
 const CommitmentSummaries: FC<
   Record<'summary', Summary> & Record<'onEditReminders', VoidFunction>
 > = ({ summary, onEditReminders }) => {
+  const t = useTranslations('financeOverview');
+  const tFinances = useTranslations('finances');
+  const { formatList } = useFormat();
   const { currency, installments, recurring, reminders } = summary;
-  const reminded = remindedOf(reminders);
+  const reminded = remindedOf(reminders).map((item) =>
+    t(`reminders.items.${item}`)
+  );
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <Card>
         <SectionHeader
           id="finance-installments"
-          title="Installments"
+          title={t('installments.title')}
           action={
             <Button asChild variant="link" size="sm" className="h-auto p-0">
               <Link href={APP_ROUTES.Protected.FinanceInstallments}>
-                View plans
+                {t('installments.link')}
               </Link>
             </Button>
           }
@@ -303,8 +314,11 @@ const CommitmentSummaries: FC<
 
           <p className="text-sm text-muted-foreground">
             {installments.activePlans === 0
-              ? 'No active plan'
-              : `Left to pay on ${countText(installments.activePlans, 'active plan')}, in ${countText(installments.openInstallments, 'installment')}`}
+              ? t('installments.none')
+              : t('installments.detail', {
+                  plans: installments.activePlans,
+                  installments: installments.openInstallments
+                })}
           </p>
         </CardContent>
       </Card>
@@ -312,11 +326,11 @@ const CommitmentSummaries: FC<
       <Card>
         <SectionHeader
           id="finance-recurring"
-          title="Recurring"
+          title={t('recurring.title')}
           action={
             <Button asChild variant="link" size="sm" className="h-auto p-0">
               <Link href={APP_ROUTES.Protected.FinanceRecurring}>
-                View series
+                {t('recurring.link')}
               </Link>
             </Button>
           }
@@ -330,8 +344,8 @@ const CommitmentSummaries: FC<
 
             <p className="text-sm text-muted-foreground">
               {recurring.activeSeries === 0
-                ? 'No active series'
-                : `A month, across ${countText(recurring.activeSeries, 'active series', 'active series')}`}
+                ? t('recurring.none')
+                : t('recurring.detail', { count: recurring.activeSeries })}
             </p>
           </div>
 
@@ -346,7 +360,9 @@ const CommitmentSummaries: FC<
                     {series.description}
 
                     <span className="text-xs text-muted-foreground">
-                      {` · ${RECURRENCE_FREQUENCY_LABELS[series.frequency]}`}
+                      {' · '}
+
+                      {tFinances(`frequencies.${series.frequency}`)}
                     </span>
                   </span>
 
@@ -363,7 +379,7 @@ const CommitmentSummaries: FC<
       <Card>
         <SectionHeader
           id="finance-reminders"
-          title="Reminders"
+          title={t('reminders.title')}
           action={
             <Button
               variant="link"
@@ -371,7 +387,7 @@ const CommitmentSummaries: FC<
               className="h-auto p-0"
               onClick={onEditReminders}
             >
-              Change
+              {t('reminders.change')}
             </Button>
           }
         />
@@ -384,19 +400,25 @@ const CommitmentSummaries: FC<
             />
 
             {reminded.length === 0
-              ? 'Off'
+              ? t('reminders.off')
               : !remindsUpcoming(reminders)
-                ? 'Overdue bills only'
+                ? t('reminders.overdueOnly')
                 : reminders.reminderLeadDays === 0
-                  ? 'On the due day'
-                  : `${countText(reminders.reminderLeadDays, 'day')} before the due date`}
+                  ? t('reminders.onDueDay')
+                  : t('reminders.leadDays', {
+                      days: reminders.reminderLeadDays
+                    })}
           </p>
 
           <p className="text-sm text-muted-foreground">
-            {reminded.length === 0
-              ? 'Nothing is flagged on this page or in the navigation.'
-              : `${capitalize(REMINDED_LIST.format(reminded))} are flagged on this page and in the navigation.`}{' '}
-            No email or push notification is sent.
+            {[
+              reminded.length === 0
+                ? t('reminders.nothingFlagged')
+                : t('reminders.flagged', {
+                    items: capitalize(formatList(reminded))
+                  }),
+              t('reminders.noExternal')
+            ].join(' ')}
           </p>
         </CardContent>
       </Card>
@@ -407,6 +429,10 @@ const CommitmentSummaries: FC<
 const SummaryContent: FC<
   Record<'summary', Summary> & Record<'onEditReminders', VoidFunction>
 > = ({ summary, onEditReminders }) => {
+  const t = useTranslations('financeOverview');
+  const tAlerts = useTranslations('bills.alerts');
+  const tFinances = useTranslations('finances');
+  const { formatLongCalendarMonth, formatMoney } = useFormat();
   const {
     currency,
     month,
@@ -422,6 +448,35 @@ const SummaryContent: FC<
   const { reminderLeadDays } = reminders;
   const dueSoonTo = shiftCalendarDay(today, reminderLeadDays) ?? today;
   const showsOverdue = reminders.remindOverdue && overdue.count > 0;
+  const trendSeries = useMemo<ReadonlyArray<ChartSeries<'scheduled' | 'paid'>>>(
+    () => [
+      { key: 'scheduled', label: t('trend.planned'), color: SCHEDULED_COLOR },
+      { key: 'paid', label: t('trend.paid'), color: PAID_COLOR }
+    ],
+    [t]
+  );
+  const commitmentSeries = useMemo<
+    ReadonlyArray<ChartSeries<'oneTime' | 'installments' | 'recurring'>>
+  >(
+    () => [
+      {
+        key: 'oneTime',
+        label: t('commitments.oneTime'),
+        color: SCHEDULED_COLOR
+      },
+      {
+        key: 'installments',
+        label: t('commitments.installments'),
+        color: PAID_COLOR
+      },
+      {
+        key: 'recurring',
+        label: t('commitments.recurring'),
+        color: RECURRING_COLOR
+      }
+    ],
+    [t]
+  );
 
   return (
     <div className="space-y-6">
@@ -430,7 +485,7 @@ const SummaryContent: FC<
           {showsOverdue && (
             <AlertTotals
               tone="negative"
-              title={`${countText(overdue.count, 'bill')} overdue`}
+              title={tAlerts('overdue', { count: overdue.count })}
               totals={[{ currency, amount: overdue.amount }]}
               href={billsRouteFor({ currency, status: 'OVERDUE' })}
             />
@@ -439,7 +494,10 @@ const SummaryContent: FC<
           {dueSoon.count > 0 && (
             <AlertTotals
               tone="warning"
-              title={`${countText(dueSoon.count, 'bill')} due ${reminderLeadDays === 0 ? 'today' : `within ${countText(reminderLeadDays, 'day')}`}`}
+              title={tAlerts('dueSoon', {
+                count: dueSoon.count,
+                days: reminderLeadDays
+              })}
               totals={[{ currency, amount: dueSoon.amount }]}
               href={billsRouteFor({
                 currency,
@@ -461,15 +519,18 @@ const SummaryContent: FC<
         <div className="xl:col-span-3">
           <ChartCard
             id="finance-trend"
-            title="Planned and paid"
-            description={`The last ${trend.length} months, in ${currency}. Planned is what fell due; paid is the cash that left, by payment day.`}
+            title={t('trend.title')}
+            description={t('trend.description', {
+              count: trend.length,
+              currency
+            })}
           >
             <MonthColumnChart
-              title="Planned and paid by month"
+              title={t('trend.chartTitle')}
               currency={currency}
               layout="grouped"
-              series={TREND_SERIES}
-              linkLabel="Opens the bills due that month"
+              series={trendSeries}
+              linkLabel={t('trend.link')}
               columns={trend.map(({ month: trendMonth, scheduled, paid }) => ({
                 month: trendMonth,
                 values: { scheduled, paid },
@@ -487,15 +548,15 @@ const SummaryContent: FC<
       <div className="grid gap-4 xl:grid-cols-2">
         <ChartCard
           id="finance-commitments"
-          title="Coming months"
-          description={`What is due from ${monthName} on, by kind. Recurring months show only the occurrences already scheduled.`}
+          title={t('commitments.title')}
+          description={t('commitments.description', { month: monthName })}
         >
           <MonthColumnChart
-            title="Commitments by month"
+            title={t('commitments.chartTitle')}
             currency={currency}
             layout="stacked"
-            series={COMMITMENT_SERIES}
-            linkLabel="Opens the bills due that month"
+            series={commitmentSeries}
+            linkLabel={t('trend.link')}
             columns={commitments.map(
               ({
                 month: commitmentMonth,
@@ -513,23 +574,28 @@ const SummaryContent: FC<
 
         <ChartCard
           id="finance-categories"
-          title="By category"
-          description={`Planned for ${monthName}, in ${currency}`}
+          title={t('categories.title')}
+          description={t('categories.description', {
+            month: monthName,
+            currency
+          })}
         >
           {categories.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Nothing planned this month
+              {t('categories.empty')}
             </p>
           ) : (
             <CategoryBars
               currency={currency}
               bars={categories.map(({ category, scheduled, paid, share }) => ({
                 key: category,
-                label: EXPENSE_CATEGORY_LABELS[category],
+                label: tFinances(`categories.${category}`),
                 value: scheduled,
                 share,
                 detail: isNonzeroDecimal(paid)
-                  ? `Paid ${formatMoney(paid, currency)}`
+                  ? t('categories.paid', {
+                      amount: formatMoney(paid, currency)
+                    })
                   : undefined,
                 href: monthBillsRoute(month, { currency, category })
               }))}
@@ -547,6 +613,8 @@ const SummaryContent: FC<
 };
 
 export const OverviewView: FC = () => {
+  const t = useTranslations('financeOverview');
+  const { formatLongCalendarMonth } = useFormat();
   const [currency, setCurrency] = useCurrencyParam();
   const summaryQuery = useFinanceSummary(currency);
   const settingsQuery = useFinanceSettings();
@@ -564,11 +632,14 @@ export const OverviewView: FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Finances"
+        title={t('title')}
         description={
           summary === undefined
             ? undefined
-            : `${formatLongCalendarMonth(summary.month) ?? summary.month} · Amounts in ${summary.currency}`
+            : t('headerDescription', {
+                month: formatLongCalendarMonth(summary.month) ?? summary.month,
+                currency: summary.currency
+              })
         }
         isPending={summary === undefined && !summaryQuery.isError}
         action={
@@ -587,19 +658,20 @@ export const OverviewView: FC = () => {
               onClick={() => setIsAdding(true)}
             >
               <Plus size={16} aria-hidden="true" />
-              Add bill
+
+              {t('add')}
             </Button>
           </div>
         }
       />
 
       {summary === undefined && !summaryQuery.isError && (
-        <LoadingState label="Loading your finances" className="h-96" />
+        <LoadingState label={t('loading')} className="h-96" />
       )}
 
       {summary === undefined && summaryQuery.isError && (
         <ErrorState
-          message="Your finances could not be loaded"
+          message={t('loadFailed')}
           onRetry={() => void summaryQuery.refetch()}
         />
       )}
@@ -608,10 +680,10 @@ export const OverviewView: FC = () => {
         <EmptyState
           message={
             summary.currencies.length === 0
-              ? 'No bills yet. Add one, an installment purchase or a recurring expense to see them here.'
-              : `No bills in ${summary.currency}`
+              ? t('emptyAll')
+              : t('emptyCurrency', { currency: summary.currency })
           }
-          action={{ label: 'Add bill', onSelect: () => setIsAdding(true) }}
+          action={{ label: t('add'), onSelect: () => setIsAdding(true) }}
         />
       )}
 

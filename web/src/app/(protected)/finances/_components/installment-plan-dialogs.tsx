@@ -2,14 +2,10 @@ import { useState, type FC } from 'react';
 
 import Link from 'next/link';
 
+import { useTranslations } from 'use-intl';
+
 import type { Expense, InstallmentPlanDetail } from '@/app/api/v1/finances';
-import {
-  billDetailRoute,
-  EXPENSE_CATEGORY_LABELS,
-  PAYMENT_METHOD_LABELS,
-  RECURRENCE_FREQUENCY_LABELS
-} from '@/common/constants';
-import { formatMoney } from '@/common/utils';
+import { billDetailRoute } from '@/common/constants';
 import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
 import { ErrorState, LoadingState } from '@/components/data-state';
 import {
@@ -44,6 +40,8 @@ import {
   useRescheduleInstallmentPlan,
   useUpdateInstallmentPlan
 } from '@/hooks/use-finances';
+import { useFormat } from '@/i18n/format';
+import { srOnly } from '@/i18n/rich-text';
 import { isNonzeroDecimal, isStorableDecimal } from '@/lib/decimal';
 import { cn } from '@/lib/utils';
 
@@ -54,6 +52,7 @@ import {
   FinanceHistory,
   InstallmentProgress,
   isOpenExpense,
+  originLabelOf,
   PlanStatusBadge
 } from './finance-display';
 import { EditPlanDialog, ReschedulePlanDialog } from './installment-plan-forms';
@@ -79,14 +78,16 @@ const FinancingCost: FC<Record<'cost' | 'currency', string>> = ({
   cost,
   currency
 }) => {
+  const t = useTranslations('installments.details');
+  const { formatMoney } = useFormat();
   const isBelow = cost.startsWith('-');
   const magnitude = isBelow ? cost.slice(1) : cost;
 
   if (!isStorableDecimal(magnitude)) return cost;
-  if (!isNonzeroDecimal(magnitude)) return 'None';
+  if (!isNonzeroDecimal(magnitude)) return t('financingNone');
   if (!isBelow) return <Money value={magnitude} currency={currency} />;
 
-  return `${formatMoney(magnitude, currency)} below the cash price`;
+  return t('financingBelow', { amount: formatMoney(magnitude, currency) });
 };
 
 const InstallmentRow: FC<
@@ -94,6 +95,9 @@ const InstallmentRow: FC<
     Record<'today', string> &
     Record<'onPay', VoidFunction>
 > = ({ installment, today, onPay }) => {
+  const t = useTranslations('installments.installment');
+  const tFinances = useTranslations('finances');
+  const { formatMoney } = useFormat();
   const {
     id,
     installmentNumber,
@@ -106,16 +110,17 @@ const InstallmentRow: FC<
     status
   } = installment;
   const isOpen = isOpenExpense(installment);
-  const dueDistance = isOpen ? dueDistanceOf(dueDate, today) : null;
-  const name = `installment ${installmentNumber}`;
+  const dueDistance = isOpen ? dueDistanceOf(dueDate, today, tFinances) : null;
+  const position =
+    installmentNumber === null || installmentCount === null
+      ? originLabelOf(installment, tFinances)
+      : t('position', { number: installmentNumber, count: installmentCount });
 
   return (
     <TableRow>
       <TableRowHeader className="py-2.5">
         <div className="flex flex-col items-start gap-0.5">
-          <span className="font-medium whitespace-nowrap">
-            {`${installmentNumber} of ${installmentCount}`}
-          </span>
+          <span className="font-medium whitespace-nowrap">{position}</span>
 
           <span className="text-xs text-muted-foreground sm:hidden">
             <CalendarDayText day={dueDate} />
@@ -148,7 +153,9 @@ const InstallmentRow: FC<
 
           {isOpen && isNonzeroDecimal(settledAmount) && (
             <span className="text-xs text-muted-foreground">
-              {`${formatMoney(outstandingAmount, currency)} left`}
+              {t('outstanding', {
+                amount: formatMoney(outstandingAmount, currency)
+              })}
             </span>
           )}
         </div>
@@ -162,15 +169,13 @@ const InstallmentRow: FC<
         <div className="flex justify-end gap-1">
           {isOpen && (
             <Button variant="outline" size="xs" onClick={onPay}>
-              Pay
-              <span className="sr-only">{` ${name}`}</span>
+              {t.rich('pay', { position, hidden: srOnly })}
             </Button>
           )}
 
           <Button variant="ghost" size="xs" asChild>
             <Link href={billDetailRoute(id)}>
-              Bill
-              <span className="sr-only">{` of ${name}`}</span>
+              {t.rich('bill', { position, hidden: srOnly })}
             </Link>
           </Button>
         </div>
@@ -180,6 +185,9 @@ const InstallmentRow: FC<
 };
 
 const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
+  const t = useTranslations('installments.details');
+  const tFinances = useTranslations('finances');
+  const tActions = useTranslations('common.actions');
   const today = useReferenceDay();
   const {
     description,
@@ -208,7 +216,7 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
 
   const isActive = status === 'ACTIVE';
   const nextDistance =
-    nextDueDate === null ? null : dueDistanceOf(nextDueDate, today);
+    nextDueDate === null ? null : dueDistanceOf(nextDueDate, today, tFinances);
 
   return (
     <>
@@ -219,7 +227,9 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
           <div className="flex flex-wrap items-center gap-2">
             <PlanStatusBadge status={status} />
 
-            <span>{`${installmentCount} ${RECURRENCE_FREQUENCY_LABELS[frequency].toLowerCase()} ${installmentCount === 1 ? 'installment' : 'installments'} in ${currency}`}</span>
+            <span>
+              {t('summary', { count: installmentCount, frequency, currency })}
+            </span>
           </div>
         </DialogDescription>
       </DialogHeader>
@@ -227,26 +237,28 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
       <InstallmentProgress paid={paidInstallments} count={installmentCount} />
 
       <dl className="grid gap-4 sm:grid-cols-3">
-        <Metric label="Total" valueClassName={PROMINENT_VALUE_CLASS}>
+        <Metric label={t('total')} valueClassName={PROMINENT_VALUE_CLASS}>
           <Money value={totalAmount} currency={currency} />
         </Metric>
 
-        <Metric label="Outstanding" valueClassName={PROMINENT_VALUE_CLASS}>
+        <Metric label={t('outstanding')} valueClassName={PROMINENT_VALUE_CLASS}>
           <Money value={outstandingAmount} currency={currency} />
         </Metric>
 
-        <Metric label="Settled" valueClassName={PROMINENT_VALUE_CLASS}>
+        <Metric label={t('settled')} valueClassName={PROMINENT_VALUE_CLASS}>
           <Money value={settledAmount} currency={currency} />
         </Metric>
 
-        <Metric label="Next installment">
+        <Metric label={t('nextInstallment')}>
           {nextDueDate === null || nextInstallmentNumber === null ? (
             <UnavailableValue />
           ) : (
             <>
-              {`${nextInstallmentNumber} of ${installmentCount}, `}
-
-              <CalendarDayText day={nextDueDate} />
+              {t.rich('next', {
+                number: nextInstallmentNumber,
+                count: installmentCount,
+                day: () => <CalendarDayText day={nextDueDate} />
+              })}
 
               {nextDistance !== null && (
                 <span
@@ -264,7 +276,7 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
           )}
         </Metric>
 
-        <Metric label="Cash price">
+        <Metric label={t('cashPrice')}>
           {principalAmount === null ? (
             <UnavailableValue />
           ) : (
@@ -272,7 +284,7 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
           )}
         </Metric>
 
-        <Metric label="Over the cash price">
+        <Metric label={t('overCashPrice')}>
           {financingCost === null ? (
             <UnavailableValue />
           ) : (
@@ -280,65 +292,68 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
           )}
         </Metric>
 
-        <Metric label="Schedule">
+        <Metric label={t('schedule')}>
           {firstDueDate === null || lastDueDate === null ? (
             <UnavailableValue />
           ) : (
-            <>
-              <CalendarDayText day={firstDueDate} />
-
-              {' to '}
-
-              <CalendarDayText day={lastDueDate} />
-            </>
+            t.rich('scheduleRange', {
+              first: () => <CalendarDayText day={firstDueDate} />,
+              last: () => <CalendarDayText day={lastDueDate} />
+            })
           )}
         </Metric>
 
-        <Metric label="Category">
-          {EXPENSE_CATEGORY_LABELS[category]}
+        <Metric label={t('category')}>
+          {tFinances(`categories.${category}`)}
 
           {subcategory !== null && (
-            <span className="text-muted-foreground">{` · ${subcategory}`}</span>
+            <span className="text-muted-foreground">
+              {' · '}
+
+              {subcategory}
+            </span>
           )}
         </Metric>
 
-        <Metric label="Payment method">
+        <Metric label={t('paymentMethod')}>
           {paymentMethod === null ? (
             <UnavailableValue />
           ) : (
-            PAYMENT_METHOD_LABELS[paymentMethod]
+            tFinances(`paymentMethods.${paymentMethod}`)
           )}
         </Metric>
 
-        <Metric label="Account or card">
-          {account ?? <UnavailableValue />}
-        </Metric>
+        <Metric label={t('account')}>{account ?? <UnavailableValue />}</Metric>
 
-        <Metric label="Notes" className="sm:col-span-2">
+        <Metric label={t('notes')} className="sm:col-span-2">
           {notes ?? <UnavailableValue />}
         </Metric>
       </dl>
 
       <section aria-labelledby="plan-installments" className="space-y-1">
         <h3 id="plan-installments" className="text-sm font-semibold">
-          Installments
+          {t('installments')}
         </h3>
 
-        <Table label="Installments table">
+        <Table label={t('table')}>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead>Installment</TableHead>
+              <TableHead>{t('columns.installment')}</TableHead>
 
-              <TableHead className={COLUMN_VISIBILITY.due}>Due</TableHead>
-
-              <TableHead className="text-right">Amount</TableHead>
-
-              <TableHead className={cn('text-right', COLUMN_VISIBILITY.status)}>
-                Status
+              <TableHead className={COLUMN_VISIBILITY.due}>
+                {t('columns.due')}
               </TableHead>
 
               <TableHead className="text-right">
-                <span className="sr-only">Actions</span>
+                {t('columns.amount')}
+              </TableHead>
+
+              <TableHead className={cn('text-right', COLUMN_VISIBILITY.status)}>
+                {t('columns.status')}
+              </TableHead>
+
+              <TableHead className="text-right">
+                <span className="sr-only">{t('columns.actions')}</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -358,7 +373,7 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
 
       <section aria-labelledby="plan-history" className="space-y-3">
         <h3 id="plan-history" className="text-sm font-semibold">
-          History
+          {t('history')}
         </h3>
 
         <FinanceHistory events={history} currency={currency} />
@@ -371,7 +386,7 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
             className="text-destructive hover:text-destructive sm:mr-auto"
             onClick={() => onAction({ kind: 'delete' })}
           >
-            Delete
+            {tActions('delete')}
           </Button>
         )}
 
@@ -380,23 +395,23 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
             variant="outline"
             onClick={() => onAction({ kind: 'cancel' })}
           >
-            Cancel plan
+            {t('cancel')}
           </Button>
         )}
 
         <DialogClose asChild>
-          <Button variant="secondary">Close</Button>
+          <Button variant="secondary">{tActions('close')}</Button>
         </DialogClose>
 
         {status !== 'CANCELLED' && (
           <Button variant="outline" onClick={() => onAction({ kind: 'edit' })}>
-            Edit
+            {tActions('edit')}
           </Button>
         )}
 
         {isActive && (
           <Button onClick={() => onAction({ kind: 'reschedule' })}>
-            Reschedule
+            {t('reschedule')}
           </Button>
         )}
       </DialogFooter>
@@ -412,6 +427,8 @@ export const InstallmentPlanDialogs: FC<PlanDialogsProps> = ({
   planId,
   onClose
 }) => {
+  const t = useTranslations('installments');
+  const tActions = useTranslations('common.actions');
   const [action, setAction] = useState<PlanAction>({ kind: 'details' });
   const planQuery = useInstallmentPlan(planId);
 
@@ -439,15 +456,15 @@ export const InstallmentPlanDialogs: FC<PlanDialogsProps> = ({
           {plan === undefined && planQuery.isError && (
             <>
               <DialogHeader>
-                <DialogTitle>Installment plan</DialogTitle>
+                <DialogTitle>{t('details.title')}</DialogTitle>
 
                 <DialogDescription className="sr-only">
-                  The plan could not be loaded
+                  {t('details.loadFailed')}
                 </DialogDescription>
               </DialogHeader>
 
               <ErrorState
-                message="This plan could not be loaded"
+                message={t('details.loadFailed')}
                 onRetry={() => void planQuery.refetch()}
               />
             </>
@@ -456,14 +473,14 @@ export const InstallmentPlanDialogs: FC<PlanDialogsProps> = ({
           {plan === undefined && !planQuery.isError && (
             <>
               <DialogHeader>
-                <DialogTitle>Installment plan</DialogTitle>
+                <DialogTitle>{t('details.title')}</DialogTitle>
 
                 <DialogDescription className="sr-only">
-                  Loading the plan
+                  {t('details.loading')}
                 </DialogDescription>
               </DialogHeader>
 
-              <LoadingState label="Loading the plan" className="h-72" />
+              <LoadingState label={t('details.loading')} className="h-72" />
             </>
           )}
 
@@ -511,10 +528,13 @@ export const InstallmentPlanDialogs: FC<PlanDialogsProps> = ({
 
       {plan !== undefined && action.kind === 'cancel' && (
         <ConfirmDeletionDialog
-          title="Cancel this plan?"
-          description={`${plan.description}. The installments with no payment are cancelled and stop counting as owed; a partly paid one stays owed. The plan and its history are kept, and this cannot be undone.`}
-          confirmLabel="Cancel plan"
-          failureMessage="The plan could not be cancelled"
+          title={t('cancellation.title')}
+          description={t('cancellation.description', {
+            description: plan.description
+          })}
+          confirmLabel={t('cancellation.confirm')}
+          cancelLabel={tActions('back')}
+          failureMessage={t('cancellation.failed')}
           onCancel={backToDetails}
           onConfirm={async () => {
             await cancelPlan({ id: plan.id });
@@ -525,10 +545,13 @@ export const InstallmentPlanDialogs: FC<PlanDialogsProps> = ({
 
       {plan !== undefined && action.kind === 'delete' && (
         <ConfirmDeletionDialog
-          title="Delete this plan?"
-          description={`${plan.description}. The plan and its ${plan.installments.length} installments are removed with their history, and this cannot be undone. Cancel it instead to keep a record.`}
-          confirmLabel="Delete plan"
-          failureMessage="The plan could not be deleted"
+          title={t('deletion.title')}
+          description={t('deletion.description', {
+            description: plan.description,
+            count: plan.installments.length
+          })}
+          confirmLabel={t('deletion.confirm')}
+          failureMessage={t('deletion.failed')}
           onCancel={backToDetails}
           onConfirm={async () => {
             await deletePlan({ id: plan.id });

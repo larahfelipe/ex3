@@ -1,5 +1,7 @@
 import type { FC, ReactNode } from 'react';
 
+import { useTranslations } from 'use-intl';
+
 import { Button } from '@/components/ui';
 import { FIRST_PAGE } from '@/lib/pagination';
 
@@ -41,7 +43,7 @@ export const PageNavigation: FC<PageNavigationProps> = ({
   detail,
   onPageChange
 }) => {
-  const position = `Page ${page} of ${totalPages}`;
+  const t = useTranslations('common');
 
   return (
     <nav aria-label={label} className="flex items-center justify-between gap-3">
@@ -49,18 +51,20 @@ export const PageNavigation: FC<PageNavigationProps> = ({
         isUnavailable={page <= FIRST_PAGE}
         onStep={() => onPageChange(page - 1)}
       >
-        Previous
+        {t('actions.previous')}
       </PageStepButton>
 
       <span aria-live="polite" className="text-sm text-muted-foreground">
-        {detail === undefined ? position : `${position} · ${detail}`}
+        {detail === undefined
+          ? t('pagination.position', { page, totalPages })
+          : t('pagination.positionWithDetail', { page, totalPages, detail })}
       </span>
 
       <PageStepButton
         isUnavailable={page >= totalPages}
         onStep={() => onPageChange(page + 1)}
       >
-        Next
+        {t('actions.next')}
       </PageStepButton>
     </nav>
   );

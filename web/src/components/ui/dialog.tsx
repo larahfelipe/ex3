@@ -4,6 +4,7 @@ import * as React from 'react';
 
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import { useFocusReturn } from '@/hooks/use-focus-return';
 import { cn } from '@/lib/utils';
@@ -39,6 +40,7 @@ const DialogContent = ({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content>) => {
   const focusReturn = useFocusReturn();
+  const t = useTranslations('common.actions');
 
   return (
     <DialogPortal>
@@ -54,7 +56,7 @@ const DialogContent = ({
         <DialogPrimitive.Close className="absolute right-3 top-3 inline-flex size-6 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:pointer-events-none">
           <X className="size-4" />
 
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{t('close')}</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
     </DialogPortal>

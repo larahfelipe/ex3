@@ -1,9 +1,13 @@
 import {
+  createContext,
+  use,
   useId,
   type FC,
   type InputHTMLAttributes,
   type ReactNode
 } from 'react';
+
+import { useTranslations } from 'use-intl';
 
 import { Label } from '@/components/ui';
 import { APPEAR_CLASS } from '@/lib/motion';
@@ -27,11 +31,19 @@ type FormFieldProps = FieldDescription & {
   children: (control: FieldControlProps) => ReactNode;
 };
 
+type FormSectionProps = Record<'title', string> &
+  Partial<Record<'isOptional', boolean>> &
+  Partial<Record<'action' | 'children', ReactNode>> &
+  Partial<Record<'className', string>>;
+
 type ChoiceFieldProps = FieldDescription & {
   legend: string;
   className?: string;
   children: ReactNode;
 };
+
+/** Inside an optional section the title already says so, and its fields do not repeat it. */
+const OptionalSectionContext = createContext(false);
 
 const useFieldDescription = ({ hint, error }: FieldDescription) => {
   const hintId = useId();
@@ -74,14 +86,21 @@ export const FormField: FC<FormFieldProps> = ({
 }) => {
   const controlId = useId();
   const { describedBy, description } = useFieldDescription({ hint, error });
+  const isInOptionalSection = use(OptionalSectionContext);
+  const t = useTranslations('common.form');
 
   const fieldLabel = (
     <Label htmlFor={controlId}>
-      {label}
-
-      {isOptional && (
-        <span className="font-normal text-muted-foreground"> (optional)</span>
-      )}
+      {isOptional && !isInOptionalSection
+        ? t.rich('optionalLabel', {
+            label: () => label,
+            muted: (chunks) => (
+              <span className="font-normal text-muted-foreground">
+                {chunks}
+              </span>
+            )
+          })
+        : label}
     </Label>
   );
 
@@ -134,5 +153,49 @@ export const ChoiceField: FC<ChoiceFieldProps> = ({
         <div className="mt-1.5 space-y-1.5">{description}</div>
       )}
     </fieldset>
+  );
+};
+
+/** A titled group of a form's fields, with an optional control beside the title. */
+export const FormSection: FC<FormSectionProps> = ({
+  title,
+  isOptional = false,
+  action,
+  className,
+  children
+}) => {
+  const titleId = useId();
+  const t = useTranslations('common.form');
+
+  return (
+    <div
+      role="group"
+      aria-labelledby={titleId}
+      className={cn('grid min-w-0 gap-3', className)}
+    >
+      <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <h3
+          id={titleId}
+          className="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+        >
+          {isOptional
+            ? t.rich('optionalSectionTitle', {
+                title: () => title,
+                muted: (chunks) => (
+                  <span className="font-normal tracking-normal normal-case">
+                    {chunks}
+                  </span>
+                )
+              })
+            : title}
+        </h3>
+
+        {action}
+      </div>
+
+      <OptionalSectionContext value={isOptional}>
+        <div className="grid gap-4">{children}</div>
+      </OptionalSectionContext>
+    </div>
   );
 };

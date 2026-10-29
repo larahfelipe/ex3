@@ -1,5 +1,7 @@
 import type { FC } from 'react';
 
+import { useTranslations } from 'use-intl';
+
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import type { TransactionFilters } from '@/app/api/v1/transactions';
 import { EmptyState, LoadingState } from '@/components/data-state';
@@ -18,15 +20,16 @@ export const RecentTransactions: FC<RecentTransactionsProps> = ({
     portfolio,
     RECENT_TRANSACTIONS_PAGE
   );
+  const t = useTranslations('investments.overview.recentTransactions');
 
   return (
     <QuerySection
-      title="Recent transactions"
+      title={t('title')}
       query={transactionsQuery}
-      errorMessage="The recent transactions could not be loaded"
-      loading={<LoadingState label="Loading recent transactions" />}
+      errorMessage={t('loadFailed')}
+      loading={<LoadingState label={t('loading')} />}
       isEmpty={({ total }) => total === 0}
-      empty={<EmptyState message="No transactions yet" />}
+      empty={<EmptyState message={t('empty')} />}
     >
       {({ items }) => (
         <TransactionsTable

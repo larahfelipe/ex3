@@ -1,7 +1,8 @@
-import { useId, useState, type FC } from 'react';
+import { useId, useMemo, useState, type FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 
 import type { FinanceSettings } from '@/app/api/v1/finances';
@@ -18,58 +19,77 @@ import {
   DialogTitle,
   Input
 } from '@/components/ui';
+import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
 import { presentSubmitError } from '@/lib/submit-error';
 
-import { fieldOfPath, FormRootError } from './finance-form';
+import {
+  fieldOfPath,
+  FormRootError,
+  type ValidationTranslator
+} from './finance-form';
 
 type ReminderSettingsDialogProps = Record<'settings', FinanceSettings> &
   Record<'onCancel', VoidFunction> &
   Record<'onSubmit', (settings: FinanceSettings) => Promise<unknown>>;
 
-type ReminderSettingsInput = z.input<typeof ReminderSettingsFields>;
+type ReminderSettingsInput = z.input<
+  ReturnType<typeof reminderSettingsSchemaFor>
+>;
 
-type ReminderSwitch = Exclude<keyof FinanceSettings, 'reminderLeadDays'>;
+const reminderSettingsSchemaFor = (t: ValidationTranslator) =>
+  z.object({
+    reminderLeadDays: z.coerce
+      .number<string>(t('reminders.daysRequired'))
+      .int(t('reminders.daysWhole'))
+      .min(0, t('reminders.daysMin'))
+      .max(
+        FINANCE_LIMITS.ReminderMaxLeadDays,
+        t('reminders.daysMax', { max: FINANCE_LIMITS.ReminderMaxLeadDays })
+      ),
+    remindOverdue: z.boolean(),
+    remindUpcomingBills: z.boolean(),
+    remindUpcomingInstallments: z.boolean()
+  });
 
-const ReminderSettingsFields = z.object({
-  reminderLeadDays: z.coerce
-    .number<string>('Enter a number of days')
-    .int('Enter a whole number of days')
-    .min(0, 'Days cannot be negative')
-    .max(
-      FINANCE_LIMITS.ReminderMaxLeadDays,
-      `At most ${FINANCE_LIMITS.ReminderMaxLeadDays} days`
-    ),
-  remindOverdue: z.boolean(),
-  remindUpcomingBills: z.boolean(),
-  remindUpcomingInstallments: z.boolean()
-});
+const REMINDER_SWITCHES = [
+  'remindOverdue',
+  'remindUpcomingBills',
+  'remindUpcomingInstallments'
+] as const satisfies ReadonlyArray<
+  Exclude<keyof FinanceSettings, 'reminderLeadDays'>
+>;
 
-const REMINDER_SWITCHES: ReadonlyArray<
-  Record<'key', ReminderSwitch> & Record<'label', string>
-> = [
-  { key: 'remindOverdue', label: 'Overdue bills' },
-  { key: 'remindUpcomingBills', label: 'Bills due soon' },
-  { key: 'remindUpcomingInstallments', label: 'Installments due soon' }
-];
-
-const settingsFieldOf = fieldOfPath(ReminderSettingsFields.keyof().options);
+const settingsFieldOf = fieldOfPath([
+  'reminderLeadDays',
+  ...REMINDER_SWITCHES
+] as const satisfies ReadonlyArray<keyof ReminderSettingsInput>);
 
 export const ReminderSettingsDialog: FC<ReminderSettingsDialogProps> = ({
   settings,
   onCancel,
   onSubmit
 }) => {
+  const t = useTranslations('financeOverview.reminders');
+  const tValidation = useTranslations('validation');
+  const tErrors = useTranslations('errors');
+  const tActions = useTranslations('common.actions');
   const formId = useId();
   const [isSaving, setIsSaving] = useState(false);
+  const schema = useMemo(
+    () => reminderSettingsSchemaFor(tValidation),
+    [tValidation]
+  );
 
   const methods = useForm<ReminderSettingsInput, unknown, FinanceSettings>({
     mode: 'onChange',
-    resolver: zodResolver(ReminderSettingsFields),
+    resolver: zodResolver(schema),
     defaultValues: {
       ...settings,
       reminderLeadDays: String(settings.reminderLeadDays)
     }
   });
+
+  useRevalidateOnLocaleChange(methods.formState.errors, methods.trigger);
 
   const {
     register,
@@ -87,7 +107,8 @@ export const ReminderSettingsDialog: FC<ReminderSettingsDialogProps> = ({
       presentSubmitError(error, {
         setError,
         fieldOf: settingsFieldOf,
-        fallbackMessage: 'The reminders could not be saved'
+        t: tErrors,
+        fallbackMessage: t('settings.failed')
       });
     } finally {
       setIsSaving(false);
@@ -103,12 +124,9 @@ export const ReminderSettingsDialog: FC<ReminderSettingsDialogProps> = ({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Reminders</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
 
-          <DialogDescription>
-            Choose what is flagged on the overview and in the navigation, and
-            how many days ahead. Reminders are shown in the app only.
-          </DialogDescription>
+          <DialogDescription>{t('settings.description')}</DialogDescription>
         </DialogHeader>
 
         <FormProvider {...methods}>
@@ -118,9 +136,9 @@ export const ReminderSettingsDialog: FC<ReminderSettingsDialogProps> = ({
             className="grid gap-4"
             onSubmit={handleSubmit(submitSettings)}
           >
-            <ChoiceField legend="Remind me of">
+            <ChoiceField legend={t('settings.remindOf')}>
               <ul className="divide-y rounded-md border">
-                {REMINDER_SWITCHES.map(({ key, label }) => (
+                {REMINDER_SWITCHES.map((key) => (
                   <li key={key}>
                     <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/50">
                       <input
@@ -129,7 +147,7 @@ export const ReminderSettingsDialog: FC<ReminderSettingsDialogProps> = ({
                         {...register(key)}
                       />
 
-                      {label}
+                      {t(`settings.switches.${key}`)}
                     </label>
                   </li>
                 ))}
@@ -137,8 +155,10 @@ export const ReminderSettingsDialog: FC<ReminderSettingsDialogProps> = ({
             </ChoiceField>
 
             <FormField
-              label="Days before the due date"
-              hint={`For bills and installments due soon. 0 flags them on their due day; at most ${FINANCE_LIMITS.ReminderMaxLeadDays}`}
+              label={t('settings.leadDays')}
+              hint={t('settings.leadDaysHint', {
+                max: FINANCE_LIMITS.ReminderMaxLeadDays
+              })}
               error={errors.reminderLeadDays?.message}
             >
               {(fieldControl) => (
@@ -161,11 +181,11 @@ export const ReminderSettingsDialog: FC<ReminderSettingsDialogProps> = ({
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
-            Cancel
+            {tActions('cancel')}
           </Button>
 
           <SubmitButton form={formId} isPending={isSubmitting}>
-            Save reminders
+            {t('settings.submit')}
           </SubmitButton>
         </DialogFooter>
       </DialogContent>

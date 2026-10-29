@@ -1,7 +1,8 @@
 # Testing
 
 The backend's test infrastructure. It records the decisions that cannot be
-deduced from the files.
+deduced from the files. The web's unit tests are described in
+[`i18n.md`](i18n.md#tests).
 
 ## Commands
 

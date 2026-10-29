@@ -2,8 +2,9 @@ import { useId, useState, type FC } from 'react';
 
 import Link from 'next/link';
 
+import { useTranslations } from 'use-intl';
+
 import type { CalendarMonth } from '@/app/api/v1/finances';
-import { formatCompactMoney, formatMoney, formatPercent } from '@/common/utils';
 import { Money } from '@/components/financial';
 import {
   Button,
@@ -16,7 +17,7 @@ import {
   TableRow,
   TableRowHeader
 } from '@/components/ui';
-import { formatCalendarMonth, formatShortCalendarMonth } from '@/lib/dates';
+import { useFormat } from '@/i18n/format';
 import { isNonzeroDecimal } from '@/lib/decimal';
 import { cn } from '@/lib/utils';
 import type { DecimalString } from '@/types';
@@ -105,40 +106,44 @@ const ColumnTooltip = <Key extends string>({
   Record<'series', ReadonlyArray<ChartSeries<Key>>> &
   Record<'currency', string> &
   Record<'alignEnd', boolean> &
-  Partial<Record<'linkLabel', string>>) => (
-  <div
-    aria-hidden="true"
-    className={cn(
-      'pointer-events-none invisible absolute bottom-full z-10 mb-2 w-max min-w-40 space-y-1 rounded-md border bg-surface-elevated px-3 py-2 text-xs text-surface-elevated-foreground opacity-0 shadow-elevated transition-opacity group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100',
-      alignEnd ? 'right-0' : 'left-0'
-    )}
-  >
-    <p className="font-semibold">
-      {formatCalendarMonth(column.month) ?? column.month}
-    </p>
+  Partial<Record<'linkLabel', string>>) => {
+  const { formatCalendarMonth, formatMoney } = useFormat();
 
-    {series.map(({ key, label, color }) => (
-      <p key={key} className="flex items-center justify-between gap-4">
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <span
-            aria-hidden="true"
-            className={cn('size-2 rounded-[2px]', color.swatch)}
-          />
-
-          {label}
-        </span>
-
-        <span className="font-medium tabular-nums">
-          {formatMoney(column.values[key], currency)}
-        </span>
+  return (
+    <div
+      aria-hidden="true"
+      className={cn(
+        'pointer-events-none invisible absolute bottom-full z-10 mb-2 w-max min-w-40 space-y-1 rounded-md border bg-surface-elevated px-3 py-2 text-xs text-surface-elevated-foreground opacity-0 shadow-elevated transition-opacity group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100',
+        alignEnd ? 'right-0' : 'left-0'
+      )}
+    >
+      <p className="font-semibold">
+        {formatCalendarMonth(column.month) ?? column.month}
       </p>
-    ))}
 
-    {column.href !== undefined && linkLabel !== undefined && (
-      <p className="pt-1 text-muted-foreground">{linkLabel}</p>
-    )}
-  </div>
-);
+      {series.map(({ key, label, color }) => (
+        <p key={key} className="flex items-center justify-between gap-4">
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <span
+              aria-hidden="true"
+              className={cn('size-2 rounded-[2px]', color.swatch)}
+            />
+
+            {label}
+          </span>
+
+          <span className="font-medium tabular-nums">
+            {formatMoney(column.values[key], currency)}
+          </span>
+        </p>
+      ))}
+
+      {column.href !== undefined && linkLabel !== undefined && (
+        <p className="pt-1 text-muted-foreground">{linkLabel}</p>
+      )}
+    </div>
+  );
+};
 
 const ColumnMarks = <Key extends string>({
   column,
@@ -205,48 +210,55 @@ const ChartTable = <Key extends string>({
 }: Pick<
   MonthColumnChartProps<Key>,
   'title' | 'currency' | 'series' | 'columns'
->) => (
-  <Table label={`${title} table`}>
-    <TableCaption className="sr-only">{`${title}, in ${currency}`}</TableCaption>
+>) => {
+  const t = useTranslations('finances.charts');
+  const { formatCalendarMonth } = useFormat();
 
-    <TableHeader>
-      <TableRow className="hover:bg-transparent">
-        <TableHead>Month</TableHead>
+  return (
+    <Table label={t('table', { title })}>
+      <TableCaption className="sr-only">
+        {t('caption', { title, currency })}
+      </TableCaption>
 
-        {series.map(({ key, label }) => (
-          <TableHead key={key} className="text-right">
-            {label}
-          </TableHead>
-        ))}
-      </TableRow>
-    </TableHeader>
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead>{t('month')}</TableHead>
 
-    <TableBody>
-      {columns.map((column) => (
-        <TableRow key={column.month}>
-          <TableRowHeader className="whitespace-nowrap">
-            {column.href === undefined ? (
-              (formatCalendarMonth(column.month) ?? column.month)
-            ) : (
-              <Link
-                href={column.href}
-                className="rounded-sm hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"
-              >
-                {formatCalendarMonth(column.month) ?? column.month}
-              </Link>
-            )}
-          </TableRowHeader>
-
-          {series.map(({ key }) => (
-            <TableCell key={key} className="text-right tabular-nums">
-              <Money value={column.values[key]} currency={currency} />
-            </TableCell>
+          {series.map(({ key, label }) => (
+            <TableHead key={key} className="text-right">
+              {label}
+            </TableHead>
           ))}
         </TableRow>
-      ))}
-    </TableBody>
-  </Table>
-);
+      </TableHeader>
+
+      <TableBody>
+        {columns.map((column) => (
+          <TableRow key={column.month}>
+            <TableRowHeader className="whitespace-nowrap">
+              {column.href === undefined ? (
+                (formatCalendarMonth(column.month) ?? column.month)
+              ) : (
+                <Link
+                  href={column.href}
+                  className="rounded-sm hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"
+                >
+                  {formatCalendarMonth(column.month) ?? column.month}
+                </Link>
+              )}
+            </TableRowHeader>
+
+            {series.map(({ key }) => (
+              <TableCell key={key} className="text-right tabular-nums">
+                <Money value={column.values[key]} currency={currency} />
+              </TableCell>
+            ))}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+};
 
 /**
  * One column per month, its series side by side or stacked. Each month is a
@@ -261,6 +273,13 @@ export const MonthColumnChart = <Key extends string>({
   layout,
   linkLabel
 }: MonthColumnChartProps<Key>) => {
+  const t = useTranslations('finances.charts');
+  const {
+    formatCalendarMonth,
+    formatCompactMoney,
+    formatMoney,
+    formatShortCalendarMonth
+  } = useFormat();
   const tableId = useId();
   const [isTableShown, setIsTableShown] = useState(false);
 
@@ -277,12 +296,17 @@ export const MonthColumnChart = <Key extends string>({
   const isDense = columns.length > DENSE_COLUMN_COUNT;
 
   const describe = (column: MonthColumn<Key>) =>
-    `${formatCalendarMonth(column.month) ?? column.month}: ${series
-      .map(
-        ({ key, label }) =>
-          `${label} ${formatMoney(column.values[key], currency)}`
-      )
-      .join(', ')}`;
+    t('column', {
+      month: formatCalendarMonth(column.month) ?? column.month,
+      values: series
+        .map(({ key, label }) =>
+          t('columnValue', {
+            label,
+            amount: formatMoney(column.values[key], currency)
+          })
+        )
+        .join(', ')
+    });
 
   return (
     <figure className="space-y-3">
@@ -296,7 +320,7 @@ export const MonthColumnChart = <Key extends string>({
           aria-controls={tableId}
           onClick={() => setIsTableShown((isShown) => !isShown)}
         >
-          {isTableShown ? 'Hide table' : 'Show table'}
+          {isTableShown ? t('hideTable') : t('showTable')}
         </Button>
       </div>
 
@@ -366,7 +390,14 @@ export const MonthColumnChart = <Key extends string>({
                     ) : (
                       <Link
                         href={column.href}
-                        aria-label={`${describe(column)}${linkLabel === undefined ? '' : `. ${linkLabel}`}`}
+                        aria-label={
+                          linkLabel === undefined
+                            ? describe(column)
+                            : t('columnWithLink', {
+                                description: describe(column),
+                                link: linkLabel
+                              })
+                        }
                         className={markClass}
                       >
                         {marks}
@@ -413,6 +444,7 @@ export const CategoryBars: FC<
     Record<'currency', string> &
     Partial<Record<'color', SeriesColor>>
 > = ({ bars, currency, color = FINANCE_SERIES_COLORS[0] }) => {
+  const { formatPercent } = useFormat();
   const { percentOf } = scaleOf(bars.map(({ value }) => Number(value)));
 
   return (

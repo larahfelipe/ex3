@@ -1,3 +1,4 @@
+import type { Locale } from '@/i18n/config';
 import type { DecimalString } from '@/types';
 
 /**
@@ -21,16 +22,13 @@ const DIGITS_ONLY_PATTERN = /^\d+$/;
 
 const SEPARATED_NUMBER_PATTERN = /^[\d.,]+$/;
 
-const SINGLE_COMMA_DECIMAL_PATTERN = /^\d+,\d+$/;
+type Separator = '.' | ',';
 
-/**
- * A comma before exactly three digits, after a nonzero lead, is a thousands
- * separator in en-US and a decimal one in pt-BR, so it is refused, not guessed.
- */
-const AMBIGUOUS_COMMA_PATTERN = /^[1-9]\d{0,2},\d{3}$/;
+type LocaleSeparators = Record<'decimal' | 'group', Separator> &
+  Record<'ambiguousGroup', RegExp>;
 
 type UnreadDecimal =
-  | { outcome: 'ambiguous'; asDecimal: string; asWhole: string }
+  | { outcome: 'ambiguous'; asDecimal: DecimalString; asWhole: DecimalString }
   | { outcome: 'unreadable' };
 
 export type DecimalReading =
@@ -39,6 +37,39 @@ export type DecimalReading =
 type SeparatorReading = { outcome: 'read'; value: string } | UnreadDecimal;
 
 const escapeForPattern = (separator: string) => `\\${separator}`;
+
+const localeSeparators = new Map<Locale, LocaleSeparators>();
+
+/** The separators a language writes numbers with: "," before the decimals in pt-BR, "." in en-US. */
+const separatorsOf = (locale: Locale): LocaleSeparators => {
+  const cached = localeSeparators.get(locale);
+
+  if (cached !== undefined) return cached;
+
+  const decimal: Separator =
+    new Intl.NumberFormat(locale)
+      .formatToParts(1.5)
+      .find(({ type }) => type === 'decimal')?.value === ','
+      ? ','
+      : '.';
+  const group: Separator = decimal === ',' ? '.' : ',';
+  const separators = {
+    decimal,
+    group,
+    /**
+     * The language's group separator alone before exactly three digits, after
+     * a nonzero lead, separates the decimals in the other convention, so it is
+     * refused, not guessed: "1.500" in pt-BR, "1,500" in en-US.
+     */
+    ambiguousGroup: new RegExp(
+      `^[1-9]\\d{0,2}${escapeForPattern(group)}\\d{3}$`
+    )
+  };
+
+  localeSeparators.set(locale, separators);
+
+  return separators;
+};
 
 const isGroupedWhole = (text: string, separator: string) =>
   new RegExp(`^[1-9]\\d{0,2}(${escapeForPattern(separator)}\\d{3})+$`).test(
@@ -50,7 +81,10 @@ const withoutSeparator = (text: string, separator: string) =>
 
 const UNREADABLE: UnreadDecimal = { outcome: 'unreadable' };
 
-const interpretSeparators = (compact: string): SeparatorReading => {
+const interpretSeparators = (
+  compact: string,
+  { group, ambiguousGroup }: LocaleSeparators
+): SeparatorReading => {
   if (!SEPARATED_NUMBER_PATTERN.test(compact)) return UNREADABLE;
   if (DIGITS_ONLY_PATTERN.test(compact))
     return { outcome: 'read', value: compact };
@@ -82,18 +116,15 @@ const interpretSeparators = (compact: string): SeparatorReading => {
       ? { outcome: 'read', value: withoutSeparator(compact, separator) }
       : UNREADABLE;
 
-  if (separator === '.') return { outcome: 'read', value: compact };
-
-  if (AMBIGUOUS_COMMA_PATTERN.test(compact))
+  // The pattern keeps both readings within the column: six digits at most.
+  if (separator === group && ambiguousGroup.test(compact))
     return {
       outcome: 'ambiguous',
-      asDecimal: compact.replace(',', '.'),
-      asWhole: compact.replace(',', '')
+      asDecimal: compact.replace(separator, '.') as DecimalString,
+      asWhole: compact.replace(separator, '') as DecimalString
     };
 
-  return SINGLE_COMMA_DECIMAL_PATTERN.test(compact)
-    ? { outcome: 'read', value: compact.replace(',', '.') }
-    : UNREADABLE;
+  return { outcome: 'read', value: compact.replace(separator, '.') };
 };
 
 /** Unsigned, without leading zeros, and within what the column stores unrounded. */
@@ -101,12 +132,16 @@ export const isStorableDecimal = (value: string): value is DecimalString =>
   STORABLE_DECIMAL_PATTERN.test(value);
 
 /**
- * Reads a number as a person writes it: a dot or a lone comma before the
- * decimals, and commas or dots between groups of three digits. With both, the
- * last one separates the decimals. Only what the column stores is read.
+ * Reads a number as a person writes it, in `locale` or in the other
+ * convention: a lone separator before the decimals, and dots or commas between
+ * groups of three digits. With both, the last one separates the decimals. Only
+ * what the column stores is read.
  */
-export const readDecimal = (text: string): DecimalReading => {
-  const reading = interpretSeparators(text.replace(/\s/gu, ''));
+export const readDecimal = (locale: Locale, text: string): DecimalReading => {
+  const reading = interpretSeparators(
+    text.replace(/\s/gu, ''),
+    separatorsOf(locale)
+  );
 
   if (reading.outcome !== 'read') return reading;
 
@@ -114,6 +149,13 @@ export const readDecimal = (text: string): DecimalReading => {
 
   return isStorableDecimal(value) ? { outcome: 'read', value } : UNREADABLE;
 };
+
+/**
+ * `value` as a person types it in `locale`, with its decimal separator and no
+ * grouping, which `readDecimal` reads back as `value`.
+ */
+export const decimalInputTextOf = (locale: Locale, value: string) =>
+  value.replace('.', separatorsOf(locale).decimal);
 
 export const isNonzeroDecimal = (value: string) => NONZERO_DIGIT.test(value);
 

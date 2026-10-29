@@ -5,7 +5,10 @@ position from the ledger, and reports cost, market value, allocation and
 performance in the portfolio's base currency. A separate Finances section
 tracks what the account owes: bills and their payments, installment purchases,
 recurring expenses, a due-date calendar and spending reports — kept apart from
-the investments, whose data it never reads or changes.
+the investments, whose data it never reads or changes. The interface is in
+Brazilian Portuguese by default and in American English on request, from the
+sidebar or the account page, with each language's number and date formats;
+each record keeps its own currency ([`docs/i18n.md`](docs/i18n.md)).
 
 Two independent packages, each with its own `package.json` and lockfile. There
 is no root `package.json` and no pnpm workspace: every command runs inside
@@ -175,7 +178,7 @@ Backend (`cd backend`):
 | `pnpm prettier` / `pnpm prettier:fix` | formatting |
 
 Web (`cd web`): `pnpm dev`, `pnpm build`, `pnpm start`, `pnpm lint`,
-`pnpm typecheck`, `pnpm prettier`.
+`pnpm typecheck`, `pnpm test`, `pnpm prettier`.
 
 Both packages also expose `pnpm lint:fix`.
 
@@ -193,9 +196,15 @@ The runner is `node:test`, with no additional framework. The unit tests
 exercise the API over HTTP, with `supertest`, one at a time. Conventions and
 limits are in [`docs/testing.md`](docs/testing.md).
 
+The web's unit tests (`cd web && pnpm test`) use the same runner, through
+`tsx`, and need no database. They cover the message catalogs, the pt-BR and
+en-US number, currency and date formats across time zones, language
+switching, error wording, decimal reading and component markup; see
+[`docs/i18n.md`](docs/i18n.md#tests). The
+web's gates are `lint`, `typecheck`, `test` and `build`.
+
 `docker compose --profile check up` runs both packages' gates in a container,
-the way CI does. The web has no test runner yet, and its gates are `lint`,
-`typecheck` and `build`.
+the way CI does.
 
 ## Deployment
 
@@ -231,6 +240,7 @@ variables, `GET /ready` and `GET /health` probes — live outside it (TD-060).
 | [`docs/containers.md`](docs/containers.md) | Compose, volumes and production images |
 | [`docs/data-fetching.md`](docs/data-fetching.md) | every browser request, hook by hook |
 | [`docs/component-inventory.md`](docs/component-inventory.md) | the web's reusable components, what to keep and what to rewrite |
+| [`docs/i18n.md`](docs/i18n.md) | the web's pt-BR and en-US catalogs, the language selector and its persistence, message conventions, number, currency and date formats, error wording, and how to add a locale |
 | [`docs/accessibility.md`](docs/accessibility.md), [`docs/responsiveness.md`](docs/responsiveness.md), [`docs/performance.md`](docs/performance.md) | normative frontend criteria |
 | [`docs/toolchain.md`](docs/toolchain.md) | pinned versions and why |
 

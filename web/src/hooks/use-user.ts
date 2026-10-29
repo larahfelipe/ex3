@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import { toast } from 'sonner';
+import { useTranslations } from 'use-intl';
 
 import type {
   SignInRequestPayload,
@@ -20,10 +21,7 @@ import type {
   UpdateProfileRequestPayload
 } from '@/app/api/v1/user';
 import { APP_ROUTES } from '@/common/constants';
-import api, {
-  type ApiProxyErrorData,
-  UNEXPECTED_ERROR_MESSAGE
-} from '@/lib/axios';
+import api, { type ApiProxyErrorData } from '@/lib/axios';
 import { queryKeys } from '@/lib/react-query';
 import type { Maybe } from '@/types';
 
@@ -53,6 +51,7 @@ const useLeaveSession = () => {
 
 export const useSignIn = (destination: string) => {
   const { push } = useRouter();
+  const t = useTranslations('auth.signIn');
 
   return useMutation<
     AxiosResponse<SignInResponseData>,
@@ -61,7 +60,7 @@ export const useSignIn = (destination: string) => {
   >({
     mutationFn: (payload) => api.getInstance().post('/v1/sign-in', payload),
     onSuccess: ({ data: userData }) => {
-      toast.success(`Signed in as ${userData.name ?? userData.email}`);
+      toast.success(t('welcome', { name: userData.name ?? userData.email }));
       push(destination);
     }
   });
@@ -69,6 +68,7 @@ export const useSignIn = (destination: string) => {
 
 export const useSignUp = () => {
   const { push } = useRouter();
+  const t = useTranslations('auth.signUp');
 
   return useMutation<
     AxiosResponse<SignUpResponseData>,
@@ -77,9 +77,7 @@ export const useSignUp = () => {
   >({
     mutationFn: (payload) => api.getInstance().post('/v1/sign-up', payload),
     onSuccess: ({ data: { user: userData } }) => {
-      toast.success(
-        `Account created. Signed in as ${userData.name ?? userData.email}`
-      );
+      toast.success(t('welcome', { name: userData.name ?? userData.email }));
       push(APP_ROUTES.Protected.Overview);
     }
   });
@@ -87,11 +85,12 @@ export const useSignUp = () => {
 
 export const useSignOut = () => {
   const leaveSession = useLeaveSession();
+  const t = useTranslations('auth.signOut');
 
   return useMutation<AxiosResponse<SignOutResponseData>>({
     mutationFn: () => api.getInstance().post('/v1/sign-out'),
-    onSuccess: () => leaveSession('Signed out'),
-    onError: () => toast.error(UNEXPECTED_ERROR_MESSAGE)
+    onSuccess: () => leaveSession(t('done')),
+    onError: () => toast.error(t('failed'))
   });
 };
 
@@ -107,6 +106,7 @@ type CurrentUserResponse = AxiosResponse<GetCurrentUserResponseData>;
 export const useUpdateProfile = () => {
   const queryClient = useQueryClient();
   const currentUserKey = queryKeys.currentUser();
+  const t = useTranslations('account.profile');
 
   return useMutation<
     AxiosResponse<UpdateCurrentUserResponseData>,
@@ -143,7 +143,7 @@ export const useUpdateProfile = () => {
         currentUserKey,
         (current) => current && { ...current, data: { user: data.user } }
       );
-      toast.success(data.message);
+      toast.success(t('saved'));
     }
   });
 };
@@ -151,6 +151,7 @@ export const useUpdateProfile = () => {
 /** The API revokes the session that changed the password, and the proxy clears its cookie in the same response. */
 export const useChangePassword = () => {
   const leaveSession = useLeaveSession();
+  const t = useTranslations('account.security');
 
   return useMutation<
     AxiosResponse<UpdateCurrentUserResponseData>,
@@ -158,7 +159,6 @@ export const useChangePassword = () => {
     ChangePasswordRequestPayload
   >({
     mutationFn: (payload) => api.getInstance().patch('/v1/user', payload),
-    onSuccess: () =>
-      leaveSession('Password changed. Sign in with your new password')
+    onSuccess: () => leaveSession(t('changed'))
   });
 };

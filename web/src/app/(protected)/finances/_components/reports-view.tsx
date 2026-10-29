@@ -1,9 +1,11 @@
 'use client';
 
-import { useId, useState, type FC, type ReactNode } from 'react';
+import { useId, useMemo, useState, type FC, type ReactNode } from 'react';
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+
+import { useTranslations } from 'use-intl';
 
 import type {
   GetFinanceReportResponseData,
@@ -12,17 +14,13 @@ import type {
 import {
   billDetailRoute,
   billsRouteFor,
-  EXPENSE_CATEGORY_LABELS,
-  EXPENSE_KIND_LABELS,
-  FINANCE_LIMITS,
-  PAYMENT_METHOD_LABELS
+  FINANCE_LIMITS
 } from '@/common/constants';
-import { formatMoney, updateUrlQuery } from '@/common/utils';
+import { updateUrlQuery } from '@/common/utils';
 import {
   EmptyState,
   ErrorState,
   LoadingState,
-  STALE_DATA_MESSAGE,
   StaleState
 } from '@/components/data-state';
 import { Money, UnavailableValue } from '@/components/financial';
@@ -51,10 +49,11 @@ import {
   usePayments,
   useReferenceDay
 } from '@/hooks/use-finances';
+import { type Format, useFormat } from '@/i18n/format';
+import type { Translator } from '@/i18n/translator';
 import {
   calendarMonthOfDay,
   daySpanOfCalendarMonth,
-  formatCalendarMonth,
   isCalendarMonth,
   monthSpanOf,
   shiftCalendarMonth
@@ -81,6 +80,8 @@ type Report = GetFinanceReportResponseData;
 
 type Period = Record<'from' | 'to', string>;
 
+type ReportsTranslator = Translator<'reports'>;
+
 const PERIOD_PARAMS = { From: 'from', To: 'to' } as const;
 
 /** The months shown by default: this one and the five before it. */
@@ -96,20 +97,23 @@ const PAYMENTS_SECTION_ID = 'report-payments';
 
 const [SCHEDULED_COLOR, PAID_COLOR] = FINANCE_SERIES_COLORS;
 
-const TREND_SERIES: ReadonlyArray<ChartSeries<'scheduled' | 'paid'>> = [
-  { key: 'scheduled', label: 'Planned', color: SCHEDULED_COLOR },
-  { key: 'paid', label: 'Paid', color: PAID_COLOR }
-];
-
 const COLUMN_VISIBILITY = { method: 'max-md:hidden' } as const;
 
-const countText = (count: number, noun: string) =>
-  `${count} ${noun}${count === 1 ? '' : 's'}`;
+const monthText = (month: string, { formatCalendarMonth }: Format) =>
+  formatCalendarMonth(month) ?? month;
 
-const monthText = (month: string) => formatCalendarMonth(month) ?? month;
-
-const periodText = ({ from, to }: Period) =>
-  from === to ? monthText(from) : `${monthText(from)} to ${monthText(to)}`;
+/** A period in one of the forms the catalog words it in: a name, "de … a …" or "entre … e …". */
+const periodTextOf = (
+  { from, to }: Period,
+  form: 'period' | 'span' | 'comparedTo',
+  t: ReportsTranslator,
+  format: Format
+) =>
+  t(form, {
+    kind: from === to ? 'month' : 'range',
+    from: monthText(from, format),
+    to: monthText(to, format)
+  });
 
 /** The days a span of months covers, both counted. */
 const daySpanOf = ({ from, to }: Period) => ({
@@ -193,6 +197,7 @@ const MonthPicker: FC<
     Record<'months', ReadonlyArray<string>> &
     Record<'onChange', (month: string) => void>
 > = ({ label, value, months, onChange }) => {
+  const format = useFormat();
   const pickerId = useId();
 
   return (
@@ -212,7 +217,7 @@ const MonthPicker: FC<
         <SelectContent>
           {months.map((month) => (
             <SelectItem key={month} value={month}>
-              {monthText(month)}
+              {monthText(month, format)}
             </SelectItem>
           ))}
         </SelectContent>
@@ -244,6 +249,9 @@ const ReportSection: FC<
 };
 
 const PaymentRow: FC<Record<'payment', ListedPayment>> = ({ payment }) => {
+  const t = useTranslations('reports.payments');
+  const tFinances = useTranslations('finances');
+  const { formatMoney } = useFormat();
   const {
     expenseId,
     description,
@@ -256,9 +264,10 @@ const PaymentRow: FC<Record<'payment', ListedPayment>> = ({ payment }) => {
     method
   } = payment;
   const adjustments = [
-    isNonzeroDecimal(fees) && `plus ${formatMoney(fees, currency)} in fees`,
+    isNonzeroDecimal(fees) &&
+      t('fees', { amount: formatMoney(fees, currency) }),
     isNonzeroDecimal(discount) &&
-      `less ${formatMoney(discount, currency)} discount`
+      t('discount', { amount: formatMoney(discount, currency) })
   ].filter((adjustment) => typeof adjustment === 'string');
 
   return (
@@ -273,7 +282,7 @@ const PaymentRow: FC<Record<'payment', ListedPayment>> = ({ payment }) => {
           </Link>
 
           <span className="text-xs text-muted-foreground">
-            {EXPENSE_CATEGORY_LABELS[category]}
+            {tFinances(`categories.${category}`)}
           </span>
         </div>
       </TableRowHeader>
@@ -283,7 +292,11 @@ const PaymentRow: FC<Record<'payment', ListedPayment>> = ({ payment }) => {
       </TableCell>
 
       <TableCell className={COLUMN_VISIBILITY.method}>
-        {method === null ? <UnavailableValue /> : PAYMENT_METHOD_LABELS[method]}
+        {method === null ? (
+          <UnavailableValue />
+        ) : (
+          tFinances(`paymentMethods.${method}`)
+        )}
       </TableCell>
 
       <TableCell className="text-right tabular-nums">
@@ -306,6 +319,9 @@ const PaymentRow: FC<Record<'payment', ListedPayment>> = ({ payment }) => {
 const PaymentHistory: FC<
   Record<'currency', string> & Record<'period', Period>
 > = ({ currency, period }) => {
+  const t = useTranslations('reports.payments');
+  const tReports = useTranslations('reports');
+  const format = useFormat();
   const [page, setPage] = useState(FIRST_PAGE);
   const days = daySpanOf(period);
 
@@ -328,32 +344,27 @@ const PaymentHistory: FC<
 
   return (
     <div aria-busy={isLoading || isPlaceholderData} className="space-y-4">
-      {isLoading && (
-        <LoadingState label="Loading the payments" className="h-40" />
-      )}
+      {isLoading && <LoadingState label={t('loading')} className="h-40" />}
 
       {data === undefined && isError && (
-        <ErrorState
-          message="The payments could not be loaded"
-          onRetry={refetch}
-        />
+        <ErrorState message={t('loadFailed')} onRetry={refetch} />
       )}
 
       {isRefetchError && (
-        <StaleState
-          message={STALE_DATA_MESSAGE}
-          isRetrying={isFetching}
-          onRetry={refetch}
-        />
+        <StaleState isRetrying={isFetching} onRetry={refetch} />
       )}
 
       {data?.total === 0 && (
-        <EmptyState message={`No payments in ${periodText(period)}`} />
+        <EmptyState
+          message={t('empty', {
+            span: periodTextOf(period, 'span', tReports, format)
+          })}
+        />
       )}
 
       {data !== undefined && data.items.length > 0 && (
         <Table
-          label="Payments table"
+          label={t('table')}
           className={cn(
             'transition-opacity',
             isPlaceholderData && 'opacity-60'
@@ -361,13 +372,17 @@ const PaymentHistory: FC<
         >
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead>Bill</TableHead>
+              <TableHead>{t('columns.bill')}</TableHead>
 
-              <TableHead>Paid on</TableHead>
+              <TableHead>{t('columns.paidOn')}</TableHead>
 
-              <TableHead className={COLUMN_VISIBILITY.method}>Method</TableHead>
+              <TableHead className={COLUMN_VISIBILITY.method}>
+                {t('columns.method')}
+              </TableHead>
 
-              <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="text-right">
+                {t('columns.amount')}
+              </TableHead>
             </TableRow>
           </TableHeader>
 
@@ -382,10 +397,10 @@ const PaymentHistory: FC<
       {data !== undefined && data.totalPages > 1 && (
         <div className="flex justify-end">
           <PageNavigation
-            label="Payment pages"
+            label={t('pages')}
             page={data.page}
             totalPages={data.totalPages}
-            detail={countText(data.total, 'payment')}
+            detail={t('count', { count: data.total })}
             onPageChange={setPage}
           />
         </div>
@@ -398,6 +413,11 @@ const isEmptyReport = ({ totals }: Report) =>
   totals.scheduled.count === 0 && totals.paid.count === 0;
 
 const ReportContent: FC<Record<'report', Report>> = ({ report }) => {
+  const t = useTranslations('reports');
+  const tSummary = useTranslations('finances.summary');
+  const tFinances = useTranslations('finances');
+  const format = useFormat();
+  const { formatList, formatMoney } = format;
   const {
     currency,
     from,
@@ -412,7 +432,14 @@ const ReportContent: FC<Record<'report', Report>> = ({ report }) => {
   const period = { from, to };
   const days = daySpanOf(period);
   const spanFilters = { currency, dueFrom: days.from, dueTo: days.to };
-  const previousText = periodText(previous);
+  const previousText = periodTextOf(previous, 'comparedTo', t, format);
+  const trendSeries = useMemo<ReadonlyArray<ChartSeries<'scheduled' | 'paid'>>>(
+    () => [
+      { key: 'scheduled', label: t('trend.planned'), color: SCHEDULED_COLOR },
+      { key: 'paid', label: t('trend.paid'), color: PAID_COLOR }
+    ],
+    [t]
+  );
 
   const monthBillsRoute = (month: string, filters: Record<string, string>) => {
     const span = daySpanOfCalendarMonth(month);
@@ -426,46 +453,62 @@ const ReportContent: FC<Record<'report', Report>> = ({ report }) => {
 
   const adjustments = [
     isNonzeroDecimal(totals.fees) &&
-      `${formatMoney(totals.fees, currency)} in fees`,
+      t('adjustmentFees', { amount: formatMoney(totals.fees, currency) }),
     isNonzeroDecimal(totals.discounts) &&
-      `${formatMoney(totals.discounts, currency)} in discounts`
+      t('adjustmentDiscounts', {
+        amount: formatMoney(totals.discounts, currency)
+      })
   ].filter((adjustment) => typeof adjustment === 'string');
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <LinkedMetric
-          label="Planned"
+          label={t('metrics.planned')}
           href={billsRouteFor(spanFilters)}
-          detail={changeTextOf(change.scheduled, currency, previousText)}
+          detail={changeTextOf(
+            change.scheduled,
+            currency,
+            previousText,
+            tSummary,
+            format
+          )}
         >
           <Money value={totals.scheduled.amount} currency={currency} />
         </LinkedMetric>
 
         <LinkedMetric
-          label="Paid"
+          label={t('metrics.paid')}
           href={`#${PAYMENTS_SECTION_ID}`}
-          detail={changeTextOf(change.paid, currency, previousText)}
+          detail={changeTextOf(
+            change.paid,
+            currency,
+            previousText,
+            tSummary,
+            format
+          )}
         >
           <Money value={totals.paid.amount} currency={currency} />
         </LinkedMetric>
 
         <LinkedMetric
-          label="Still owed"
+          label={t('metrics.owed')}
           href={billsRouteFor(spanFilters)}
-          detail={`Of ${countText(totals.outstanding.count, 'bill')} due in the period`}
+          detail={t('metrics.owedDetail', {
+            count: totals.outstanding.count
+          })}
         >
           <Money value={totals.outstanding.amount} currency={currency} />
         </LinkedMetric>
 
         <LinkedMetric
-          label="Overdue"
+          label={t('metrics.overdue')}
           href={billsRouteFor({ ...spanFilters, status: 'OVERDUE' })}
           tone={totals.overdue.count > 0 ? 'negative' : undefined}
           detail={
             totals.overdue.count === 0
-              ? 'Nothing past due'
-              : `${countText(totals.overdue.count, 'bill')} past due`
+              ? t('metrics.nothingOverdue')
+              : t('metrics.overdueDetail', { count: totals.overdue.count })
           }
         >
           <Money value={totals.overdue.amount} currency={currency} />
@@ -474,20 +517,20 @@ const ReportContent: FC<Record<'report', Report>> = ({ report }) => {
 
       {adjustments.length > 0 && (
         <p className="text-sm text-muted-foreground">
-          {`Payments include ${adjustments.join(' and ')}.`}
+          {t('adjustments', { items: formatList(adjustments) })}
         </p>
       )}
 
       <ReportSection
-        title="Planned and paid by month"
-        description="Planned counts the bills due each month; paid counts the payments made in it, whichever month the bill was due"
+        title={t('trend.title')}
+        description={t('trend.description')}
       >
         <MonthColumnChart
-          title="Planned and paid by month"
+          title={t('trend.title')}
           currency={currency}
           layout="grouped"
-          series={TREND_SERIES}
-          linkLabel="Opens the bills due that month"
+          series={trendSeries}
+          linkLabel={t('trend.link')}
           columns={months.map(({ month, scheduled, paid }) => ({
             month,
             values: { scheduled, paid },
@@ -498,21 +541,21 @@ const ReportContent: FC<Record<'report', Report>> = ({ report }) => {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ReportSection
-          title="By category"
-          description="Planned in the period, and its share of the total"
+          title={t('categories.title')}
+          description={t('categories.description')}
         >
           {categories.length === 0 ? (
-            <EmptyState message="Nothing planned in the period" />
+            <EmptyState message={t('categories.empty')} />
           ) : (
             <CategoryBars
               currency={currency}
               bars={categories.map(({ category, scheduled, paid, share }) => ({
                 key: category,
-                label: EXPENSE_CATEGORY_LABELS[category],
+                label: tFinances(`categories.${category}`),
                 value: scheduled,
                 share,
                 detail: isNonzeroDecimal(paid)
-                  ? `Paid ${formatMoney(paid, currency)}`
+                  ? t('paidDetail', { amount: formatMoney(paid, currency) })
                   : undefined,
                 href: billsRouteFor({ ...spanFilters, category })
               }))}
@@ -521,18 +564,18 @@ const ReportContent: FC<Record<'report', Report>> = ({ report }) => {
         </ReportSection>
 
         <ReportSection
-          title="By kind"
-          description="One-time bills, installments and recurring expenses"
+          title={t('kinds.title')}
+          description={t('kinds.description')}
         >
           <CategoryBars
             currency={currency}
             bars={kinds.map(({ kind, scheduled, paid }) => ({
               key: kind,
-              label: EXPENSE_KIND_LABELS[kind],
+              label: tFinances(`kinds.${kind}`),
               value: scheduled,
               share: null,
               detail: isNonzeroDecimal(paid)
-                ? `Paid ${formatMoney(paid, currency)}`
+                ? t('paidDetail', { amount: formatMoney(paid, currency) })
                 : undefined,
               href: billsRouteFor({ ...spanFilters, kind })
             }))}
@@ -542,8 +585,10 @@ const ReportContent: FC<Record<'report', Report>> = ({ report }) => {
 
       <ReportSection
         id={PAYMENTS_SECTION_ID}
-        title="Payments"
-        description={`Every payment made in ${periodText(period)}, newest first`}
+        title={t('payments.title')}
+        description={t('payments.description', {
+          span: periodTextOf(period, 'span', t, format)
+        })}
         className="scroll-mt-6"
       >
         <PaymentHistory
@@ -557,6 +602,8 @@ const ReportContent: FC<Record<'report', Report>> = ({ report }) => {
 };
 
 export const ReportsView: FC = () => {
+  const t = useTranslations('reports');
+  const format = useFormat();
   const searchParams = useSearchParams();
   const today = useReferenceDay();
   const [currency, setCurrency] = useCurrencyParam();
@@ -584,28 +631,31 @@ export const ReportsView: FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Reports"
+        title={t('title')}
         description={
           report === undefined
-            ? periodText(period)
-            : `${periodText(period)} · Amounts in ${report.currency}`
+            ? periodTextOf(period, 'period', t, format)
+            : t('headerWithCurrency', {
+                period: periodTextOf(period, 'period', t, format),
+                currency: report.currency
+              })
         }
       />
 
       <div
         role="group"
-        aria-label="Report period"
+        aria-label={t('periodGroup')}
         className="flex flex-wrap items-center gap-3"
       >
         <MonthPicker
-          label="From"
+          label={t('from')}
           value={period.from}
           months={pickableMonths}
           onChange={(month) => showPeriod('from', month)}
         />
 
         <MonthPicker
-          label="To"
+          label={t('to')}
           value={period.to}
           months={pickableMonths}
           onChange={(month) => showPeriod('to', month)}
@@ -621,19 +671,18 @@ export const ReportsView: FC = () => {
       </div>
 
       {report === undefined && !reportQuery.isError && (
-        <LoadingState label="Loading the report" className="h-96" />
+        <LoadingState label={t('loading')} className="h-96" />
       )}
 
       {report === undefined && reportQuery.isError && (
         <ErrorState
-          message="The report could not be loaded"
+          message={t('loadFailed')}
           onRetry={() => void reportQuery.refetch()}
         />
       )}
 
       {reportQuery.isRefetchError && (
         <StaleState
-          message={STALE_DATA_MESSAGE}
           isRetrying={reportQuery.isFetching}
           onRetry={() => void reportQuery.refetch()}
         />
@@ -641,7 +690,10 @@ export const ReportsView: FC = () => {
 
       {report !== undefined && isEmptyReport(report) && (
         <EmptyState
-          message={`Nothing was due or paid in ${report.currency} in ${periodText(report)}`}
+          message={t('empty', {
+            currency: report.currency,
+            span: periodTextOf(report, 'span', t, format)
+          })}
         />
       )}
 
