@@ -382,8 +382,8 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
       <DialogFooter className="gap-2 sm:flex-wrap">
         {!isNonzeroDecimal(settledAmount) && (
           <Button
-            variant="outline"
-            className="text-destructive hover:text-destructive sm:mr-auto"
+            variant="destructive-subtle"
+            className="sm:mr-auto"
             onClick={() => onAction({ kind: 'delete' })}
           >
             {tActions('delete')}

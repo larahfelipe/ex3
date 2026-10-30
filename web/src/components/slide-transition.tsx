@@ -40,8 +40,11 @@ const LeavingPanelGuard: FC<Children> = ({ children }) => {
  * One panel at a time, keyed by `panelKey`. The leaving panel is popped out of
  * the flow and made inert while it slides away, the arriving one slides in from
  * `direction`, and the frame animates to the arriving panel's measured height
- * instead of jumping to it and moving what sits below. The frame clips the
- * slide; the negative margin and the padding keep focus rings inside the clip.
+ * instead of jumping to it and moving what sits below. Only a switch animates
+ * the height: a panel that grows or shrinks on its own, or with the window,
+ * takes its new height at once rather than lagging clipped behind it. The
+ * frame clips the slide; the negative margin and the padding keep focus rings
+ * inside the clip.
  */
 export const SlideTransition: FC<SlideTransitionProps> = ({
   panelKey,
@@ -50,7 +53,14 @@ export const SlideTransition: FC<SlideTransitionProps> = ({
 }) => {
   const panelsRef = useRef<HTMLDivElement>(null);
   const [panelHeight, setPanelHeight] = useState<'auto' | number>('auto');
+  const [shownKey, setShownKey] = useState(panelKey);
+  const [isSwitching, setIsSwitching] = useState(false);
   const shouldReduceMotion = useReducedMotion();
+
+  if (panelKey !== shownKey) {
+    setShownKey(panelKey);
+    setIsSwitching(true);
+  }
 
   useEffect(() => {
     const panels = panelsRef.current;
@@ -72,12 +82,19 @@ export const SlideTransition: FC<SlideTransitionProps> = ({
         initial={false}
         animate={{ height: panelHeight }}
         transition={
-          shouldReduceMotion ? { duration: 0 } : TAB_PANEL_HEIGHT_TRANSITION
+          isSwitching && !shouldReduceMotion
+            ? TAB_PANEL_HEIGHT_TRANSITION
+            : { duration: 0 }
         }
         className="-m-1.5 overflow-hidden"
       >
         <div ref={panelsRef} className="relative p-1.5">
-          <AnimatePresence initial={false} mode="popLayout" custom={direction}>
+          <AnimatePresence
+            initial={false}
+            mode="popLayout"
+            custom={direction}
+            onExitComplete={() => setIsSwitching(false)}
+          >
             <m.div
               key={panelKey}
               custom={direction}

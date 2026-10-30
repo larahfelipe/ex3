@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 
-import { Plus } from 'lucide-react';
+import { Plus, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'use-intl';
 
@@ -40,12 +40,12 @@ const PORTFOLIOS_PAGE_PARAM = 'page';
 export default function Portfolios() {
   const [requestedPage, goToPage] = usePageParam(PORTFOLIOS_PAGE_PARAM);
   const [dialog, setDialog] = useState<Maybe<PortfolioDialog>>(null);
-  const [deletedId, setDeletedId] = useState<Maybe<string>>(null);
   const t = useTranslations('portfolios');
   const tNavigation = useTranslations('navigation.pages');
   const tActions = useTranslations('common.actions');
 
   const newPortfolioButtonRef = useRef<HTMLButtonElement>(null);
+  const deletedIdRef = useRef<Maybe<string>>(null);
   const solePortfolioNoteId = useId();
 
   const portfoliosQuery = usePortfolios({
@@ -61,12 +61,14 @@ export default function Portfolios() {
   const listedPortfolios = portfoliosQuery.data?.portfolios;
 
   useEffect(() => {
-    if (!deletedId || !listedPortfolios) return;
+    const deletedId = deletedIdRef.current;
+
+    if (!deletedId || dialog !== null || !listedPortfolios) return;
     if (listedPortfolios.some(({ id }) => id === deletedId)) return;
 
-    setDeletedId(null);
+    deletedIdRef.current = null;
     newPortfolioButtonRef.current?.focus();
-  }, [deletedId, listedPortfolios]);
+  }, [dialog, listedPortfolios]);
 
   const namesOtherThan = (portfolioId: Maybe<Portfolio['id']>) =>
     (listedPortfolios ?? [])
@@ -109,6 +111,8 @@ export default function Portfolios() {
         isEmpty={({ pagination }) => pagination.total === 0}
         empty={
           <EmptyState
+            icon={Wallet}
+            title={t('emptyTitle')}
             message={t('empty')}
             action={{ label: t('createFirst'), onSelect: openCreateDialog }}
           />
@@ -188,9 +192,9 @@ export default function Portfolios() {
                           </Button>
 
                           <Button
-                            variant="outline"
+                            variant="destructive-subtle"
                             size="sm"
-                            className="text-destructive hover:text-destructive max-sm:flex-1"
+                            className="max-sm:flex-1"
                             aria-disabled={total === 1}
                             aria-describedby={
                               total === 1 ? solePortfolioNoteId : undefined
@@ -282,7 +286,7 @@ export default function Portfolios() {
           onCancel={closeDialog}
           onConfirm={async () => {
             await deletePortfolio({ portfolioId: dialog.portfolio.id });
-            setDeletedId(dialog.portfolio.id);
+            deletedIdRef.current = dialog.portfolio.id;
             closeDialog();
           }}
         />

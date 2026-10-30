@@ -29,7 +29,7 @@ const localeSwitchOf = (
 ): LocaleSwitch => ({
   locale,
   pendingLocale,
-  switchLocale: async () => undefined
+  switchLocale: () => Promise.resolve()
 });
 
 const withLocaleSwitch = (localeSwitch: LocaleSwitch, node: ReactNode) =>

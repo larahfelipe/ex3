@@ -1,4 +1,4 @@
 allowBuilds:
   esbuild: true
-minimumReleaseAgeExclude:
-  - lucide-react@1.44.0
+overrides:
+  fast-uri: ^3.1.9

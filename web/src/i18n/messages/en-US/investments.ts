@@ -28,38 +28,131 @@ export default {
   overview: {
     description: '{name} · Base currency {currency}',
     addAsset: 'Add asset',
+    portfolio: 'Portfolio',
+    portfolioOption: '{name} · {currency}',
+    allPortfolios: 'All portfolios',
+    gettingStarted: {
+      title: 'Get started',
+      description:
+        'This portfolio has no transactions yet. Adding an asset and recording what you bought fills this page with its value, performance and allocation.',
+      complete:
+        "Transaction recorded. The overview now shows the portfolio's value, performance and allocation.",
+      done: 'done',
+      dismiss: 'Hide guide',
+      portfolio: {
+        title: 'Check the portfolio',
+        description:
+          '{name} shows its figures in {currency}, its base currency, converting assets quoted in other currencies. You can rename it or change its currency on the Portfolios page.',
+        action: 'Manage portfolios'
+      },
+      addAsset: {
+        title: 'Add an asset',
+        description:
+          "Search for its ticker, such as PETR4 or VOO, and pick the listing you hold. Results show each listing's market and currency when the source provides them.",
+        action: 'Add asset'
+      },
+      recordTransaction: {
+        title: 'Record what you bought',
+        description:
+          'Enter the purchase with its date, quantity and price. Positions, costs and results are calculated from the transactions you record.',
+        action: 'Record a transaction for {symbol}',
+        recorded: 'Transaction recorded',
+        otherAssets: 'Other assets'
+      },
+      follow: {
+        title: 'Follow the portfolio here',
+        description:
+          "This page then shows the value at market prices, the return over time and how the money is allocated. Each figure's info button explains how it is calculated."
+      }
+    },
     loading: 'Loading your portfolio',
     loadFailed: "Couldn't load your portfolio",
-    noPortfolio: 'No portfolio found in this account',
+    noPortfolioTitle: 'No portfolios yet',
+    noPortfolio:
+      'Create a portfolio to add assets and follow their value, performance and allocation.',
     createPortfolio: 'Create a portfolio',
     value: {
       title: 'Portfolio value',
       loadFailed: "Couldn't load the portfolio value",
       loading: 'Loading the portfolio value',
-      empty: 'There are no positions to value yet'
+      empty:
+        'No position is open right now, so there is nothing to value. The results of sold positions stay in the performance.',
+      pricesTip: 'About these prices',
+      pricesExplanation:
+        "Prices come from a market-data source and may be delayed; they aren't real time. The time shown is that of the oldest price or exchange rate in the total.",
+      definitions: {
+        totalValue:
+          'What the units you hold are worth at their latest prices, converted to {currency} at the latest exchange rates. It is shown only when every position has a price and a rate.',
+        dayChange:
+          "How the value of the units you hold now moved since each asset's previous close, at the same exchange rates. Buying or selling today doesn't count as a change.",
+        invested:
+          'What the units you hold cost: their average cost, including fees and taxes, converted to {currency} at the latest exchange rates. A sale lowers it by the cost of the units sold.',
+        profitLoss:
+          "Total value minus invested: the unrealized result of what you still hold. Results of sales and recorded income aren't part of it. Both use the latest exchange rates, so it doesn't separate price moves from currency moves."
+      },
+      marketData: {
+        incomplete:
+          "Only {valued, number} of {held, plural, one {# position} other {# positions}} could be valued in {currency}, so the totals can't be calculated.",
+        missingQuotes: {
+          unavailable:
+            "The price source didn't answer for <symbols></symbols>. This is usually temporary: refresh in a few minutes.",
+          'not-found':
+            'The price source has no price for <symbols></symbols>. Check {count, plural, one {the symbol} other {the symbols}} on the asset page.'
+        },
+        missingRates: {
+          unavailable:
+            "The source didn't answer for the {currencies} to {currency} exchange {count, plural, one {rate} other {rates}}. This is usually temporary: refresh in a few minutes.",
+          'not-found':
+            'The source has no {currencies} to {currency} exchange {count, plural, one {rate} other {rates}}.'
+        },
+        fallback:
+          "The price source didn't answer, so some prices are the last ones received.",
+        stale: 'The latest prices are more than four days old.'
+      }
     },
     positions: {
       title: 'Positions',
       loadFailed: "Couldn't load the positions",
       loading: 'Loading the positions',
-      empty: 'There are no positions yet',
+      empty:
+        'No assets in this portfolio yet. Each one you add appears here with its value, its share of the portfolio and its result.',
       manage: 'Manage assets',
       table: 'Positions summary',
       caption: 'Positions valued in {currency}',
+      shareOfPortfolio: '<share></share> of the portfolio',
       pages: 'Position pages'
     },
     recentTransactions: {
       title: 'Recent transactions',
       loadFailed: "Couldn't load the recent transactions",
       loading: 'Loading the recent transactions',
-      empty: 'There are no transactions yet'
+      empty:
+        'No transactions recorded yet. The purchases, sales and income you record appear here, the latest first.'
+    },
+    income: {
+      title: 'Recorded income',
+      loadFailed: "Couldn't load the recorded income",
+      loading: 'Loading the recorded income',
+      empty:
+        'No income recorded yet. Record dividends, JCP and interest as transactions of the asset that paid them to follow them here.',
+      trailingTotal: 'Last 12 months',
+      trailingExplanation:
+        "Income dated from {since} on: the same window as each asset's 12-month income.",
+      total: 'All time',
+      type: 'Type',
+      table: 'Recorded income in {currency} by type',
+      caption: 'Income in {currency} by type, net of fees and taxes',
+      inCurrency: 'In {name} ({currency})',
+      note: '{currencyCount, plural, one {Net of fees and taxes, as recorded in the transactions: what was paid, not a forecast.} other {Net of fees and taxes, as recorded in the transactions: what was paid, not a forecast. Each currency is shown apart, without conversion.}}'
     }
   },
   positions: {
     title: 'Positions',
     loading: 'Loading the positions',
     loadFailed: "Couldn't load the positions",
-    empty: 'There are no positions yet',
+    emptyTitle: 'No assets in this portfolio',
+    empty:
+      'Add one to record its transactions and follow its value, cost and result here.',
     addAsset: 'Add asset',
     noResults: 'No position matches the search and filters',
     emptyPage: 'There are no positions on page {page, number}',
@@ -179,6 +272,8 @@ export default {
       yearRange: '52-week range',
       yearLow: 'Low',
       yearHigh: 'High',
+      chartLabel: 'Daily closes',
+      closeOn: '{price} on {day}',
       closesBetween:
         'Daily closes from {firstPrice} on {firstDay} to {lastPrice} on {lastDay}',
       changesSince:
@@ -266,7 +361,8 @@ export default {
       title: 'Transactions',
       loadFailed: "Couldn't load the transactions",
       loading: 'Loading the transactions',
-      empty: 'There are no transactions for this asset yet',
+      empty:
+        'No transactions for this asset yet. Record a purchase with "Add transaction" to open the position; sales and income are recorded the same way.',
       emptyPage: 'There are no transactions on page {page, number}',
       goToPage: 'Go to page {page, number}',
       pages: 'Transaction pages'
@@ -276,23 +372,52 @@ export default {
     title: 'Allocation',
     loadFailed: "Couldn't load the allocation",
     loading: 'Loading the allocation',
-    empty: 'There is no allocation to show',
+    empty:
+      'No position is open, so there is nothing to allocate. The split by asset, class, sector and currency appears once the portfolio holds an asset.',
     groupBy: 'Group allocation by',
     views: {
       type: 'Class',
-      asset: 'Asset'
+      asset: 'Asset',
+      sector: 'Sector',
+      currency: 'Currency'
     },
     captions: {
       type: 'Allocation by class',
-      asset: 'Allocation by asset'
-    }
+      asset: 'Allocation by asset',
+      sector: 'Allocation by sector',
+      currency: 'Allocation by currency'
+    },
+    noSector: 'No sector',
+    noCurrency: 'Unknown currency',
+    concentration: {
+      largest: 'The largest position, {symbol}, is {share} of the portfolio.',
+      largestAndTop:
+        'The largest position, {symbol}, is {share} of the portfolio; the {count, number} largest together are {topShare}.'
+    },
+    unpriced:
+      'Shares appear once every position has a price; the portfolio value says which ones are missing.',
+    unknownSector:
+      'Sectors are reported for companies only, so ETFs, funds, crypto and similar assets have none.'
+  },
+  refresh: {
+    done: 'Portfolio reloaded',
+    doneDescription:
+      'Prices are the latest the market-data source has published, so they may not have changed.',
+    degraded:
+      'Portfolio reloaded, but its market data is still incomplete or out of date',
+    degradedDescription:
+      'The portfolio value shows what is missing and what you can do.',
+    failed:
+      "Part of the portfolio couldn't be reloaded. The affected sections show what is out of date."
   },
   performance: {
     title: 'Performance',
     loadFailed: "Couldn't load the performance",
     loading: 'Loading the performance',
-    emptyPeriod: 'There is no performance to show for this period',
-    empty: 'There is no performance to show yet',
+    emptyPeriod:
+      'Nothing to show for this period: no position was held in it, or its prices are missing. Choose another period above.',
+    empty:
+      'No performance to show yet. The line starts on the first day a held asset has a market price and a rate, so it stays empty before then, or while the price source has none for it.',
     period: 'Period',
     ranges: {
       '1W': '1W',
@@ -312,6 +437,36 @@ export default {
       YTD: 'this year',
       MAX: 'since the first transaction'
     },
+    metric: 'View',
+    metrics: {
+      value: 'Value',
+      return: 'Return'
+    },
+    compareWith: 'Compare with',
+    benchmarks: {
+      none: 'No comparison',
+      BOVA11: 'Ibovespa (BOVA11)',
+      VOO: 'S&P 500 (VOO)'
+    },
+    portfolioSeries: 'Portfolio',
+    valueChart: 'Value on each trading day',
+    returnChart: 'Return on each trading day',
+    pointValue: '{day}: {value}, with {invested} invested',
+    pointReturn: '{day}: {return}',
+    pointReturnAgainst: '{day}: {return}; {benchmark}: {benchmarkReturn}',
+    investedOn: '{amount} invested',
+    noBenchmarkReturn: 'no price',
+    valueChangeTip: 'About this change',
+    valueChangeExplanation:
+      'The change in value includes the money that went into and out of the portfolio. To see only what the investments earned, use the return view.',
+    netContributionNote: 'Includes {amount} in net contributions',
+    benchmarkCaveat:
+      "{benchmark}'s return counts only the change in its price, converted to {currency}, from the period's first day; dividends aren't included.",
+    benchmarkWithoutCloses:
+      "{benchmark} can't be compared in this period: the market-data source has no prices or exchange rates for it, or didn't respond. Refreshing later may help.",
+    benchmarkNotFound: "{benchmark} isn't available to compare with right now.",
+    gapsExplanation:
+      'A day on which a held asset has no closing price or exchange rate, such as a holiday in one of its markets, is left out rather than valued in part.',
     returnTip: 'About this return',
     returnExplanation:
       "Time-weighted return: contributions and withdrawals don't count as gains or losses, so it can differ from the profit/loss.",
@@ -325,7 +480,8 @@ export default {
       value: 'Value',
       invested: 'Invested',
       netContribution: 'Net contribution',
-      return: 'Return'
+      return: 'Return',
+      benchmark: '{symbol} return'
     }
   }
 } as const satisfies LocaleMessages<Messages['investments']>;

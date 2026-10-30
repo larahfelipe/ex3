@@ -6,7 +6,7 @@ import { CircleAlert, Clock } from 'lucide-react';
 
 import type { Change, CurrencyAmount } from '@/app/api/v1/finances';
 import { Card, CardContent } from '@/components/ui';
-import { type Format, useFormat } from '@/i18n/format';
+import { useFormat, type Format } from '@/i18n/format';
 import type { Translator } from '@/i18n/translator';
 import { isNonzeroDecimal } from '@/lib/decimal';
 import { cn } from '@/lib/utils';

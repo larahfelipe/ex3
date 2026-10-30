@@ -8,7 +8,9 @@ export default {
   allStatuses: 'Todas as situações',
   loading: 'Carregando parcelamentos',
   loadFailed: 'Não foi possível carregar os parcelamentos',
-  empty: 'Nenhum parcelamento ainda',
+  emptyTitle: 'Nenhum parcelamento ainda',
+  empty:
+    'Uma compra parcelada aparece aqui com o progresso, o que falta e o próximo vencimento, e as parcelas entram nas contas.',
   noResults:
     '{status, select, ACTIVE {Nenhum parcelamento ativo} COMPLETED {Nenhum parcelamento concluído} other {Nenhum parcelamento cancelado}}',
   emptyPage: 'Nenhum parcelamento na página {page, number}',

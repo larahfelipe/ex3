@@ -17,6 +17,7 @@ import {
 import { currencyFractionDigits } from '@/common/utils';
 import { DatePicker } from '@/components/date-picker';
 import {
+  DeferredSection,
   FormField,
   FormSection,
   type FieldControlProps
@@ -24,6 +25,7 @@ import {
 import { CurrencyAmountInput, CurrencySelect } from '@/components/money-input';
 import {
   Input,
+  SearchableSelect,
   Select,
   SelectContent,
   SelectItem,
@@ -315,17 +317,19 @@ const CurrencyControl: FC<
     Partial<Record<'describedBy', string>>
 > = ({ name, isInvalid, describedBy }) => {
   const { control } = useFormContext<Record<string, string>>();
-  const { field } = useController({ name, control });
+  const {
+    field: { ref, value, onChange, onBlur }
+  } = useController({ name, control });
 
   return (
     <CurrencySelect
-      ref={field.ref}
-      name={field.name}
-      value={field.value}
+      ref={ref}
+      name={name}
+      value={value}
       aria-invalid={isInvalid}
       aria-describedby={describedBy}
-      onValueChange={field.onChange}
-      onBlur={field.onBlur}
+      onValueChange={onChange}
+      onBlur={onBlur}
     />
   );
 };
@@ -379,6 +383,10 @@ export const DescriptionFields: FC = () => {
     name: 'category',
     control
   });
+  const categoryOptions = EXPENSE_CATEGORIES.map((category) => ({
+    value: category,
+    label: t(`categories.${category}`)
+  }));
 
   return (
     <FormSection title={t('form.descriptionSection')}>
@@ -401,27 +409,15 @@ export const DescriptionFields: FC = () => {
 
         <FormField label={t('form.category')} error={errors.category?.message}>
           {(fieldControl) => (
-            <Select
+            <SearchableSelect
+              {...triggerPropsOf(fieldControl)}
+              ref={categoryField.ref}
               name={categoryField.name}
               value={categoryField.value}
+              options={categoryOptions}
               onValueChange={categoryField.onChange}
-            >
-              <SelectTrigger
-                {...triggerPropsOf(fieldControl)}
-                ref={categoryField.ref}
-                onBlur={categoryField.onBlur}
-              >
-                <SelectValue />
-              </SelectTrigger>
-
-              <SelectContent>
-                {EXPENSE_CATEGORIES.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {t(`categories.${category}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onBlur={categoryField.onBlur}
+            />
           )}
         </FormField>
 
@@ -445,18 +441,34 @@ export const DescriptionFields: FC = () => {
   );
 };
 
+const PAYMENT_DETAILS = [
+  'paymentMethod',
+  'account',
+  'notes'
+] as const satisfies ReadonlyArray<keyof DescriptionFormInput>;
+
 /** How a bill, plan or series is paid, and any notes on it: all optional. */
 export const PaymentDetailsFields: FC = () => {
   const t = useTranslations('finances');
-  const { control, register } = useFormContext<DescriptionFormInput>();
+  const { control, register, getValues, setFocus } =
+    useFormContext<DescriptionFormInput>();
   const { errors } = useFormState({ control });
   const { field: methodField } = useController({
     name: 'paymentMethod',
     control
   });
+  const { paymentMethod, account, notes } = getValues();
 
   return (
-    <FormSection isOptional title={t('form.paymentSection')}>
+    <DeferredSection
+      title={t('form.paymentSection')}
+      revealLabel={t('form.addPaymentDetails')}
+      isInitiallyRevealed={
+        paymentMethod !== NO_PAYMENT_METHOD || account !== '' || notes !== ''
+      }
+      hasError={PAYMENT_DETAILS.some((name) => errors[name] !== undefined)}
+      onReveal={() => setFocus('paymentMethod')}
+    >
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField
           isOptional
@@ -525,7 +537,7 @@ export const PaymentDetailsFields: FC = () => {
           )}
         </FormField>
       </div>
-    </FormSection>
+    </DeferredSection>
   );
 };
 

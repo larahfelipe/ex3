@@ -12,8 +12,8 @@ import { useTranslations } from 'use-intl';
 
 import type { CreateAssetRequestPayload } from '@/app/api/v1/assets';
 import type {
-  SearchInstrumentsResponseData,
-  MarketSearchStatus
+  MarketSearchStatus,
+  SearchInstrumentsResponseData
 } from '@/app/api/v1/instruments';
 import { ErrorState } from '@/components/data-state';
 import { SubmitButton } from '@/components/submit-button';
@@ -270,7 +270,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
           className="min-w-0 space-y-3"
           onSubmit={submitChoice}
         >
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label htmlFor={searchId}>{t('search')}</Label>
 
             <Input

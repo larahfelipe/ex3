@@ -7,7 +7,9 @@ export default {
   listTitle: 'Your portfolios',
   loadFailed: "Couldn't load your portfolios",
   loading: 'Loading your portfolios',
-  empty: "This account doesn't have any portfolios yet",
+  emptyTitle: 'No portfolios yet',
+  empty:
+    'Create one to add assets, record transactions and follow its value in its own currency.',
   createFirst: 'Create a portfolio',
   emptyPage: 'No portfolios on page {page, number}',
   goToPage: 'Go to page {page, number}',

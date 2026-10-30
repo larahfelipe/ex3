@@ -17,7 +17,11 @@ import type {
   PaymentEntryPayload
 } from '@/app/api/v1/finances';
 import { FINANCE_LIMITS, PAYMENT_METHODS } from '@/common/constants';
-import { FormField, FormSection } from '@/components/form-field';
+import {
+  DeferredSection,
+  FormField,
+  FormSection
+} from '@/components/form-field';
 import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
@@ -233,13 +237,14 @@ export const PaymentFormDialog: FC<PaymentFormDialogProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const { expense } = target;
   const { currency } = expense;
+  const defaultValues = defaultValuesOf(target, today);
 
   const methods = useForm<PaymentFormInput, unknown, PaymentEntryPayload>({
     mode: 'onChange',
     resolver: zodResolver(
       paymentSchemaFor(target, today, tValidation, tIssues)
     ),
-    defaultValues: defaultValuesOf(target, today)
+    defaultValues
   });
 
   useRevalidateOnLocaleChange(methods.formState.errors, methods.trigger);
@@ -249,6 +254,7 @@ export const PaymentFormDialog: FC<PaymentFormDialogProps> = ({
     register,
     handleSubmit,
     setError,
+    setFocus,
     formState: { errors, isSubmitting }
   } = methods;
 
@@ -335,7 +341,18 @@ export const PaymentFormDialog: FC<PaymentFormDialogProps> = ({
               <SettlementNote target={target} />
             </FormSection>
 
-            <FormSection isOptional title={t('detailsSection')}>
+            <DeferredSection
+              title={t('detailsSection')}
+              revealLabel={t('addDetails')}
+              isInitiallyRevealed={
+                defaultValues.method !== NO_PAYMENT_METHOD ||
+                defaultValues.notes !== ''
+              }
+              hasError={
+                errors.method !== undefined || errors.notes !== undefined
+              }
+              onReveal={() => setFocus('method')}
+            >
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   isOptional
@@ -388,7 +405,7 @@ export const PaymentFormDialog: FC<PaymentFormDialogProps> = ({
                   )}
                 </FormField>
               </div>
-            </FormSection>
+            </DeferredSection>
 
             <FormRootError />
           </form>

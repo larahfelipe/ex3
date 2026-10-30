@@ -2,7 +2,12 @@ import type { FC, ReactNode } from 'react';
 
 import Link from 'next/link';
 
-import { LoaderCircle, TriangleAlert } from 'lucide-react';
+import {
+  LoaderCircle,
+  SearchX,
+  TriangleAlert,
+  type LucideIcon
+} from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
 import { Button, Skeleton } from '@/components/ui';
@@ -17,7 +22,9 @@ type LoadingStateProps = Record<'label', string> &
   Partial<Record<'children', ReactNode>>;
 
 type EmptyStateProps = Record<'message', string> &
-  Partial<Record<'action', StateAction>>;
+  Partial<Record<'action', StateAction>> &
+  Partial<Record<'title', string>> &
+  Partial<Record<'icon', LucideIcon>>;
 
 type NoResultsStateProps = Record<'message', string> &
   Record<'onClear', VoidFunction>;
@@ -29,14 +36,18 @@ type StaleStateProps = Omit<ErrorStateProps, 'message'> &
   Partial<Record<'message', string>> &
   Record<'isRetrying', boolean>;
 
-const StateActionButton: FC<StateAction> = (action) =>
-  'href' in action ? (
-    <Button asChild variant="secondary" size="sm" className="max-sm:w-full">
+const StateActionButton: FC<
+  StateAction & Partial<Record<'isPrimary', boolean>>
+> = ({ isPrimary = false, ...action }) => {
+  const variant = isPrimary ? 'default' : 'secondary';
+
+  return 'href' in action ? (
+    <Button asChild variant={variant} size="sm" className="max-sm:w-full">
       <Link href={action.href}>{action.label}</Link>
     </Button>
   ) : (
     <Button
-      variant="secondary"
+      variant={variant}
       size="sm"
       className="max-sm:w-full"
       onClick={() => action.onSelect()}
@@ -44,6 +55,7 @@ const StateActionButton: FC<StateAction> = (action) =>
       {action.label}
     </Button>
   );
+};
 
 export const LoadingState: FC<LoadingStateProps> = ({
   label,
@@ -62,13 +74,50 @@ export const LoadingState: FC<LoadingStateProps> = ({
   </output>
 );
 
-export const EmptyState: FC<EmptyStateProps> = ({ message, action }) => (
-  <div className={cn('flex flex-col items-start gap-3', APPEAR_CLASS)}>
-    <p className="text-sm text-muted-foreground">{message}</p>
+/**
+ * What a place shows before it holds anything. With a title, it is a page's
+ * first run: the icon, what belongs there, how it gets there and the action
+ * that starts it. Without one, it is a section's line, beside data that
+ * explains it, with an icon when one tells the case apart.
+ */
+export const EmptyState: FC<EmptyStateProps> = ({
+  message,
+  action,
+  title,
+  icon: Icon
+}) =>
+  title === undefined ? (
+    <div className={cn('flex flex-col items-start gap-3', APPEAR_CLASS)}>
+      <p className="flex items-start gap-2 text-sm text-muted-foreground">
+        {Icon && <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />}
 
-    {action && <StateActionButton {...action} />}
-  </div>
-);
+        {message}
+      </p>
+
+      {action && <StateActionButton {...action} />}
+    </div>
+  ) : (
+    <div
+      className={cn(
+        'flex flex-col items-center gap-4 rounded-xl border border-dashed bg-muted/20 px-6 py-10 text-center sm:py-12',
+        APPEAR_CLASS
+      )}
+    >
+      {Icon && (
+        <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20 ring-inset">
+          <Icon aria-hidden="true" className="size-6" />
+        </span>
+      )}
+
+      <div className="max-w-md space-y-1.5">
+        <p className="text-base font-semibold text-balance">{title}</p>
+
+        <p className="text-sm text-pretty text-muted-foreground">{message}</p>
+      </div>
+
+      {action && <StateActionButton isPrimary {...action} />}
+    </div>
+  );
 
 export const NoResultsState: FC<NoResultsStateProps> = ({
   message,
@@ -78,6 +127,7 @@ export const NoResultsState: FC<NoResultsStateProps> = ({
 
   return (
     <EmptyState
+      icon={SearchX}
       message={message}
       action={{ label: t('clearRefinements'), onSelect: onClear }}
     />

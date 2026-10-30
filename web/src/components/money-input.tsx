@@ -54,9 +54,13 @@ type CurrencySelectProps = Record<'value', string> &
   Partial<Record<'ref', Ref<HTMLButtonElement>>> &
   Pick<AriaAttributes, 'aria-invalid' | 'aria-describedby'>;
 
-/** What closes an amount field, the code or its selector, joined to the field's edge. */
+/**
+ * What opens an amount field, the currency's symbol or a selector of it,
+ * joined to the field's edge and set in the figures' own size, so both share
+ * one baseline.
+ */
 const CURRENCY_ADDON_CLASS =
-  'relative -ml-px h-10 shrink-0 rounded-l-none rounded-r-md border border-input px-3 text-sm font-medium focus-visible:z-10 group-data-invalid/amount:border-negative';
+  'relative -mr-px h-10 shrink-0 rounded-l-md rounded-r-none border border-input px-3 text-base font-medium md:text-sm focus-visible:z-10 group-data-invalid/amount:border-negative';
 
 const NON_DIGIT = /\D/g;
 
@@ -145,10 +149,10 @@ export const MoneyInput: FC<MoneyInputProps> = ({
 };
 
 /**
- * The amount with its currency attached: the symbol leads the figures, and the
- * code closes the field, as text or as `currencyControl`, a selector of it.
- * The amount is held apart from the currency, so choosing another one leaves
- * the figures as typed: nothing is converted.
+ * The amount with its currency attached: the symbol leads the figures, as
+ * text or as `currencyControl`, a selector of it. The amount is held apart
+ * from the currency, so choosing another one leaves the figures as typed:
+ * nothing is converted.
  */
 export const CurrencyAmountInput: FC<CurrencyAmountInputProps> = ({
   currency,
@@ -163,32 +167,27 @@ export const CurrencyAmountInput: FC<CurrencyAmountInputProps> = ({
       data-invalid={props['aria-invalid'] === true || undefined}
       className="group/amount flex"
     >
-      <div className="min-w-0 flex-1">
-        <MoneyInput
-          {...props}
-          className={cn(
-            'relative rounded-r-none focus-visible:z-10',
-            className
-          )}
-          leftElement={
-            <span aria-hidden className="text-sm text-muted-foreground">
-              {currencySymbolOf(currency)}
-            </span>
-          }
-        />
-      </div>
-
       {currencyControl ?? (
         <span
           aria-hidden
           className={cn(
             CURRENCY_ADDON_CLASS,
-            'inline-flex items-center bg-muted/50 text-muted-foreground'
+            'inline-flex min-w-11 items-center justify-center bg-muted/50 text-muted-foreground'
           )}
         >
-          {currency}
+          {currencySymbolOf(currency)}
         </span>
       )}
+
+      <div className="min-w-0 flex-1">
+        <MoneyInput
+          {...props}
+          className={cn(
+            'relative rounded-l-none focus-visible:z-10',
+            className
+          )}
+        />
+      </div>
     </div>
   );
 };
@@ -216,13 +215,20 @@ export const CurrencySelect: FC<CurrencySelectProps> = ({
         {...aria}
         ref={ref}
         aria-label={t('currency')}
-        className={cn(CURRENCY_ADDON_CLASS, 'w-auto gap-1.5 hover:bg-accent')}
+        className={cn(
+          CURRENCY_ADDON_CLASS,
+          'w-auto min-w-19 gap-1.5 bg-muted/50 hover:bg-accent'
+        )}
         onBlur={onBlur}
       >
-        <SelectValue>{value}</SelectValue>
+        <SelectValue>
+          <span aria-hidden>{currencySymbolOf(value)}</span>
+
+          <span className="sr-only">{currencyNameOf(value)}</span>
+        </SelectValue>
       </SelectTrigger>
 
-      <SelectContent align="end">
+      <SelectContent align="start">
         {currencies.map((currency) => (
           <SelectItem key={currency} value={currency}>
             <span className="font-medium">{currency}</span>

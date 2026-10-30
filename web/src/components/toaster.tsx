@@ -1,6 +1,6 @@
 'use client';
 
-import { type CSSProperties, useEffect, useRef } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 
 import { CircleAlert, CircleCheck, Info, TriangleAlert } from 'lucide-react';
 import { Toaster as Sonner } from 'sonner';
@@ -16,6 +16,14 @@ import { TOAST_LIFETIME_MS, toastLifetimeOf } from '@/lib/toast-lifetime';
  */
 const FOCUS_RING_CLASSES =
   'focus-visible:outline-hidden! focus-visible:ring-2! focus-visible:ring-focus!';
+
+/**
+ * The action sits under the message, aligned with its text, as the secondary
+ * button at the `xs` size: the next step stays at hand without outweighing
+ * what the toast says, and the message keeps the toast's full width.
+ */
+const ACTION_BUTTON_CLASSES =
+  'col-start-2! m-0! h-8! justify-self-start! rounded-md! bg-secondary! px-2.5! text-sm! font-medium! text-secondary-foreground! hover:bg-secondary/80!';
 
 export function Toaster() {
   const toasterRef = useRef<HTMLElement>(null);
@@ -86,11 +94,12 @@ export function Toaster() {
         ...toastLifetimeOf(TOAST_LIFETIME_MS),
         closeButtonAriaLabel: t('close'),
         classNames: {
-          toast: 'items-start! gap-3! shadow-elevated!',
+          toast:
+            'grid! grid-cols-[auto_minmax(0,1fr)]! items-start! gap-3! rounded-xl! shadow-elevated!',
           icon: 'size-[22px]!',
           title: 'text-sm font-medium',
           description: 'text-sm text-surface-elevated-foreground/80!',
-          actionButton: FOCUS_RING_CLASSES,
+          actionButton: `${ACTION_BUTTON_CLASSES} ${FOCUS_RING_CLASSES}`,
           closeButton: FOCUS_RING_CLASSES
         }
       }}

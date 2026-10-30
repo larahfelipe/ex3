@@ -4,8 +4,9 @@ export default {
   add: 'Adicionar conta',
   loading: 'Carregando suas finanças',
   loadFailed: 'Não foi possível carregar suas finanças',
+  emptyAllTitle: 'Suas finanças começam aqui',
   emptyAll:
-    'Nenhuma conta ainda. Adicione uma conta, uma compra parcelada ou uma despesa recorrente para vê-las aqui.',
+    'Adicione uma conta, uma compra parcelada ou uma despesa recorrente para ver aqui o que está em aberto e o que vence.',
   emptyCurrency: 'Nenhuma conta em {currency}',
   metrics: {
     outstanding: 'Total em aberto',

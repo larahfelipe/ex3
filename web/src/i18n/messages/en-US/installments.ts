@@ -10,7 +10,9 @@ export default {
   allStatuses: 'All statuses',
   loading: 'Loading installment plans',
   loadFailed: "Couldn't load the installment plans",
-  empty: 'No installment plans yet',
+  emptyTitle: 'No installment plans yet',
+  empty:
+    'An installment purchase appears here with its progress, what is left and its next due date, and its bills join the others.',
   noResults:
     '{status, select, ACTIVE {No active installment plans} COMPLETED {No completed installment plans} other {No cancelled installment plans}}',
   emptyPage: 'No installment plans on page {page, number}',

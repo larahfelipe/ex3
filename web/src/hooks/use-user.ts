@@ -40,17 +40,17 @@ export const useCurrentUser = () =>
 
 /** The public layout drops the cached queries once the protected pages have unmounted. */
 const useLeaveSession = () => {
-  const { push } = useRouter();
+  const router = useRouter();
 
   return (message: string) => {
     selectActivePortfolio(null);
     toast.success(message);
-    push(APP_ROUTES.Public.SignIn);
+    router.push(APP_ROUTES.Public.SignIn);
   };
 };
 
 export const useSignIn = (destination: string) => {
-  const { push } = useRouter();
+  const router = useRouter();
   const t = useTranslations('auth.signIn');
 
   return useMutation<
@@ -61,13 +61,13 @@ export const useSignIn = (destination: string) => {
     mutationFn: (payload) => api.getInstance().post('/v1/sign-in', payload),
     onSuccess: ({ data: userData }) => {
       toast.success(t('welcome', { name: userData.name ?? userData.email }));
-      push(destination);
+      router.push(destination);
     }
   });
 };
 
 export const useSignUp = () => {
-  const { push } = useRouter();
+  const router = useRouter();
   const t = useTranslations('auth.signUp');
 
   return useMutation<
@@ -78,7 +78,7 @@ export const useSignUp = () => {
     mutationFn: (payload) => api.getInstance().post('/v1/sign-up', payload),
     onSuccess: ({ data: { user: userData } }) => {
       toast.success(t('welcome', { name: userData.name ?? userData.email }));
-      push(APP_ROUTES.Protected.Overview);
+      router.push(APP_ROUTES.Protected.Overview);
     }
   });
 };

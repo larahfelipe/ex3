@@ -148,6 +148,7 @@ export default {
     category: 'Category',
     subcategory: 'Subcategory',
     paymentSection: 'Payment',
+    addPaymentDetails: 'Add payment method, account or notes',
     paymentMethod: 'Payment method',
     noPaymentMethod: 'Not specified',
     account: 'Bank account or card',

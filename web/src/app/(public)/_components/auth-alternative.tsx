@@ -13,7 +13,7 @@ export const AuthAlternative = async ({
   href,
   label
 }: AuthAlternativeProps) => (
-  <p className="mt-8 text-center text-sm text-muted-foreground">
+  <p className="mt-8 text-sm text-muted-foreground">
     {(await getServerTranslator('auth')).rich('alternative', {
       question,
       label,

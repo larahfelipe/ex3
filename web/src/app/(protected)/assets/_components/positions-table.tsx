@@ -18,6 +18,7 @@ import {
   ArrowUpDown,
   ArrowUpNarrowWide,
   ArrowUpRight,
+  ChartCandlestick,
   Ellipsis,
   Plus,
   Search,
@@ -637,6 +638,8 @@ export const PositionsTable: FC<PositionsTableProps> = ({
 
             {data?.total === 0 && !hasRefinement && (
               <EmptyState
+                icon={ChartCandlestick}
+                title={t('positions.emptyTitle')}
                 message={t('positions.empty')}
                 action={{
                   label: t('positions.addAsset'),
@@ -837,7 +840,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                             <DropdownMenuSeparator />
 
                             <DropdownMenuItem
-                              className="gap-2 text-destructive focus:text-destructive"
+                              className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
                               onSelect={() => onDeleteAsset(position.symbol)}
                             >
                               <Trash2 aria-hidden="true" className="size-4" />

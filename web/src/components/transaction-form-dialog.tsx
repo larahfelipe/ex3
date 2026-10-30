@@ -31,6 +31,7 @@ import { LoadingState } from '@/components/data-state';
 import { DatePicker } from '@/components/date-picker';
 import { ChoiceField, FormField } from '@/components/form-field';
 import { CurrencyAmountInput } from '@/components/money-input';
+import { NumberInput } from '@/components/number-input';
 import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
@@ -46,7 +47,7 @@ import {
 } from '@/components/ui';
 import { usePosition } from '@/hooks/use-portfolio';
 import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
-import { type Format, useFormat } from '@/i18n/format';
+import { useFormat, type Format } from '@/i18n/format';
 import { srOnly } from '@/i18n/rich-text';
 import type { Translator } from '@/i18n/translator';
 import {
@@ -66,6 +67,7 @@ import {
   shiftByWholeUnits
 } from '@/lib/decimal';
 import { presentSubmitError } from '@/lib/submit-error';
+import { isCostOf, transactionEffectOf } from '@/lib/transaction-effect';
 import type { Maybe } from '@/types';
 
 export type TransactionFormTarget =
@@ -120,9 +122,6 @@ const QUANTITY_STEP = 1;
 
 /** A new transaction starts at one unit, the stepper's own step. */
 const INITIAL_QUANTITY = '1';
-
-/** A quantity is never negative, so its sign is never typed. */
-const NEGATIVE_SIGNS = /[-\u2212]/g;
 
 /**
  * Side by side, the unit price and the quantity start their inputs at the same
@@ -431,7 +430,8 @@ const TransactionForm: FC<TransactionFormProps> = ({
   const tErrors = useTranslations('errors');
   const tActions = useTranslations('common.actions');
   const format = useFormat();
-  const { decimalInputTextOf, formatQuantity } = format;
+  const { decimalInputTextOf, formatMoney, formatPrice, formatQuantity } =
+    format;
   const transactionFormSchema = useMemo(
     () => transactionFormSchemaFor(tValidation, format),
     [tValidation, format]
@@ -484,6 +484,8 @@ const TransactionForm: FC<TransactionFormProps> = ({
   const selectedType = useWatch({ control: formControl, name: 'type' });
   const unitPrice = useWatch({ control: formControl, name: 'unitPrice' });
   const quantity = useWatch({ control: formControl, name: 'quantity' });
+  const fees = useWatch({ control: formControl, name: 'fees' });
+  const taxes = useWatch({ control: formControl, name: 'taxes' });
 
   const { field: executionDayField } = useController({
     name: 'executionDay',
@@ -519,6 +521,14 @@ const TransactionForm: FC<TransactionFormProps> = ({
 
   const decreasedQuantity = shiftedQuantityOf(-QUANTITY_STEP);
   const increasedQuantity = shiftedQuantityOf(QUANTITY_STEP);
+
+  const quantityReading = format.readDecimal(quantity);
+  const effect = transactionEffectOf(selectedType, {
+    quantity: quantityReading.outcome === 'read' ? quantityReading.value : '',
+    unitPrice,
+    fees,
+    taxes
+  });
 
   /**
    * A unit price still at the market price follows the type: a trade keeps it,
@@ -635,15 +645,24 @@ const TransactionForm: FC<TransactionFormProps> = ({
             </SegmentedControl>
           </ChoiceField>
 
-          <AmountField
-            name="unitPrice"
-            label={t(`unitPrice.${selectedType}`)}
-            currency={currency}
-            decimals={unitPriceDecimals}
-            hint={unitPriceHint}
-            className={PAIRED_FIELD_CLASS}
-            control={formControl}
-          />
+          <FormField
+            label={t('fields.date')}
+            error={errors.executionDay?.message}
+            className="sm:col-span-2"
+          >
+            {(control) => (
+              <DatePicker
+                id={control.id}
+                ref={executionDayField.ref}
+                name={executionDayField.name}
+                value={executionDayField.value}
+                aria-invalid={control['aria-invalid']}
+                aria-describedby={control['aria-describedby']}
+                onValueChange={executionDayField.onChange}
+                onBlur={executionDayField.onBlur}
+              />
+            )}
+          </FormField>
 
           <FormField
             label={t('fields.quantity')}
@@ -671,19 +690,15 @@ const TransactionForm: FC<TransactionFormProps> = ({
             {(control) => (
               <div className="flex gap-2">
                 <div className="min-w-0 flex-1">
-                  <Input
+                  <NumberInput
                     {...control}
+                    allowsDecimals
                     ref={quantityInput.ref}
-                    type="text"
-                    inputMode="decimal"
-                    autoComplete="off"
                     className="tabular-nums"
                     name={quantityInput.name}
                     value={quantityInput.value}
-                    onChange={(event) =>
-                      quantityInput.onChange(
-                        event.target.value.replace(NEGATIVE_SIGNS, '')
-                      )
+                    onChange={({ target }) =>
+                      quantityInput.onChange(target.value)
                     }
                     onBlur={quantityInput.onBlur}
                   />
@@ -718,24 +733,15 @@ const TransactionForm: FC<TransactionFormProps> = ({
             )}
           </FormField>
 
-          <FormField
-            label={t('fields.date')}
-            error={errors.executionDay?.message}
-            className="sm:col-span-2"
-          >
-            {(control) => (
-              <DatePicker
-                id={control.id}
-                ref={executionDayField.ref}
-                name={executionDayField.name}
-                value={executionDayField.value}
-                aria-invalid={control['aria-invalid']}
-                aria-describedby={control['aria-describedby']}
-                onValueChange={executionDayField.onChange}
-                onBlur={executionDayField.onBlur}
-              />
-            )}
-          </FormField>
+          <AmountField
+            name="unitPrice"
+            label={t(`unitPrice.${selectedType}`)}
+            currency={currency}
+            decimals={unitPriceDecimals}
+            hint={unitPriceHint}
+            className={PAIRED_FIELD_CLASS}
+            control={formControl}
+          />
 
           {shownDetails.has('fees') && (
             <AmountField
@@ -797,6 +803,33 @@ const TransactionForm: FC<TransactionFormProps> = ({
                 />
               )}
             </FormField>
+          )}
+
+          {effect !== null && (
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg bg-muted/50 px-3 py-2.5 text-sm sm:col-span-2">
+              <span className="text-muted-foreground">
+                {tForm(`effect.${selectedType}`)}
+              </span>
+
+              <span className="font-semibold tabular-nums">
+                {formatMoney(effect.net, currency)}
+              </span>
+
+              <span className="w-full text-xs text-muted-foreground tabular-nums">
+                {tForm(
+                  !isNonzeroDecimal(effect.charges)
+                    ? 'effectOf.units'
+                    : isCostOf(selectedType)
+                      ? 'effectOf.unitsPlusCharges'
+                      : 'effectOf.unitsLessCharges',
+                  {
+                    quantity: formatQuantity(effect.quantity),
+                    unitPrice: formatPrice(effect.unitPrice, currency),
+                    charges: formatMoney(effect.charges, currency)
+                  }
+                )}
+              </span>
+            </div>
           )}
 
           {hiddenDetails.length > 0 && (

@@ -4,7 +4,9 @@ export default {
   listTitle: 'Suas carteiras',
   loadFailed: 'Não foi possível carregar suas carteiras',
   loading: 'Carregando suas carteiras',
-  empty: 'Esta conta ainda não tem carteiras',
+  emptyTitle: 'Nenhuma carteira ainda',
+  empty:
+    'Crie uma para adicionar ativos, registrar transações e acompanhar o valor na moeda dela.',
   createFirst: 'Criar uma carteira',
   emptyPage: 'Nenhuma carteira na página {page, number}',
   goToPage: 'Ir para a página {page, number}',

@@ -10,7 +10,9 @@ export default {
   allStatuses: 'All statuses',
   loading: 'Loading recurring expenses',
   loadFailed: "Couldn't load the recurring expenses",
-  empty: 'No recurring expenses yet',
+  emptyTitle: 'No recurring expenses yet',
+  empty:
+    'A repeating expense, such as rent or a subscription, appears here and creates each of its bills on schedule.',
   noResults:
     '{status, select, ACTIVE {No active recurring expenses} ENDED {No ended recurring expenses} other {No stopped recurring expenses}}',
   emptyPage: 'No recurring expenses on page {page, number}',

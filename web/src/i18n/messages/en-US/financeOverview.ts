@@ -6,8 +6,9 @@ export default {
   add: 'Add bill',
   loading: 'Loading your finances',
   loadFailed: "Couldn't load your finances",
+  emptyAllTitle: 'Your finances start here',
   emptyAll:
-    'No bills yet. Add a bill, an installment purchase or a recurring expense to see them here.',
+    'Add a bill, an installment purchase or a recurring expense to see here what is outstanding and what falls due.',
   emptyCurrency: 'No bills in {currency}',
   metrics: {
     outstanding: 'Total outstanding',

@@ -24,7 +24,8 @@ export const APP_STORAGE_KEYS = {
   Session: 'ex3:session',
   ActivePortfolio: 'ex3:active-portfolio',
   Navigation: 'ex3:navigation',
-  Locale: 'ex3:locale'
+  Locale: 'ex3:locale',
+  GettingStartedDismissed: 'ex3:getting-started-dismissed'
 };
 
 /** How long a preference kept in a cookie, such as the navigation's state or the language, lasts: a year. */

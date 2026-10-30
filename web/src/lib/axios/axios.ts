@@ -1,14 +1,18 @@
 import axios, {
+  isAxiosError,
   type AxiosError,
-  type CreateAxiosDefaults,
-  isAxiosError
+  type CreateAxiosDefaults
 } from 'axios';
 
 import { type ExpireSessionResponseData } from '@/app/api/v1/session';
 import { signInRouteFor } from '@/common/constants';
 
-import type { ApiProxyErrorFields, ApiServerErrorData } from './errors';
-import { ApiProxyError, UNEXPECTED_ERROR_MESSAGE } from './errors';
+import {
+  ApiProxyError,
+  UNEXPECTED_ERROR_MESSAGE,
+  type ApiProxyErrorFields,
+  type ApiServerErrorData
+} from './errors';
 
 const baseAxiosConfig: CreateAxiosDefaults = {
   headers: { 'Content-Type': 'application/json' },

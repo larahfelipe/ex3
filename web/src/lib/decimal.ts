@@ -169,6 +169,14 @@ export const unitsOf = (value: string, scale: number) => {
   return BigInt(`${whole}${fraction.padEnd(scale, '0')}`);
 };
 
+/** -1, 0 or 1 as `a` is below, equal to or above `b`, exactly, for storable decimals. */
+export const compareDecimals = (a: string, b: string) => {
+  const scale = Math.max(decimalPlacesOf(a), decimalPlacesOf(b));
+  const difference = unitsOf(a, scale) - unitsOf(b, scale);
+
+  return difference === 0n ? 0 : difference > 0n ? 1 : -1;
+};
+
 /** A nonnegative count of 10^-scale units, written with exactly `scale` decimal places. */
 export const decimalOfUnits = (units: bigint, scale: number) => {
   const digits = units.toString().padStart(scale + 1, '0');

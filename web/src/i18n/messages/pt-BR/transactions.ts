@@ -63,6 +63,21 @@ export default {
     marketPrice: 'Preço de mercado',
     marketPriceAsOf: 'Preço de mercado de {time}',
     useHeld: 'Usar {quantity} em carteira',
+    effect: {
+      BUY: 'Custo total',
+      SELL: 'Valor líquido da venda',
+      DIVIDEND: 'Rendimento líquido',
+      JCP: 'Rendimento líquido',
+      INTEREST: 'Rendimento líquido',
+      BONUS: 'Custo adicionado'
+    },
+    effectOf: {
+      units: '{quantity} × {unitPrice}',
+      unitsPlusCharges:
+        '{quantity} × {unitPrice} + {charges} em taxas e impostos',
+      unitsLessCharges:
+        '{quantity} × {unitPrice} − {charges} em taxas e impostos'
+    },
     decrease: 'Diminuir a quantidade em {step, number}',
     increase: 'Aumentar a quantidade em {step, number}',
     optionalDetails: 'Detalhes opcionais',

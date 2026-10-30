@@ -2,14 +2,17 @@ import {
   createContext,
   use,
   useId,
+  useState,
   type FC,
   type InputHTMLAttributes,
   type ReactNode
 } from 'react';
+import { flushSync } from 'react-dom';
 
+import { Plus } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
-import { Label } from '@/components/ui';
+import { Button, Label } from '@/components/ui';
 import { APPEAR_CLASS } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
@@ -35,6 +38,11 @@ type FormSectionProps = Record<'title', string> &
   Partial<Record<'isOptional', boolean>> &
   Partial<Record<'action' | 'children', ReactNode>> &
   Partial<Record<'className', string>>;
+
+type DeferredSectionProps = Omit<FormSectionProps, 'isOptional'> &
+  Record<'revealLabel', string> &
+  Record<'onReveal', VoidFunction> &
+  Partial<Record<'isInitiallyRevealed' | 'hasError', boolean>>;
 
 type ChoiceFieldProps = FieldDescription & {
   legend: string;
@@ -105,7 +113,7 @@ export const FormField: FC<FormFieldProps> = ({
   );
 
   return (
-    <div className={cn('space-y-1.5', className)}>
+    <div className={cn('space-y-2', className)}>
       {action === undefined ? (
         fieldLabel
       ) : (
@@ -143,14 +151,14 @@ export const ChoiceField: FC<ChoiceFieldProps> = ({
       data-invalid={error !== undefined || undefined}
       className={className}
     >
-      <legend className="mb-1.5 text-sm font-medium leading-none">
+      <legend className="mb-2 text-sm font-medium leading-none">
         {legend}
       </legend>
 
       {children}
 
       {describedBy !== undefined && (
-        <div className="mt-1.5 space-y-1.5">{description}</div>
+        <div className="mt-2 space-y-1.5">{description}</div>
       )}
     </fieldset>
   );
@@ -196,6 +204,45 @@ export const FormSection: FC<FormSectionProps> = ({
       <OptionalSectionContext value={isOptional}>
         <div className="grid gap-4">{children}</div>
       </OptionalSectionContext>
+    </div>
+  );
+};
+
+/**
+ * An optional section that waits behind a button until it is asked for, so a
+ * form opens on what it needs. It is open from the start when it already holds
+ * something, and opens for good when one of its fields reports an error.
+ * `onReveal` runs once its fields are in the page, to focus the first.
+ */
+export const DeferredSection: FC<DeferredSectionProps> = ({
+  revealLabel,
+  onReveal,
+  isInitiallyRevealed = false,
+  hasError = false,
+  ...section
+}) => {
+  const [isRevealed, setIsRevealed] = useState(isInitiallyRevealed);
+
+  if (hasError && !isRevealed) setIsRevealed(true);
+
+  if (isRevealed || hasError) return <FormSection isOptional {...section} />;
+
+  return (
+    <div>
+      <Button
+        type="button"
+        variant="outline"
+        size="xs"
+        className="gap-1.5"
+        onClick={() => {
+          flushSync(() => setIsRevealed(true));
+          onReveal();
+        }}
+      >
+        <Plus size={14} aria-hidden="true" />
+
+        {revealLabel}
+      </Button>
     </div>
   );
 };

@@ -38,7 +38,7 @@ import {
 } from '@/components/ui';
 import { useReferenceDay } from '@/hooks/use-finances';
 import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
-import { type Format, useFormat } from '@/i18n/format';
+import { useFormat, type Format } from '@/i18n/format';
 import { shiftCalendarDay, shiftCalendarDayByMonths } from '@/lib/dates';
 import { presentSubmitError } from '@/lib/submit-error';
 

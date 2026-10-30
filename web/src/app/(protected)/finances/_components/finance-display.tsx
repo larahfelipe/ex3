@@ -27,7 +27,7 @@ import {
   PAYMENT_METHODS,
   RECURRING_EXPENSE_STATUS_TONES
 } from '@/common/constants';
-import { type Format, useFormat } from '@/i18n/format';
+import { useFormat, type Format } from '@/i18n/format';
 import type { Translator } from '@/i18n/translator';
 import { daysBetween } from '@/lib/dates';
 import { isStorableDecimal } from '@/lib/decimal';
@@ -258,7 +258,8 @@ const recordedTextOf = (
     return t('history.none');
   if (typeof value === 'boolean')
     return value ? t('history.yes') : t('history.no');
-  if (typeof value !== 'string') return String(value);
+  if (typeof value === 'number') return String(value);
+  if (typeof value !== 'string') return JSON.stringify(value);
   if (MONEY_FIELDS.has(field) && isStorableDecimal(value))
     return formatMoney(value, currency);
   if (DAY_FIELDS.has(field)) return formatCalendarDay(value) ?? value;

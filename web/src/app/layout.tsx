@@ -12,6 +12,7 @@ import { MESSAGES } from '@/i18n/messages';
 import { getRequestLocale, getServerTranslator } from '@/i18n/server';
 import { AppProvider } from '@/providers/app-provider';
 import type { Children } from '@/types';
+
 import './globals.css';
 
 export const generateMetadata = async (): Promise<Metadata> => ({

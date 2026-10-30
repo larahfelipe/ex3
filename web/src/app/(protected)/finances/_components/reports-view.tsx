@@ -49,7 +49,7 @@ import {
   usePayments,
   useReferenceDay
 } from '@/hooks/use-finances';
-import { type Format, useFormat } from '@/i18n/format';
+import { useFormat, type Format } from '@/i18n/format';
 import type { Translator } from '@/i18n/translator';
 import {
   calendarMonthOfDay,

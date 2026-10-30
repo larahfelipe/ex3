@@ -16,6 +16,40 @@
   }
 }
 
+/*
+ * The authentication pages' backdrop: a warm glow that cools towards indigo,
+ * from the `--brand-glow-*` tokens, so it follows the theme without an image.
+ * Each glow eases out over two stops rather than one, so they blend into one
+ * wash instead of reading as separate spots.
+ */
+@utility bg-brand-glow {
+  background-color: hsl(var(--brand-glow-base));
+  background-image:
+    radial-gradient(
+      55% 35% at 18% 6%,
+      hsl(var(--brand-glow-highlight) / 0.45),
+      transparent
+    ),
+    radial-gradient(
+      120% 70% at 5% 0%,
+      hsl(var(--brand-glow-warm) / 0.85),
+      hsl(var(--brand-glow-warm) / 0.35) 45%,
+      transparent
+    ),
+    radial-gradient(
+      100% 75% at 100% 50%,
+      hsl(var(--brand-glow-rose) / 0.45),
+      hsl(var(--brand-glow-rose) / 0.15) 50%,
+      transparent
+    ),
+    radial-gradient(
+      110% 70% at 10% 105%,
+      hsl(var(--brand-glow-cool) / 0.4),
+      hsl(var(--brand-glow-cool) / 0.12) 50%,
+      transparent
+    );
+}
+
 @theme {
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
@@ -86,28 +120,6 @@
 
   --shadow-surface: 0 1px 2px 0 hsl(0 0% 0% / 0.05);
   --shadow-elevated: 0 12px 32px -12px hsl(0 0% 0% / 0.55);
-
-  --animate-accordion-down: accordion-down 0.2s ease-out;
-  --animate-accordion-up: accordion-up 0.2s ease-out;
-
-  --transition-property-default: all 0.2s ease;
-
-  @keyframes accordion-down {
-    from {
-      height: 0;
-    }
-    to {
-      height: var(--radix-accordion-content-height);
-    }
-  }
-  @keyframes accordion-up {
-    from {
-      height: var(--radix-accordion-content-height);
-    }
-    to {
-      height: 0;
-    }
-  }
 }
 
 @layer base {
@@ -152,6 +164,11 @@
     --chart-8: 243 75% 59%;
     --chart-9: 85 85% 35%;
     --chart-10: 293 69% 49%;
+    --brand-glow-base: 240 40% 98%;
+    --brand-glow-highlight: 36 100% 70%;
+    --brand-glow-warm: 21 100% 62%;
+    --brand-glow-rose: 347 85% 70%;
+    --brand-glow-cool: 255 85% 75%;
   }
 
   .dark {
@@ -194,6 +211,11 @@
     --chart-8: 234 89% 74%;
     --chart-9: 82 85% 67%;
     --chart-10: 292 91% 73%;
+    --brand-glow-base: 240 30% 8%;
+    --brand-glow-highlight: 32 100% 62%;
+    --brand-glow-warm: 21 100% 50%;
+    --brand-glow-rose: 347 85% 60%;
+    --brand-glow-cool: 255 85% 65%;
   }
 
   :root,
@@ -299,6 +321,32 @@
 [data-sonner-toaster]:active [data-sonner-toast][data-swipe-out='false'],
 [data-document-hidden] [data-sonner-toast][data-swipe-out='false'] {
   animation-play-state: paused;
+}
+
+/*
+ * A list in a popover scrolls behind a thin scrollbar rather than scroll
+ * buttons, and keeps the page behind it still. Radix hides the scrollbar of
+ * its select lists from an unlayered style of its own, so this is unlayered
+ * and more specific.
+ */
+.popover-list,
+.popover-list[data-radix-select-viewport] {
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.45) transparent;
+}
+
+.popover-list::-webkit-scrollbar,
+.popover-list[data-radix-select-viewport]::-webkit-scrollbar {
+  display: block;
+  width: 0.5rem;
+}
+
+.popover-list::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
+  background-color: hsl(var(--muted-foreground) / 0.45);
 }
 
 @media (prefers-reduced-motion: reduce) {

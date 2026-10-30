@@ -184,7 +184,7 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
     <nav
       aria-label={t('main')}
       data-navigation-state={navigationState}
-      className="fixed inset-x-0 bottom-0 z-40 flex h-(--navigation-bar) border-t bg-background px-1 sm:sticky sm:inset-auto sm:top-0 sm:h-dvh sm:w-(--navigation-rail) sm:shrink-0 sm:self-start sm:border-t-0 sm:border-r sm:px-0 sm:transition-[width,border-color] lg:has-[>button:hover]:border-input navigation-expanded:w-(--navigation-sidebar)"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-(--navigation-bar) border-t bg-background px-1 sm:sticky sm:inset-auto sm:top-0 sm:h-dvh sm:w-(--navigation-rail) sm:shrink-0 sm:self-start sm:border-t-0 sm:border-r sm:px-0 sm:transition-colors lg:has-[>button:hover]:border-input navigation-expanded:w-(--navigation-sidebar)"
     >
       <button
         type="button"

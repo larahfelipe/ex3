@@ -6,6 +6,7 @@ import { translatorOf } from '@/i18n/translator';
 
 import { pastedAmountIssueOf, typedAmountIssueOf } from './amount-issues';
 import {
+  compareDecimals,
   decimalOfUnits,
   isStorableDecimal,
   roundDecimal,
@@ -150,6 +151,16 @@ describe('arithmetic', () => {
     assert.equal(roundDecimal('1.004', 2), '1.00');
     assert.equal(roundDecimal('2.5', 0), '3');
     assert.equal(roundDecimal('1.5', 3), '1.500');
+  });
+
+  it('orders decimals exactly, whatever their scales', () => {
+    assert.equal(compareDecimals('10', '9.99'), 1);
+    assert.equal(compareDecimals('1.50', '1.5'), 0);
+    assert.equal(compareDecimals('0.000000000000000001', '0'), 1);
+    assert.equal(
+      compareDecimals(`${'9'.repeat(20)}.1`, `${'9'.repeat(20)}.2`),
+      -1
+    );
   });
 
   it('steps by whole units, keeping the decimals', () => {

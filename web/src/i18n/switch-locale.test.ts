@@ -25,8 +25,8 @@ const deferredCatalog = () => {
 };
 
 const switchRecording = (
-  load: (locale: Locale) => Promise<Messages> = async (locale) =>
-    MESSAGES[locale]
+  load: (locale: Locale) => Promise<Messages> = (locale) =>
+    Promise.resolve(MESSAGES[locale])
 ) => {
   const steps: Array<Step> = [];
   const shown: Array<Messages> = [];

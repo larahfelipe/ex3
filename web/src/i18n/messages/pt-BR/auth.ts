@@ -10,7 +10,7 @@ export default {
   },
   signIn: {
     title: 'Entre na sua conta',
-    sessionExpired: 'Sua sessão expirou. Entre novamente para continuar.',
+    sessionExpired: 'Sua sessão expirou. Entre novamente.',
     submit: 'Entrar',
     noAccount: 'Ainda não tem conta?',
     createAccount: 'Criar conta',

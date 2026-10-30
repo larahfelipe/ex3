@@ -1,4 +1,4 @@
-import { NextResponse, type ProxyConfig, type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest, type ProxyConfig } from 'next/server';
 
 import {
   APP_ROUTES,
@@ -40,7 +40,7 @@ const isPubRoute = (pathname: string) =>
   pathname.startsWith(APP_ROUTES.Public.SignIn) ||
   pathname.startsWith(APP_ROUTES.Public.SignUp);
 
-export const proxy = async (req: NextRequest) => {
+export const proxy = (req: NextRequest) => {
   const token = req.cookies.get(APP_STORAGE_KEYS.Token)?.value;
   const isAuthenticated = !!token && isAccessTokenActive(token);
 

@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import { renderWithIntl, textOf } from '@/test/intl';
 
-import { FormField, FormSection } from './form-field';
+import { DeferredSection, FormField, FormSection } from './form-field';
 
 describe('form field', () => {
   it('marks an optional field after its label, with a space', () => {
@@ -39,5 +39,40 @@ describe('form field', () => {
 
     assert.ok(textOf(markup).startsWith('Pagamento · Opcional'));
     assert.doesNotMatch(textOf(markup), /\(opcional\)/);
+  });
+});
+
+describe('deferred section', () => {
+  const section = (
+    props: Partial<Record<'isInitiallyRevealed' | 'hasError', boolean>>
+  ) =>
+    renderWithIntl(
+      <DeferredSection
+        title="Pagamento"
+        revealLabel="Adicionar forma de pagamento"
+        onReveal={() => undefined}
+        {...props}
+      >
+        <FormField label="Conta" isOptional>
+          {(control) => <input {...control} />}
+        </FormField>
+      </DeferredSection>
+    );
+
+  it('waits behind its button while it holds nothing', () => {
+    const markup = section({});
+
+    assert.equal(textOf(markup), 'Adicionar forma de pagamento');
+    assert.doesNotMatch(markup, /<input/);
+  });
+
+  it('opens on what it already holds, or on an error in it', () => {
+    for (const markup of [
+      section({ isInitiallyRevealed: true }),
+      section({ hasError: true })
+    ]) {
+      assert.ok(textOf(markup).startsWith('Pagamento · Opcional'));
+      assert.match(markup, /<input/);
+    }
   });
 });

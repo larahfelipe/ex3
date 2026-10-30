@@ -24,8 +24,8 @@ import {
   Money,
   Percentage,
   Price,
-  PROMINENT_VALUE_CLASS,
   ProfitLoss,
+  PROMINENT_VALUE_CLASS,
   Quantity,
   Trend
 } from '@/components/financial';
@@ -37,10 +37,10 @@ import { SeriesChart, type SeriesTone } from '@/components/series-chart';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import { Button, Card, CardContent, Skeleton } from '@/components/ui';
 import {
+  useActivePortfolio,
   usePosition,
   usePositionFundamentals,
-  usePositionIndicators,
-  useActivePortfolio
+  usePositionIndicators
 } from '@/hooks/use-portfolio';
 import { useCreateTransaction } from '@/hooks/use-transactions';
 import { useFormat } from '@/i18n/format';
@@ -212,6 +212,13 @@ const PriceChart: FC<PriceChartProps> = ({
         tone={tone}
         baseline={first.close}
         className="h-36"
+        label={t('chartLabel')}
+        describePoint={(index) =>
+          t('closeOn', {
+            price: formatUnitAmount(closes[index].close, currency),
+            day: formatSeriesDay(closes[index].closedOn)
+          })
+        }
         tooltip={
           <>
             <p className="font-medium">{formatSeriesDay(active.closedOn)}</p>

@@ -1,5 +1,7 @@
 import { useId, useState, type FC } from 'react';
 
+import Link from 'next/link';
+
 import { useTranslations } from 'use-intl';
 
 import type {
@@ -7,8 +9,10 @@ import type {
   PortfolioAllocation
 } from '@/app/api/v1/portfolio';
 import type { Portfolio } from '@/app/api/v1/portfolios';
+import { assetDetailRoute } from '@/common/constants';
 import { EmptyState, LoadingState } from '@/components/data-state';
 import { Money, Percentage } from '@/components/financial';
+import { InfoNote } from '@/components/info-note';
 import { QuerySection } from '@/components/query-section';
 import { SlideTransition } from '@/components/slide-transition';
 import {
@@ -25,12 +29,15 @@ import {
   TableRowHeader
 } from '@/components/ui';
 import { useAllocation } from '@/hooks/use-portfolio';
+import { useFormat } from '@/i18n/format';
+import { DECIMAL_COLUMN, decimalOfUnits, unitsOf } from '@/lib/decimal';
 import type { SlideDirection } from '@/lib/motion';
 import { cn } from '@/lib/utils';
+import type { DecimalString } from '@/types';
 
 type AllocationChartProps = Record<'portfolio', Portfolio>;
 
-type AllocationView = 'type' | 'asset';
+type AllocationView = 'asset' | 'type' | 'sector' | 'currency';
 
 type AllocationViewSelection = Record<'view', AllocationView> &
   Record<'direction', SlideDirection>;
@@ -39,13 +46,29 @@ type AllocationColor = Record<'arc' | 'swatch', string>;
 
 type AllocationGroup = Omit<PortfolioAllocation['byType'][number], 'type'> &
   Record<'key' | 'label', string> &
-  Partial<Record<'description', string>> &
+  Partial<Record<'description' | 'href', string>> &
   Record<'color', AllocationColor>;
+
+type GroupLabels = Record<'typeOf', (type: InstrumentType) => string> &
+  Record<'currencyNameOf', (currency: string) => string> &
+  Record<'noSector' | 'noCurrency', string>;
+
+type Concentration = Record<'label', string> &
+  Record<'share', DecimalString> &
+  Partial<Record<'topShare', DecimalString>>;
 
 type RingArc = Record<'key' | 'className', string> &
   Record<'start' | 'length', number>;
 
-const ALLOCATION_VIEWS: AllocationView[] = ['asset', 'type'];
+const ALLOCATION_VIEWS: AllocationView[] = [
+  'asset',
+  'type',
+  'sector',
+  'currency'
+];
+
+/** A group key no sector or currency code can take. */
+const UNKNOWN_GROUP_KEY = '-';
 
 const ALLOCATION_COLORS: AllocationColor[] = [
   { arc: 'stroke-chart-1', swatch: 'bg-chart-1' },
@@ -65,6 +88,9 @@ const ALLOCATION_TAIL_COLOR: AllocationColor = {
   arc: 'stroke-muted-foreground',
   swatch: 'bg-muted-foreground'
 };
+
+/** How many of the largest positions the concentration adds up. */
+export const TOP_POSITIONS_COUNT = 3;
 
 const RING_CIRCUMFERENCE = 100;
 const RING_RADIUS = RING_CIRCUMFERENCE / (2 * Math.PI);
@@ -86,29 +112,106 @@ const compareShareDescending = (
   return Number(right) - Number(left);
 };
 
-const selectAllocationGroups = (
-  { byType, byAsset }: PortfolioAllocation,
+/**
+ * A sector is reported for companies alone, so the view is offered once one
+ * position has it; a single currency splits nothing, so its view is offered
+ * once there are two.
+ */
+const availableViewsOf = ({
+  bySector,
+  byCurrency
+}: PortfolioAllocation): AllocationView[] =>
+  ALLOCATION_VIEWS.filter(
+    (view) =>
+      (view !== 'sector' || bySector.some(({ sector }) => sector !== null)) &&
+      (view !== 'currency' || byCurrency.length > 1)
+  );
+
+const groupsOf = (
+  { byType, byAsset, bySector, byCurrency }: PortfolioAllocation,
   view: AllocationView,
-  typeLabelOf: (type: InstrumentType) => string
+  labels: GroupLabels
+): Array<Omit<AllocationGroup, 'color'>> => {
+  switch (view) {
+    case 'type':
+      return byType.map(({ type, ...share }) => ({
+        key: type,
+        label: labels.typeOf(type),
+        ...share
+      }));
+    case 'sector':
+      return bySector.map(({ sector, ...share }) => ({
+        key: sector ?? UNKNOWN_GROUP_KEY,
+        label: sector ?? labels.noSector,
+        ...share
+      }));
+    case 'currency':
+      return byCurrency.map(({ currency, ...share }) => ({
+        key: currency ?? UNKNOWN_GROUP_KEY,
+        label: currency ?? labels.noCurrency,
+        ...(currency !== null &&
+          currency !== undefined && {
+            description: labels.currencyNameOf(currency)
+          }),
+        ...share
+      }));
+    case 'asset':
+      return byAsset.map(({ symbol, name, ...share }) => ({
+        key: symbol,
+        label: symbol,
+        description: name,
+        href: assetDetailRoute(symbol),
+        ...share
+      }));
+  }
+};
+
+const selectAllocationGroups = (
+  portfolioAllocation: PortfolioAllocation,
+  view: AllocationView,
+  labels: GroupLabels
 ): AllocationGroup[] => {
-  const groups: Array<Omit<AllocationGroup, 'color'>> =
-    view === 'type'
-      ? byType.map(({ type, ...share }) => ({
-          key: type,
-          label: typeLabelOf(type),
-          ...share
-        }))
-      : byAsset.map(({ symbol, name, ...share }) => ({
-          key: symbol,
-          label: symbol,
-          description: name,
-          ...share
-        }));
+  const groups = groupsOf(portfolioAllocation, view, labels);
 
   return groups.toSorted(compareShareDescending).map((group, index) => ({
     ...group,
     color: ALLOCATION_COLORS.at(index) ?? ALLOCATION_TAIL_COLOR
   }));
+};
+
+/**
+ * The largest of the groups, sorted largest first, and, when there are more
+ * than `TOP_POSITIONS_COUNT`, the share the largest few hold together, added
+ * exactly from the API's shares. A single group concentrates nothing, and a
+ * missing share leaves nothing to say.
+ */
+export const concentrationOf = (
+  groups: AllocationGroup[]
+): Concentration | null => {
+  const shares = groups.flatMap(({ allocation }) => allocation ?? []);
+  const [largest] = groups;
+  const [share] = shares;
+
+  if (
+    largest === undefined ||
+    share === undefined ||
+    groups.length < 2 ||
+    shares.length < groups.length
+  )
+    return null;
+
+  if (groups.length <= TOP_POSITIONS_COUNT)
+    return { label: largest.label, share };
+
+  const topUnits = shares
+    .slice(0, TOP_POSITIONS_COUNT)
+    .reduce((sum, top) => sum + unitsOf(top, DECIMAL_COLUMN.SCALE), 0n);
+
+  return {
+    label: largest.label,
+    share,
+    topShare: decimalOfUnits(topUnits, DECIMAL_COLUMN.SCALE)
+  };
 };
 
 const AllocationRing: FC<Record<'groups', AllocationGroup[]>> = ({
@@ -171,15 +274,22 @@ const AllocationRing: FC<Record<'groups', AllocationGroup[]>> = ({
 export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
   const allocationQuery = useAllocation(portfolio);
   const t = useTranslations('investments');
+  const { currencyNameOf, formatPercent } = useFormat();
   const [viewSelection, setViewSelection] = useState<AllocationViewSelection>({
     view: 'asset',
     direction: 1
   });
-  const { view: selectedView } = viewSelection;
   const viewInputName = useId();
   const hasGroups =
     allocationQuery.data !== undefined &&
     allocationQuery.data.byType.length > 0;
+  const availableViews =
+    allocationQuery.data === undefined
+      ? ALLOCATION_VIEWS
+      : availableViewsOf(allocationQuery.data);
+  const selectedView = availableViews.includes(viewSelection.view)
+    ? viewSelection.view
+    : 'asset';
 
   return (
     <QuerySection
@@ -191,8 +301,8 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
           <fieldset>
             <legend className="sr-only">{t('allocation.groupBy')}</legend>
 
-            <SegmentedControl>
-              {ALLOCATION_VIEWS.map((view) => (
+            <SegmentedControl className="flex-wrap">
+              {availableViews.map((view) => (
                 <SegmentedControlItem
                   key={view}
                   name={viewInputName}
@@ -237,16 +347,27 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
         const groups = selectAllocationGroups(
           portfolioAllocation,
           selectedView,
-          (type) => t(`instrumentTypes.${type}`)
+          {
+            typeOf: (type) => t(`instrumentTypes.${type}`),
+            currencyNameOf,
+            noSector: t('allocation.noSector'),
+            noCurrency: t('allocation.noCurrency')
+          }
         );
         const caption = t(`allocation.captions.${selectedView}`);
+        const isUnpriced = portfolioAllocation.totalValue === undefined;
+        const hasUnknownSector =
+          selectedView === 'sector' &&
+          portfolioAllocation.bySector.some(({ sector }) => sector === null);
+        const concentration =
+          selectedView === 'asset' ? concentrationOf(groups) : null;
 
         return (
           <SlideTransition
-            panelKey={viewSelection.view}
+            panelKey={selectedView}
             direction={viewSelection.direction}
           >
-            <div className="@container">
+            <div className="space-y-4 @container">
               <div className={CHART_LAYOUT_CLASS_NAME}>
                 <AllocationRing groups={groups} />
 
@@ -275,6 +396,7 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
                         key,
                         label,
                         description,
+                        href,
                         marketValue,
                         allocation,
                         color
@@ -291,7 +413,16 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
                               />
 
                               <div className="flex min-w-0 flex-col">
-                                <span className="font-medium">{label}</span>
+                                {href === undefined ? (
+                                  <span className="font-medium">{label}</span>
+                                ) : (
+                                  <Link
+                                    href={href}
+                                    className="w-fit rounded-sm font-medium underline-offset-4 ring-offset-background hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
+                                  >
+                                    {label}
+                                  </Link>
+                                )}
 
                                 {description !== undefined && (
                                   <span className="text-xs text-muted-foreground">
@@ -318,6 +449,28 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
                   </TableBody>
                 </Table>
               </div>
+
+              {concentration && (
+                <p className="text-sm text-muted-foreground">
+                  {concentration.topShare === undefined
+                    ? t('allocation.concentration.largest', {
+                        symbol: concentration.label,
+                        share: formatPercent(concentration.share)
+                      })
+                    : t('allocation.concentration.largestAndTop', {
+                        symbol: concentration.label,
+                        share: formatPercent(concentration.share),
+                        count: TOP_POSITIONS_COUNT,
+                        topShare: formatPercent(concentration.topShare)
+                      })}
+                </p>
+              )}
+
+              {isUnpriced && <InfoNote>{t('allocation.unpriced')}</InfoNote>}
+
+              {hasUnknownSector && (
+                <InfoNote>{t('allocation.unknownSector')}</InfoNote>
+              )}
             </div>
           </SlideTransition>
         );

@@ -137,7 +137,7 @@ export const formatQuantity = (locale: Locale, quantity: DecimalString) =>
 
 export const formatPercent = (
   locale: Locale,
-  fraction: DecimalString,
+  fraction: number | DecimalString,
   options?: Intl.NumberFormatOptions
 ) =>
   formatNumber(locale, fraction, {

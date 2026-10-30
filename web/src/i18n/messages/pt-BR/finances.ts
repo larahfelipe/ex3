@@ -145,6 +145,7 @@ export default {
     category: 'Categoria',
     subcategory: 'Subcategoria',
     paymentSection: 'Pagamento',
+    addPaymentDetails: 'Adicionar forma de pagamento, conta ou observações',
     paymentMethod: 'Forma de pagamento',
     noPaymentMethod: 'Não informada',
     account: 'Conta bancária ou cartão',

@@ -34,6 +34,12 @@ export default {
     hidePassword: 'Ocultar senha',
     labelInCurrency: '{label}<hidden> em {currency}</hidden>'
   },
+  searchableSelect: {
+    search: 'Buscar',
+    noResults: 'Nada encontrado para “{query}”',
+    results:
+      '{count, plural, =0 {Nenhuma opção encontrada} one {# opção encontrada} other {# opções encontradas}}'
+  },
   confirmDeletion: {
     typeToConfirm: 'Digite <strong>{phrase}</strong> para confirmar',
     mismatch: 'O texto não corresponde ao nome acima'
@@ -43,7 +49,8 @@ export default {
   },
   calendar: {
     month: 'Mês',
-    year: 'Ano'
+    year: 'Ano',
+    today: 'Hoje'
   },
   toasts: {
     region: 'Notificações',

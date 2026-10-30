@@ -26,38 +26,131 @@ export default {
   overview: {
     description: '{name} · Moeda-base {currency}',
     addAsset: 'Adicionar ativo',
+    portfolio: 'Carteira',
+    portfolioOption: '{name} · {currency}',
+    allPortfolios: 'Todas as carteiras',
+    gettingStarted: {
+      title: 'Primeiros passos',
+      description:
+        'Esta carteira ainda não tem transações. Adicionar um ativo e registrar o que você comprou preenche esta página com o valor, o desempenho e a alocação dela.',
+      complete:
+        'Transação registrada. A visão geral agora mostra o valor, o desempenho e a alocação da carteira.',
+      done: 'concluído',
+      dismiss: 'Ocultar guia',
+      portfolio: {
+        title: 'Confira a carteira',
+        description:
+          '{name} mostra os valores em {currency}, a moeda-base, convertendo os ativos cotados em outras moedas. Você pode renomeá-la ou trocar a moeda na página Carteiras.',
+        action: 'Gerenciar carteiras'
+      },
+      addAsset: {
+        title: 'Adicione um ativo',
+        description:
+          'Busque pelo código de negociação, como PETR4 ou VOO, e escolha a listagem que você tem. Os resultados mostram o mercado e a moeda de cada listagem quando a fonte os informa.',
+        action: 'Adicionar ativo'
+      },
+      recordTransaction: {
+        title: 'Registre o que você comprou',
+        description:
+          'Informe a compra com data, quantidade e preço. Posições, custos e resultados são calculados a partir das transações registradas.',
+        action: 'Registrar transação de {symbol}',
+        recorded: 'Transação registrada',
+        otherAssets: 'Outros ativos'
+      },
+      follow: {
+        title: 'Acompanhe a carteira aqui',
+        description:
+          'Esta página passa a mostrar o valor a preços de mercado, a rentabilidade ao longo do tempo e como o dinheiro está alocado. O botão de informação de cada número explica como ele é calculado.'
+      }
+    },
     loading: 'Carregando sua carteira',
     loadFailed: 'Não foi possível carregar sua carteira',
-    noPortfolio: 'Nenhuma carteira encontrada nesta conta',
+    noPortfolioTitle: 'Nenhuma carteira ainda',
+    noPortfolio:
+      'Crie uma carteira para adicionar ativos e acompanhar o valor, o desempenho e a alocação.',
     createPortfolio: 'Criar uma carteira',
     value: {
       title: 'Valor da carteira',
       loadFailed: 'Não foi possível carregar o valor da carteira',
       loading: 'Carregando o valor da carteira',
-      empty: 'Ainda não há posições para avaliar'
+      empty:
+        'Nenhuma posição está aberta agora, então não há o que avaliar. O resultado das posições vendidas continua no desempenho.',
+      pricesTip: 'Sobre estas cotações',
+      pricesExplanation:
+        'As cotações vêm de uma fonte de dados de mercado e podem ter atraso; não são em tempo real. O horário exibido é o da cotação ou do câmbio mais antigo usado no total.',
+      definitions: {
+        totalValue:
+          'Quanto valem as unidades que você tem pelas cotações mais recentes, convertidas para {currency} pelo câmbio mais recente. Só aparece quando todas as posições têm cotação e câmbio.',
+        dayChange:
+          'Quanto o valor das unidades que você tem agora variou desde o fechamento anterior de cada ativo, pelo mesmo câmbio. Comprar ou vender hoje não conta como variação.',
+        invested:
+          'Quanto custaram as unidades que você tem: o custo médio, com taxas e impostos, convertido para {currency} pelo câmbio mais recente. Uma venda o reduz pelo custo das unidades vendidas.',
+        profitLoss:
+          'Valor total menos o investido: o resultado não realizado do que você ainda tem. Resultados de vendas e proventos registrados não entram nele. Os dois usam o câmbio mais recente, então ele não separa a variação do preço da variação do câmbio.'
+      },
+      marketData: {
+        incomplete:
+          'Só foi possível avaliar {valued, number} de {held, plural, one {# posição} other {# posições}} em {currency}, por isso os totais não podem ser calculados.',
+        missingQuotes: {
+          unavailable:
+            'A fonte de cotações não respondeu para <symbols></symbols>. Isso costuma ser temporário: atualize em alguns minutos.',
+          'not-found':
+            'A fonte de cotações não tem preço para <symbols></symbols>. Confira {count, plural, one {o código} other {os códigos}} na página do ativo.'
+        },
+        missingRates: {
+          unavailable:
+            'A fonte não respondeu para {count, plural, one {o câmbio} other {os câmbios}} de {currencies} para {currency}. Isso costuma ser temporário: atualize em alguns minutos.',
+          'not-found':
+            'A fonte não tem {count, plural, one {o câmbio} other {os câmbios}} de {currencies} para {currency}.'
+        },
+        fallback:
+          'A fonte de cotações não respondeu, por isso alguns preços são os últimos recebidos.',
+        stale: 'As cotações mais recentes têm mais de quatro dias.'
+      }
     },
     positions: {
       title: 'Posições',
       loadFailed: 'Não foi possível carregar as posições',
       loading: 'Carregando as posições',
-      empty: 'Ainda não há posições',
+      empty:
+        'Ainda não há ativos nesta carteira. Cada um que você adicionar aparece aqui com o valor, a participação na carteira e o resultado.',
       manage: 'Gerenciar ativos',
       table: 'Resumo das posições',
       caption: 'Posições avaliadas em {currency}',
+      shareOfPortfolio: '<share></share> da carteira',
       pages: 'Páginas de posições'
     },
     recentTransactions: {
       title: 'Transações recentes',
       loadFailed: 'Não foi possível carregar as transações recentes',
       loading: 'Carregando as transações recentes',
-      empty: 'Ainda não há transações'
+      empty:
+        'Ainda não há transações registradas. As compras, vendas e proventos que você registrar aparecem aqui, das mais recentes às mais antigas.'
+    },
+    income: {
+      title: 'Proventos registrados',
+      loadFailed: 'Não foi possível carregar os proventos registrados',
+      loading: 'Carregando os proventos registrados',
+      empty:
+        'Ainda não há proventos registrados. Registre dividendos, JCP e juros como transações do ativo que os pagou para acompanhá-los aqui.',
+      trailingTotal: 'Últimos 12 meses',
+      trailingExplanation:
+        'Proventos com data a partir de {since}: a mesma janela dos proventos de 12 meses de cada ativo.',
+      total: 'Desde o início',
+      type: 'Tipo',
+      table: 'Proventos registrados em {currency} por tipo',
+      caption: 'Proventos em {currency} por tipo, líquidos de taxas e impostos',
+      inCurrency: 'Em {name} ({currency})',
+      note: '{currencyCount, plural, one {Líquidos de taxas e impostos, como registrados nas transações: o que foi pago, não uma projeção.} other {Líquidos de taxas e impostos, como registrados nas transações: o que foi pago, não uma projeção. Cada moeda aparece separada, sem conversão.}}'
     }
   },
   positions: {
     title: 'Posições',
     loading: 'Carregando as posições',
     loadFailed: 'Não foi possível carregar as posições',
-    empty: 'Ainda não há posições',
+    emptyTitle: 'Nenhum ativo nesta carteira',
+    empty:
+      'Adicione um para registrar as transações e acompanhar aqui o valor, o custo e o resultado.',
     addAsset: 'Adicionar ativo',
     noResults: 'Nenhuma posição corresponde à busca e aos filtros',
     emptyPage: 'Não há posições na página {page, number}',
@@ -177,6 +270,8 @@ export default {
       yearRange: 'Intervalo de 52 semanas',
       yearLow: 'Mínima',
       yearHigh: 'Máxima',
+      chartLabel: 'Fechamentos diários',
+      closeOn: '{price} em {day}',
       closesBetween:
         'Fechamentos diários de {firstPrice} em {firstDay} a {lastPrice} em {lastDay}',
       changesSince:
@@ -265,7 +360,8 @@ export default {
       title: 'Transações',
       loadFailed: 'Não foi possível carregar as transações',
       loading: 'Carregando as transações',
-      empty: 'Ainda não há transações deste ativo',
+      empty:
+        'Ainda não há transações deste ativo. Registre uma compra em "Adicionar transação" para abrir a posição; vendas e proventos são registrados da mesma forma.',
       emptyPage: 'Não há transações na página {page, number}',
       goToPage: 'Ir para a página {page, number}',
       pages: 'Páginas de transações'
@@ -275,23 +371,52 @@ export default {
     title: 'Alocação',
     loadFailed: 'Não foi possível carregar a alocação',
     loading: 'Carregando a alocação',
-    empty: 'Não há alocação para exibir',
+    empty:
+      'Nenhuma posição está aberta, então não há o que distribuir. A divisão por ativo, classe, setor e moeda aparece quando a carteira tiver um ativo.',
     groupBy: 'Agrupar alocação por',
     views: {
       type: 'Classe',
-      asset: 'Ativo'
+      asset: 'Ativo',
+      sector: 'Setor',
+      currency: 'Moeda'
     },
     captions: {
       type: 'Alocação por classe',
-      asset: 'Alocação por ativo'
-    }
+      asset: 'Alocação por ativo',
+      sector: 'Alocação por setor',
+      currency: 'Alocação por moeda'
+    },
+    noSector: 'Sem setor',
+    noCurrency: 'Moeda desconhecida',
+    concentration: {
+      largest: 'A maior posição, {symbol}, é {share} da carteira.',
+      largestAndTop:
+        'A maior posição, {symbol}, é {share} da carteira; as {count, number} maiores somam {topShare}.'
+    },
+    unpriced:
+      'As participações aparecem quando todas as posições têm preço; o valor da carteira mostra quais estão faltando.',
+    unknownSector:
+      'O setor é informado só para empresas, por isso ETFs, fundos, criptoativos e ativos parecidos não têm um.'
+  },
+  refresh: {
+    done: 'Carteira recarregada',
+    doneDescription:
+      'Os preços são os últimos publicados pela fonte de dados de mercado, então podem não ter mudado.',
+    degraded:
+      'Carteira recarregada, mas os dados de mercado continuam incompletos ou desatualizados',
+    degradedDescription:
+      'O valor da carteira mostra o que falta e o que pode ser feito.',
+    failed:
+      'Parte da carteira não pôde ser recarregada. As seções afetadas mostram o que está desatualizado.'
   },
   performance: {
     title: 'Desempenho',
     loadFailed: 'Não foi possível carregar o desempenho',
     loading: 'Carregando o desempenho',
-    emptyPeriod: 'Não há desempenho para exibir neste período',
-    empty: 'Ainda não há desempenho para exibir',
+    emptyPeriod:
+      'Nada a exibir neste período: nenhuma posição foi mantida nele, ou faltam os preços. Escolha outro período acima.',
+    empty:
+      'Ainda não há desempenho para exibir. A linha começa no primeiro dia em que um ativo mantido tem preço de mercado e câmbio, então fica vazia antes disso ou enquanto a fonte de preços não os tiver.',
     period: 'Período',
     ranges: {
       '1W': '1S',
@@ -311,6 +436,37 @@ export default {
       YTD: 'neste ano',
       MAX: 'desde a primeira transação'
     },
+    metric: 'Visualização',
+    metrics: {
+      value: 'Valor',
+      return: 'Rentabilidade'
+    },
+    compareWith: 'Comparar com',
+    benchmarks: {
+      none: 'Sem comparação',
+      BOVA11: 'Ibovespa (BOVA11)',
+      VOO: 'S&P 500 (VOO)'
+    },
+    portfolioSeries: 'Carteira',
+    valueChart: 'Valor em cada pregão',
+    returnChart: 'Rentabilidade em cada pregão',
+    pointValue: '{day}: {value}, com {invested} investidos',
+    pointReturn: '{day}: {return}',
+    pointReturnAgainst: '{day}: {return}; {benchmark}: {benchmarkReturn}',
+    investedOn: '{amount} investidos',
+    noBenchmarkReturn: 'sem cotação',
+    valueChangeTip: 'Sobre esta variação',
+    valueChangeExplanation:
+      'A variação do valor inclui o dinheiro que entrou e saiu da carteira. Para ver só o resultado dos investimentos, use a visualização de rentabilidade.',
+    netContributionNote: 'Inclui {amount} em aportes líquidos',
+    benchmarkCaveat:
+      'A rentabilidade de {benchmark} considera só a variação do preço, convertida para {currency}, a partir do primeiro dia do período; proventos não entram.',
+    benchmarkWithoutCloses:
+      'Não é possível comparar com {benchmark} neste período: a fonte de dados de mercado não tem cotações ou câmbio para ele, ou não respondeu. Atualizar mais tarde pode resolver.',
+    benchmarkNotFound:
+      '{benchmark} não está disponível para comparação no momento.',
+    gapsExplanation:
+      'Um dia em que algum ativo da carteira não tem preço de fechamento ou câmbio, como um feriado em um dos mercados dele, fica de fora em vez de ser avaliado pela metade.',
     returnTip: 'Sobre esta rentabilidade',
     returnExplanation:
       'Rentabilidade ponderada pelo tempo: aportes e resgates não contam como ganho nem como perda, por isso ela pode diferir do lucro/prejuízo.',
@@ -324,7 +480,8 @@ export default {
       value: 'Valor',
       invested: 'Investido',
       netContribution: 'Aporte líquido',
-      return: 'Rentabilidade'
+      return: 'Rentabilidade',
+      benchmark: 'Rentabilidade de {symbol}'
     }
   }
 } as const;

@@ -102,8 +102,8 @@ const TransactionDetails: FC<
 
       <DialogFooter>
         <Button
-          variant="outline"
-          className="text-destructive hover:text-destructive sm:mr-auto"
+          variant="destructive-subtle"
+          className="sm:mr-auto"
           onClick={() => onDelete(transaction)}
         >
           {tActions('delete')}

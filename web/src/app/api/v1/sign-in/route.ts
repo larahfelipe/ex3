@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
 import { toApiProxyErrorResponse } from '@/lib/api-error-response';
 import { clientAddressHeaders, jsonPayload } from '@/lib/api-proxy';

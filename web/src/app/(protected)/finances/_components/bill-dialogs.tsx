@@ -42,7 +42,7 @@ import { apiErrorMessageOf } from '@/lib/api-error-message';
 import { isNonzeroDecimal } from '@/lib/decimal';
 import { cn } from '@/lib/utils';
 
-import { ExpenseFormDialog, expenseChangesOf } from './expense-form-dialog';
+import { expenseChangesOf, ExpenseFormDialog } from './expense-form-dialog';
 import {
   CalendarDayText,
   dueDistanceOf,
@@ -129,9 +129,9 @@ const PaymentRow: FC<
           </Button>
 
           <Button
-            variant="ghost"
+            variant="destructive-subtle"
             size="xs"
-            className="text-destructive hover:text-destructive"
+
             onClick={() => onAction({ kind: 'void', payment })}
           >
             {t.rich('void', { day: shownDay, hidden: srOnly })}
@@ -303,8 +303,8 @@ const BillDetails: FC<BillDetailsProps> = ({
       <DialogFooter className="gap-2 sm:flex-wrap">
         {kind === 'ONE_TIME' && !hasActivePayments && (
           <Button
-            variant="outline"
-            className="text-destructive hover:text-destructive sm:mr-auto"
+            variant="destructive-subtle"
+            className="sm:mr-auto"
             onClick={() => onAction({ kind: 'delete' })}
           >
             {tActions('delete')}

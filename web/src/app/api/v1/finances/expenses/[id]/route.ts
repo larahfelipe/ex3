@@ -3,9 +3,9 @@ import type { NextRequest } from 'next/server';
 import { forwardToApi } from '@/lib/api-proxy';
 
 import type {
+  DeleteExpenseResponseData,
   GetExpenseResponseData,
-  UpdateExpenseResponseData,
-  DeleteExpenseResponseData
+  UpdateExpenseResponseData
 } from '../../types';
 
 type ExpenseRouteContext = Record<'params', Promise<Record<'id', string>>>;

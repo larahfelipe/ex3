@@ -43,19 +43,21 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   const t = useTranslations('transactions');
   const { formatExecutionDay, formatQuantity } = useFormat();
   const [selection, setSelection] = useState<TransactionSelection | null>(null);
-  const [deletedId, setDeletedId] = useState<string | null>(null);
+  const deletedIdRef = useRef<string | null>(null);
   const firstDetailsRef = useRef<HTMLButtonElement>(null);
 
   const { mutateAsync: updateTransaction } = useUpdateTransaction(portfolio);
   const { mutateAsync: deleteTransaction } = useDeleteTransaction(portfolio);
 
   useEffect(() => {
-    if (deletedId === null) return;
+    const deletedId = deletedIdRef.current;
+
+    if (deletedId === null || selection !== null) return;
     if (transactions.some(({ id }) => id === deletedId)) return;
 
-    setDeletedId(null);
+    deletedIdRef.current = null;
     firstDetailsRef.current?.focus();
-  }, [deletedId, transactions]);
+  }, [selection, transactions]);
 
   return (
     <>
@@ -179,7 +181,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
           onCancel={() => setSelection({ ...selection, action: 'details' })}
           onConfirm={async () => {
             await deleteTransaction({ id: selection.transaction.id });
-            setDeletedId(selection.transaction.id);
+            deletedIdRef.current = selection.transaction.id;
             setSelection(null);
           }}
         />

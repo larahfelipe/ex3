@@ -18,24 +18,30 @@ export type AssetDialog =
 type AssetDialogsProps = Record<'portfolio', Portfolio> &
   Record<'dialog', Maybe<AssetDialog>> &
   Record<'onDialogChange', (dialog: Maybe<AssetDialog>) => void> &
+  Partial<Record<'offersTransaction', boolean>> &
   Partial<Record<'onAssetDeleted', VoidFunction>>;
 
 /**
  * Only page state holds the open dialog: the router's search params trail a
  * `replaceState` by a render, so a dialog also mirrored in the URL reopens as
- * the user closes it.
+ * the user closes it. The toast for an added asset offers its first
+ * transaction unless `offersTransaction` is false, where the page offers it.
  */
 export const AssetDialogs: FC<AssetDialogsProps> = ({
   portfolio,
   dialog,
   onDialogChange,
+  offersTransaction = true,
   onAssetDeleted
 }) => {
   const t = useTranslations('investments.assets.deletion');
   const closeDialog = () => onDialogChange(null);
 
-  const { mutateAsync: createAsset } = useCreateAsset(portfolio, (symbol) =>
-    onDialogChange({ kind: 'add-transaction', symbol })
+  const { mutateAsync: createAsset } = useCreateAsset(
+    portfolio,
+    offersTransaction
+      ? (symbol) => onDialogChange({ kind: 'add-transaction', symbol })
+      : undefined
   );
   const { mutateAsync: createTransaction } = useCreateTransaction(portfolio);
   const { mutateAsync: deleteAsset } = useDeleteAsset(portfolio);

@@ -12,7 +12,7 @@ export default {
   },
   signIn: {
     title: 'Sign in to your account',
-    sessionExpired: 'Your session expired. Sign in again to continue.',
+    sessionExpired: 'Your session expired. Sign in again.',
     submit: 'Sign in',
     noAccount: "Don't have an account yet?",
     createAccount: 'Create account',

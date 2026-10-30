@@ -18,6 +18,7 @@ import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
   Plus,
+  ReceiptText,
   Search,
   SlidersHorizontal,
   X
@@ -35,12 +36,13 @@ import type {
 import {
   BILL_DETAIL_PARAM,
   billsRouteFor,
+  DEFAULT_CURRENCY,
   EXPENSE_CATEGORIES,
   EXPENSE_KINDS,
   EXPENSE_STATUS_FILTERS,
   FINANCE_LIMITS
 } from '@/common/constants';
-import { updateUrlQuery } from '@/common/utils';
+import { currencyFractionDigits, updateUrlQuery } from '@/common/utils';
 import {
   EmptyState,
   ErrorState,
@@ -50,6 +52,7 @@ import {
 } from '@/components/data-state';
 import { DatePicker } from '@/components/date-picker';
 import { Money } from '@/components/financial';
+import { MoneyInput } from '@/components/money-input';
 import { PageHeader } from '@/components/page-header';
 import { PageNavigation } from '@/components/page-navigation';
 import { SectionHeader } from '@/components/section-header';
@@ -59,6 +62,7 @@ import {
   CardContent,
   Input,
   Label,
+  SearchableSelect,
   Select,
   SelectContent,
   SelectItem,
@@ -81,16 +85,20 @@ import {
   useRecordPayment,
   useReferenceDay
 } from '@/hooks/use-finances';
-import { type Format, useFormat } from '@/i18n/format';
+import { useFormat, type Format } from '@/i18n/format';
 import { srOnly } from '@/i18n/rich-text';
 import type { Translator } from '@/i18n/translator';
+import { pastedAmountIssueOf } from '@/lib/amount-issues';
 import { isCalendarDay, shiftCalendarDay } from '@/lib/dates';
 import {
+  compareDecimals,
   DECIMAL_COLUMN,
+  decimalPlacesOf,
   isNonzeroDecimal,
   isStorableDecimal,
   unitsOf
 } from '@/lib/decimal';
+import { APPEAR_CLASS } from '@/lib/motion';
 import { FIRST_PAGE, pageNumberFrom } from '@/lib/pagination';
 import { cn } from '@/lib/utils';
 import type { DecimalString } from '@/types';
@@ -122,8 +130,13 @@ type Refine = (refinement: Partial<BillListing>) => void;
 type ActiveFilter = Record<'label', string> &
   Record<'refinement', Partial<BillListing>>;
 
+type AmountLimit = Record<'side', 'min' | 'max'> &
+  Record<'value', DecimalString>;
+
 type AmountFilterProps = Record<'label', string> &
   Record<'value', DecimalString | undefined> &
+  Record<'decimals', number> &
+  Partial<Record<'limit', AmountLimit>> &
   Record<'onCommit', (value: DecimalString | undefined) => void>;
 
 const PAGE_SIZE = 20;
@@ -391,72 +404,91 @@ const pageDetailOf = (
   return t('range', { first, last: first + items.length - 1, total });
 };
 
-const amountTextOf = (
-  value: DecimalString | undefined,
-  { decimalInputTextOf }: Format
-) => (value === undefined ? '' : decimalInputTextOf(value));
+/** Whether `value` passes `limit` on its side: above a maximum, below a minimum. */
+const isPastLimit = (value: DecimalString, limit: AmountLimit | undefined) => {
+  if (limit === undefined) return false;
 
-const AmountFilter: FC<AmountFilterProps> = ({ label, value, onCommit }) => {
+  const order = compareDecimals(value, limit.value);
+
+  return limit.side === 'max' ? order > 0 : order < 0;
+};
+
+/**
+ * Digits enter as in the forms' amounts, from the right, and the amount
+ * applies on leaving the field or on Enter, so typing it never refetches the
+ * list halfway. An amount on the wrong side of the other bound stays unapplied.
+ */
+const AmountFilter: FC<AmountFilterProps> = ({
+  label,
+  value,
+  decimals,
+  limit,
+  onCommit
+}) => {
   const t = useTranslations('bills.filters');
+  const tValidation = useTranslations('validation');
   const format = useFormat();
   const inputId = useId();
   const errorId = useId();
-  const [text, setText] = useState(() => amountTextOf(value, format));
-  const [isInvalid, setIsInvalid] = useState(false);
+  const [draft, setDraft] = useState<string | null>(null);
+  const [issue, setIssue] = useState<string | null>(null);
 
-  // Also on a change of language, so the applied amount reads in its separators.
-  useEffect(() => {
-    setText(amountTextOf(value, format));
-    setIsInvalid(false);
-  }, [value, format]);
+  const shown = draft ?? value ?? '';
+
+  const edit = (typed: string) => {
+    setDraft(typed);
+    setIssue(null);
+  };
 
   const commit = () => {
-    const trimmed = text.trim();
+    if (draft === null) return;
 
-    if (trimmed === '') {
-      setIsInvalid(false);
-      if (value !== undefined) onCommit(undefined);
+    const next = isStorableDecimal(draft) ? draft : undefined;
+
+    if (next !== undefined && isPastLimit(next, limit)) {
+      setIssue(
+        t(limit?.side === 'max' ? 'minAboveMax' : 'maxBelowMin', {
+          amount: format.formatDecimal(
+            limit?.value ?? '0',
+            Math.max(decimals, decimalPlacesOf(limit?.value ?? '0'))
+          )
+        })
+      );
 
       return;
     }
 
-    const reading = format.readDecimal(trimmed);
-
-    if (reading.outcome !== 'read') {
-      setIsInvalid(true);
-
-      return;
-    }
-
-    setIsInvalid(false);
-    if (reading.value !== value) onCommit(reading.value);
+    setDraft(null);
+    if (next !== value) onCommit(next);
   };
 
   return (
-    <div className="min-w-0 space-y-1">
+    <div className="min-w-0 space-y-1.5">
       <Label htmlFor={inputId} className="text-xs text-muted-foreground">
         {label}
       </Label>
 
-      <Input
+      <MoneyInput
         id={inputId}
-        inputMode="decimal"
-        autoComplete="off"
+        value={shown}
+        decimals={decimals}
         placeholder={t('anyAmount')}
-        value={text}
-        aria-invalid={isInvalid}
-        aria-describedby={isInvalid ? errorId : undefined}
+        aria-invalid={issue !== null}
+        aria-describedby={issue === null ? undefined : errorId}
         className={cn('h-9', value !== undefined && ACTIVE_FILTER_CLASS)}
-        onChange={({ target }) => setText(target.value)}
+        onValueChange={edit}
+        onRejectedPaste={(reading) =>
+          setIssue(pastedAmountIssueOf(reading, tValidation, format))
+        }
         onBlur={commit}
         onKeyDown={(event) => {
           if (event.key === 'Enter') commit();
         }}
       />
 
-      {isInvalid && (
-        <p id={errorId} className="text-xs text-negative">
-          {t('amountInvalid')}
+      {issue !== null && (
+        <p id={errorId} className={cn('text-xs text-negative', APPEAR_CLASS)}>
+          {issue}
         </p>
       )}
     </div>
@@ -472,7 +504,7 @@ const DayFilter: FC<
   const pickerId = useId();
 
   return (
-    <div className="min-w-0 space-y-1">
+    <div className="min-w-0 space-y-1.5">
       <Label htmlFor={pickerId} className="text-xs text-muted-foreground">
         {label}
       </Label>
@@ -512,7 +544,7 @@ const FilterSelect: FC<
     Record<'options', ReadonlyArray<Record<'value' | 'label', string>>> &
     Record<'isActive', boolean> &
     Record<'onValueChange', (value: string) => void> &
-    Partial<Record<'isLabelHidden', boolean>> &
+    Partial<Record<'isLabelHidden' | 'isSearchable', boolean>> &
     Partial<Record<'className', string>>
 > = ({
   label,
@@ -522,12 +554,14 @@ const FilterSelect: FC<
   isActive,
   onValueChange,
   isLabelHidden = false,
+  isSearchable = false,
   className
 }) => {
   const triggerId = useId();
+  const triggerClass = cn('h-9', isActive && ACTIVE_FILTER_CLASS);
 
   return (
-    <div className={cn('min-w-0 space-y-1', className)}>
+    <div className={cn('min-w-0 space-y-1.5', className)}>
       <Label
         htmlFor={triggerId}
         className={isLabelHidden ? 'sr-only' : 'text-xs text-muted-foreground'}
@@ -535,24 +569,31 @@ const FilterSelect: FC<
         {label}
       </Label>
 
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger
+      {isSearchable ? (
+        <SearchableSelect
           id={triggerId}
-          className={cn('h-9', isActive && ACTIVE_FILTER_CLASS)}
-        >
-          <SelectValue />
-        </SelectTrigger>
+          value={value}
+          options={[{ value: ALL_OPTION, label: allLabel }, ...options]}
+          className={triggerClass}
+          onValueChange={onValueChange}
+        />
+      ) : (
+        <Select value={value} onValueChange={onValueChange}>
+          <SelectTrigger id={triggerId} className={triggerClass}>
+            <SelectValue />
+          </SelectTrigger>
 
-        <SelectContent>
-          <SelectItem value={ALL_OPTION}>{allLabel}</SelectItem>
+          <SelectContent>
+            <SelectItem value={ALL_OPTION}>{allLabel}</SelectItem>
 
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
     </div>
   );
 };
@@ -651,6 +692,9 @@ const BillFilters: FC<
     value: category,
     label: tFinances(`categories.${category}`)
   }));
+  const amountDecimals = currencyFractionDigits(
+    listing.currency ?? DEFAULT_CURRENCY
+  );
 
   return (
     <div className="space-y-3">
@@ -725,6 +769,7 @@ const BillFilters: FC<
           value={listing.category ?? ALL_OPTION}
           options={categoryOptions}
           isActive={listing.category !== undefined}
+          isSearchable
           className="lg:col-span-2"
           onValueChange={(value) =>
             refine({
@@ -751,12 +796,24 @@ const BillFilters: FC<
           <AmountFilter
             label={t('minAmount')}
             value={listing.minAmount}
+            decimals={amountDecimals}
+            limit={
+              listing.maxAmount === undefined
+                ? undefined
+                : { side: 'max', value: listing.maxAmount }
+            }
             onCommit={(minAmount) => refine({ minAmount })}
           />
 
           <AmountFilter
             label={t('maxAmount')}
             value={listing.maxAmount}
+            decimals={amountDecimals}
+            limit={
+              listing.minAmount === undefined
+                ? undefined
+                : { side: 'min', value: listing.minAmount }
+            }
             onCommit={(maxAmount) => refine({ maxAmount })}
           />
         </div>
@@ -1167,6 +1224,8 @@ export const BillsView: FC = () => {
 
               {data?.total === 0 && !hasRefinement && (
                 <EmptyState
+                  icon={ReceiptText}
+                  title={t('emptyTitle')}
                   message={t('empty')}
                   action={{
                     label: t('add'),

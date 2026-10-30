@@ -8,7 +8,9 @@ export default {
   allStatuses: 'Todas as situações',
   loading: 'Carregando despesas recorrentes',
   loadFailed: 'Não foi possível carregar as despesas recorrentes',
-  empty: 'Nenhuma despesa recorrente ainda',
+  emptyTitle: 'Nenhuma despesa recorrente ainda',
+  empty:
+    'Uma despesa que se repete, como aluguel ou assinatura, aparece aqui e gera cada conta no prazo.',
   noResults:
     '{status, select, ACTIVE {Nenhuma despesa recorrente ativa} ENDED {Nenhuma despesa recorrente encerrada} other {Nenhuma despesa recorrente interrompida}}',
   emptyPage: 'Nenhuma despesa recorrente na página {page, number}',

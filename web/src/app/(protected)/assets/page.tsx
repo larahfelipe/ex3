@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { Plus } from 'lucide-react';
+import { Plus, Wallet } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
 import { APP_ROUTES } from '@/common/constants';
@@ -17,8 +17,7 @@ import { PositionsTable } from './_components/positions-table';
 
 export default function Assets() {
   const [assetDialog, setAssetDialog] = useState<Maybe<AssetDialog>>(null);
-  const [hasDeletedAsset, setHasDeletedAsset] = useState(false);
-
+  const hasDeletedAssetRef = useRef(false);
   const addAssetButtonRef = useRef<HTMLButtonElement>(null);
   const t = useTranslations('investments.overview');
   const tNavigation = useTranslations('navigation.pages');
@@ -36,11 +35,11 @@ export default function Assets() {
       setAssetDialog({ kind, symbol });
 
   useEffect(() => {
-    if (!hasDeletedAsset || assetDialog !== null) return;
+    if (!hasDeletedAssetRef.current || assetDialog !== null) return;
 
-    setHasDeletedAsset(false);
+    hasDeletedAssetRef.current = false;
     addAssetButtonRef.current?.focus();
-  }, [hasDeletedAsset, assetDialog]);
+  }, [assetDialog]);
 
   return (
     <div className="space-y-6">
@@ -79,6 +78,8 @@ export default function Assets() {
 
       {isSuccess && !portfolio && (
         <EmptyState
+          icon={Wallet}
+          title={t('noPortfolioTitle')}
           message={t('noPortfolio')}
           action={{
             label: t('createPortfolio'),
@@ -100,7 +101,9 @@ export default function Assets() {
             portfolio={portfolio}
             dialog={assetDialog}
             onDialogChange={setAssetDialog}
-            onAssetDeleted={() => setHasDeletedAsset(true)}
+            onAssetDeleted={() => {
+              hasDeletedAssetRef.current = true;
+            }}
           />
         </>
       )}

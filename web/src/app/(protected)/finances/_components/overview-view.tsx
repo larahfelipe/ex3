@@ -4,7 +4,7 @@ import { useMemo, useState, type FC, type ReactNode } from 'react';
 
 import Link from 'next/link';
 
-import { BellRing, Plus } from 'lucide-react';
+import { BellRing, Plus, ReceiptText } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
 import type {
@@ -678,6 +678,10 @@ export const OverviewView: FC = () => {
 
       {summary !== undefined && isEmptySummary(summary) && (
         <EmptyState
+          icon={ReceiptText}
+          title={
+            summary.currencies.length === 0 ? t('emptyAllTitle') : undefined
+          }
           message={
             summary.currencies.length === 0
               ? t('emptyAll')

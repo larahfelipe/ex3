@@ -32,12 +32,22 @@ const STALE_TIME_MS = 60_000;
 
 const CLIENT_ERROR_FLOOR = 400;
 const SERVER_ERROR_FLOOR = 500;
+const THROTTLED_STATUS = 429;
 
 /** A rejected request fails the same way however many times it is repeated. */
-const isRequestRejected = (error: Error) =>
+export const isRequestRejected = (error: Error) =>
   error instanceof ApiProxyError &&
   error.status >= CLIENT_ERROR_FLOOR &&
   error.status < SERVER_ERROR_FLOOR;
+
+/**
+ * Whether a later reload may succeed where this request failed. A throttled
+ * request is rejected only until the API's window resets, so it counts, though
+ * it is not retried at once: that would spend the window again.
+ */
+export const isReloadable = (error: Error) =>
+  !isRequestRejected(error) ||
+  (error instanceof ApiProxyError && error.status === THROTTLED_STATUS);
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -90,6 +100,8 @@ export const queryKeys = {
     ] as const,
   allocation: (portfolioId: PortfolioId) =>
     [...portfolioScope(portfolioId), 'allocation'] as const,
+  income: (portfolioId: PortfolioId) =>
+    [...portfolioScope(portfolioId), 'income'] as const,
   performance: (portfolioId: PortfolioId, params: PerformanceParams) =>
     [...portfolioScope(portfolioId), 'performance', params] as const,
   transactions: (portfolioId: PortfolioId, filters: TransactionFilters) =>

@@ -35,7 +35,7 @@ type PositionsSummaryProps = Record<'portfolio', Portfolio> &
   Partial<Record<'className', string>>;
 
 const POSITIONS_PAGE_SIZE = 10;
-const POSITIONS_PAGE_PARAM = 'positionsPage';
+export const POSITIONS_PAGE_PARAM = 'positionsPage';
 
 export const PositionsSummary: FC<PositionsSummaryProps> = ({
   portfolio,
@@ -76,95 +76,123 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
         </Button>
       }
     >
-      {({ items, page, totalPages }) => (
-        <div className="space-y-4">
-          <Table label={t('overview.positions.table')}>
-            <TableCaption className="sr-only">
-              {t('overview.positions.caption', {
-                currency: portfolio.baseCurrency
-              })}
-            </TableCaption>
+      {({ items, page, totalPages }) =>
+        items.length === 0 ? (
+          <EmptyState
+            message={t('positions.emptyPage', { page })}
+            action={{
+              label: t('positions.goToPage', { page: totalPages }),
+              onSelect: () => goToPage(totalPages)
+            }}
+          />
+        ) : (
+          <div className="space-y-4">
+            <Table label={t('overview.positions.table')}>
+              <TableCaption className="sr-only">
+                {t('overview.positions.caption', {
+                  currency: portfolio.baseCurrency
+                })}
+              </TableCaption>
 
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('metrics.asset')}</TableHead>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('metrics.asset')}</TableHead>
 
-                <TableHead className="text-right max-sm:hidden">
-                  {t('metrics.quantity')}
-                </TableHead>
+                  <TableHead className="text-right max-sm:hidden">
+                    {t('metrics.quantity')}
+                  </TableHead>
 
-                <TableHead className="text-right">
-                  {t('metrics.marketValue')}
-                </TableHead>
+                  <TableHead className="text-right">
+                    {t('metrics.marketValue')}
+                  </TableHead>
 
-                <TableHead className="text-right max-sm:hidden">
-                  {t('metrics.allocation')}
-                </TableHead>
+                  <TableHead className="text-right max-sm:hidden">
+                    {t('metrics.allocation')}
+                  </TableHead>
 
-                <TableHead className="text-right">
-                  {t('metrics.profitLoss')}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {items.map((position) => (
-                <TableRow key={position.symbol}>
-                  <TableRowHeader>
-                    <div className="flex flex-col items-start">
-                      <Button
-                        asChild
-                        variant="link"
-                        className="h-auto p-0 font-medium"
-                      >
-                        <Link href={assetDetailRoute(position.symbol)}>
-                          {position.symbol}
-                        </Link>
-                      </Button>
-
-                      <span className="text-xs text-muted-foreground">
-                        {position.name}
-                      </span>
-                    </div>
-                  </TableRowHeader>
-
-                  <TableCell className="text-right max-sm:hidden">
-                    <Quantity value={position.quantity} />
-                  </TableCell>
-
-                  <TableCell className="text-right">
-                    <Money
-                      value={position.marketValue}
-                      currency={position.baseCurrency}
-                    />
-                  </TableCell>
-
-                  <TableCell className="text-right max-sm:hidden">
-                    <Percentage value={position.allocation} />
-                  </TableCell>
-
-                  <TableCell className="text-right">
-                    <ProfitLoss
-                      value={position.profitLoss}
-                      percent={position.profitLossPercent}
-                      currency={position.baseCurrency}
-                    />
-                  </TableCell>
+                  <TableHead className="text-right">
+                    {t('metrics.profitLoss')}
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
 
-          {totalPages > FIRST_PAGE && (
-            <PageNavigation
-              label={t('overview.positions.pages')}
-              page={page}
-              totalPages={totalPages}
-              onPageChange={goToPage}
-            />
-          )}
-        </div>
-      )}
+              <TableBody>
+                {items.map((position) => (
+                  <TableRow key={position.symbol}>
+                    <TableRowHeader>
+                      <div className="flex min-w-0 flex-col items-start gap-0.5">
+                        <Button
+                          asChild
+                          variant="link"
+                          className="h-auto p-0 font-medium"
+                        >
+                          <Link href={assetDetailRoute(position.symbol)}>
+                            {position.symbol}
+                          </Link>
+                        </Button>
+
+                        <span className="line-clamp-1 text-xs text-muted-foreground">
+                          {position.name}
+                        </span>
+
+                        <span className="text-xs text-muted-foreground tabular-nums sm:hidden">
+                          {t.rich('positions.held', {
+                            quantity: () => (
+                              <Quantity value={position.quantity} />
+                            )
+                          })}
+                        </span>
+                      </div>
+                    </TableRowHeader>
+
+                    <TableCell className="text-right whitespace-nowrap tabular-nums max-sm:hidden">
+                      <Quantity value={position.quantity} />
+                    </TableCell>
+
+                    <TableCell className="text-right tabular-nums">
+                      <div className="flex flex-col items-end gap-0.5 whitespace-nowrap">
+                        <Money
+                          value={position.marketValue}
+                          currency={position.baseCurrency}
+                        />
+
+                        <span className="text-xs text-muted-foreground sm:hidden">
+                          {t.rich('overview.positions.shareOfPortfolio', {
+                            share: () => (
+                              <Percentage value={position.allocation} />
+                            )
+                          })}
+                        </span>
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="text-right tabular-nums max-sm:hidden">
+                      <Percentage value={position.allocation} />
+                    </TableCell>
+
+                    <TableCell className="text-right whitespace-nowrap tabular-nums">
+                      <ProfitLoss
+                        value={position.profitLoss}
+                        percent={position.profitLossPercent}
+                        currency={position.baseCurrency}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            {totalPages > FIRST_PAGE && (
+              <PageNavigation
+                label={t('overview.positions.pages')}
+                page={page}
+                totalPages={totalPages}
+                onPageChange={goToPage}
+              />
+            )}
+          </div>
+        )
+      }
     </QuerySection>
   );
 };

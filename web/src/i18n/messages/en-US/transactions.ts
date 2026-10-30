@@ -65,6 +65,20 @@ export default {
     marketPrice: 'Market price',
     marketPriceAsOf: 'Market price as of {time}',
     useHeld: 'Use {quantity} held',
+    effect: {
+      BUY: 'Total cost',
+      SELL: 'Net proceeds',
+      DIVIDEND: 'Net income',
+      JCP: 'Net income',
+      INTEREST: 'Net income',
+      BONUS: 'Cost added'
+    },
+    effectOf: {
+      units: '{quantity} × {unitPrice}',
+      unitsPlusCharges:
+        '{quantity} × {unitPrice} + {charges} in fees and taxes',
+      unitsLessCharges: '{quantity} × {unitPrice} − {charges} in fees and taxes'
+    },
     decrease: 'Decrease the quantity by {step, number}',
     increase: 'Increase the quantity by {step, number}',
     optionalDetails: 'Optional details',

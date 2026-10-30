@@ -5,7 +5,7 @@ import { useId, useState, type FC } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
-import { Plus } from 'lucide-react';
+import { CreditCard, Plus } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
 import type {
@@ -338,6 +338,8 @@ export const InstallmentsView: FC = () => {
 
             {data?.total === 0 && status === undefined && (
               <EmptyState
+                icon={CreditCard}
+                title={t('emptyTitle')}
                 message={t('empty')}
                 action={{
                   label: t('add'),

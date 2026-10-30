@@ -16,6 +16,7 @@ import { useTranslations } from 'use-intl';
 
 import type {
   GetPortfolioAllocationResponseData,
+  GetPortfolioIncomeResponseData,
   GetPortfolioOverviewResponseData,
   GetPortfolioPerformanceRequestParams,
   GetPortfolioPerformanceResponseData,
@@ -45,8 +46,9 @@ import api, {
   isValidationError,
   type ApiProxyErrorData
 } from '@/lib/axios';
+import { isMarketDataDegraded } from '@/lib/market-data';
 import { FIRST_PAGE } from '@/lib/pagination';
-import { queryKeys } from '@/lib/react-query';
+import { isReloadable, queryKeys } from '@/lib/react-query';
 import { toastLifetimeOf } from '@/lib/toast-lifetime';
 import type { Maybe } from '@/types';
 
@@ -102,16 +104,50 @@ export const requirePortfolio = (portfolio: Maybe<Portfolio>): Portfolio => {
   return portfolio;
 };
 
+/**
+ * How a refresh went: a query on screen failed, the portfolio's value came
+ * back resting on missing, fallback or stale market data, or everything
+ * reloaded. Without the value on screen there is nothing to tell the second
+ * from the third.
+ */
+export type RefreshOutcome = 'reloaded' | 'degraded' | 'failed';
+
+/**
+ * Resolves once every query of the portfolio on screen has settled, to how the
+ * refresh went. A request the API rejects fails the same way however often it
+ * is repeated, so only the failures a later reload could fix count.
+ */
 export const useRefreshPortfolio = (portfolio: Maybe<Portfolio>) => {
   const queryClient = useQueryClient();
   const portfolioId = portfolio?.id;
 
   return useCallback(
-    (options?: InvalidateOptions) =>
-      queryClient.invalidateQueries(
-        { queryKey: queryKeys.portfolio(portfolioId) },
-        options
-      ),
+    async (options?: InvalidateOptions): Promise<RefreshOutcome> => {
+      const queryKey = queryKeys.portfolio(portfolioId);
+
+      await queryClient.invalidateQueries({ queryKey }, options);
+
+      const queryCache = queryClient.getQueryCache();
+
+      if (
+        queryCache
+          .findAll({ queryKey, type: 'active' })
+          .some(({ state: { error } }) => error !== null && isReloadable(error))
+      )
+        return 'failed';
+
+      const overview = queryCache.find<
+        AxiosResponse<GetPortfolioOverviewResponseData>
+      >({
+        queryKey: queryKeys.portfolioOverview(portfolioId),
+        exact: true,
+        type: 'active'
+      })?.state.data?.data;
+
+      return overview && isMarketDataDegraded(overview.marketData)
+        ? 'degraded'
+        : 'reloaded';
+    },
     [queryClient, portfolioId]
   );
 };
@@ -443,6 +479,16 @@ export const useAllocation = (portfolio: Maybe<Portfolio>) =>
     portfolio,
     request: (portfolioId) =>
       api.getInstance().get('/v1/portfolio/allocation', {
+        params: { portfolioId } satisfies PortfolioScopeParams
+      })
+  });
+
+export const useIncome = (portfolio: Maybe<Portfolio>) =>
+  usePortfolioScopedQuery<GetPortfolioIncomeResponseData>({
+    queryKey: queryKeys.income(portfolio?.id),
+    portfolio,
+    request: (portfolioId) =>
+      api.getInstance().get('/v1/portfolio/income', {
         params: { portfolioId } satisfies PortfolioScopeParams
       })
   });

@@ -8,6 +8,7 @@ import { z } from 'zod';
 import type { FinanceSettings } from '@/app/api/v1/finances';
 import { FINANCE_LIMITS } from '@/common/constants';
 import { ChoiceField, FormField } from '@/components/form-field';
+import { NumberInput } from '@/components/number-input';
 import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
@@ -16,8 +17,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  Input
+  DialogTitle
 } from '@/components/ui';
 import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
 import { presentSubmitError } from '@/lib/submit-error';
@@ -162,14 +162,10 @@ export const ReminderSettingsDialog: FC<ReminderSettingsDialogProps> = ({
               error={errors.reminderLeadDays?.message}
             >
               {(fieldControl) => (
-                <Input
+                <NumberInput
                   {...fieldControl}
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={FINANCE_LIMITS.ReminderMaxLeadDays}
-                  step={1}
-                  className="w-32"
+                  maxLength={String(FINANCE_LIMITS.ReminderMaxLeadDays).length}
+                  className="w-32 tabular-nums"
                   {...register('reminderLeadDays')}
                 />
               )}

@@ -25,6 +25,7 @@ import {
 import { currencyFractionDigits } from '@/common/utils';
 import { ChoiceField, FormField, FormSection } from '@/components/form-field';
 import { InfoNote } from '@/components/info-note';
+import { NumberInput } from '@/components/number-input';
 import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
@@ -34,13 +35,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
   SegmentedControl,
   SegmentedControlItem
 } from '@/components/ui';
 import { useReferenceDay } from '@/hooks/use-finances';
 import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
-import { type Format, useFormat } from '@/i18n/format';
+import { useFormat, type Format } from '@/i18n/format';
 import type { Translator } from '@/i18n/translator';
 import {
   decimalOfUnits,
@@ -105,6 +105,8 @@ const AMOUNT_MODES = ['total', 'installment'] as const;
 
 /** The API schedules a day past the 28th on the last day of a shorter month. */
 const LAST_SHARED_DAY_OF_MONTH = 28;
+
+const COUNT_MAX_LENGTH = String(FINANCE_LIMITS.InstallmentMaxCount).length;
 
 const installmentCountFieldFor = (t: ValidationTranslator) =>
   z.coerce
@@ -756,13 +758,9 @@ export const CreatePlanDialog: FC<
                   error={errors.installmentCount?.message}
                 >
                   {(fieldControl) => (
-                    <Input
+                    <NumberInput
                       {...fieldControl}
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      max={FINANCE_LIMITS.InstallmentMaxCount}
-                      step={1}
+                      maxLength={COUNT_MAX_LENGTH}
                       className="tabular-nums"
                       {...register('installmentCount', {
                         onChange: revalidateAmount
@@ -1064,13 +1062,9 @@ export const ReschedulePlanDialog: FC<
                 error={errors.remainingCount?.message}
               >
                 {(fieldControl) => (
-                  <Input
+                  <NumberInput
                     {...fieldControl}
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={FINANCE_LIMITS.InstallmentMaxCount}
-                    step={1}
+                    maxLength={COUNT_MAX_LENGTH}
                     className="tabular-nums"
                     {...register('remainingCount', {
                       onChange: revalidateAmount
