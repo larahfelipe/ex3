@@ -371,6 +371,23 @@ values in its `baseCurrency`, also in
 * A portfolio with no positions with units answers `totalValue` `0` and empty
   distributions.
 
+### Portfolio income
+
+`GET /v1/portfolio/income` reads the portfolio's ledger up to now and sums its
+`DIVIDEND`, `JCP` and `INTEREST` entries, net of fees and taxes, in
+`backend/src/domain/PortfolioIncome.ts`. It needs no quote, so it answers even
+while the market-data source is down.
+
+| Field | Content |
+| --- | --- |
+| `trailingFrom` | the start of the one-year window, as in a position's indicators |
+| `byCurrency[].currency` | the transactions' currency; the base currency comes first, the others in code order |
+| `byCurrency[].total`, `trailingTotal` | net income in that currency, in all and from `trailingFrom` on |
+| `byCurrency[].byType[]` | `type`, `total` and `trailingTotal` per income type with a payment |
+
+Amounts in different currencies are never converted or added; see
+[Dividends](financial-rules.md#dividends).
+
 ### Portfolio performance
 
 `GET /v1/portfolio/performance` returns a portfolio's historical series, in its
@@ -395,23 +412,29 @@ valuation routes use the current quote; this one uses each day's close (see
   transaction recorded retroactively moves the whole series from its date
   onward.
 * A day only becomes a point when every position held on it, and every
-  transaction executed on it, has a close and an exchange rate to the base
-  currency. A partial day would answer with a portfolio smaller than it is, as
-  if it had lost value, so it stays out of the series.
-* `netContribution` is the day's cash: `BUY` adds quantity × price plus fees and
-  taxes, `SELL` and income subtract the net amount, and `BONUS` adds fees and
-  taxes only, because the attributed cost is not money that came in. With no
-  cash balance (see [Open decisions](#open-decisions)), income leaves the
-  portfolio like a sale's net amount, so it counts as the return of the day it
-  was paid. `twr` is the time-weighted return accumulated since the first point,
-  chaining `(value − netContribution) ÷ the previous day's value`, so that money
-  that came in or out on the day does not count as a gain. A gap in the series
-  makes the following return span the gap.
+  transaction executed since the previous point, has a close and an exchange
+  rate to the base currency. A partial day would answer with a portfolio smaller
+  than it is, as if it had lost value, so it stays out of the series.
+* `netContribution` is the cash since the previous point, or since the start of
+  the window for the first: `BUY` adds quantity × price plus fees and taxes,
+  `SELL` and income subtract the net amount, and `BONUS` adds fees and taxes
+  only, because the attributed cost is not money that came in. A transaction on
+  a day without a point counts at the next one. With no cash balance (see
+  [Open decisions](#open-decisions)), income leaves the portfolio like a sale's
+  net amount, so it counts as the return of the point it falls in. `twr` is the
+  time-weighted return accumulated since the first point, chaining
+  `(value − netContribution) ÷ the previous point's value`, so that money that
+  came in or out does not count as a gain. A gap in the series makes the
+  following return span the gap.
+* `summary`, absent with no point, carries `valueChange` from the first point to
+  the last, `valueChangePercent` over the first value when it is not zero,
+  `netContribution` after the first point and `twr`, the period's return. The
+  change in value includes that money and is not a return.
 * `benchmark` is optional and names a catalog symbol: the body gains
-  `{ symbol, currency, series }`, each point with `close` and the `twr` over the
-  window's first close, comparable with the portfolio's. The benchmark's return
-  is that of the currency it is quoted in, with no conversion to the base
-  currency (TD-030).
+  `{ symbol, name, currency, series }`, each point with the quoted `close` and
+  the price return in the base currency since the portfolio's first point, on
+  the portfolio's own points (see
+  [Benchmarks](financial-rules.md#benchmarks)).
 * `symbol` is optional and restricts the ledger to the transactions of that
   symbol's position in the portfolio, so value, contribution and return of the
   whole series are that position's alone. A symbol with no position in the
@@ -486,9 +509,11 @@ answers `unavailable`, with no request.
 * Each request times out in 5 seconds. An error status, a timeout, a network
   failure or a response outside the format suspend the calls to the provider for
   30 seconds; on the failure and during the pause, each symbol answers with the
-  last quote received, with the `timestamp` at which it was observed, or
-  `unavailable` when there is no previous quote. The history does not use the
-  quote cache.
+  last quote received, with the `timestamp` at which it was observed and
+  `isFallback`, or `unavailable` when there is no previous quote. The overview
+  reports that in `marketData.isFallback`, and each answer that serves one
+  writes `quote_provider_fallback_served`. The history does not use the quote
+  cache.
 * A history query identical to one in flight — same symbol, interval and window
   — joins the request in flight. A window the provider answered with no price,
   or with a 404, is answered the same way for one hour with no new request, up
@@ -644,3 +669,13 @@ storage.
   contributions and withdrawals are a record of flow alone.
 * **`ADJUSTMENT`.** What may be adjusted and with what effect on quantity and
   cost.
+* **Portfolio goals.** Evaluated and left out for now. A target allocation or
+  a goal's progress needs what the model does not hold: targets the user sets,
+  per portfolio and per asset or class, stored and validated (shares that add
+  up to at most 100%, a goal's amount, currency and date), with their own
+  routes and screens. Without them, any gap or suggestion would be the
+  product's opinion, not the user's plan, so no rebalancing hint is derived
+  from the current allocation. With targets in place, the gap per group is
+  `target − allocation` over the shares `GET /v1/portfolio/allocation` already
+  computes, and a group without `allocation` would show no gap rather than a
+  guessed one.

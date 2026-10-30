@@ -243,6 +243,7 @@ variables, `GET /ready` and `GET /health` probes — live outside it (TD-060).
 | [`docs/i18n.md`](docs/i18n.md) | the web's pt-BR and en-US catalogs, the language selector and its persistence, message conventions, number, currency and date formats, error wording, and how to add a locale |
 | [`docs/accessibility.md`](docs/accessibility.md), [`docs/responsiveness.md`](docs/responsiveness.md), [`docs/performance.md`](docs/performance.md) | normative frontend criteria |
 | [`docs/toolchain.md`](docs/toolchain.md) | pinned versions and why |
+| [`docs/competitive-benchmarking.md`](docs/competitive-benchmarking.md) | what other investment trackers document, and what ex3 adopted, adapted or left out |
 
 ## License
 

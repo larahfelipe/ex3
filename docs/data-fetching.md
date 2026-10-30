@@ -34,15 +34,16 @@ arrived without a status and every error became a 500 on the client.
 | Hook | Endpoint | Key | Trigger | Rationale |
 | --- | --- | --- | --- | --- |
 | `useActivePortfolio` | `GET /v1/portfolio?portfolioId=` with a chosen portfolio; otherwise `GET /v1/portfolios?page=1&limit=1` | `['portfolios', 'details', id]` or `['portfolios', 'page', {page,limit}]` | Every protected screen | The chosen portfolio id comes from `localStorage` (`useSyncExternalStore`, with `undefined` on the server so nothing is requested before the read); with no choice, the oldest one. A single cache entry serves every screen |
-| `usePortfolios` | `GET /v1/portfolios` | `['portfolios', 'page', {page,limit}]` | `/portfolios` | The paginated list on the portfolios screen |
+| `usePortfolios` | `GET /v1/portfolios` | `['portfolios', 'page', {page,limit}]` | `/portfolios` and the Overview's `PortfolioSwitcher` | The paginated list on the portfolios screen; the switcher asks for the first 100, the API's largest page, shows nothing below two portfolios and links to the screen when there are more |
 | `useInstrumentSearch` | `GET /v1/instruments/search` | `['instruments', 'search', query]` | `AddAssetDialog`, once the user types | An empty field requests nothing (`skipToken`). A 500 ms debounce, which Enter short-circuits: the pause is that of someone who stopped typing, so one term costs about one of the 30 searches per minute the API grants; each term is a key, and the previous result stays visible while the next loads |
 | `useCurrentUser` | `GET /v1/user` | `['user']` | `sidebar.tsx` and `/account` | Name and email for the navigation header; both consumers share the same key, so it is one request, not two. Saving the profile writes the `PATCH` response into the key, with no new `GET` |
 | `usePortfolioOverview` | `GET /v1/portfolio/overview` | `[...portfolio, 'overview']` | `PortfolioValueCard`, `PortfolioTotalValue` | Aggregate totals the positions listing does not carry. On the portfolios screen, one query per row, under the same key as the Overview: an asset or transaction write invalidates the portfolio scope and updates both |
 | `useAllocation` | `GET /v1/portfolio/allocation` | `[...portfolio, 'allocation']` | `AllocationChart` | Grouping by asset and by class, with percentages computed on the server; the web sorts by percentage |
-| `usePositions` | `GET /v1/portfolio/positions` | `[...portfolio, 'positions', listing]` | The Overview summary and the `/assets` table | Two distinct cuts — 10 unfiltered rows against the filtered, sorted and paginated listing — hence two keys and two requests |
+| `useIncome` | `GET /v1/portfolio/income` | `[...portfolio, 'income']` | `IncomeSummary` on the Overview | The recorded income, net and per currency, summed on the server from the whole ledger; it needs no quote, and a recorded `DIVIDEND`, `JCP` or `INTEREST` reaches it through the portfolio scope's invalidation |
+| `usePositions` | `GET /v1/portfolio/positions` | `[...portfolio, 'positions', listing]` | The Overview summary, `GettingStarted` and the `/assets` table | Distinct cuts — 10 unfiltered rows, the first asset of a portfolio with no transaction yet, and the filtered, sorted and paginated listing — hence distinct keys and requests |
 | `usePosition` | `GET /v1/portfolio/positions/:symbol` | `[...portfolio, 'position', symbol]` | Asset detail | One position with the breakdown the listing does not carry |
-| `usePerformance` | `GET /v1/portfolio/performance` | `[...portfolio, 'performance', params]` | The Overview and detail charts | A time series per period; switching period is another key, fetched once and served from cache on later switches |
-| `useTransactions` | `GET /v1/transactions` | `[...portfolio, 'transactions', filters]` | Overview (last 5) and asset detail (paginated by symbol) | Distinct cuts of the same listing; neither derives from the other |
+| `usePerformance` | `GET /v1/portfolio/performance` | `[...portfolio, 'performance', params]` | The Overview and detail charts | A time series per period; switching period is another key, fetched once and served from cache on later switches. A benchmark chosen in the URL (`?benchmark=`) goes into the same request in both views, so switching between value and return reads one response; a benchmark the catalog lacks answers `404`, and the series is then asked for without it |
+| `useTransactions` | `GET /v1/transactions` | `[...portfolio, 'transactions', filters]` | Overview (last 5) and asset detail (paginated by symbol) | Distinct cuts of the same listing; neither derives from the other. The Overview page and `RecentTransactions` share `RECENT_TRANSACTIONS_PAGE`, so the page reads the listing's `total` from the same request to choose between the sections and the getting-started guide |
 | `useFinanceAlerts` | `GET /v1/finances/alerts` | `['finances', 'alerts', today]` | `sidebar.tsx` on every protected screen; the Bills page | The overdue count on the Finances badge and the due-soon list; a failure leaves the badge out, and the finance pages show the same count with their own error state |
 | `useFinanceSummary` | `GET /v1/finances/summary` | `['finances', 'summary', params]` | `/finances` | Every figure on the overview, in one request, for the chosen currency |
 | `useFinanceSettings` | `GET /v1/finances/settings` | `['finances', 'settings']` | `/finances`, beside the summary | What is flagged — overdue bills, bills and installments due soon — and the lead days, which the Reminders card shows and its dialog edits |
@@ -93,10 +94,14 @@ screen's other queries.
 
 ```text
 /v1/portfolios
-└─ in parallel: overview · allocation · performance · positions · transactions
+└─ in parallel: overview · allocation · performance · positions · transactions · portfolio list
 ```
 
-On the Overview that is 1 + 5 requests, the five of them simultaneous. The
+On the Overview that is 1 + 6 requests, the six of them simultaneous; the
+portfolio list is the switcher's, under a key of its own. The sections mount
+while the transaction listing loads, so a portfolio with no transaction still
+asks for everything at once, and the guide takes their place when the listing
+answers with no transaction. The
 extra level is inherent to the current contract — the portfolio id does not
 exist on the client before the listing — and costs one round trip on the
 session's first screen only, because the 60 s of `staleTime` cover later
@@ -120,8 +125,8 @@ run together.
 ## Invalidation
 
 `useRefreshPortfolio` invalidates the `['portfolio', portfolioId]` prefix,
-which reaches overview, allocation, performance, positions, position and
-transactions in one call. It is what runs after creating an asset, creating,
+which reaches overview, allocation, income, performance, positions, position
+and transactions in one call. It is what runs after creating an asset, creating,
 editing and deleting a transaction, and deleting an asset — every write in the
 product — without being awaited: the mutation resolves with the API's response,
 the dialog that fired it closes, and revalidation catches up, with the cached
@@ -176,6 +181,23 @@ during revalidation joins it instead of restarting it, and the button stays
 `aria-disabled` until it finishes. In the backend, a quote is good for 60 s
 (`QUOTE_TIME_TO_LIVE_MS`), so repeating the refresh within the minute redoes
 the database read but does not call the provider.
+
+When every request settles, a toast reports the outcome. It says the portfolio
+was reloaded, never that prices changed: the API serves what the market-data
+source has published, which may be the same. The refresh counts as failed only
+when an active query of the scope ends in an error a later reload could fix
+(`isReloadable`): a server or network failure, or a `429`, which holds only
+until the rate-limit window resets. Any other `4xx`, such as a benchmark
+missing from the catalog, answers the same however often it is asked, and the
+section that received it already says so.
+
+A reload that succeeds is not always a recovery: the source may still be down,
+so the overview comes back with a price or a rate missing, or with fallback or
+stale prices. `useRefreshPortfolio` resolves with one of three outcomes
+(`RefreshOutcome`): `failed`, as above; `degraded`, when the refetched overview
+in the cache still has `isMarketDataDegraded`; or `reloaded`. A `degraded`
+refresh gets a warning toast that points to the value card's notice, instead of
+the success toast that would say all was well.
 
 ### Backend and provider
 

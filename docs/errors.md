@@ -59,6 +59,10 @@ the gap recorded in [`observability.md`](observability.md) during TASK 18.1.
 
 * Services throw the category's class; nothing outside `src/errors` constructs
   an `ApplicationError` directly.
+* `ApplicationError` extends `Error`, so a rejection carries a stack and
+  `instanceof Error` holds for it, as the type-aware `only-throw-error`
+  requires of what is thrown; its `name` is the subclass's. None of that reaches the client: the
+  boundary picks `code`, `message` and `details` explicitly.
 * `ErrorHandlerMiddleware` is the only boundary that writes the
   `{ code, message, details }` envelope, converts whatever is not an
   `ApplicationError` into `INTERNAL`, and records the code in `req.errorCode`.

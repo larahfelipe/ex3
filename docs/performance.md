@@ -440,3 +440,35 @@ appears and disappears while typing, and the form would shake on every
 keystroke. The asset detail's window chips are metric cards, not tabs.
 
 None of this was verified in a browser in that session.
+
+## Authentication pages and motion — 2026-10-29
+
+* **The artwork is gone.** `public/login-hero.jpeg` (2,020,657 bytes, the
+  largest file served at `≥ lg`) was replaced by a panel painted with
+  radial gradients from the theme's tokens (`bg-brand-glow` and the
+  `--brand-glow-*` tokens in `globals.css`), with no drawing or blur; its only
+  text is the wordmark, set in the already-loaded display font. No
+  image is requested at any width, which closes TD-056 by removal rather than
+  by re-encoding, and the LCP candidate on sign-in and sign-up is text at every
+  width. The gradients are static: painted once, they cost nothing while the
+  form is in use.
+* **The getting-started guide animates without layout.** A completed step
+  transitions colour, opacity, `scale` and `stroke-dashoffset` only, all
+  compositor-friendly or paint-only on a 28 px marker; the guide's exit and the
+  overview's entrance animate opacity and transform. The 1.6 s hold before the
+  overview replaces the guide is a timer, not an animation, and the sections
+  fetch only once they mount, as before.
+* **The rail no longer animates its width.** Expanding or collapsing the
+  sidebar transitioned `width`, a layout property: the main column reflowed on
+  every frame, and the expanded items squeezed into the narrow rail half-way.
+  The width now changes at once; the border still fades.
+* **`SlideTransition` animates its height only while panels switch.** It used
+  to animate every height change its `ResizeObserver` saw, so a panel that grew
+  on its own — a field error in a sign-up step, the window narrowing — lagged
+  clipped behind its content.
+* **Unused motion tokens out.** The accordion keyframes, with no accordion in
+  the app, and `--transition-property-default`, which Tailwind 4 turned into a
+  `transition-default` utility nothing used.
+
+The bundle was not measured against the previous build for this change, and,
+as in the sections above, nothing here was verified in a browser.

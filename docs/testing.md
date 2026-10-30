@@ -717,7 +717,7 @@ test creates its own provider, with its own responses and clock. It covers:
 * an error status, a timeout and a network failure answer `unavailable`, open
   the `FAILURE_COOLDOWN_MS` pause and do not record the key; during the failure,
   the last quote received is returned with the `timestamp` at which it was
-  observed;
+  observed, marked `isFallback`;
 * a response outside the format and an invalid quote (a currency in a minor
   unit, such as `BRp`, a negative price or one outside `DECIMAL(38,18)`, a
   missing time) answer `unavailable`, without affecting the valid ones in the
@@ -795,6 +795,12 @@ the base currency beside the catalog and the quote in the quote's currency, with
 the day's change and percentage; truncation toward zero of both; with no
 previous close, neither change nor percentage; a previous close of zero, with no
 percentage; and, with no quote, only the position's and the catalog's fields.
+And `describeMarketData`: every position with units counted as valued when each
+has a quote and a rate; the missing quotes and rates named, each with its
+reason; a quote or rate served in place of a failed one flagged as a fallback;
+the valuation stale once its oldest quote is older than
+`STALE_QUOTE_AFTER_DAYS`; and an incomplete valuation, which has no date, never
+stale.
 
 The `overview` block of `src/routes/Portfolios.integration.ts` covers
 `GET /v1/portfolio/overview`, swapping the singleton's `getQuotes` and
@@ -804,8 +810,9 @@ the position with no units, with exchange requested only for the foreign
 currency; the indicators that depend on a quote left out of the body with the
 provider unavailable; an empty portfolio in its base currency, with
 `heldPositionCount` `0`, and the count of positions with units in the others;
-another user's portfolio the same as a non-existent one; a `portfolioId` that is
-missing or malformed with 400.
+the `marketData` of each, stale for quotes older than the threshold and naming
+the unavailable quote; another user's portfolio the same as a non-existent one;
+a `portfolioId` that is missing or malformed with 400.
 
 The `positions` block of the same file covers `GET /v1/portfolio/positions` with
 the same swap: the requested portfolio's positions in `symbol` order and in the
@@ -845,6 +852,21 @@ neither values nor fractions with the provider unavailable; an empty portfolio
 in its base currency, worth zero and with empty distributions; another user's
 portfolio the same as a non-existent one; a `portfolioId` that is missing or
 malformed with 400.
+
+The `income` block covers `GET /v1/portfolio/income`, which needs no quote: a
+dividend with a fee in the last year and a JCP with withheld tax older than
+it, summed net per type and in all, with only the dividend in the trailing
+total, and a dividend of another portfolio of the same user left out; a
+portfolio with only purchases with nothing to summarize; another user's
+portfolio the same as a non-existent one; a `portfolioId` that is missing or
+malformed with 400. `src/domain/PortfolioIncome.test.ts` covers the summary
+without a database: fees and taxes netted, the window's first instant
+included, purchases and sales ignored, currencies kept apart with the base one
+first, and nothing for a ledger without income.
+`src/services/portfolio/GetPortfolioOverviewService.test.ts` covers
+`logValuationGaps` through an injected sink: one `valuation_incomplete` with the
+missing symbols and currencies when a total cannot be calculated, and nothing
+while every position is valued, even from fallback or stale prices.
 
 `node --env-file` does not overwrite a variable already exported in the shell,
 so no test depends on `.env.test` omitting `YAHOO_FINANCE_API_KEY`: no route
@@ -912,11 +934,16 @@ window resolution and the series: whole months back from the start of the
 current day in UTC, `YTD`'s current year, the day of `MAX`'s first transaction
 and the empty window of a ledger with no transaction; the position valued at
 each close, with a zero return at the first point; the day's contribution, which
-does not count as a gain; the net income paid on the day counted as a return;
-the `BONUS` units with no contribution; the position quoted in another currency
-taken to the base currency at the day's rate; the day with no rate and the day
-with no close for some held position, both out of the series; the benchmark over
-the window's first close; and the portfolio with nothing quotable, with an empty
+does not count as a gain; money put in on a day left out of the series counted
+at the next point, at its own day's rate, not as a gain; the net income paid on
+the day counted as a return; the `BONUS` units with no contribution; the
+position quoted in another currency taken to the base currency at the day's
+rate; the day with no rate and the day with no close for some held position,
+both out of the series; the benchmark's return from the portfolio's first point,
+on its points, in the base currency, with its latest close carried over a day
+its market is closed, and no benchmark series without a close near the first
+point or without a rate; the period's summary, with no fraction of change when
+the first value is zero; and the portfolio with nothing quotable, with an empty
 series. Now is a parameter, never `new Date()` inside the test.
 
 The `performance` block of `src/routes/Portfolios.integration.ts` covers
@@ -925,7 +952,9 @@ The `performance` block of `src/routes/Portfolios.integration.ts` covers
 the other routes swap the quote: the requested portfolio's series in the base
 currency, with the window that reached the provider; the position in a foreign
 currency converted at each day's rate, with the pair requested once; the
-benchmark beside the portfolio; a benchmark outside the catalog with 404; the
+benchmark beside the portfolio, with its name, and the period's summary; a
+benchmark quoted in another currency taken to the base currency at each day's
+rate; a benchmark outside the catalog with 404; the
 series of a single position, by symbol without distinguishing case, without
 fetching the others' closes or exchange; a symbol with no position in the
 portfolio with 404; a portfolio with no transaction as an empty window; another
