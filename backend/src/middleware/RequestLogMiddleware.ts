@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto';
 
 import { ProbeRoutes } from '@/config/Constants';
 import {
-  LogSeverities,
   log,
+  LogSeverities,
   severityOfStatus,
   type LogSink
 } from '@/infra/observability';
@@ -22,10 +22,13 @@ const PROPAGATED_REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
 const UNMATCHED_ROUTE = 'unmatched';
 
 /** The pattern, never the path: `/v1/portfolio/positions/:symbol` groups, `/v1/portfolio/positions/AAPL` does not. */
-const routeOf = (req: Request) =>
-  typeof req.route?.path === 'string'
-    ? `${req.baseUrl}${req.route.path}`
+const routeOf = (req: Request) => {
+  const route = req.route as Partial<Record<'path', unknown>> | undefined;
+
+  return typeof route?.path === 'string'
+    ? `${req.baseUrl}${route.path}`
     : UNMATCHED_ROUTE;
+};
 
 const requestIdOf = (req: Request) => {
   const propagated = req.get(REQUEST_ID_HEADER);

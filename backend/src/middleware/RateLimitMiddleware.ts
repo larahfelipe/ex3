@@ -1,7 +1,7 @@
 import type { Request } from 'express';
 import {
-  MemoryStore,
   ipKeyGenerator,
+  MemoryStore,
   rateLimit,
   type RateLimitExceededEventHandler
 } from 'express-rate-limit';

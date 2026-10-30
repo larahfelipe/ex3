@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { CreateTransactionService } from '@/services/transaction';
 import { validate } from '@/validation';
 import { CreateTransactionSchema } from '@/validation/schema';
@@ -22,7 +22,7 @@ export class CreateTransactionController implements Controller {
     return CreateTransactionController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user, body } = req;
 
     const transaction = await validate(CreateTransactionSchema, body);

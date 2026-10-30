@@ -1,4 +1,4 @@
-import { decimalOf, type DecimalInput, sumOf } from './FinanceMoney';
+import { decimalOf, sumOf, type DecimalInput } from './FinanceMoney';
 import type { ExpenseKind, ExpenseStatus } from './models';
 
 export type SettlingPayment = {

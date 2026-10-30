@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  type LedgerEntry,
   realizeProfitLoss,
-  rebuildPosition
+  rebuildPosition,
+  type LedgerEntry
 } from './PositionLedger';
 
 const EXECUTED_AT = new Date('2026-01-05T13:00:00.000Z');

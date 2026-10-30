@@ -1,8 +1,8 @@
 import { FinanceMessages } from '@/config/Constants';
 import { utcToday } from '@/domain/CalendarDay';
 import {
-  type InstallmentTerms,
-  scheduleInstallments
+  scheduleInstallments,
+  type InstallmentTerms
 } from '@/domain/InstallmentSchedule';
 import type { ExpenseDescription } from '@/domain/models';
 import type { InstallmentPlanRepository } from '@/infra/database';

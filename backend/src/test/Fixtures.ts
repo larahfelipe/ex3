@@ -1,4 +1,4 @@
-import { InstrumentTypes, TransactionTypes, envs } from '@/config';
+import { envs, InstrumentTypes, TransactionTypes } from '@/config';
 import type {
   Instrument,
   Portfolio,
@@ -129,6 +129,8 @@ export const createTransaction = async (
       | 'type'
       | 'quantity'
       | 'unitPrice'
+      | 'fees'
+      | 'taxes'
       | 'currency'
       | 'executedAt'
       | 'broker'

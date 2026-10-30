@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { GetFinanceSettingsService } from '@/services/finance';
 
 export class GetFinanceSettingsController implements Controller {
@@ -20,7 +20,7 @@ export class GetFinanceSettingsController implements Controller {
     return GetFinanceSettingsController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user } = req;
 
     const result = await this.getFinanceSettingsService.execute({

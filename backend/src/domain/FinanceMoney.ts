@@ -14,7 +14,7 @@ export const FinanceDecimal = Prisma.Decimal.clone({
 
 export type FinanceDecimal = InstanceType<typeof FinanceDecimal>;
 
-export type DecimalInput = Prisma.Decimal | FinanceDecimal | string;
+export type DecimalInput = Prisma.Decimal | string;
 
 export const ZERO = new FinanceDecimal(0);
 

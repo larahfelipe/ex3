@@ -6,6 +6,7 @@ import {
   getAllPortfoliosControllerHandler,
   getPortfolioAllocationControllerHandler,
   getPortfolioControllerHandler,
+  getPortfolioIncomeControllerHandler,
   getPortfolioOverviewControllerHandler,
   getPortfolioPerformanceControllerHandler,
   getPortfolioPositionControllerHandler,
@@ -28,6 +29,12 @@ portfolioRouter.get(
   '/v1/portfolio/allocation',
   authMiddleware,
   getPortfolioAllocationControllerHandler as Application
+);
+
+portfolioRouter.get(
+  '/v1/portfolio/income',
+  authMiddleware,
+  getPortfolioIncomeControllerHandler as Application
 );
 
 portfolioRouter.get(

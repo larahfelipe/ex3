@@ -6,9 +6,9 @@ import type {
   TransactionEntry
 } from '@/domain/models';
 import {
+  rebuildPosition,
   type LedgerRefusal,
-  type RebuiltPosition,
-  rebuildPosition
+  type RebuiltPosition
 } from '@/domain/PositionLedger';
 import type { Page } from '@/interfaces';
 

@@ -159,7 +159,7 @@ const stubProvider = (
     now: () => clock.now,
     logEntry: (entry) => logEntries.push(entry),
     fetchResponse: async (input, init = {}) => {
-      const url = new URL(String(input));
+      const url = new URL(input instanceof Request ? input.url : input);
       calls.push({ url, init });
 
       return respond(url);
@@ -330,9 +330,9 @@ describe('YahooFinanceProvider', () => {
       );
     });
 
-    it('answers the last quote received while the provider fails', async () => {
+    it('answers the last quote received while the provider fails, marked as a fallback', async () => {
       const responses = [quoteResponse(quoteItem('AAPL')), json({}, 429)];
-      const { provider, clock } = stubProvider(
+      const { provider, clock, logEntries } = stubProvider(
         () => responses.shift() ?? json({}, 500)
       );
 
@@ -341,7 +341,19 @@ describe('YahooFinanceProvider', () => {
 
       assert.deepEqual(
         await provider.getQuotes([AAPL]),
-        new Map([['AAPL', quoted('49', 'USD')]])
+        new Map([['AAPL', { ...quoted('49', 'USD'), isFallback: true }]])
+      );
+      assert.deepEqual(logEntries.at(-1), {
+        severity: 'WARNING',
+        event: 'quote_provider_fallback_served',
+        count: 1
+      });
+
+      clock.now += 1;
+
+      assert.deepEqual(
+        await provider.getQuotes([AAPL]),
+        new Map([['AAPL', { ...quoted('49', 'USD'), isFallback: true }]])
       );
     });
 

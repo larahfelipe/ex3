@@ -1,8 +1,8 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { UpdateTransactionService } from '@/services/transaction';
-import { validate } from '@/validation';
+import { fieldsOf, validate } from '@/validation';
 import { UpdateTransactionSchema } from '@/validation/schema/transaction/UpdateTransactionSchema';
 
 export class UpdateTransactionController implements Controller {
@@ -22,11 +22,11 @@ export class UpdateTransactionController implements Controller {
     return UpdateTransactionController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user, body, params } = req;
 
     const transaction = await validate(UpdateTransactionSchema, {
-      ...body,
+      ...fieldsOf(body),
       id: params.id
     });
 

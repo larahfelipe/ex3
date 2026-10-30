@@ -18,6 +18,7 @@ import {
   DeletePortfolioService,
   GetAllPortfoliosService,
   GetPortfolioAllocationService,
+  GetPortfolioIncomeService,
   GetPortfolioOverviewService,
   GetPortfolioPerformanceService,
   GetPortfolioPositionService,
@@ -33,6 +34,7 @@ import { DeletePortfolioController } from './DeletePortfolioController';
 import { GetAllPortfoliosController } from './GetAllPortfoliosController';
 import { GetPortfolioAllocationController } from './GetPortfolioAllocationController';
 import { GetPortfolioController } from './GetPortfolioController';
+import { GetPortfolioIncomeController } from './GetPortfolioIncomeController';
 import { GetPortfolioOverviewController } from './GetPortfolioOverviewController';
 import { GetPortfolioPerformanceController } from './GetPortfolioPerformanceController';
 import { GetPortfolioPositionController } from './GetPortfolioPositionController';
@@ -136,6 +138,22 @@ export const getPortfolioAllocationControllerHandler = (
     GetPortfolioAllocationController.getInstance(getPortfolioAllocationService);
 
   return getPortfolioAllocationController.handle(req, res);
+};
+
+export const getPortfolioIncomeControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const getPortfolioIncomeService = GetPortfolioIncomeService.getInstance(
+    PortfolioRepository.getInstance(),
+    TransactionRepository.getInstance()
+  );
+
+  const getPortfolioIncomeController = GetPortfolioIncomeController.getInstance(
+    getPortfolioIncomeService
+  );
+
+  return getPortfolioIncomeController.handle(req, res);
 };
 
 export const getPortfolioOverviewControllerHandler = (

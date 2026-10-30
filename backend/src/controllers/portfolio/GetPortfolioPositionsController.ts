@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { GetPortfolioPositionsService } from '@/services/portfolio';
 import { validate } from '@/validation';
 import { GetPortfolioPositionsSchema } from '@/validation/schema';
@@ -25,7 +25,7 @@ export class GetPortfolioPositionsController implements Controller {
     return GetPortfolioPositionsController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user, query } = req;
 
     const {

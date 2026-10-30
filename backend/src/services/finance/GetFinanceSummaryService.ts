@@ -8,20 +8,20 @@ import {
   startOfMonth
 } from '@/domain/CalendarDay';
 import {
+  categoryFiguresOf,
+  changeOf,
+  commitmentsOf,
+  dueSoonOf,
+  monthlyFiguresOf,
+  overdueOf,
+  remindsUpcoming,
+  totalsOf,
   type AmountCount,
   type CategoryFigures,
   type Change,
-  changeOf,
-  categoryFiguresOf,
   type CommitmentFigures,
-  commitmentsOf,
-  dueSoonOf,
   type MonthlyFigures,
-  monthlyFiguresOf,
-  overdueOf,
-  type PeriodTotals,
-  remindsUpcoming,
-  totalsOf
+  type PeriodTotals
 } from '@/domain/FinanceAggregates';
 import { sumOf } from '@/domain/FinanceMoney';
 import type {

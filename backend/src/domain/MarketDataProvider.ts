@@ -28,7 +28,7 @@ export type MarketDataFailure =
   { outcome: 'not-found' } | { outcome: 'unavailable' };
 
 export type QuoteLookup =
-  { outcome: 'quoted'; quote: Quote } | MarketDataFailure;
+  { outcome: 'quoted'; quote: Quote; isFallback?: boolean } | MarketDataFailure;
 
 export type PriceHistoryLookup =
   | { outcome: 'quoted'; prices: ObservedPrice[] }
@@ -58,7 +58,8 @@ export type FundamentalsLookup =
  * an implementation translates into the provider's own code; an instrument it
  * cannot translate is `not-found`. `getQuotes` answers the latest price of each
  * instrument, with one entry per symbol asked for and the previous close when
- * the provider has one. `getExchangeRates` answers, with one entry per currency
+ * the provider has one; a quote answered in place of one the provider failed
+ * to give, the last it gave, carries `isFallback`. `getExchangeRates` answers, with one entry per currency
  * asked for, the price of one unit of it in `baseCurrency`; a currency without a
  * pair to `baseCurrency`, itself included, is `not-found`. `getHistoricalPrices`
  * answers the closing price of every `interval` starting from `range.from`,

@@ -15,9 +15,9 @@ import { YahooFinanceProvider } from '@/infra/market-data';
 import { apiRequest, bearer, signIn } from '@/test/ApiClient';
 import { FakeMarketDataProvider } from '@/test/FakeMarketDataProvider';
 import {
-  FIXTURE_PASSWORD,
   createInstrument,
   createUser,
+  FIXTURE_PASSWORD,
   seedPortfolio
 } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';

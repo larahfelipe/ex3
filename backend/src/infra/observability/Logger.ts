@@ -20,6 +20,15 @@ export type LogEvent =
   | { event: 'quote_provider_key_missing' }
   | { event: 'quote_provider_unavailable'; reason: string; retryInMs: number }
   | { event: 'quote_provider_request_failed'; reason: string }
+  | { event: 'quote_provider_fallback_served'; count: number }
+  | {
+      event: 'valuation_incomplete';
+      portfolioId: string;
+      heldPositionCount: number;
+      valuedPositionCount: number;
+      missingQuotes: Array<Record<'symbol' | 'reason', string>>;
+      missingRates: Array<Record<'currency' | 'reason', string>>;
+    }
   | { event: 'dependency_unavailable'; dependency: 'database'; reason: string }
   | {
       event: 'http_request';

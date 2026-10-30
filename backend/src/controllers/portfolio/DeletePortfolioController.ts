@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { DeletePortfolioService } from '@/services/portfolio';
 import { validate } from '@/validation';
 import { PortfolioScopeSchema } from '@/validation/schema';
@@ -22,7 +22,7 @@ export class DeletePortfolioController implements Controller {
     return DeletePortfolioController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user, query } = req;
 
     const { portfolioId } = await validate(PortfolioScopeSchema, query);

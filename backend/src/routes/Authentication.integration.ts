@@ -2,17 +2,17 @@ import jwt from 'jsonwebtoken';
 import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
 
-import { Errors, RateLimits, UserMessages, envs } from '@/config';
+import { envs, Errors, RateLimits, UserMessages } from '@/config';
 import type { User } from '@/domain/models';
 import { Bcrypt } from '@/infra/cryptography';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 import { apiRequest, bearer, signIn } from '@/test/ApiClient';
 import {
-  FIXTURE_PASSWORD,
   createAsset,
   createPortfolio,
   createTransaction,
   createUser,
+  FIXTURE_PASSWORD,
   seedPortfolio
 } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
@@ -81,6 +81,7 @@ const PROTECTED_ROUTES: ReadonlyArray<readonly [HttpMethod, string]> = [
   ['post', SIGN_OUT_ROUTE],
   ['get', '/v1/portfolio'],
   ['get', '/v1/portfolio/allocation'],
+  ['get', '/v1/portfolio/income'],
   ['get', '/v1/portfolio/overview'],
   ['get', '/v1/portfolio/positions'],
   ['get', '/v1/portfolio/positions/PETR4/indicators'],

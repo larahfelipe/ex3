@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { LogSeverities, formatLogEntry, severityOfStatus } from './Logger';
+import { formatLogEntry, LogSeverities, severityOfStatus } from './Logger';
 
 const OCCURRED_AT = new Date('2026-09-19T14:32:07.123Z');
 

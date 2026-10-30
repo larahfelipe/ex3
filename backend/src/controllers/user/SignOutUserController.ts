@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { SignOutUserService } from '@/services/user';
 
 export class SignOutUserController implements Controller {
@@ -20,7 +20,7 @@ export class SignOutUserController implements Controller {
     return SignOutUserController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const result = await this.signOutUserService.execute({ user: req.user });
 
     return res.status(200).json(result);

@@ -1,9 +1,9 @@
 import { PrismaPg } from '@prisma/adapter-pg';
-import { Prisma, PrismaClient as _PrismaClient } from '@prisma/client';
+import { PrismaClient as _PrismaClient, Prisma } from '@prisma/client';
 import { isDriverAdapterError } from '@prisma/driver-adapter-utils';
 
 import { envs } from '@/config/Envs';
-import { LogSeverities, log } from '@/infra/observability';
+import { log, LogSeverities } from '@/infra/observability';
 
 /**
  * Prisma's code, and the driver adapter's error kind, for a transaction Postgres

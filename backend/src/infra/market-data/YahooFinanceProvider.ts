@@ -23,14 +23,14 @@ import type {
   ListingSearch,
   MarketDataProvider,
   ObservedPrice,
+  PricedInstrument,
   PriceHistoryLookup,
   PriceInterval,
-  PricedInstrument,
   PriceRange,
   QuoteLookup
 } from '@/domain/MarketDataProvider';
 import type { InstrumentType } from '@/domain/models';
-import { LogSeverities, log, type LogSink } from '@/infra/observability';
+import { log, LogSeverities, type LogSink } from '@/infra/observability';
 
 export const YAHOO_FINANCE_SOURCE = 'yahoo-finance';
 
@@ -975,11 +975,13 @@ export class YahooFinanceProvider implements MarketDataProvider {
       this.reportFailure('invalid quote response');
 
     if (!envelope?.success)
-      return new Map(
-        batch.map((yahooSymbol) => [
-          yahooSymbol,
-          this.quoteCache.get(yahooSymbol)?.lookup ?? UNAVAILABLE
-        ])
+      return this.reportingFallbacks(
+        new Map(
+          batch.map((yahooSymbol) => [
+            yahooSymbol,
+            this.lastQuoteOf(yahooSymbol)
+          ])
+        )
       );
 
     const receivedAt = this.now();
@@ -987,45 +989,70 @@ export class YahooFinanceProvider implements MarketDataProvider {
       envelope.data.quoteResponse.result.map((item) => [item.symbol, item])
     );
 
-    return new Map(
-      batch.map((yahooSymbol) => {
-        const item = itemsBySymbol.get(yahooSymbol);
-        const quote = item && QuoteSchema.safeParse(item);
+    return this.reportingFallbacks(
+      new Map(
+        batch.map((yahooSymbol) => {
+          const item = itemsBySymbol.get(yahooSymbol);
+          const quote = item && QuoteSchema.safeParse(item);
 
-        if (quote?.success === false)
-          return [
-            yahooSymbol,
-            this.quoteCache.get(yahooSymbol)?.lookup ?? UNAVAILABLE
-          ];
+          if (quote?.success === false)
+            return [yahooSymbol, this.lastQuoteOf(yahooSymbol)];
 
-        const lookup: CachedQuote['lookup'] = quote
-          ? {
-              outcome: 'quoted',
-              quote: {
-                price: toDecimalPrice(
-                  quote.data.regularMarketPrice,
-                  quote.data.priceHint
-                ),
-                currency: quote.data.currency,
-                timestamp: new Date(
-                  quote.data.regularMarketTime * MILLISECONDS_PER_SECOND
-                ),
-                source: YAHOO_FINANCE_SOURCE,
-                ...(quote.data.regularMarketPreviousClose !== undefined && {
-                  previousClose: toDecimalPrice(
-                    quote.data.regularMarketPreviousClose,
+          const lookup: CachedQuote['lookup'] = quote
+            ? {
+                outcome: 'quoted',
+                quote: {
+                  price: toDecimalPrice(
+                    quote.data.regularMarketPrice,
                     quote.data.priceHint
-                  )
-                })
+                  ),
+                  currency: quote.data.currency,
+                  timestamp: new Date(
+                    quote.data.regularMarketTime * MILLISECONDS_PER_SECOND
+                  ),
+                  source: YAHOO_FINANCE_SOURCE,
+                  ...(quote.data.regularMarketPreviousClose !== undefined && {
+                    previousClose: toDecimalPrice(
+                      quote.data.regularMarketPreviousClose,
+                      quote.data.priceHint
+                    )
+                  })
+                }
               }
-            }
-          : NOT_FOUND;
+            : NOT_FOUND;
 
-        this.quoteCache.set(yahooSymbol, { lookup, cachedAt: receivedAt });
+          this.quoteCache.set(yahooSymbol, { lookup, cachedAt: receivedAt });
 
-        return [yahooSymbol, lookup];
-      })
+          return [yahooSymbol, lookup];
+        })
+      )
     );
+  }
+
+  /** The last quote received for a symbol, marked as standing in for one the provider failed to give. */
+  private lastQuoteOf(yahooSymbol: string): QuoteLookup {
+    const lookup = this.quoteCache.get(yahooSymbol)?.lookup;
+
+    if (lookup === undefined) return UNAVAILABLE;
+
+    return lookup.outcome === 'quoted'
+      ? { ...lookup, isFallback: true }
+      : lookup;
+  }
+
+  private reportingFallbacks(lookups: ReadonlyMap<string, QuoteLookup>) {
+    const count = [...lookups.values()].filter(
+      (lookup) => lookup.outcome === 'quoted' && lookup.isFallback === true
+    ).length;
+
+    if (count > 0)
+      this.logEntry({
+        severity: LogSeverities.WARNING,
+        event: 'quote_provider_fallback_served',
+        count
+      });
+
+    return lookups;
   }
 
   private async request(

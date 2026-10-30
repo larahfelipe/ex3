@@ -1,6 +1,6 @@
 import { app, envs } from '@/config';
 import { PrismaClient } from '@/infra/database/PrismaClient';
-import { LogSeverities, log } from '@/infra/observability';
+import { log, LogSeverities } from '@/infra/observability';
 
 const bootstrap = async () => {
   try {
@@ -30,4 +30,4 @@ const bootstrap = async () => {
   );
 };
 
-bootstrap();
+void bootstrap();

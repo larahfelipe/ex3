@@ -4,8 +4,8 @@ import {
   startOfMonth
 } from '@/domain/CalendarDay';
 import {
-  type CalendarDayFigures,
-  calendarDaysOf
+  calendarDaysOf,
+  type CalendarDayFigures
 } from '@/domain/FinanceAggregates';
 import type { CalendarMonth } from '@/domain/models';
 import type {

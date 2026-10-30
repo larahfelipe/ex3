@@ -2,12 +2,16 @@ import type { Prisma } from '@prisma/client';
 
 import { SortOrderTypes } from '@/config/Constants';
 
-import type { Quote, QuoteLookup } from './MarketDataProvider';
+import type {
+  MarketDataFailure,
+  Quote,
+  QuoteLookup
+} from './MarketDataProvider';
 import type { Instrument, Portfolio, Position } from './models';
 import {
-  type HeldPosition,
   truncateToColumnScale,
-  ValuationDecimal
+  ValuationDecimal,
+  type HeldPosition
 } from './PositionValuation';
 
 export type PortfolioHoldings = {
@@ -28,6 +32,16 @@ export type PortfolioOverview = {
   dayChange?: string;
   dayChangePercent?: string;
   quotedAt?: Date;
+};
+
+type MarketDataGap = Record<'reason', MarketDataFailure['outcome']>;
+
+export type MarketDataStatus = {
+  valuedPositionCount: number;
+  missingQuotes: Array<Pick<Instrument, 'symbol'> & MarketDataGap>;
+  missingRates: Array<Record<'currency', string> & MarketDataGap>;
+  isFallback: boolean;
+  isStale: boolean;
 };
 
 export type ListedPosition = HeldPosition &
@@ -103,6 +117,11 @@ export type PortfolioAllocation = {
   bySector: Array<Pick<Instrument, 'sector'> & AllocationShare>;
   byCurrency: Array<Pick<Instrument, 'currency'> & AllocationShare>;
 };
+
+/** Longer than a weekend, so a market closed since Friday's close is not stale on Monday. */
+export const STALE_QUOTE_AFTER_DAYS = 4;
+
+const MILLISECONDS_PER_DAY = 86_400_000;
 
 export const holdsUnits = ({ quantity }: Pick<HeldPosition, 'quantity'>) =>
   !new ValuationDecimal(quantity).isZero();
@@ -238,6 +257,79 @@ export const summarizePortfolio = (
         dayChangePercent: fractionOf(dayChange, previousValue)
       }),
     ...(quotedAt && { quotedAt })
+  };
+};
+
+/**
+ * What the overview's totals rest on, so that an incomplete or old valuation is
+ * explained instead of passing for a complete one. Of the positions with
+ * units, `valuedPositionCount` counts those with a market value in the base
+ * currency; `missingQuotes` lists those without a quote, and `missingRates`
+ * each currency, of a quote or of a cost that is not zero, without a rate to
+ * the base currency. The `reason` is `not-found` when the source does not know
+ * the symbol or pair, which retrying does not change, and `unavailable` when
+ * the source failed. `isFallback` tells that some quote or rate used is the
+ * last one received, answered because the source failed, and `isStale` that
+ * `quotedAt` is more than `STALE_QUOTE_AFTER_DAYS` before `now`.
+ */
+export const describeMarketData = (
+  { baseCurrency, positions, quotes, exchangeRates }: PortfolioHoldings,
+  quotedAt: Date | undefined,
+  now: Date
+): MarketDataStatus => {
+  const heldPositions = positions.filter(holdsUnits);
+  const reasonOf = (lookup: QuoteLookup | undefined) =>
+    lookup?.outcome === 'unavailable' ? lookup.outcome : 'not-found';
+  const hasRate = (currency: string) =>
+    currency === baseCurrency ||
+    exchangeRates.get(currency)?.outcome === 'quoted';
+
+  const quoted = heldPositions.flatMap(({ symbol }) => {
+    const lookup = quotes.get(symbol);
+
+    return lookup?.outcome === 'quoted' ? [lookup] : [];
+  });
+  const neededCurrencies = [
+    ...new Set([
+      ...quoted.map(({ quote }) => quote.currency),
+      ...heldPositions
+        .filter(
+          ({ investedValue }) => !new ValuationDecimal(investedValue).isZero()
+        )
+        .flatMap(({ ledgerCurrency }) => ledgerCurrency ?? [])
+    ])
+  ];
+  const usedRates = neededCurrencies.flatMap((currency) => {
+    const lookup = exchangeRates.get(currency);
+
+    return currency !== baseCurrency && lookup?.outcome === 'quoted'
+      ? [lookup]
+      : [];
+  });
+
+  return {
+    valuedPositionCount: quoted.filter(({ quote }) => hasRate(quote.currency))
+      .length,
+    missingQuotes: heldPositions.flatMap(({ symbol }) => {
+      const lookup = quotes.get(symbol);
+
+      return lookup?.outcome === 'quoted'
+        ? []
+        : [{ symbol, reason: reasonOf(lookup) }];
+    }),
+    missingRates: neededCurrencies
+      .filter((currency) => !hasRate(currency))
+      .map((currency) => ({
+        currency,
+        reason: reasonOf(exchangeRates.get(currency))
+      })),
+    isFallback: [...quoted, ...usedRates].some(
+      ({ isFallback }) => isFallback === true
+    ),
+    isStale:
+      quotedAt !== undefined &&
+      now.getTime() - quotedAt.getTime() >
+        STALE_QUOTE_AFTER_DAYS * MILLISECONDS_PER_DAY
   };
 };
 

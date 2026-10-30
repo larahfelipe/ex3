@@ -3,8 +3,6 @@ import { describe, it } from 'node:test';
 
 import { monthsBetween, parseCalendarDay } from './CalendarDay';
 import {
-  type AggregateExpense,
-  type AggregatePayment,
   calendarDaysOf,
   categoryFiguresOf,
   changeOf,
@@ -15,7 +13,9 @@ import {
   outstandingByCurrencyOf,
   overdueOf,
   remindsUpcoming,
-  totalsOf
+  totalsOf,
+  type AggregateExpense,
+  type AggregatePayment
 } from './FinanceAggregates';
 
 const day = (value: string) => parseCalendarDay(value) as Date;

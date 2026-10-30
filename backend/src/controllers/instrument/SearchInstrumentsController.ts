@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { SearchInstrumentsService } from '@/services/instrument';
 import { validate } from '@/validation';
 import { SearchInstrumentsSchema } from '@/validation/schema';
@@ -22,7 +22,7 @@ export class SearchInstrumentsController implements Controller {
     return SearchInstrumentsController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { query } = await validate(SearchInstrumentsSchema, req.query);
 
     const result = await this.searchInstrumentsService.execute({

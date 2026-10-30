@@ -2,6 +2,7 @@ export * from './CreatePortfolioService';
 export * from './DeletePortfolioService';
 export * from './GetAllPortfoliosService';
 export * from './GetPortfolioAllocationService';
+export * from './GetPortfolioIncomeService';
 export * from './GetPortfolioOverviewService';
 export * from './GetPortfolioPerformanceService';
 export * from './GetPortfolioPositionService';

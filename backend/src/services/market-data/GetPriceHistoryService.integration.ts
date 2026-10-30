@@ -13,7 +13,7 @@ import {
   FAKE_MARKET_DATA_SOURCE,
   FakeMarketDataProvider
 } from '@/test/FakeMarketDataProvider';
-import { MISSING_UUID, createInstrument } from '@/test/Fixtures';
+import { createInstrument, MISSING_UUID } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
 
 import { GetPriceHistoryService } from './GetPriceHistoryService';

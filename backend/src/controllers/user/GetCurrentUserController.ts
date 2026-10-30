@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { GetCurrentUserService } from '@/services/user';
 
 export class GetCurrentUserController implements Controller {
@@ -20,7 +20,7 @@ export class GetCurrentUserController implements Controller {
     return GetCurrentUserController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const result = await this.getCurrentUserService.execute({
       user: req.user
     });

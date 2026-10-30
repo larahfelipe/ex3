@@ -1,9 +1,9 @@
 import { FinanceLimits } from '@/config/Constants';
 import { addDays } from '@/domain/CalendarDay';
 import {
-  type CurrencyAmount,
   outstandingByCurrencyOf,
-  remindsUpcoming
+  remindsUpcoming,
+  type CurrencyAmount
 } from '@/domain/FinanceAggregates';
 import type { Expense } from '@/domain/models';
 import type {

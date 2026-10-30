@@ -1,8 +1,8 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { CancelRecurringExpenseService } from '@/services/finance';
-import { validate } from '@/validation';
+import { fieldsOf, validate } from '@/validation';
 import { CancelRecurringExpenseSchema } from '@/validation/schema';
 
 export class CancelRecurringExpenseController implements Controller {
@@ -25,11 +25,11 @@ export class CancelRecurringExpenseController implements Controller {
     return CancelRecurringExpenseController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user, body, params } = req;
 
     const cancellation = await validate(CancelRecurringExpenseSchema, {
-      ...body,
+      ...fieldsOf(body),
       id: params.id
     });
 

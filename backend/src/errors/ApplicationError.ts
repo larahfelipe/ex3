@@ -1,7 +1,6 @@
 import type { ErrorCategory } from '@/config/Constants';
 
-export class ApplicationError {
-  readonly message: string;
+export class ApplicationError extends Error {
   readonly status: number;
   readonly code: ErrorCategory;
   readonly details: ReadonlyArray<{ path: string; message: string }>;
@@ -12,7 +11,8 @@ export class ApplicationError {
     code: ErrorCategory,
     details: ApplicationError['details'] = []
   ) {
-    this.message = message;
+    super(message);
+    this.name = new.target.name;
     this.status = status;
     this.code = code;
     this.details = details;

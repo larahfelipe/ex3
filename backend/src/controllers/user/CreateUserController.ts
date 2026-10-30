@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { CreateUserService } from '@/services/user';
 import { validate } from '@/validation';
 import { CreateUserSchema } from '@/validation/schema';
@@ -22,7 +22,7 @@ export class CreateUserController implements Controller {
     return CreateUserController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { name, email, password, baseCurrency, portfolioName } =
       await validate(CreateUserSchema, req.body);
 

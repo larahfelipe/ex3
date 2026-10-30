@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { DeleteInstallmentPlanService } from '@/services/finance';
 import { validate } from '@/validation';
 import { InstallmentPlanParamsSchema } from '@/validation/schema';
@@ -25,7 +25,7 @@ export class DeleteInstallmentPlanController implements Controller {
     return DeleteInstallmentPlanController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user, params } = req;
 
     const { id } = await validate(InstallmentPlanParamsSchema, params);

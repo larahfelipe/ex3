@@ -32,7 +32,7 @@ export class GetTransactionService {
     if (!transactionExists)
       throw new NotFoundError(TransactionMessages.NOT_FOUND);
 
-    return { ...(transactionExists as Transaction) };
+    return { ...transactionExists };
   }
 }
 

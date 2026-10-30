@@ -4,7 +4,7 @@ import { TransactionTypes } from '@/config/Constants';
 
 import type { PriceRange } from './MarketDataProvider';
 import type { Instrument, Portfolio, Transaction } from './models';
-import { type LedgerEntry, rebuildPosition } from './PositionLedger';
+import { rebuildPosition, type LedgerEntry } from './PositionLedger';
 import { truncateToColumnScale, ValuationDecimal } from './PositionValuation';
 import { startOfDayInUtc } from './PriceHistory';
 
@@ -18,13 +18,15 @@ export type DailyPrice = Record<'timestamp', Date> & Record<'price', string>;
 export type QuotedInstrument = Pick<Instrument, 'symbol' | 'currency'> &
   Record<'closes', ReadonlyArray<DailyPrice>>;
 
+export type QuotedBenchmark = QuotedInstrument & Pick<Instrument, 'name'>;
+
 export type PerformanceHoldings = {
   baseCurrency: Portfolio['baseCurrency'];
   range: PriceRange;
   ledger: ReadonlyArray<PortfolioLedgerEntry>;
   instruments: ReadonlyMap<string, QuotedInstrument>;
   ratesByCurrency: ReadonlyMap<string, ReadonlyArray<DailyPrice>>;
-  benchmark?: QuotedInstrument;
+  benchmark?: QuotedBenchmark;
 };
 
 export type PerformancePoint = {
@@ -41,14 +43,24 @@ export type BenchmarkPoint = {
   twr: string;
 };
 
-export type PerformanceBenchmark = Pick<Instrument, 'symbol' | 'currency'> &
+export type PerformanceBenchmark = Pick<
+  Instrument,
+  'symbol' | 'name' | 'currency'
+> &
   Record<'series', Array<BenchmarkPoint>>;
+
+export type PerformanceSummary = Record<
+  'valueChange' | 'netContribution' | 'twr',
+  string
+> &
+  Partial<Record<'valueChangePercent', string>>;
 
 export type PortfolioPerformance = {
   baseCurrency: Portfolio['baseCurrency'];
   from: Date;
   to: Date;
   series: Array<PerformancePoint>;
+  summary?: PerformanceSummary;
   benchmark?: PerformanceBenchmark;
 };
 
@@ -77,6 +89,12 @@ const WINDOW_BACK: ReadonlyMap<
 ]);
 
 const ONE = new ValuationDecimal(1);
+
+/**
+ * How far back a benchmark close or rate still stands for a day it lacks: its
+ * market may be closed on a day the portfolio's markets trade.
+ */
+export const BENCHMARK_CARRY_DAYS = 7;
 
 /**
  * Every window ends at the start of the current day in UTC, the first day with
@@ -114,6 +132,12 @@ export const performanceRangeOf = (
   };
 };
 
+/** The window a benchmark's closes and rates are read over, so the carry reaches before it. */
+export const benchmarkRangeOf = ({ from, to }: PriceRange): PriceRange => ({
+  from: new Date(from.getTime() - BENCHMARK_CARRY_DAYS * MILLISECONDS_PER_DAY),
+  to
+});
+
 const priceByDayOf = (prices: ReadonlyArray<DailyPrice>) =>
   new Map(
     prices.map(({ timestamp, price }) => [
@@ -147,40 +171,131 @@ const cashFlowOf = ({
   return traded.sub(charges).neg();
 };
 
-const returnsOf = (
-  closes: ReadonlyArray<DailyPrice>
+/** The latest price on or before each of the ascending `days`, within the carry. */
+const carriedPricesOf = (
+  prices: ReadonlyArray<DailyPrice>,
+  days: ReadonlyArray<number>
+): Array<string | undefined> => {
+  const byDay = prices
+    .map(({ timestamp, price }) => ({
+      day: startOfDayInUtc(timestamp).getTime(),
+      price
+    }))
+    .toSorted((a, b) => a.day - b.day);
+  const carry = BENCHMARK_CARRY_DAYS * MILLISECONDS_PER_DAY;
+  let next = 0;
+  let latest: (typeof byDay)[number] | undefined;
+
+  return days.map((day) => {
+    while (next < byDay.length && byDay[next].day <= day)
+      latest = byDay[next++];
+
+    return latest !== undefined && day - latest.day <= carry
+      ? latest.price
+      : undefined;
+  });
+};
+
+/**
+ * The benchmark's price return in the base currency, on the portfolio's own
+ * points: its close times its rate to the base currency, each the latest within
+ * the carry, over the same on the portfolio's first point. Without both on that
+ * first point there is no common start, and the series is empty; a later point
+ * without them is left out.
+ */
+const benchmarkReturnsOf = (
+  { closes, currency }: QuotedInstrument,
+  baseCurrency: string,
+  ratesByCurrency: ReadonlyMap<string, ReadonlyArray<DailyPrice>>,
+  days: ReadonlyArray<number>
 ): Array<BenchmarkPoint> => {
-  const [first] = closes;
+  const carriedCloses = carriedPricesOf(closes, days);
+  const carriedRates =
+    currency === baseCurrency
+      ? days.map(() => '1')
+      : carriedPricesOf(
+          (currency !== null && ratesByCurrency.get(currency)) || [],
+          days
+        );
 
-  if (first === undefined) return [];
+  const valued = days.map((day, index) => {
+    const close = carriedCloses[index];
+    const rate = carriedRates[index];
 
-  const opening = new ValuationDecimal(first.price);
+    return close === undefined || rate === undefined
+      ? null
+      : { day, close, value: new ValuationDecimal(close).mul(rate) };
+  });
+  const opening = valued.at(0);
 
-  return opening.isZero()
-    ? []
-    : closes.map(({ timestamp, price }) => ({
-        date: startOfDayInUtc(timestamp),
-        close: price,
-        twr: truncateToColumnScale(
-          new ValuationDecimal(price).div(opening).sub(ONE)
-        ).toFixed()
-      }));
+  if (!opening || opening.value.isZero()) return [];
+
+  return valued.flatMap((point) =>
+    point === null
+      ? []
+      : [
+          {
+            date: new Date(point.day),
+            close: point.close,
+            twr: truncateToColumnScale(
+              point.value.div(opening.value).sub(ONE)
+            ).toFixed()
+          }
+        ]
+  );
+};
+
+const summaryOf = (
+  series: ReadonlyArray<PerformancePoint>
+): PerformanceSummary | undefined => {
+  const [first, ...rest] = series;
+  const last = series.at(-1);
+
+  if (first === undefined || last === undefined) return undefined;
+
+  const opening = new ValuationDecimal(first.value);
+  const valueChange = new ValuationDecimal(last.value).sub(opening);
+
+  return {
+    valueChange: truncateToColumnScale(valueChange).toFixed(),
+    ...(!opening.isZero() && {
+      valueChangePercent: truncateToColumnScale(
+        valueChange.div(opening)
+      ).toFixed()
+    }),
+    netContribution: truncateToColumnScale(
+      rest.reduce(
+        (sum, { netContribution }) => sum.add(netContribution),
+        new ValuationDecimal(0)
+      )
+    ).toFixed(),
+    twr: last.twr
+  };
 };
 
 /**
  * The portfolio valued at the close of each trading day of the range, in
  * `baseCurrency`, and what it returned. A day is a point only when every
- * position held that day, and every transaction executed on it, has a close and
- * a rate to the base currency: a partial day would answer a smaller portfolio
- * as if it had lost value. Positions are replayed from the ledger at each day,
- * so a transaction recorded retroactively moves the whole series it precedes.
+ * position held that day, and every transaction executed since the previous
+ * point, has a close and a rate to the base currency: a partial day would
+ * answer a smaller portfolio as if it had lost value. Positions are replayed
+ * from the ledger at each day, so a transaction recorded retroactively moves
+ * the whole series it precedes.
+ *
+ * `netContribution` is the money put in or taken out since the previous point,
+ * or since the start of the range for the first one, at the point's rates, so
+ * a transaction executed on a day left out, or on a day without trading, still
+ * counts once and never as a gain.
  *
  * `twr` is the time-weighted return accumulated from the first point, chaining
- * each day's `(value − netContribution) ÷ previous value`, so money put in or
- * taken out on a day does not count as a gain and the series compares with the
- * benchmark, whose `twr` is its close over its first close in the range. A gap
- * in the days makes the next return span the gap. Every amount is truncated
- * towards zero at the column scale.
+ * each point's `(value − netContribution) ÷ previous value`. A gap in the days
+ * makes the next return span the gap. Every amount is truncated towards zero
+ * at the column scale.
+ *
+ * `summary` spans the first point to the last: the change in value, which
+ * includes the money put in or taken out after the first point, that money,
+ * and the return over the period. The change is a fraction of the first value
+ * only when that value is not zero.
  */
 export const trackPortfolioPerformance = ({
   baseCurrency,
@@ -266,14 +381,14 @@ export const trackPortfolioPerformance = ({
     ...new Set(ledger.map(({ instrumentId }) => instrumentId))
   ];
 
-  const valuationOn = (day: number) => {
+  const valuationOn = (day: number, flowsSince: number) => {
     const closedAt = day + MILLISECONDS_PER_DAY;
     const upToDay = ledger.filter(
       ({ executedAt }) => executedAt.getTime() < closedAt
     );
     const netContribution = contributionOn(
       day,
-      upToDay.filter(({ executedAt }) => executedAt.getTime() >= day)
+      upToDay.filter(({ executedAt }) => executedAt.getTime() >= flowsSince)
     );
 
     if (netContribution === null) return null;
@@ -299,12 +414,13 @@ export const trackPortfolioPerformance = ({
 
   const series: Array<PerformancePoint> = [];
   let previousValue: Prisma.Decimal | null = null;
+  let flowsSince = range.from.getTime();
   let growth = ONE;
 
   for (const day of tradingDaysOf(
     [...instruments.values()].map(({ closes }) => closes)
   )) {
-    const valuation = valuationOn(day);
+    const valuation = valuationOn(day, flowsSince);
 
     if (valuation === null) continue;
 
@@ -315,6 +431,7 @@ export const trackPortfolioPerformance = ({
         ? growth
         : growth.mul(value.sub(netContribution).div(previousValue));
     previousValue = value;
+    flowsSince = day + MILLISECONDS_PER_DAY;
 
     series.push({
       date: new Date(day),
@@ -325,16 +442,25 @@ export const trackPortfolioPerformance = ({
     });
   }
 
+  const summary = summaryOf(series);
+
   return {
     baseCurrency,
     from: range.from,
     to: range.to,
     series,
+    ...(summary && { summary }),
     ...(benchmark && {
       benchmark: {
         symbol: benchmark.symbol,
+        name: benchmark.name,
         currency: benchmark.currency,
-        series: returnsOf(benchmark.closes)
+        series: benchmarkReturnsOf(
+          benchmark,
+          baseCurrency,
+          ratesByCurrency,
+          series.map(({ date }) => date.getTime())
+        )
       }
     })
   };
