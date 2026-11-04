@@ -72,7 +72,11 @@ visible while the requested one loads: paginating, sorting or switching period
 remains **one** request per parameter change, not two. The placeholder applies
 within the same portfolio only (`partialMatchKey` against
 `['portfolio', id]`), so switching the active portfolio shows the loading
-state, never the previous one's numbers.
+state, never the previous one's numbers. The chosen portfolio itself does not
+wait: while `GET /v1/portfolio` confirms it, `useActivePortfolio` shows it as a
+cached `['portfolios', 'page', …]` lists it (`listedPortfolioOf`), so the header
+and the switcher stay mounted, focus included, and its sections start loading at
+once.
 
 Creating, editing or deleting a portfolio invalidates `['portfolios']`; editing
 also invalidates the portfolio scope, because the base currency changes the
@@ -144,6 +148,14 @@ Two deliberate choices:
   no data from one account may survive into the next. It is done on mount, not
   on sign-out, because removing queries that are still observed refetches them
   without a session.
+* **A `QueryClient` per server render, one for the browser's life**
+  (`getQueryClient`, `lib/react-query.ts`). TanStack Query never collects a
+  query on the server (its `gcTime` defaults to `Infinity` there), and until
+  2026-10-30 the client was a module singleton: every server render added its
+  visitor's query keys to one cache that lived as long as the process, and a
+  cache written during one request would have reached the next visitor. No
+  query fetches during a server render today, so no data leaked; the memory
+  grew all the same.
 
 ## Request and integration audit — 2026-09-24
 
@@ -155,7 +167,7 @@ the response.
 
 | Write | Optimistic | Reason |
 | --- | --- | --- |
-| Profile name | Yes | The form validates by the same rule as the API, so refusal is rare, and renaming again undoes it. The name changes in the navigation and in the form on submit; a failure restores the previous name and revalidates `['user']`, because a timeout may have saved the new one; the error appears in the form |
+| Profile names | Yes | The form validates by the same rule as the API, so refusal is rare, and renaming again undoes it. The first and last names change in the form, and the full name they make in the navigation, on submit; a failure restores the previous names and revalidates `['user']`, because a timeout may have saved the new one; the error appears in the form |
 | Password | No | Changing the password ends the session on the server (`sessionVersion`); there is no interface state to anticipate |
 | Create, edit and delete a transaction | No | The ledger is validated on the server — a sale above the units held on the date, a single currency per position, a position within the supported range — and every write recomputes position, average cost and performance on the server. Anticipating would show numbers the API may refuse or compute differently |
 | Create an asset | No | The server resolves the instrument, and the private one from the provider's listing; the row depends on a quote the client does not have |
@@ -224,13 +236,14 @@ performance endpoint shows that sort in a measured p95.
 ### Redis: adoption criteria
 
 Not adopted. Everything a shared cache would solve today is solved in the
-process's memory, because the cost it avoids — a provider call, a rate-limit
-count — is per instance and has not been measured yet. It starts to pay off
-when at least one of these is measured:
+process's memory, because the cost it avoids, a provider call, is per instance
+and has not been measured yet. Rate limit counters moved to Postgres, which the
+application already requires, to hold across instances (TD-006; see
+[`security.md`](security.md#rate-limiting)). It starts to pay off when at least
+one of these is measured:
 
-* **Rate limiting across instances (TD-006).** With more than one instance
-  serving traffic, the effective limit is the budget times the number of
-  instances. If that stops being acceptable, the counters need a shared store.
+* **Rate limit writes.** If the write each request adds to `rate_limit_counters`
+  shows up in a measured p95, or as contention on that table.
 * **Provider quota.** If measured plan consumption (TD-020) shows the same
   quote or history window being requested by several instances, or again after
   every cold start, to the point of threatening the quota.

@@ -190,7 +190,7 @@ const PeriodSummary: FC<
  * view reads the money, contributions included; the return view reads the
  * time-weighted return, which leaves them out, against the benchmark's.
  */
-const PerformanceSeries: FC<PerformanceSeriesProps> = ({
+export const PerformanceSeries: FC<PerformanceSeriesProps> = ({
   series,
   baseCurrency,
   summary,

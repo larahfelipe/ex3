@@ -1,10 +1,12 @@
+import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
 
-import { envs, Errors, RateLimits, UserMessages } from '@/config';
+import { envs, Errors, ProxyHeaders, RateLimits, UserMessages } from '@/config';
 import type { User } from '@/domain/models';
 import { Bcrypt } from '@/infra/cryptography';
+import { UserRepository } from '@/infra/database';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 import { apiRequest, bearer, signIn } from '@/test/ApiClient';
 import {
@@ -13,6 +15,7 @@ import {
   createTransaction,
   createUser,
   FIXTURE_PASSWORD,
+  FIXTURE_USER_EMAIL,
   seedPortfolio
 } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
@@ -29,6 +32,9 @@ const AUTHENTICATED_ROUTE = '/v1/portfolios';
 
 /** Mirrors the name `CreateUserService` gives the portfolio every account starts with. */
 const FIRST_PORTFOLIO_NAME = 'Main';
+
+/** `PersonNameSchema` bounds each of a person's names to this many characters. */
+const PERSON_NAME_MAX_LENGTH = 255;
 
 /** `CreatePortfolioSchema` bounds a portfolio name to this many characters. */
 const PORTFOLIO_NAME_MAX_LENGTH = 60;
@@ -63,13 +69,30 @@ const distinctCharacters = (firstCodePoint: number, count: number) =>
 const EXPIRED_AT_EPOCH_SECONDS = 1;
 
 const NEW_USER = {
-  name: 'Newcomer',
+  firstName: 'Maria Clara',
+  lastName: 'da Silva',
   email: 'newcomer@ex3.app',
   password: 'onboarding-password',
   baseCurrency: 'USD'
 };
 
 const REPLACEMENT_PASSWORD = 'replacement-password';
+
+/** Below any cost `BCRYPT_SALT` accepts, as a digest stored before the cost was raised would be. */
+const LEGACY_BCRYPT_COST = 4;
+
+/** Interleaved pairs, so a change in machine load falls on both branches alike. */
+const TIMING_SAMPLES = 15;
+
+/**
+ * Generous on purpose: verifying a digest at the minimum cost takes tens of
+ * milliseconds, so a branch that skipped it would answer in a fraction of the
+ * other's time, far below this ratio, while scheduling noise stays above it.
+ */
+const MIN_TIMING_RATIO = 0.6;
+
+/** A documentation range (RFC 5737): one address per attempt keeps every budget out of the measurement. */
+const TIMING_NETWORK = '198.51.100';
 
 type HttpMethod = 'get' | 'post' | 'patch' | 'delete';
 
@@ -104,6 +127,17 @@ const PROTECTED_ROUTES: ReadonlyArray<readonly [HttpMethod, string]> = [
 ];
 
 const prismaClient = PrismaClient.getInstance();
+
+const median = (samples: ReadonlyArray<number>) =>
+  [...samples].sort((a, b) => a - b)[Math.floor(samples.length / 2)] ?? NaN;
+
+const elapsedMs = async (operation: () => PromiseLike<unknown>) => {
+  const startedAt = performance.now();
+
+  await operation();
+
+  return performance.now() - startedAt;
+};
 
 const signToken = (payload: object, secret = envs.jwtSecret) =>
   jwt.sign(payload, secret, { noTimestamp: true });
@@ -163,6 +197,73 @@ describe('authentication', () => {
         ),
         [{ name: FIRST_PORTFOLIO_NAME, baseCurrency: NEW_USER.baseCurrency }]
       );
+    });
+
+    it('stores the first and last names, trimmed, and the full name they make', async () => {
+      const res = await client.post(SIGN_UP_ROUTE).send({
+        ...NEW_USER,
+        firstName: ' Maria Clara ',
+        lastName: 'da Silva '
+      });
+
+      assert.equal(res.status, 201);
+      assert.equal(res.body.user.firstName, 'Maria Clara');
+      assert.equal(res.body.user.lastName, 'da Silva');
+      assert.equal(res.body.user.name, 'Maria Clara da Silva');
+
+      const stored = await prismaClient.user.findUniqueOrThrow({
+        where: { email: NEW_USER.email }
+      });
+
+      assert.equal(stored.firstName, 'Maria Clara');
+      assert.equal(stored.lastName, 'da Silva');
+      assert.equal(stored.name, 'Maria Clara da Silva');
+    });
+
+    it('takes the first name alone as the full name when no last name is given', async () => {
+      for (const [email, lastName] of [
+        ['no-last-name@ex3.app', undefined],
+        ['blank-last-name@ex3.app', '  ']
+      ] as const) {
+        const res = await client
+          .post(SIGN_UP_ROUTE)
+          .send({ ...NEW_USER, email, lastName });
+
+        assert.equal(res.status, 201, email);
+        assert.equal(res.body.user.lastName, null, email);
+        assert.equal(res.body.user.name, NEW_USER.firstName, email);
+      }
+    });
+
+    it('creates an account given no name without a full name, not an empty one', async () => {
+      const { firstName, lastName, ...unnamed } = NEW_USER;
+      const res = await client.post(SIGN_UP_ROUTE).send(unnamed);
+
+      assert.equal(res.status, 201);
+      assert.equal(res.body.user.firstName, null);
+      assert.equal(res.body.user.lastName, null);
+      assert.equal(res.body.user.name, null);
+    });
+
+    it('rejects a blank or overlong name and creates nothing', async () => {
+      for (const names of [
+        { firstName: '' },
+        { firstName: '   ' },
+        { firstName: 'x'.repeat(PERSON_NAME_MAX_LENGTH + 1) },
+        { lastName: 'x'.repeat(PERSON_NAME_MAX_LENGTH + 1) }
+      ]) {
+        const res = await client
+          .post(SIGN_UP_ROUTE)
+          .send({ ...NEW_USER, ...names });
+
+        assert.equal(
+          res.status,
+          Errors.VALIDATION.status,
+          JSON.stringify(names)
+        );
+      }
+
+      assert.equal(await prismaClient.user.count(), 0);
     });
 
     it('names the first portfolio as the sign-up asks, trimmed', async () => {
@@ -419,8 +520,9 @@ describe('authentication', () => {
     });
 
     /**
-     * Response time is too noisy to assert on; one bcrypt verification per
-     * attempt is the deterministic evidence that both branches do equal work.
+     * One bcrypt verification per attempt, at one cost, is the deterministic
+     * evidence that both branches do equal work; the timing test below only
+     * catches a difference large enough to stand out of the noise.
      */
     it('verifies a password even when the email is unknown', async (t) => {
       const compare = t.mock.method(
@@ -434,6 +536,129 @@ describe('authentication', () => {
 
       assert.equal(res.status, Errors.AUTHENTICATION.status);
       assert.equal(compare.mock.callCount(), 1);
+    });
+
+    it('verifies an unknown email against a digest of the configured cost', async (t) => {
+      const compare = t.mock.method(
+        Bcrypt.getInstance(envs.bcryptSalt),
+        'compare'
+      );
+
+      await client
+        .post(SIGN_IN_ROUTE)
+        .send({ email: 'nobody@ex3.app', password: FIXTURE_PASSWORD });
+
+      const [, digest] = compare.mock.calls[0]?.arguments ?? [];
+
+      assert.equal(bcrypt.getRounds(String(digest)), envs.bcryptSalt);
+    });
+
+    it('answers an unknown email about as fast as a wrong password', async () => {
+      const { user } = await seedPortfolio();
+      const attempt = (email: string, sample: number) => {
+        assert.ok(
+          envs.apiProxySecret,
+          'API_PROXY_SECRET must be set for tests'
+        );
+
+        return client
+          .post(SIGN_IN_ROUTE)
+          .set({
+            [ProxyHeaders.CLIENT_ADDRESS]: `${TIMING_NETWORK}.${sample + 1}`,
+            [ProxyHeaders.PROXY_SECRET]: envs.apiProxySecret
+          })
+          .send({ email, password: `${FIXTURE_PASSWORD}-wrong` });
+      };
+
+      await attempt(user.email, 0);
+      await attempt('nobody@ex3.app', 0);
+
+      const wrongPassword: number[] = [];
+      const unknownEmail: number[] = [];
+
+      for (let sample = 1; sample <= TIMING_SAMPLES; sample += 1) {
+        wrongPassword.push(await elapsedMs(() => attempt(user.email, sample)));
+        unknownEmail.push(
+          await elapsedMs(() => attempt('nobody@ex3.app', sample))
+        );
+      }
+
+      const medians = [median(wrongPassword), median(unknownEmail)];
+      const [faster = NaN, slower = NaN] = [...medians].sort((a, b) => a - b);
+
+      assert.ok(
+        faster / slower >= MIN_TIMING_RATIO,
+        `median ${medians.map((ms) => `${ms.toFixed(1)}ms`).join(' for a wrong password, ')} for an unknown email`
+      );
+    });
+
+    it('rehashes a digest of another cost at the configured one once the password verifies', async () => {
+      const user = await prismaClient.user.create({
+        data: {
+          email: 'legacy@ex3.app',
+          password: await bcrypt.hash(FIXTURE_PASSWORD, LEGACY_BCRYPT_COST)
+        }
+      });
+
+      await signIn({ email: user.email, password: FIXTURE_PASSWORD });
+
+      const { password } = await prismaClient.user.findUniqueOrThrow({
+        where: { id: user.id }
+      });
+
+      assert.equal(bcrypt.getRounds(password), envs.bcryptSalt);
+      assert.ok(await bcrypt.compare(FIXTURE_PASSWORD, password));
+    });
+
+    it('keeps a digest of another cost while the password does not verify', async () => {
+      const legacyDigest = await bcrypt.hash(
+        FIXTURE_PASSWORD,
+        LEGACY_BCRYPT_COST
+      );
+      const user = await prismaClient.user.create({
+        data: { email: 'legacy@ex3.app', password: legacyDigest }
+      });
+
+      const res = await client
+        .post(SIGN_IN_ROUTE)
+        .send({ email: user.email, password: `${FIXTURE_PASSWORD}-wrong` });
+
+      const { password } = await prismaClient.user.findUniqueOrThrow({
+        where: { id: user.id }
+      });
+
+      assert.equal(res.status, Errors.AUTHENTICATION.status);
+      assert.equal(password, legacyDigest);
+    });
+
+    it('does not rehash over a password changed since the sign-in verified it', async () => {
+      const legacyDigest = await bcrypt.hash(
+        FIXTURE_PASSWORD,
+        LEGACY_BCRYPT_COST
+      );
+      const user = await prismaClient.user.create({
+        data: { email: 'legacy@ex3.app', password: legacyDigest }
+      });
+      const changedDigest = await bcrypt.hash(
+        REPLACEMENT_PASSWORD,
+        envs.bcryptSalt
+      );
+
+      await prismaClient.user.update({
+        where: { id: user.id },
+        data: { password: changedDigest }
+      });
+      await UserRepository.getInstance().rehashPassword(
+        user.id,
+        legacyDigest,
+        FIXTURE_PASSWORD
+      );
+
+      const { password } = await prismaClient.user.findUniqueOrThrow({
+        where: { id: user.id }
+      });
+
+      assert.equal(password, changedDigest);
     });
 
     it('does not count successful sign-ins against the account', async () => {
@@ -794,10 +1019,112 @@ describe('authentication', () => {
         user: {
           id: stored.id,
           name: stored.name,
+          firstName: stored.firstName,
+          lastName: stored.lastName,
           email: stored.email,
           createdAt: stored.createdAt.toISOString(),
           updatedAt: stored.updatedAt.toISOString()
         }
+      });
+    });
+  });
+
+  describe('name change', () => {
+    const signInFixtureUser = async () => {
+      const { user } = await seedPortfolio();
+
+      return signIn({ email: user.email, password: FIXTURE_PASSWORD });
+    };
+
+    const changeNames = async (accessToken: string, names: object) =>
+      client.patch(ACCOUNT_ROUTE).set(bearer(accessToken)).send(names);
+
+    const storedNames = async () =>
+      prismaClient.user.findUniqueOrThrow({
+        where: { email: FIXTURE_USER_EMAIL },
+        select: { name: true, firstName: true, lastName: true }
+      });
+
+    it('replaces both names and the full name, and keeps the session', async () => {
+      const accessToken = await signInFixtureUser();
+
+      const res = await changeNames(accessToken, {
+        firstName: ' Ana ',
+        lastName: ' Lima'
+      });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.message, UserMessages.UPDATED);
+      assert.equal(res.body.user.name, 'Ana Lima');
+      assert.equal(res.body.user.firstName, 'Ana');
+      assert.equal(res.body.user.lastName, 'Lima');
+      assert.deepEqual(await storedNames(), {
+        name: 'Ana Lima',
+        firstName: 'Ana',
+        lastName: 'Lima'
+      });
+
+      const scoped = await client
+        .get(AUTHENTICATED_ROUTE)
+        .set(bearer(accessToken));
+
+      assert.equal(scoped.status, 200);
+    });
+
+    it('keeps the name it is not given', async () => {
+      const accessToken = await signInFixtureUser();
+
+      await changeNames(accessToken, { lastName: 'Lima' });
+
+      assert.deepEqual(await storedNames(), {
+        name: 'Fixture Lima',
+        firstName: 'Fixture',
+        lastName: 'Lima'
+      });
+    });
+
+    it('clears an empty last name, leaving the first name as the full name', async () => {
+      const accessToken = await signInFixtureUser();
+
+      const res = await changeNames(accessToken, {
+        firstName: 'Fixture',
+        lastName: ''
+      });
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(await storedNames(), {
+        name: 'Fixture',
+        firstName: 'Fixture',
+        lastName: null
+      });
+    });
+
+    it('rejects a blank first name and keeps the stored names', async () => {
+      const accessToken = await signInFixtureUser();
+
+      const res = await changeNames(accessToken, {
+        firstName: ' ',
+        lastName: 'Lima'
+      });
+
+      assert.equal(res.status, Errors.VALIDATION.status);
+      assert.deepEqual(await storedNames(), {
+        name: 'Fixture Holder',
+        firstName: 'Fixture',
+        lastName: 'Holder'
+      });
+    });
+
+    it('leaves the names alone when the change carries none', async () => {
+      const accessToken = await signInFixtureUser();
+
+      const res = await changeNames(accessToken, {});
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(await storedNames(), {
+        name: 'Fixture Holder',
+        firstName: 'Fixture',
+        lastName: 'Holder'
       });
     });
   });

@@ -4,6 +4,7 @@ export default {
   appDescription: 'EX3: investments and personal finances',
   skipToContent: 'Skip to content',
   main: 'Main navigation',
+  brand: '{title}, overview',
   overview: 'Overview',
   assets: 'Assets',
   portfolios: 'Portfolios',
@@ -26,6 +27,7 @@ export default {
     calendar: 'Bill calendar',
     reports: 'Financial reports',
     signIn: 'Sign in',
-    signUp: 'Create account'
+    signUp: 'Create account',
+    notFound: 'Page not found'
   }
 } as const satisfies LocaleMessages<Messages['navigation']>;

@@ -31,8 +31,9 @@ browser ──▶ web                                  ──▶ backend        
 
 The browser never talks to the backend. Every request goes through the Route
 Handlers in `web/src/app/api/v1`, which read the JWT from the `httpOnly`
-`ex3:token` cookie and forward it as `Authorization: Bearer`. The backend knows
-nothing about cookies or browser sessions.
+`ex3:token` cookie (`__Host-ex3:token` in production) and forward it as
+`Authorization: Bearer`. The backend knows nothing about cookies or browser
+sessions.
 
 In the backend, each layer depends only on the one below it: `routes` declares
 the HTTP contract, `services` orchestrates the use case and the database
@@ -136,6 +137,11 @@ required when `NODE_ENV=production`: with it the web attests to the API the
 address of whoever signs in or signs up, and throttling counts per browser
 rather than per web server. In development it may be left blank on both sides.
 
+`TURNSTILE_SECRET_KEY`, in the backend, and `TURNSTILE_SITE_KEY`, in the web, are
+a Cloudflare Turnstile pair guarding sign-in and sign-up. Production requires
+both and refuses Cloudflare's test secrets; in development, leaving both blank
+turns the challenge off. See [`docs/security.md`](docs/security.md#bot-challenge).
+
 The backend's remaining keys have defaults: `NODE_ENV=development`, `PORT=8080`,
 `BCRYPT_SALT=12` (minimum 10), `JWT_EXPIRATION=1d` (a positive integer followed
 by `s`, `m`, `h` or `d`, at most `30d`) and `DIRECT_URL`, which only the Prisma
@@ -219,7 +225,9 @@ a container environment variable; the Next server reads it at runtime, and it
 never reaches the client bundle. `API_PROXY_SECRET` is an environment variable
 of both services in production, preferably from a secret manager and never a
 build arg, because an image would keep it in its layers. The backend does not
-start in production without it. The repository neither builds nor publishes an
+start in production without it. `TURNSTILE_SECRET_KEY` follows the same rule, and
+`TURNSTILE_SITE_KEY`, though public, is read at runtime rather than built in. The
+repository neither builds nor publishes an
 image: building, publishing and configuring the service that runs them —
 variables, `GET /ready` and `GET /health` probes — live outside it (TD-060).
 

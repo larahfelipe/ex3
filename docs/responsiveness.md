@@ -47,7 +47,7 @@ already stacked, never the navigation.
 
 | Region | Behaviour |
 | --- | --- |
-| Navigation | Bar fixed at the bottom, height `--navigation-bar` (3.75 rem), four 44 px targets spread across it — overview, assets, account and sign out —, `sr-only` label, brand hidden |
+| Navigation | Bar fixed at the bottom, height `--navigation-bar` (3.75 rem), four 44 px targets spread across it — overview, assets, account and sign out —, `sr-only` label, brand hidden — the first tab is the Overview, where the brand leads |
 | Page shell | `<main>` with `pb-(--navigation-bar)` so it does not sit under the bar; the container in `(protected)/layout.tsx`, shared by every page, gives 16 px of side padding (`px-4`) and 32 px of vertical padding (`py-8`) |
 | Dashboard | A single stack: portfolio value, performance chart, allocation, positions summary, recorded income, recent transactions |
 | Allocation | Container below 448 px: ring above, legend below, in a column |
@@ -64,7 +64,7 @@ already stacked, never the navigation.
 
 | Region | Behaviour |
 | --- | --- |
-| Navigation | Rail fixed on the left, `--navigation-rail` (10 rem), label visible, brand visible; `<main>` offset by `ml-(--navigation-rail)` |
+| Navigation | Rail sticky on the left, `--navigation-rail` (5 rem), label visible, brand visible as a link to the Overview; `<main>` beside it, in the layout's flex row |
 | Usable width | 640 px of content, with 24 px of side padding (`sm:px-6`) |
 | Dashboard | Still a single stack — the grid only splits at 1280 px |
 | Allocation | Container above 448 px: past `@md`, ring and legend side by side |

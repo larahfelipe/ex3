@@ -5,7 +5,6 @@ export default {
   profile: {
     title: 'Perfil',
     description: 'Seu nome e o e-mail com que você entra',
-    name: 'Nome',
     email: 'E-mail',
     saved: 'Perfil atualizado'
   },

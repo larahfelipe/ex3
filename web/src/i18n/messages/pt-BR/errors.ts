@@ -51,6 +51,10 @@ export default {
     invalidEmail: 'Informe um e-mail válido.',
     passwordDerivedFromEmail:
       'A senha não pode conter a parte do e-mail antes do @.',
+    challengeFailed:
+      'Não conseguimos confirmar que você é uma pessoa. Tente novamente.',
+    challengeUnavailable:
+      'A verificação está indisponível no momento. Tente novamente mais tarde.',
     expenseNotFound: 'Conta não encontrada.',
     paymentNotFound: 'Pagamento não encontrado para esta conta.',
     installmentPlanNotFound: 'Parcelamento não encontrado.',

@@ -18,11 +18,17 @@ const pageNavigation = (page: number, detail?: string) =>
   );
 
 describe('page navigation', () => {
-  it('names the steps and the position', () => {
+  it('names the position, and each step by its label alone', () => {
     const markup = pageNavigation(2);
 
     assert.match(markup, /aria-label="Páginas de contas"/);
-    assert.equal(textOf(markup), 'AnteriorPágina 2 de 5Próxima');
+    assert.equal(textOf(markup), 'Página 2 de 5');
+    assert.deepEqual(
+      [...markup.matchAll(/<button[^>]*aria-label="([^"]+)"/g)].map(
+        ([, stepLabel]) => stepLabel
+      ),
+      ['Página anterior', 'Próxima página']
+    );
   });
 
   it('adds the range shown to the position', () => {

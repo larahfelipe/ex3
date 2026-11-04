@@ -141,7 +141,7 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
     control,
     handleSubmit,
     setError,
-    formState: { isSubmitting }
+    formState: { isDirty, isSubmitting }
   } = methods;
 
   const currency = useWatch({ control, name: 'currency' });
@@ -174,7 +174,7 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl" hasUnsavedChanges={isDirty}>
         <DialogHeader>
           <DialogTitle>
             {target.kind === 'create' ? t('addTitle') : t('editTitle')}

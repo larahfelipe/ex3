@@ -255,7 +255,7 @@ export const PaymentFormDialog: FC<PaymentFormDialogProps> = ({
     handleSubmit,
     setError,
     setFocus,
-    formState: { errors, isSubmitting }
+    formState: { errors, isDirty, isSubmitting }
   } = methods;
 
   const { field: methodField } = useController({ name: 'method', control });
@@ -284,7 +284,7 @@ export const PaymentFormDialog: FC<PaymentFormDialogProps> = ({
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl" hasUnsavedChanges={isDirty}>
         <DialogHeader>
           <DialogTitle className="wrap-anywhere">
             {target.kind === 'record'

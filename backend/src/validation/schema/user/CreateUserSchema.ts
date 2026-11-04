@@ -5,10 +5,12 @@ import { isDerivedFromEmail } from '@/domain/PasswordPolicy';
 
 import { CreatePortfolioSchema } from '../portfolio/CreatePortfolioSchema';
 import { NewPasswordSchema } from './PasswordSchema';
+import { FirstNameSchema, LastNameSchema } from './PersonNameSchema';
 
 export const CreateUserSchema = z
   .object({
-    name: z.string().optional(),
+    firstName: FirstNameSchema.optional(),
+    lastName: LastNameSchema.optional(),
     email: z
       .email('Email must be a valid email')
       .min(3, 'Email must have at least 3 characters')

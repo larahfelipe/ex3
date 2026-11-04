@@ -74,11 +74,13 @@ const MarketDataNotice: FC<MarketDataNoticeProps> = ({
       <div className="space-y-2">
         {isIncomplete && (
           <p className="font-medium">
-            {t('incomplete', {
-              valued: valuedPositionCount,
-              held: heldPositionCount,
-              currency: baseCurrency
-            })}
+            {valuedPositionCount < heldPositionCount
+              ? t('incomplete', {
+                  valued: valuedPositionCount,
+                  held: heldPositionCount,
+                  currency: baseCurrency
+                })
+              : t('costUnconverted', { currency: baseCurrency })}
           </p>
         )}
 

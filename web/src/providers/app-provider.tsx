@@ -17,14 +17,16 @@ import { Toaster } from '@/components/toaster';
 import { Button } from '@/components/ui';
 import type { Locale } from '@/i18n/config';
 import type { Messages } from '@/i18n/messages/catalog';
-import { queryClient } from '@/lib/react-query';
+import { getQueryClient } from '@/lib/react-query';
 import type { Children } from '@/types';
 
 import { LocaleProvider } from './locale-provider';
+import { NonceProvider } from './nonce-provider';
 
 type AppProviderProps = Children &
   Record<'locale', Locale> &
-  Record<'messages', Messages>;
+  Record<'messages', Messages> &
+  Record<'nonce', string | undefined>;
 
 type FallbackContentProps = {
   error?: unknown;
@@ -75,31 +77,39 @@ const FallbackContent: FC<FallbackContentProps> = ({
 export const AppProvider: FC<AppProviderProps> = ({
   locale,
   messages,
+  nonce,
   children
 }) => (
-  <LocaleProvider locale={locale} messages={messages}>
-    <QueryClientProvider client={queryClient}>
-      <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-right" />
+  <NonceProvider nonce={nonce}>
+    <LocaleProvider locale={locale} messages={messages}>
+      <QueryClientProvider client={getQueryClient()}>
+        <ReactQueryDevtools
+          initialIsOpen={false}
+          buttonPosition="bottom-right"
+          styleNonce={nonce}
+        />
 
-      <AppProgressBar
-        shallowRouting
-        height="3px"
-        color="hsl(var(--primary))"
-        options={{ showSpinner: false }}
-      />
+        <AppProgressBar
+          shallowRouting
+          height="3px"
+          color="hsl(var(--primary))"
+          options={{ showSpinner: false }}
+          nonce={nonce}
+        />
 
-      <Toaster />
+        <Toaster />
 
-      <QueryErrorResetBoundary>
-        {({ reset }) => (
-          <ErrorBoundary
-            onReset={reset}
-            fallbackRender={(props) => <FallbackContent {...props} />}
-          >
-            <Suspense fallback={<FallbackContent />}>{children}</Suspense>
-          </ErrorBoundary>
-        )}
-      </QueryErrorResetBoundary>
-    </QueryClientProvider>
-  </LocaleProvider>
+        <QueryErrorResetBoundary>
+          {({ reset }) => (
+            <ErrorBoundary
+              onReset={reset}
+              fallbackRender={(props) => <FallbackContent {...props} />}
+            >
+              <Suspense fallback={<FallbackContent />}>{children}</Suspense>
+            </ErrorBoundary>
+          )}
+        </QueryErrorResetBoundary>
+      </QueryClientProvider>
+    </LocaleProvider>
+  </NonceProvider>
 );

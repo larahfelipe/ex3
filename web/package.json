@@ -41,6 +41,7 @@
     "clsx": "^2.1.1",
     "dayjs": "1.11.23",
     "framer-motion": "14.7.1",
+    "get-nonce": "1.0.1",
     "lucide-react": "^1.63.0",
     "next": "^16.4.3",
     "next-nprogress-bar": "^2.4.7",

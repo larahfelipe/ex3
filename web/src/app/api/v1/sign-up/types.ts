@@ -3,7 +3,8 @@ import type { WithId, WithMessage, WithTimestamps } from '@/types';
 import type { User, UserProperties } from '../sign-in';
 
 export type SignUpRequestPayload = {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
   portfolioName: string;

@@ -213,6 +213,33 @@ describe('portfolio value', () => {
     assert.match(text, /alguns preços são os últimos recebidos/);
     assert.doesNotMatch(text, /Só foi possível avaliar/);
   });
+
+  it('warns that the latest prices are old even when the totals are complete', () => {
+    const text = renderValue({
+      totalValue: '5000',
+      investedValue: '4000',
+      marketData: { ...COMPLETE, isStale: true }
+    });
+
+    assert.ok(text.includes(nbsp('R$ 5.000,00')));
+    assert.match(text, /mais de quatro dias/);
+    assert.doesNotMatch(text, /Só foi possível avaliar|últimos recebidos/);
+  });
+
+  it('keeps the value of positions all priced when only the rate of a cost is missing', () => {
+    const text = renderValue({
+      totalValue: '5000',
+      marketData: {
+        ...COMPLETE,
+        missingRates: [{ currency: 'USD', reason: 'unavailable' }]
+      }
+    });
+
+    assert.ok(text.includes(nbsp('R$ 5.000,00')));
+    assert.match(text, /Todas as posições puderam ser avaliadas em BRL/);
+    assert.match(text, /câmbio de USD para BRL/);
+    assert.doesNotMatch(text, /Só foi possível avaliar/);
+  });
 });
 
 describe('getting started', () => {

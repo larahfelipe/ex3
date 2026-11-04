@@ -1,0 +1,39 @@
+version: 2
+
+# Weekly, with minor and patch updates grouped into one pull request per
+# package. A release is offered only once it is a week old, so a compromised
+# version that is caught and pulled quickly never reaches a pull request.
+updates:
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: docker
+    directories: [/backend, /web]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

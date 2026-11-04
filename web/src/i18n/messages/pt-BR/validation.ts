@@ -7,6 +7,13 @@ export default {
     required: 'Informe o nome',
     tooLong: 'O nome deve ter no máximo {max, number} caracteres'
   },
+  firstName: {
+    required: 'Informe seu nome',
+    tooLong: 'O nome deve ter no máximo {max, number} caracteres'
+  },
+  lastName: {
+    tooLong: 'O sobrenome deve ter no máximo {max, number} caracteres'
+  },
   password: {
     required: 'Informe a senha',
     currentRequired: 'Informe a senha atual',

@@ -22,6 +22,11 @@ import type {
 } from '@/app/api/v1/user';
 import { APP_ROUTES } from '@/common/constants';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
+import {
+  botChallengeHeaders,
+  type ChallengedRequest
+} from '@/lib/bot-challenge';
+import { fullName } from '@/lib/person-name';
 import { queryKeys } from '@/lib/react-query';
 import type { Maybe } from '@/types';
 
@@ -56,9 +61,12 @@ export const useSignIn = (destination: string) => {
   return useMutation<
     AxiosResponse<SignInResponseData>,
     ApiProxyErrorData,
-    SignInRequestPayload
+    ChallengedRequest<SignInRequestPayload>
   >({
-    mutationFn: (payload) => api.getInstance().post('/v1/sign-in', payload),
+    mutationFn: ({ payload, challengeToken }) =>
+      api.getInstance().post('/v1/sign-in', payload, {
+        headers: botChallengeHeaders(challengeToken)
+      }),
     onSuccess: ({ data: userData }) => {
       toast.success(t('welcome', { name: userData.name ?? userData.email }));
       router.push(destination);
@@ -73,9 +81,12 @@ export const useSignUp = () => {
   return useMutation<
     AxiosResponse<SignUpResponseData>,
     ApiProxyErrorData,
-    SignUpRequestPayload
+    ChallengedRequest<SignUpRequestPayload>
   >({
-    mutationFn: (payload) => api.getInstance().post('/v1/sign-up', payload),
+    mutationFn: ({ payload, challengeToken }) =>
+      api.getInstance().post('/v1/sign-up', payload, {
+        headers: botChallengeHeaders(challengeToken)
+      }),
     onSuccess: ({ data: { user: userData } }) => {
       toast.success(t('welcome', { name: userData.name ?? userData.email }));
       router.push(APP_ROUTES.Protected.Overview);
@@ -115,7 +126,7 @@ export const useUpdateProfile = () => {
     Maybe<CurrentUserResponse>
   >({
     mutationFn: (payload) => api.getInstance().patch('/v1/user', payload),
-    onMutate: async ({ name }) => {
+    onMutate: async ({ firstName, lastName }) => {
       await queryClient.cancelQueries({ queryKey: currentUserKey });
 
       const previousUser =
@@ -124,7 +135,14 @@ export const useUpdateProfile = () => {
       if (previousUser)
         queryClient.setQueryData<CurrentUserResponse>(currentUserKey, {
           ...previousUser,
-          data: { user: { ...previousUser.data.user, name } }
+          data: {
+            user: {
+              ...previousUser.data.user,
+              firstName,
+              lastName: lastName === '' ? null : lastName,
+              name: fullName(firstName, lastName)
+            }
+          }
         });
 
       return previousUser;

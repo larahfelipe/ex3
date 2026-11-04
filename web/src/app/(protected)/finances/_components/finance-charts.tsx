@@ -113,7 +113,7 @@ const ColumnTooltip = <Key extends string>({
     <div
       aria-hidden="true"
       className={cn(
-        'pointer-events-none invisible absolute bottom-full z-10 mb-2 w-max min-w-40 space-y-1 rounded-md border bg-surface-elevated px-3 py-2 text-xs text-surface-elevated-foreground opacity-0 shadow-elevated transition-opacity group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100',
+        'pointer-events-none invisible absolute bottom-full z-10 mb-2 w-max min-w-40 space-y-1 rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground opacity-0 shadow-elevated transition-opacity group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100',
         alignEnd ? 'right-0' : 'left-0'
       )}
     >

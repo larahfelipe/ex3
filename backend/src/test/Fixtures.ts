@@ -51,6 +51,8 @@ export const createUser = async (
   prismaClient.user.create({
     data: {
       name: 'Fixture Holder',
+      firstName: 'Fixture',
+      lastName: 'Holder',
       email: FIXTURE_USER_EMAIL,
       password: await passwordDigest(),
       ...overrides

@@ -13,20 +13,59 @@ import type {
 import type { InstrumentType } from '@/app/api/v1/portfolio';
 import type { TransactionType } from '@/app/api/v1/transactions';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
+/**
+ * A cookie is deleted only by a `Set-Cookie` that repeats these attributes:
+ * browsers drop a `__Host-` cookie sent without `Secure`, the deletion too.
+ */
 export const COOKIE_OPTIONS: Partial<ResponseCookie> = {
   httpOnly: true,
   sameSite: 'strict',
-  secure: process.env.NODE_ENV === 'production'
+  secure: isProduction,
+  path: '/'
 };
 
+/**
+ * A browser keeps a `__Host-` cookie only when this host set it over HTTPS for
+ * every path, so no sibling subdomain or plain-HTTP response can plant or
+ * overwrite the session. Development is served over plain HTTP, where neither
+ * `Secure` nor the prefix can be set.
+ */
+const SESSION_COOKIE_PREFIX = isProduction ? '__Host-' : '';
+
 export const APP_STORAGE_KEYS = {
-  Token: 'ex3:token',
-  Session: 'ex3:session',
+  Token: `${SESSION_COOKIE_PREFIX}ex3:token`,
+  Session: `${SESSION_COOKIE_PREFIX}ex3:session`,
   ActivePortfolio: 'ex3:active-portfolio',
   Navigation: 'ex3:navigation',
   Locale: 'ex3:locale',
   GettingStartedDismissed: 'ex3:getting-started-dismissed'
 };
+
+/**
+ * Sent by the app with every request to its own API routes. Another origin can
+ * add a custom header only after a CORS preflight, which these routes never
+ * grant, so a write without it did not come from the app, even in a browser too
+ * old to send `Sec-Fetch-Site`.
+ */
+export const CSRF_HEADER = { Name: 'x-ex3-csrf', Value: '1' } as const;
+
+/** The request header the proxy hands the response's CSP nonce to the layout in. */
+export const NONCE_HEADER = 'x-nonce';
+
+/**
+ * Mirror of the API's `BotChallenge`: the header a Turnstile token travels in,
+ * Cloudflare's bound on a token's length, and the action each form solves.
+ */
+export const BOT_CHALLENGE = {
+  Header: 'x-bot-challenge',
+  TokenMaxLength: 2048,
+  Actions: { SignIn: 'sign-in', SignUp: 'sign-up' }
+} as const;
+
+export type BotChallengeAction =
+  (typeof BOT_CHALLENGE.Actions)[keyof typeof BOT_CHALLENGE.Actions];
 
 /** How long a preference kept in a cookie, such as the navigation's state or the language, lasts: a year. */
 export const PREFERENCE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;

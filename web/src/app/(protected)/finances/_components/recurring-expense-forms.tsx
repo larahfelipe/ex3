@@ -429,7 +429,7 @@ export const CreateSeriesDialog: FC<
     register,
     handleSubmit,
     setError,
-    formState: { isSubmitting }
+    formState: { isDirty, isSubmitting }
   } = methods;
 
   const currency = useWatch({ control, name: 'currency' });
@@ -453,7 +453,7 @@ export const CreateSeriesDialog: FC<
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl" hasUnsavedChanges={isDirty}>
         <DialogHeader>
           <DialogTitle>{t('addTitle')}</DialogTitle>
 
@@ -566,7 +566,7 @@ export const EditSeriesDialog: FC<
   const {
     handleSubmit,
     setError,
-    formState: { isSubmitting }
+    formState: { isDirty, isSubmitting }
   } = methods;
 
   const { isSaving, submit } = useSubmitter(onSubmit, editPayloadOf, (error) =>
@@ -585,7 +585,7 @@ export const EditSeriesDialog: FC<
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl" hasUnsavedChanges={isDirty}>
         <DialogHeader>
           <DialogTitle>{t('editTitle')}</DialogTitle>
 
@@ -673,7 +673,7 @@ export const StopSeriesDialog: FC<
   const {
     handleSubmit,
     setError,
-    formState: { isSubmitting }
+    formState: { isDirty, isSubmitting }
   } = methods;
 
   const { isSaving, submit } = useSubmitter(
@@ -695,7 +695,7 @@ export const StopSeriesDialog: FC<
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent>
+      <DialogContent hasUnsavedChanges={isDirty}>
         <DialogHeader>
           <DialogTitle className="wrap-anywhere">
             {t('title', { description: series.description })}

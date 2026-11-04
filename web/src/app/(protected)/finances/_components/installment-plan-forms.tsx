@@ -669,7 +669,7 @@ export const CreatePlanDialog: FC<
     trigger,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting }
+    formState: { errors, isDirty, isSubmitting }
   } = methods;
 
   const [currency, amountMode, frequency] = useWatch({
@@ -697,7 +697,7 @@ export const CreatePlanDialog: FC<
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl" hasUnsavedChanges={isDirty}>
         <DialogHeader>
           <DialogTitle>{t('addTitle')}</DialogTitle>
 
@@ -865,7 +865,7 @@ export const EditPlanDialog: FC<
   const {
     handleSubmit,
     setError,
-    formState: { isSubmitting }
+    formState: { isDirty, isSubmitting }
   } = methods;
 
   const { isSaving, submit } = useSubmitter(
@@ -887,7 +887,7 @@ export const EditPlanDialog: FC<
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl" hasUnsavedChanges={isDirty}>
         <DialogHeader>
           <DialogTitle>{t('editTitle')}</DialogTitle>
 
@@ -1001,7 +1001,7 @@ export const ReschedulePlanDialog: FC<
     trigger,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting }
+    formState: { errors, isDirty, isSubmitting }
   } = methods;
 
   const revalidateAmount = () => {
@@ -1027,7 +1027,7 @@ export const ReschedulePlanDialog: FC<
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl" hasUnsavedChanges={isDirty}>
         <DialogHeader>
           <DialogTitle className="wrap-anywhere">
             {t('title', { description: plan.description })}

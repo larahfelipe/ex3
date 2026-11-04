@@ -7,8 +7,6 @@ export default {
     close: 'Fechar',
     delete: 'Excluir',
     edit: 'Editar',
-    next: 'Próxima',
-    previous: 'Anterior',
     refresh: 'Atualizar',
     retry: 'Tentar novamente',
     save: 'Salvar',
@@ -21,6 +19,8 @@ export default {
       'Não foi possível atualizar estes dados, e eles podem estar desatualizados'
   },
   pagination: {
+    previous: 'Página anterior',
+    next: 'Próxima página',
     position: 'Página {page, number} de {totalPages, number}',
     positionWithDetail:
       'Página {page, number} de {totalPages, number} · {detail}'
@@ -33,6 +33,10 @@ export default {
     showPassword: 'Mostrar senha',
     hidePassword: 'Ocultar senha',
     labelInCurrency: '{label}<hidden> em {currency}</hidden>'
+  },
+  personName: {
+    firstName: 'Nome',
+    lastName: 'Sobrenome'
   },
   searchableSelect: {
     search: 'Buscar',
@@ -58,7 +62,15 @@ export default {
   },
   fallback: {
     title: 'Algo deu errado',
+    description:
+      'Não foi possível exibir esta página. Tente novamente; se o problema continuar, volte mais tarde.',
     retry: 'Tentar novamente'
+  },
+  notFound: {
+    title: 'Página não encontrada',
+    description:
+      'O endereço pode estar incorreto, ou a página pode não existir mais.',
+    action: 'Ir para a visão geral'
   },
   language: {
     label: 'Idioma',

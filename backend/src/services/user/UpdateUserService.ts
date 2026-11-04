@@ -1,6 +1,7 @@
 import { UserMessages } from '@/config';
 import type { User } from '@/domain/models';
 import { isDerivedFromEmail } from '@/domain/PasswordPolicy';
+import { personNames } from '@/domain/PersonName';
 import { ValidationError } from '@/errors';
 import type { Bcrypt } from '@/infra/cryptography';
 import type { UserRepository } from '@/infra/database';
@@ -27,7 +28,8 @@ export class UpdateUserService {
 
   async execute({
     user,
-    name,
+    firstName,
+    lastName,
     passwordChange
   }: UpdateUserService.DTO): Promise<UpdateUserService.Result> {
     if (passwordChange) {
@@ -50,7 +52,13 @@ export class UpdateUserService {
 
     const updatedUser = await this.userRepository.update({
       id: user.id,
-      name: name ?? null,
+      names:
+        firstName === undefined && lastName === undefined
+          ? null
+          : personNames(
+              firstName ?? user.firstName,
+              lastName === undefined ? user.lastName : lastName
+            ),
       password: passwordChange?.newPassword ?? null
     });
 
@@ -64,7 +72,8 @@ export class UpdateUserService {
 namespace UpdateUserService {
   export type DTO = {
     user: User;
-    name?: string;
+    firstName?: string;
+    lastName?: string | null;
     passwordChange?: Record<'oldPassword' | 'newPassword', string>;
   };
   export type Result = {

@@ -97,6 +97,7 @@ export const Errors = {
 const ONE_MINUTE_IN_MS = 60_000;
 const FIFTEEN_MINUTES_IN_MS = 15 * ONE_MINUTE_IN_MS;
 const ONE_HOUR_IN_MS = 60 * ONE_MINUTE_IN_MS;
+const ONE_DAY_IN_MS = 24 * ONE_HOUR_IN_MS;
 
 /**
  * Assumed, not measured. Sign-in counts only failed attempts, in three layers:
@@ -105,7 +106,10 @@ const ONE_HOUR_IN_MS = 60 * ONE_MINUTE_IN_MS;
  * who forgot the password meets; and per account across addresses, against
  * guessing spread over many hosts, which is also what an attacker spends to
  * keep someone else's account locked. Each sign-up costs a bcrypt hash and a
- * transaction, so every attempt counts, per address. `ACCOUNT_CHANGE` holds
+ * transaction, so every attempt counts, per address. The daily budgets
+ * escalate per address alone: a host that keeps failing at its short budgets
+ * all day is guessing, not mistyping, while a daily budget per account would
+ * hand an attacker a day-long lockout of someone else. `ACCOUNT_CHANGE` holds
  * the routes that verify the password of a signed-in account to the budget of
  * a single address. `INSTRUMENT_SEARCH` bounds how fast one session can spend
  * the quote provider's request quota: a debounced search box asks a few times
@@ -118,7 +122,9 @@ export const RateLimits = {
     limit: 10
   },
   SIGN_IN_PER_ACCOUNT: { windowMs: ONE_HOUR_IN_MS, limit: 50 },
+  SIGN_IN_PER_ADDRESS_DAILY: { windowMs: ONE_DAY_IN_MS, limit: 150 },
   SIGN_UP_PER_ADDRESS: { windowMs: ONE_HOUR_IN_MS, limit: 10 },
+  SIGN_UP_PER_ADDRESS_DAILY: { windowMs: ONE_DAY_IN_MS, limit: 20 },
   ACCOUNT_CHANGE: { windowMs: FIFTEEN_MINUTES_IN_MS, limit: 10 },
   API: { windowMs: ONE_MINUTE_IN_MS, limit: 120 },
   INSTRUMENT_SEARCH: { windowMs: ONE_MINUTE_IN_MS, limit: 30 }
@@ -131,6 +137,16 @@ export const RateLimits = {
 export const ProxyHeaders = {
   CLIENT_ADDRESS: 'x-client-address',
   PROXY_SECRET: 'x-api-proxy-secret'
+} as const;
+
+/**
+ * The header the web forwards a Turnstile token in, and the action each form
+ * renders its widget with: a token solved for one form is refused by the other.
+ */
+export const BotChallenge = {
+  HEADER: 'x-bot-challenge',
+  SIGN_IN_ACTION: 'sign-in',
+  SIGN_UP_ACTION: 'sign-up'
 } as const;
 
 export const RequestLimits = {
@@ -197,6 +213,9 @@ export const UserMessages = {
   INVALID_CREDENTIALS: 'Invalid email or password',
   PASSWORD_DERIVED_FROM_EMAIL:
     'Password must not contain the part of the email before the @',
+  CHALLENGE_FAILED: 'Human verification failed, please try again',
+  CHALLENGE_UNAVAILABLE:
+    'Human verification is unavailable, please try again later',
   SIGNED_OUT: 'Signed out successfully',
   CREATED: 'User created successfully',
   UPDATED: 'User updated successfully',

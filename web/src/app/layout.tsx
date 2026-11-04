@@ -1,11 +1,13 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { connection } from 'next/server';
 
 import {
   APP_THEME,
   APP_THEME_COLOR,
   APP_TITLE,
-  APP_TITLE_TEMPLATE
+  APP_TITLE_TEMPLATE,
+  NONCE_HEADER
 } from '@/common/constants';
 import { inter, raleway } from '@/common/fonts';
 import { MESSAGES } from '@/i18n/messages';
@@ -39,6 +41,7 @@ export default async function RootLayout({ children }: Children) {
   await connection();
 
   const locale = await getRequestLocale();
+  const nonce = (await headers()).get(NONCE_HEADER) ?? undefined;
 
   return (
     <html
@@ -52,7 +55,7 @@ export default async function RootLayout({ children }: Children) {
       </head>
 
       <body className="font-sans">
-        <AppProvider locale={locale} messages={MESSAGES[locale]}>
+        <AppProvider locale={locale} messages={MESSAGES[locale]} nonce={nonce}>
           {children}
         </AppProvider>
       </body>

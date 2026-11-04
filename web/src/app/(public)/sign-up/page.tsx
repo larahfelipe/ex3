@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import { APP_ROUTES } from '@/common/constants';
 import { getServerTranslator } from '@/i18n/server';
+import { botChallengeSiteKey } from '@/lib/bot-challenge';
 
 import { AuthAlternative } from '../_components/auth-alternative';
 import { PublicPageHeader } from '../_components/public-page-header';
@@ -19,7 +20,7 @@ export default async function SignUp() {
       <PublicPageHeader title={t('title')} />
 
       <section>
-        <SignUpForm />
+        <SignUpForm challengeSiteKey={botChallengeSiteKey()} />
 
         <AuthAlternative
           question={t('hasAccount')}

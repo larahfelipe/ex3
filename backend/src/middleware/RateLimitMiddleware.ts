@@ -1,7 +1,6 @@
 import type { Request } from 'express';
 import {
   ipKeyGenerator,
-  MemoryStore,
   rateLimit,
   type RateLimitExceededEventHandler
 } from 'express-rate-limit';
@@ -10,8 +9,9 @@ import { isIP } from 'node:net';
 
 import { Errors, ProxyHeaders, RateLimits } from '@/config/Constants';
 import { envs } from '@/config/Envs';
+import { RateLimitStore } from '@/infra/database/RateLimitStore';
 
-type Budget = (typeof RateLimits)[keyof typeof RateLimits];
+type BudgetName = keyof typeof RateLimits;
 
 type KeyGenerator = (req: Request) => string;
 
@@ -73,7 +73,7 @@ const isVouchedByWeb = (req: Request) => {
  * API believes only beside the secret both share; any other caller is counted
  * under the address it connects from, which a header cannot change.
  */
-const clientAddressOf = (req: Request) => {
+export const clientAddressOf = (req: Request) => {
   const vouchedAddress = req.get(ProxyHeaders.CLIENT_ADDRESS);
 
   return vouchedAddress !== undefined &&
@@ -84,8 +84,11 @@ const clientAddressOf = (req: Request) => {
 };
 
 /** An IPv6 address counts by its /56 prefix, which one subscriber holds whole. */
+export const addressRateLimitKey = (address: string) =>
+  `${ADDRESS_NAMESPACE}:${ipKeyGenerator(address)}`;
+
 const clientAddressKey: KeyGenerator = (req) =>
-  `${ADDRESS_NAMESPACE}:${ipKeyGenerator(clientAddressOf(req))}`;
+  addressRateLimitKey(clientAddressOf(req));
 
 const submittedSessionOf = (req: Request) => {
   const authorization = req.get('authorization') ?? '';
@@ -156,13 +159,23 @@ const rejectThrottledRequest: RateLimitExceededEventHandler = (req, res) => {
   });
 };
 
+/**
+ * One store per budget, which names its prefix in the shared counter table. A
+ * suite that authenticates repeatedly clears them between tests.
+ */
+export const rateLimitStores: RateLimitStore[] = [];
+
 const limiterOf = (
-  { windowMs, limit }: Budget,
-  store: MemoryStore,
+  budgetName: BudgetName,
   keyGenerator: KeyGenerator,
   { countsOnlyFailures, disclosesBudget }: Accounting
-) =>
-  rateLimit({
+) => {
+  const { windowMs, limit } = RateLimits[budgetName];
+  const store = new RateLimitStore({ prefix: budgetName });
+
+  rateLimitStores.push(store);
+
+  return rateLimit({
     windowMs,
     limit,
     standardHeaders: disclosesBudget ? 'draft-8' : false,
@@ -172,9 +185,15 @@ const limiterOf = (
     skipSuccessfulRequests: countsOnlyFailures,
     handler: rejectThrottledRequest
   });
+};
 
 const CREDENTIAL_ATTEMPTS: Accounting = {
   countsOnlyFailures: true,
+  disclosesBudget: false
+};
+
+const EVERY_ATTEMPT: Accounting = {
+  countsOnlyFailures: false,
   disclosesBudget: false
 };
 
@@ -183,79 +202,51 @@ const EVERY_REQUEST: Accounting = {
   disclosesBudget: true
 };
 
-const signInPerAddressStore = new MemoryStore();
-const signInPerAccountAndAddressStore = new MemoryStore();
-const signInPerAccountStore = new MemoryStore();
-const signUpPerAddressStore = new MemoryStore();
-const accountChangeStore = new MemoryStore();
-const apiRateLimitStore = new MemoryStore();
-const instrumentSearchRateLimitStore = new MemoryStore();
-
-/**
- * Counters live in the memory of one process, so a suite that authenticates
- * repeatedly clears them between tests through these stores.
- */
-export const rateLimitStores = [
-  signInPerAddressStore,
-  signInPerAccountAndAddressStore,
-  signInPerAccountStore,
-  signUpPerAddressStore,
-  accountChangeStore,
-  apiRateLimitStore,
-  instrumentSearchRateLimitStore
-];
-
 export const signInPerAccountRateLimitMiddleware = limiterOf(
-  RateLimits.SIGN_IN_PER_ACCOUNT,
-  signInPerAccountStore,
+  'SIGN_IN_PER_ACCOUNT',
   accountKey,
   CREDENTIAL_ATTEMPTS
 );
 
 /**
  * The sign-in layers of `RateLimits`, in the order they count: a request one
- * of them turns away is not counted by those after it.
+ * of them turns away is not counted by those after it. The daily budget comes
+ * first, so a host that keeps trying while throttled spends it. The route puts
+ * the bot challenge between the address and the account layers.
  */
-export const signInRateLimitMiddleware = [
+export const signInAddressRateLimitMiddleware = [
+  limiterOf('SIGN_IN_PER_ADDRESS_DAILY', clientAddressKey, CREDENTIAL_ATTEMPTS),
+  limiterOf('SIGN_IN_PER_ADDRESS', clientAddressKey, CREDENTIAL_ATTEMPTS)
+];
+
+export const signInAccountRateLimitMiddleware = [
   limiterOf(
-    RateLimits.SIGN_IN_PER_ADDRESS,
-    signInPerAddressStore,
-    clientAddressKey,
-    CREDENTIAL_ATTEMPTS
-  ),
-  limiterOf(
-    RateLimits.SIGN_IN_PER_ACCOUNT_AND_ADDRESS,
-    signInPerAccountAndAddressStore,
+    'SIGN_IN_PER_ACCOUNT_AND_ADDRESS',
     accountAndAddressKey,
     CREDENTIAL_ATTEMPTS
   ),
   signInPerAccountRateLimitMiddleware
 ];
 
-export const signUpRateLimitMiddleware = limiterOf(
-  RateLimits.SIGN_UP_PER_ADDRESS,
-  signUpPerAddressStore,
-  clientAddressKey,
-  { countsOnlyFailures: false, disclosesBudget: false }
-);
+export const signUpRateLimitMiddleware = [
+  limiterOf('SIGN_UP_PER_ADDRESS_DAILY', clientAddressKey, EVERY_ATTEMPT),
+  limiterOf('SIGN_UP_PER_ADDRESS', clientAddressKey, EVERY_ATTEMPT)
+];
 
 export const accountChangeRateLimitMiddleware = limiterOf(
-  RateLimits.ACCOUNT_CHANGE,
-  accountChangeStore,
+  'ACCOUNT_CHANGE',
   sessionKey,
   { countsOnlyFailures: true, disclosesBudget: true }
 );
 
 export const instrumentSearchRateLimitMiddleware = limiterOf(
-  RateLimits.INSTRUMENT_SEARCH,
-  instrumentSearchRateLimitStore,
+  'INSTRUMENT_SEARCH',
   signedInUserKey,
   EVERY_REQUEST
 );
 
 export const apiRateLimitMiddleware = limiterOf(
-  RateLimits.API,
-  apiRateLimitStore,
+  'API',
   sessionKey,
   EVERY_REQUEST
 );

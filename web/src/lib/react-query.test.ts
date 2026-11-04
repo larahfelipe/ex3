@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import { ApiProxyError } from '@/lib/axios';
 
-import { isReloadable, isRequestRejected } from './react-query';
+import { getQueryClient, isReloadable, isRequestRejected } from './react-query';
 
 const apiError = (status: number) =>
   new ApiProxyError('Unexpected error', { status });
@@ -24,5 +24,11 @@ describe('a failed request', () => {
   it('may reload once the API stops throttling it, though it is not retried at once', () => {
     assert.equal(isRequestRejected(apiError(429)), true);
     assert.equal(isReloadable(apiError(429)), true);
+  });
+});
+
+describe('the query client', () => {
+  it('is a new one for every server render, so no visitor shares a cache', () => {
+    assert.notEqual(getQueryClient(), getQueryClient());
   });
 });

@@ -5,6 +5,7 @@ import type { Messages } from '@/i18n/messages';
 import type { Translator } from '@/i18n/translator';
 
 import { ApiProxyError } from './axios';
+import { BotChallengeError } from './bot-challenge';
 import { utcDateOfCalendarDay } from './dates';
 
 type ErrorMessages = Messages['errors'];
@@ -66,6 +67,9 @@ const API_MESSAGE_KEYS: Readonly<Record<string, PlainErrorKey>> = {
   'Email must be a valid email': 'api.invalidEmail',
   'Password must not contain the part of the email before the @':
     'api.passwordDerivedFromEmail',
+  'Human verification failed, please try again': 'api.challengeFailed',
+  'Human verification is unavailable, please try again later':
+    'api.challengeUnavailable',
   'Expense not found': 'api.expenseNotFound',
   'Payment not found for this expense': 'api.paymentNotFound',
   'Installment plan not found': 'api.installmentPlanNotFound',
@@ -207,6 +211,13 @@ export const apiErrorMessageOf = (
   t: Translator<'errors'>,
   unexpected = t('unexpected')
 ): string => {
+  if (error instanceof BotChallengeError)
+    return t(
+      error.reason === 'failed'
+        ? 'api.challengeFailed'
+        : 'api.challengeUnavailable'
+    );
+
   if (!(error instanceof ApiProxyError)) return unexpected;
 
   if (

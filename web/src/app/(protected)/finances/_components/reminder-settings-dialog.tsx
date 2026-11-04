@@ -95,7 +95,7 @@ export const ReminderSettingsDialog: FC<ReminderSettingsDialogProps> = ({
     register,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting }
+    formState: { errors, isDirty, isSubmitting }
   } = methods;
 
   const submitSettings = async (next: FinanceSettings) => {
@@ -122,7 +122,7 @@ export const ReminderSettingsDialog: FC<ReminderSettingsDialogProps> = ({
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent>
+      <DialogContent hasUnsavedChanges={isDirty}>
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
 

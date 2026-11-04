@@ -25,6 +25,9 @@ const FOCUS_RING_CLASSES =
 const ACTION_BUTTON_CLASSES =
   'col-start-2! m-0! h-8! justify-self-start! rounded-md! bg-secondary! px-2.5! text-sm! font-medium! text-secondary-foreground! hover:bg-secondary/80!';
 
+/** sonner draws it at 20 px, under the 24 px a pointer target needs (WCAG 2.5.8). */
+const CLOSE_BUTTON_CLASSES = 'size-6!';
+
 export function Toaster() {
   const toasterRef = useRef<HTMLElement>(null);
   const t = useTranslations('common.toasts');
@@ -100,7 +103,7 @@ export function Toaster() {
           title: 'text-sm font-medium',
           description: 'text-sm text-surface-elevated-foreground/80!',
           actionButton: `${ACTION_BUTTON_CLASSES} ${FOCUS_RING_CLASSES}`,
-          closeButton: FOCUS_RING_CLASSES
+          closeButton: `${CLOSE_BUTTON_CLASSES} ${FOCUS_RING_CLASSES}`
         }
       }}
     />

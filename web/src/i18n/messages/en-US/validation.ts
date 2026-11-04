@@ -9,6 +9,13 @@ export default {
     required: 'Enter the name',
     tooLong: 'The name must have at most {max, number} characters'
   },
+  firstName: {
+    required: 'Enter your first name',
+    tooLong: 'The first name must have at most {max, number} characters'
+  },
+  lastName: {
+    tooLong: 'The last name must have at most {max, number} characters'
+  },
   password: {
     required: 'Enter the password',
     currentRequired: 'Enter the current password',

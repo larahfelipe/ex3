@@ -14,6 +14,13 @@ const API_PROXY_SECRET_MIN_LENGTH = 32;
 
 const BCRYPT_SALT_MIN_ROUNDS = 10;
 
+/**
+ * Cloudflare's published Turnstile test secrets, which pass, fail or report a
+ * spent token whatever was solved: in production they would turn the check
+ * into a constant.
+ */
+const TURNSTILE_TEST_SECRET_KEY = /^[123]x0+AA$/;
+
 const DEFAULT_PORT = 8080;
 const DEFAULT_BCRYPT_SALT = 12;
 const DEFAULT_JWT_EXPIRATION = '1d';
@@ -129,7 +136,8 @@ const EnvsSchema = z
         )
         .optional()
     ),
-    YAHOO_FINANCE_API_KEY: blankAsAbsent(z.string().optional())
+    YAHOO_FINANCE_API_KEY: blankAsAbsent(z.string().optional()),
+    TURNSTILE_SECRET_KEY: blankAsAbsent(z.string().optional())
   })
   .superRefine((envs, ctx) => {
     if (envs.NODE_ENV === 'production' && !envs.CORS_ALLOWED_ORIGINS?.length)
@@ -145,6 +153,28 @@ const EnvsSchema = z
         path: ['API_PROXY_SECRET'],
         message: 'Required when NODE_ENV=production'
       });
+
+    if (
+      envs.NODE_ENV === 'production' &&
+      envs.TURNSTILE_SECRET_KEY === undefined
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['TURNSTILE_SECRET_KEY'],
+        message: 'Required when NODE_ENV=production'
+      });
+
+    if (
+      envs.NODE_ENV === 'production' &&
+      envs.TURNSTILE_SECRET_KEY !== undefined &&
+      TURNSTILE_TEST_SECRET_KEY.test(envs.TURNSTILE_SECRET_KEY)
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['TURNSTILE_SECRET_KEY'],
+        message:
+          'A Cloudflare test secret is not accepted when NODE_ENV=production'
+      });
   })
   .transform((envs) => ({
     nodeEnv: envs.NODE_ENV,
@@ -157,7 +187,11 @@ const EnvsSchema = z
     jwtExpirationSeconds: envs.JWT_EXPIRATION,
     corsAllowedOrigins: envs.CORS_ALLOWED_ORIGINS ?? [],
     apiProxySecret: envs.API_PROXY_SECRET,
-    yahooFinanceApiKey: envs.YAHOO_FINANCE_API_KEY
+    yahooFinanceApiKey: envs.YAHOO_FINANCE_API_KEY,
+    turnstileSecretKey: envs.TURNSTILE_SECRET_KEY,
+    isTurnstileTestSecretKey:
+      envs.TURNSTILE_SECRET_KEY !== undefined &&
+      TURNSTILE_TEST_SECRET_KEY.test(envs.TURNSTILE_SECRET_KEY)
   }));
 
 export type Envs = z.infer<typeof EnvsSchema>;

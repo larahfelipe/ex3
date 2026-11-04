@@ -1,5 +1,6 @@
 import { Router, type Application } from 'express';
 
+import { BotChallenge } from '@/config/Constants';
 import {
   createUserControllerHandler,
   deleteUserControllerHandler,
@@ -12,7 +13,9 @@ import {
 import {
   accountChangeRateLimitMiddleware,
   authMiddleware,
-  signInRateLimitMiddleware,
+  botChallengeMiddleware,
+  signInAccountRateLimitMiddleware,
+  signInAddressRateLimitMiddleware,
   signUpRateLimitMiddleware
 } from '@/middleware';
 
@@ -20,7 +23,9 @@ const userRouter = Router();
 
 userRouter.post(
   '/v1/user',
-  signInRateLimitMiddleware,
+  signInAddressRateLimitMiddleware,
+  botChallengeMiddleware(BotChallenge.SIGN_IN_ACTION),
+  signInAccountRateLimitMiddleware,
   getUserControllerHandler as Application
 );
 
@@ -39,6 +44,7 @@ userRouter.get(
 userRouter.post(
   '/v1/user/create',
   signUpRateLimitMiddleware,
+  botChallengeMiddleware(BotChallenge.SIGN_UP_ACTION),
   createUserControllerHandler as Application
 );
 

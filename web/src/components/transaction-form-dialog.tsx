@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useId,
   useMemo,
   useRef,
@@ -90,7 +91,8 @@ type TransactionFormProps = Pick<
   'target' | 'onCancel' | 'onSubmit'
 > &
   Record<'formId' | 'currency', string> &
-  Record<'position', Maybe<PositionDetail>>;
+  Record<'position', Maybe<PositionDetail>> &
+  Record<'onDirtyChange', (isDirty: boolean) => void>;
 
 type TransactionFormInput = z.input<
   ReturnType<typeof transactionFormSchemaFor>
@@ -422,7 +424,8 @@ const TransactionForm: FC<TransactionFormProps> = ({
   currency,
   position,
   onCancel,
-  onSubmit
+  onSubmit,
+  onDirtyChange
 }) => {
   const t = useTranslations('transactions');
   const tForm = useTranslations('transactions.form');
@@ -472,7 +475,7 @@ const TransactionForm: FC<TransactionFormProps> = ({
     setError,
     setFocus,
     trigger,
-    formState: { errors, dirtyFields, isSubmitting }
+    formState: { errors, dirtyFields, isDirty, isSubmitting }
   } = useForm<TransactionFormInput, unknown, TransactionDraft>({
     mode: 'onChange',
     resolver: zodResolver(transactionFormSchema),
@@ -480,6 +483,10 @@ const TransactionForm: FC<TransactionFormProps> = ({
   });
 
   useRevalidateOnLocaleChange(errors, trigger);
+
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   const selectedType = useWatch({ control: formControl, name: 'type' });
   const unitPrice = useWatch({ control: formControl, name: 'unitPrice' });
@@ -904,6 +911,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
   const tActions = useTranslations('common.actions');
 
   const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const { symbol, currency } =
     target.kind === 'create' ? target : target.transaction;
@@ -927,7 +935,10 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent
+        className="sm:max-w-xl"
+        hasUnsavedChanges={hasUnsavedChanges}
+      >
         <DialogHeader>
           <DialogTitle>
             {target.kind === 'create'
@@ -958,6 +969,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
             position={positionQuery.data}
             onCancel={onCancel}
             onSubmit={save}
+            onDirtyChange={setHasUnsavedChanges}
           />
         )}
       </DialogContent>

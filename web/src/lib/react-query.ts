@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query';
+import { environmentManager, QueryClient } from '@tanstack/react-query';
 
 import type {
   ExpenseFilters,
@@ -49,16 +49,33 @@ export const isReloadable = (error: Error) =>
   !isRequestRejected(error) ||
   (error instanceof ApiProxyError && error.status === THROTTLED_STATUS);
 
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      staleTime: STALE_TIME_MS,
-      retry: (failureCount, error) =>
-        !isRequestRejected(error) && failureCount < QUERY_RETRY_LIMIT
+const createQueryClient = () =>
+  new QueryClient({
+    defaultOptions: {
+      queries: {
+        refetchOnWindowFocus: false,
+        staleTime: STALE_TIME_MS,
+        retry: (failureCount, error) =>
+          !isRequestRejected(error) && failureCount < QUERY_RETRY_LIMIT
+      }
     }
-  }
-});
+  });
+
+let browserQueryClient: Maybe<QueryClient> = null;
+
+/**
+ * One client per server render, one for the browser's lifetime. On the server
+ * a query is never collected, so a shared client would keep every visitor's
+ * query keys for as long as the process runs, and hand one visitor's cache to
+ * the next.
+ */
+export const getQueryClient = () => {
+  if (environmentManager.isServer()) return createQueryClient();
+
+  browserQueryClient ??= createQueryClient();
+
+  return browserQueryClient;
+};
 
 type PortfolioId = Maybe<Portfolio['id']>;
 
@@ -78,6 +95,7 @@ export const queryKeys = {
   instrumentSearch: (query: string | null) =>
     [...visibleInstruments(), 'search', query] as const,
   portfolios: accountPortfolios,
+  portfolioPages: () => [...accountPortfolios(), 'page'] as const,
   portfolioPage: (requestedPage: GetPortfoliosRequestParams) =>
     [...accountPortfolios(), 'page', requestedPage] as const,
   portfolioDetails: (portfolioId: PortfolioId) =>

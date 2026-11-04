@@ -91,6 +91,8 @@ export default {
       marketData: {
         incomplete:
           'Só foi possível avaliar {valued, number} de {held, plural, one {# posição} other {# posições}} em {currency}, por isso os totais não podem ser calculados.',
+        costUnconverted:
+          'Todas as posições puderam ser avaliadas em {currency}, mas o investido e o lucro/prejuízo não podem ser calculados sem os câmbios abaixo.',
         missingQuotes: {
           unavailable:
             'A fonte de cotações não respondeu para <symbols></symbols>. Isso costuma ser temporário: atualize em alguns minutos.',
@@ -125,7 +127,7 @@ export default {
       loadFailed: 'Não foi possível carregar as transações recentes',
       loading: 'Carregando as transações recentes',
       empty:
-        'Ainda não há transações registradas. As compras, vendas e proventos que você registrar aparecem aqui, das mais recentes às mais antigas.'
+        'Ainda não há transações registradas. Registre a primeira em "Adicionar transação", na página do ativo; as compras, vendas e proventos aparecem aqui, das mais recentes às mais antigas.'
     },
     income: {
       title: 'Proventos registrados',

@@ -3,12 +3,14 @@ import type { LocaleMessages, Messages } from '../catalog';
 export default {
   alternative: '{question} <link>{label}</link>',
   fields: {
-    name: 'Name',
     email: 'Email',
     password: 'Password',
     confirmPassword: 'Confirm password',
     portfolioName: 'Portfolio name',
     baseCurrency: 'Base currency'
+  },
+  challenge: {
+    prompt: "Confirm you're a person to continue."
   },
   signIn: {
     title: 'Sign in to your account',

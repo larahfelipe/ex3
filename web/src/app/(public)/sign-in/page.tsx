@@ -6,6 +6,7 @@ import {
   SIGN_IN_REASONS
 } from '@/common/constants';
 import { getServerTranslator } from '@/i18n/server';
+import { botChallengeSiteKey } from '@/lib/bot-challenge';
 
 import { AuthAlternative } from '../_components/auth-alternative';
 import { AuthNotice } from '../_components/auth-notice';
@@ -50,7 +51,10 @@ export default async function SignIn({ searchParams }: SignInProps) {
           </AuthNotice>
         )}
 
-        <SignInForm destination={destination} />
+        <SignInForm
+          destination={destination}
+          challengeSiteKey={botChallengeSiteKey()}
+        />
 
         <AuthAlternative
           question={t('noAccount')}

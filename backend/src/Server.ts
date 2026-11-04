@@ -21,6 +21,12 @@ const bootstrap = async () => {
       event: 'quote_provider_key_missing'
     });
 
+  if (envs.turnstileSecretKey === undefined)
+    log({
+      severity: LogSeverities.WARNING,
+      event: 'bot_challenge_not_enforced'
+    });
+
   app.listen(envs.port, () =>
     log({
       severity: LogSeverities.INFO,

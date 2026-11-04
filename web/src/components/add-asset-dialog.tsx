@@ -106,14 +106,21 @@ const choicesOf = (
   }))
 ];
 
-const noMatchMessageOf = (
+/** A ticker the market could not be searched for is not told to search by ticker: the outage notice beside it says what is missing. */
+export const noMatchMessageOf = (
   search: string,
   marketSearch: MarketSearchStatus,
   t: AddAssetTranslator
-) =>
-  marketSearch === 'SEARCHED'
-    ? t('noListing', { search })
-    : t('noTracked', { search });
+) => {
+  switch (marketSearch) {
+    case 'SEARCHED':
+      return t('noListing', { search });
+    case 'SKIPPED':
+      return t('noTracked', { search });
+    case 'UNAVAILABLE':
+      return t('found', { count: 0 });
+  }
+};
 
 const submitFailureMessageOf = (
   error: unknown,

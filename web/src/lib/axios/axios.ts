@@ -5,7 +5,7 @@ import axios, {
 } from 'axios';
 
 import { type ExpireSessionResponseData } from '@/app/api/v1/session';
-import { signInRouteFor } from '@/common/constants';
+import { CSRF_HEADER, signInRouteFor } from '@/common/constants';
 
 import {
   ApiProxyError,
@@ -33,6 +33,10 @@ const retryAfterSecondsOf = (retryAfter: unknown) => {
 
 const proxyApi = axios.create({
   ...baseAxiosConfig,
+  headers: {
+    ...baseAxiosConfig.headers,
+    [CSRF_HEADER.Name]: CSRF_HEADER.Value
+  },
   baseURL: '/api'
 });
 

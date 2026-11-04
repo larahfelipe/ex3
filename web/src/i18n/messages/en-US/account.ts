@@ -7,7 +7,6 @@ export default {
   profile: {
     title: 'Profile',
     description: 'Your name and the email you sign in with',
-    name: 'Name',
     email: 'Email',
     saved: 'Profile updated'
   },

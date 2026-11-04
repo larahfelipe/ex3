@@ -6,13 +6,13 @@ import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 
 import type { GetCurrentUserResponseData } from '@/app/api/v1/user';
-import { FormField } from '@/components/form-field';
+import { PersonNameFields } from '@/components/person-name-fields';
 import { SubmitButton } from '@/components/submit-button';
-import { CardContent, CardFooter, Input } from '@/components/ui';
+import { CardContent, CardFooter } from '@/components/ui';
 import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
 import { useUpdateProfile } from '@/hooks/use-user';
 import type { Translator } from '@/i18n/translator';
-import { accountNameSchemaFor } from '@/lib/account-schema';
+import { firstNameSchemaFor, lastNameSchemaFor } from '@/lib/account-schema';
 import { presentSubmitError } from '@/lib/submit-error';
 
 type ProfileFormProps = Record<'user', GetCurrentUserResponseData['user']>;
@@ -20,7 +20,13 @@ type ProfileFormProps = Record<'user', GetCurrentUserResponseData['user']>;
 type ProfileFormValues = z.infer<ReturnType<typeof profileFormSchemaFor>>;
 
 const profileFormSchemaFor = (t: Translator<'validation'>) =>
-  z.object({ name: accountNameSchemaFor(t) });
+  z.object({
+    firstName: firstNameSchemaFor(t),
+    lastName: lastNameSchemaFor(t)
+  });
+
+const isProfileField = (path: string): path is keyof ProfileFormValues =>
+  path === 'firstName' || path === 'lastName';
 
 export const ProfileForm: FC<ProfileFormProps> = ({ user }) => {
   const { mutateAsync: updateProfile } = useUpdateProfile();
@@ -43,19 +49,22 @@ export const ProfileForm: FC<ProfileFormProps> = ({ user }) => {
   } = useForm<ProfileFormValues>({
     mode: 'onChange',
     resolver: zodResolver(profileFormSchema),
-    defaultValues: { name: user.name ?? '' }
+    defaultValues: {
+      firstName: user.firstName ?? '',
+      lastName: user.lastName ?? ''
+    }
   });
 
   useRevalidateOnLocaleChange(errors, trigger);
 
-  const saveProfile = async ({ name }: ProfileFormValues) => {
+  const saveProfile = async (names: ProfileFormValues) => {
     try {
-      await updateProfile({ name });
-      reset({ name });
+      await updateProfile(names);
+      reset(names);
     } catch (error) {
       presentSubmitError(error, {
         setError,
-        fieldOf: (path) => (path === 'name' ? path : undefined),
+        fieldOf: (path) => (isProfileField(path) ? path : undefined),
         t: tErrors
       });
     }
@@ -64,16 +73,16 @@ export const ProfileForm: FC<ProfileFormProps> = ({ user }) => {
   return (
     <form noValidate onSubmit={handleSubmit(saveProfile)}>
       <CardContent className="space-y-5">
-        <FormField label={t('name')} error={errors.name?.message}>
-          {(control) => (
-            <Input
-              {...control}
-              autoComplete="name"
-              autoCorrect="off"
-              {...register('name')}
-            />
-          )}
-        </FormField>
+        <PersonNameFields
+          firstName={{
+            registration: register('firstName'),
+            error: errors.firstName?.message
+          }}
+          lastName={{
+            registration: register('lastName'),
+            error: errors.lastName?.message
+          }}
+        />
 
         <dl className="space-y-1.5">
           <dt className="text-sm font-medium leading-none">{t('email')}</dt>

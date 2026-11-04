@@ -34,11 +34,21 @@ const DialogOverlay = ({
   />
 );
 
+type DialogContentProps = React.ComponentProps<typeof DialogPrimitive.Content> &
+  Partial<Record<'hasUnsavedChanges', boolean>>;
+
+/**
+ * With `hasUnsavedChanges`, a press outside leaves the dialog open, so a stray
+ * click on the backdrop cannot throw away what was typed. Escape, the close
+ * button and the form's own cancel still close it: those are deliberate.
+ */
 const DialogContent = ({
   className,
   children,
+  hasUnsavedChanges = false,
+  onPointerDownOutside,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>) => {
+}: DialogContentProps) => {
   const focusReturn = useFocusReturn();
   const t = useTranslations('common.actions');
 
@@ -49,11 +59,16 @@ const DialogContent = ({
       <DialogPrimitive.Content
         {...focusReturn}
         className={cn(DIALOG_CONTENT_CLASS, className)}
+        onPointerDownOutside={(event) => {
+          if (hasUnsavedChanges) event.preventDefault();
+
+          onPointerDownOutside?.(event);
+        }}
         {...props}
       >
         {children}
 
-        <DialogPrimitive.Close className="absolute right-3 top-3 inline-flex size-6 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:pointer-events-none">
+        <DialogPrimitive.Close className="absolute right-2 top-2 inline-flex size-8 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:pointer-events-none">
           <X className="size-4" />
 
           <span className="sr-only">{t('close')}</span>
@@ -84,13 +99,14 @@ const DialogFooter = ({ className, ...props }: React.ComponentProps<'div'>) => (
   />
 );
 
+/** Its first line runs beside the close button, so it keeps clear of it, on both sides while centered. */
 const DialogTitle = ({
   className,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Title>) => (
   <DialogPrimitive.Title
     className={cn(
-      'text-lg font-semibold leading-tight tracking-tight',
+      'pr-6 text-lg font-semibold leading-tight tracking-tight max-sm:in-[.text-center]:pl-6',
       className
     )}
     {...props}

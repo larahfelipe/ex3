@@ -93,6 +93,8 @@ export default {
       marketData: {
         incomplete:
           "Only {valued, number} of {held, plural, one {# position} other {# positions}} could be valued in {currency}, so the totals can't be calculated.",
+        costUnconverted:
+          "Every position could be valued in {currency}, but the invested value and the profit/loss can't be calculated without the exchange rates below.",
         missingQuotes: {
           unavailable:
             "The price source didn't answer for <symbols></symbols>. This is usually temporary: refresh in a few minutes.",
@@ -127,7 +129,7 @@ export default {
       loadFailed: "Couldn't load the recent transactions",
       loading: 'Loading the recent transactions',
       empty:
-        'No transactions recorded yet. The purchases, sales and income you record appear here, the latest first.'
+        'No transactions recorded yet. Record the first one with "Add transaction" on the asset\'s page; purchases, sales and income appear here, the latest first.'
     },
     income: {
       title: 'Recorded income',

@@ -1,12 +1,17 @@
 'use client';
 
-import { useMemo, type FC } from 'react';
+import { useMemo, useRef, type FC } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 
+import { BOT_CHALLENGE } from '@/common/constants';
+import {
+  BotChallenge,
+  type BotChallengeHandle
+} from '@/components/bot-challenge';
 import { FormField } from '@/components/form-field';
 import { SubmitButton } from '@/components/submit-button';
 import { Input } from '@/components/ui';
@@ -32,10 +37,15 @@ const SIGN_IN_FIELDS = ['email', 'password'] as const satisfies ReadonlyArray<
 const isSignInField = (path: string): path is keyof SignInFormValues =>
   SIGN_IN_FIELDS.some((field) => field === path);
 
-type SignInFormProps = Record<'destination', string>;
+type SignInFormProps = Record<'destination', string> &
+  Record<'challengeSiteKey', string | undefined>;
 
-export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
+export const SignInForm: FC<SignInFormProps> = ({
+  destination,
+  challengeSiteKey
+}) => {
   const { mutateAsync: signIn } = useSignIn(destination);
+  const challengeRef = useRef<BotChallengeHandle>(null);
   const t = useTranslations('auth');
   const tValidation = useTranslations('validation');
   const tErrors = useTranslations('errors');
@@ -62,18 +72,25 @@ export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
 
   const handleSignIn: SubmitHandler<SignInFormValues> = async (formData) => {
     try {
-      await signIn(formData);
+      const challengeToken = (await challengeRef.current?.solve()) ?? null;
+
+      await signIn({ payload: formData, challengeToken });
     } catch (error) {
       presentSubmitError(error, {
         setError,
         fieldOf: (path) => (isSignInField(path) ? path : undefined),
         t: tErrors
       });
+    } finally {
+      challengeRef.current?.reset();
     }
   };
 
   return (
-    <form noValidate onSubmit={handleSubmit(handleSignIn)}>
+    <form
+      noValidate
+      onSubmit={(event) => void handleSubmit(handleSignIn)(event)}
+    >
       <div className="space-y-5">
         <FormField label={t('fields.email')} error={errors.email?.message}>
           {(control) => (
@@ -106,6 +123,12 @@ export const SignInForm: FC<SignInFormProps> = ({ destination }) => {
           </AuthNotice>
         )}
       </div>
+
+      <BotChallenge
+        ref={challengeRef}
+        siteKey={challengeSiteKey}
+        action={BOT_CHALLENGE.Actions.SignIn}
+      />
 
       <SubmitButton isPending={isSubmitting} size="lg" className="mt-8 w-full">
         {t('signIn.submit')}

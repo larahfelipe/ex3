@@ -13,7 +13,8 @@ const PASSWORD_MAX_BYTES = 72;
 /** Mirror of the API's: below it the part of an email before the `@` is too generic to compare. */
 const EMAIL_LOCAL_PART_MIN_LENGTH = 4;
 
-const NAME_MAX_LENGTH = 255;
+/** Mirror of the API's bound on each of a person's names. */
+const PERSON_NAME_MAX_LENGTH = 255;
 
 const utf8Encoder = new TextEncoder();
 
@@ -39,12 +40,24 @@ export const emailSchemaFor = (t: Translator<'validation'>) =>
     .min(1, t('email.required'))
     .pipe(z.email(t('email.invalid')));
 
-export const accountNameSchemaFor = (t: Translator<'validation'>) =>
+export const firstNameSchemaFor = (t: Translator<'validation'>) =>
   z
     .string()
     .trim()
-    .min(1, t('name.required'))
-    .max(NAME_MAX_LENGTH, t('name.tooLong', { max: NAME_MAX_LENGTH }));
+    .min(1, t('firstName.required'))
+    .max(
+      PERSON_NAME_MAX_LENGTH,
+      t('firstName.tooLong', { max: PERSON_NAME_MAX_LENGTH })
+    );
+
+export const lastNameSchemaFor = (t: Translator<'validation'>) =>
+  z
+    .string()
+    .trim()
+    .max(
+      PERSON_NAME_MAX_LENGTH,
+      t('lastName.tooLong', { max: PERSON_NAME_MAX_LENGTH })
+    );
 
 export const newPasswordSchemaFor = (t: Translator<'validation'>) =>
   z

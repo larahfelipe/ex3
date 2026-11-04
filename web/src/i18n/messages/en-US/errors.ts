@@ -51,6 +51,9 @@ export default {
     invalidEmail: 'Enter a valid email.',
     passwordDerivedFromEmail:
       "The password can't contain the part of the email before the @.",
+    challengeFailed: "We couldn't confirm you're a person. Try again.",
+    challengeUnavailable:
+      'Verification is unavailable right now. Try again later.',
     expenseNotFound: 'Bill not found.',
     paymentNotFound: 'Payment not found for this bill.',
     installmentPlanNotFound: 'Installment plan not found.',

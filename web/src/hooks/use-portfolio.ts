@@ -8,6 +8,8 @@ import {
   useQuery,
   useQueryClient,
   type InvalidateOptions,
+  type Query,
+  type QueryClient,
   type QueryKey
 } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
@@ -117,37 +119,44 @@ export type RefreshOutcome = 'reloaded' | 'degraded' | 'failed';
  * refresh went. A request the API rejects fails the same way however often it
  * is repeated, so only the failures a later reload could fix count.
  */
+export const refreshPortfolioScope = async (
+  queryClient: QueryClient,
+  portfolioId: Maybe<string> | undefined,
+  options?: InvalidateOptions
+): Promise<RefreshOutcome> => {
+  const queryKey = queryKeys.portfolio(portfolioId);
+
+  await queryClient.invalidateQueries({ queryKey }, options);
+
+  const queryCache = queryClient.getQueryCache();
+
+  if (
+    queryCache
+      .findAll({ queryKey, type: 'active' })
+      .some(({ state: { error } }) => error !== null && isReloadable(error))
+  )
+    return 'failed';
+
+  const overview = queryCache.find<
+    AxiosResponse<GetPortfolioOverviewResponseData>
+  >({
+    queryKey: queryKeys.portfolioOverview(portfolioId),
+    exact: true,
+    type: 'active'
+  })?.state.data?.data;
+
+  return overview && isMarketDataDegraded(overview.marketData)
+    ? 'degraded'
+    : 'reloaded';
+};
+
 export const useRefreshPortfolio = (portfolio: Maybe<Portfolio>) => {
   const queryClient = useQueryClient();
   const portfolioId = portfolio?.id;
 
   return useCallback(
-    async (options?: InvalidateOptions): Promise<RefreshOutcome> => {
-      const queryKey = queryKeys.portfolio(portfolioId);
-
-      await queryClient.invalidateQueries({ queryKey }, options);
-
-      const queryCache = queryClient.getQueryCache();
-
-      if (
-        queryCache
-          .findAll({ queryKey, type: 'active' })
-          .some(({ state: { error } }) => error !== null && isReloadable(error))
-      )
-        return 'failed';
-
-      const overview = queryCache.find<
-        AxiosResponse<GetPortfolioOverviewResponseData>
-      >({
-        queryKey: queryKeys.portfolioOverview(portfolioId),
-        exact: true,
-        type: 'active'
-      })?.state.data?.data;
-
-      return overview && isMarketDataDegraded(overview.marketData)
-        ? 'degraded'
-        : 'reloaded';
-    },
+    (options?: InvalidateOptions) =>
+      refreshPortfolioScope(queryClient, portfolioId, options),
     [queryClient, portfolioId]
   );
 };
@@ -158,6 +167,18 @@ type PortfolioScopedQuery<Data> = {
   request: (portfolioId: string) => Promise<AxiosResponse<Data>>;
   keepsPreviousPage?: boolean;
 };
+
+/** A page of the same portfolio stands in while the next one loads; another portfolio's never does. */
+export const previousPageOfPortfolio =
+  (portfolioId: Maybe<string> | undefined) =>
+  <Data>(
+    previousData: Data | undefined,
+    previousQuery: Maybe<Pick<Query, 'queryKey'>> | undefined
+  ) =>
+    previousQuery &&
+    partialMatchKey(previousQuery.queryKey, queryKeys.portfolio(portfolioId))
+      ? previousData
+      : undefined;
 
 export const usePortfolioScopedQuery = <Data>({
   queryKey,
@@ -170,14 +191,7 @@ export const usePortfolioScopedQuery = <Data>({
     queryFn: portfolio ? () => request(portfolio.id) : skipToken,
     select: ({ data }) => data,
     placeholderData: keepsPreviousPage
-      ? (previousData, previousQuery) =>
-          previousQuery &&
-          partialMatchKey(
-            previousQuery.queryKey,
-            queryKeys.portfolio(portfolio?.id)
-          )
-            ? previousData
-            : undefined
+      ? previousPageOfPortfolio(portfolio?.id)
       : undefined
   });
 
@@ -230,11 +244,34 @@ export const useAnnouncePortfolioChange = (portfolio: Maybe<Portfolio>) => {
   );
 };
 
+/** The portfolio as a page of the account's portfolios already lists it, in that page's response. */
+export const listedPortfolioOf = (
+  queryClient: QueryClient,
+  portfolioId: Maybe<string> | undefined
+): AxiosResponse<GetPortfolioResponseData> | undefined => {
+  if (!portfolioId) return undefined;
+
+  for (const [, response] of queryClient.getQueriesData<
+    AxiosResponse<GetPortfoliosResponseData>
+  >({ queryKey: queryKeys.portfolioPages() })) {
+    const listed = response?.data.portfolios.find(
+      ({ id }) => id === portfolioId
+    );
+
+    if (response && listed) return { ...response, data: listed };
+  }
+
+  return undefined;
+};
+
 /**
  * The server snapshot is `undefined`, not the `null` of no stored choice, so no
- * portfolio is requested before the choice is read on the client.
+ * portfolio is requested before the choice is read on the client. A portfolio
+ * picked from a list shows as listed while the API confirms it, so the page
+ * keeps its controls, and the focus on them, instead of loading again.
  */
 export const useActivePortfolio = () => {
+  const queryClient = useQueryClient();
   const activePortfolioId = useSyncExternalStore(
     subscribeToActivePortfolio,
     readActivePortfolioId,
@@ -255,7 +292,8 @@ export const useActivePortfolio = () => {
             } satisfies PortfolioScopeParams
           })
       : skipToken,
-    select: ({ data }) => data
+    select: ({ data }) => data,
+    placeholderData: () => listedPortfolioOf(queryClient, activePortfolioId)
   });
 
   const { error } = chosenPortfolioQuery;

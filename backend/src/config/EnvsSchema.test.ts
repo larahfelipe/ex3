@@ -5,6 +5,9 @@ import { EnvValidationError, parseEnvs } from './EnvsSchema';
 
 const VALID_JWT_SECRET = 'a'.repeat(32);
 const VALID_API_PROXY_SECRET = 'b'.repeat(32);
+const TURNSTILE_SECRET_KEY = '0x4AAAAAAAturnstile-secret-for-tests';
+/** Cloudflare's published test secret that passes every token. */
+const TURNSTILE_TEST_SECRET_KEY = '1x0000000000000000000000000000000AA';
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
@@ -188,6 +191,54 @@ describe('parseEnvs', () => {
     );
   });
 
+  it('requires TURNSTILE_SECRET_KEY in production', () => {
+    expectIssue(
+      {
+        ...validEnvs,
+        NODE_ENV: 'production',
+        CORS_ALLOWED_ORIGINS: 'https://ex3.app',
+        API_PROXY_SECRET: VALID_API_PROXY_SECRET,
+        TURNSTILE_SECRET_KEY: ''
+      },
+      'TURNSTILE_SECRET_KEY: Required when NODE_ENV=production'
+    );
+  });
+
+  it("refuses Cloudflare's test secrets in production", () => {
+    for (const testSecret of [
+      TURNSTILE_TEST_SECRET_KEY,
+      '2x0000000000000000000000000000000AA',
+      '3x0000000000000000000000000000000AA'
+    ])
+      expectIssue(
+        {
+          ...validEnvs,
+          NODE_ENV: 'production',
+          CORS_ALLOWED_ORIGINS: 'https://ex3.app',
+          API_PROXY_SECRET: VALID_API_PROXY_SECRET,
+          TURNSTILE_SECRET_KEY: testSecret
+        },
+        'TURNSTILE_SECRET_KEY: A Cloudflare test secret'
+      );
+  });
+
+  it("accepts Cloudflare's test secrets outside production, flagged as such", () => {
+    const envs = parseEnvs({
+      ...validEnvs,
+      TURNSTILE_SECRET_KEY: TURNSTILE_TEST_SECRET_KEY
+    });
+
+    assert.equal(envs.turnstileSecretKey, TURNSTILE_TEST_SECRET_KEY);
+    assert.equal(envs.isTurnstileTestSecretKey, true);
+  });
+
+  it('leaves the Turnstile secret unset outside production when it is blank', () => {
+    const envs = parseEnvs({ ...validEnvs, TURNSTILE_SECRET_KEY: '' });
+
+    assert.equal(envs.turnstileSecretKey, undefined);
+    assert.equal(envs.isTurnstileTestSecretKey, false);
+  });
+
   it('rejects an API_PROXY_SECRET shorter than 32 characters', () => {
     expectIssue(
       { ...validEnvs, API_PROXY_SECRET: 'proxySecret' },
@@ -206,11 +257,14 @@ describe('parseEnvs', () => {
       ...validEnvs,
       NODE_ENV: 'production',
       CORS_ALLOWED_ORIGINS: 'https://ex3.app',
-      API_PROXY_SECRET: VALID_API_PROXY_SECRET
+      API_PROXY_SECRET: VALID_API_PROXY_SECRET,
+      TURNSTILE_SECRET_KEY
     });
 
     assert.equal(envs.isProduction, true);
     assert.equal(envs.apiProxySecret, VALID_API_PROXY_SECRET);
+    assert.equal(envs.turnstileSecretKey, TURNSTILE_SECRET_KEY);
+    assert.equal(envs.isTurnstileTestSecretKey, false);
     assert.equal(envs.yahooFinanceApiKey, undefined);
   });
 

@@ -38,6 +38,9 @@ content testable without capturing `stdout`.
 | `valuation_incomplete` | WARNING | `portfolioId`, `heldPositionCount`, `valuedPositionCount`, `missingQuotes` (`symbol`, `reason`), `missingRates` (`currency`, `reason`) | `GetPortfolioOverviewService.ts`, on each overview whose totals cannot be calculated because a held position has no price or no exchange rate; a fallback or stale price alone writes nothing, since the totals still stand |
 | `quote_provider_fallback_served` | WARNING | `count`, the quotes and rates answered with the last one received | `YahooFinanceProvider.ts`, on each answer to a failed or paused quote request that serves one |
 | `dependency_unavailable` | WARNING | `dependency`, `reason` | readiness, in `HealthControllerHandlers.ts` |
+| `rate_limit_store_failed` | ERROR | `operation`, `reason` | `RateLimitStore.ts`, on each query the store could not run; a hit it could not count is refused with `503` |
+| `bot_challenge_not_enforced` | WARNING | — | `Server.ts`, at boot without `TURNSTILE_SECRET_KEY`, which only happens outside production |
+| `bot_challenge_unavailable` | ERROR | `reason` | `TurnstileVerifier.ts`, on each verdict Cloudflare could not give; the request is refused with `503` |
 | `http_request` | follows the status; a served probe produces no line | `requestId`, `method`, `route`, `status`, `durationMs`, `userId?`, `errorCode?` | `RequestLogMiddleware.ts` |
 | `request_failed` | ERROR | `requestId?`, `errorName`, `errorMessage`, `stack?` | `ErrorHandlerMiddleware.ts`, for an exception outside `ApplicationError` only; an early `503`, such as an unavailable provider, was already recorded by the dependency |
 
@@ -120,10 +123,9 @@ last request happened to observe.
 When the database does not answer, `/ready` goes out with 503 and the
 `INFRASTRUCTURE` error envelope ([`errors.md`](errors.md)), without telling the
 caller what failed; the reason goes to the log only, in the
-`dependency_unavailable` event. Both routes sit behind the API's rate limit,
-like any other: a probe fits comfortably within `RateLimits.API`, and a probe
-that fails only because its IP blew the budget describes an instance that is in
-fact not serving.
+`dependency_unavailable` event. Both routes stay outside the API's rate limit: a
+limiter that refused a probe would report a healthy instance as down, and the
+counters' failure is the database's, which `/ready` already reports.
 
 A served probe (`/health` or `/ready` with status `< 400`) produces no
 `http_request` line: the orchestrator repeats the call at a fixed interval, and

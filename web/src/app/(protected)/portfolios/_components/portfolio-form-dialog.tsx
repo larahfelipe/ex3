@@ -149,7 +149,7 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
         if (!isSubmitting) onCancel();
       }}
     >
-      <DialogContent>
+      <DialogContent hasUnsavedChanges={isDirty}>
         <DialogHeader>
           <DialogTitle className="wrap-anywhere">
             {isEditing

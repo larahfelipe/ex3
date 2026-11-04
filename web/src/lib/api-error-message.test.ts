@@ -6,6 +6,7 @@ import { translatorOf } from '@/i18n/translator';
 
 import { apiErrorMessageOf, apiIssueMessageOf } from './api-error-message';
 import { ApiProxyError, type ApiServerErrorData } from './axios';
+import { BotChallengeError } from './bot-challenge';
 import { presentSubmitError } from './submit-error';
 
 const t = translatorOf('pt-BR', 'errors');
@@ -58,6 +59,45 @@ describe('API errors', () => {
         t
       ),
       'E-mail ou senha incorretos.'
+    );
+  });
+
+  it('words a challenge the visitor did not pass, or could not take, the same whether the browser or the API found it', () => {
+    const failed =
+      'Não conseguimos confirmar que você é uma pessoa. Tente novamente.';
+    const unavailable =
+      'A verificação está indisponível no momento. Tente novamente mais tarde.';
+
+    assert.equal(apiErrorMessageOf(new BotChallengeError('failed'), t), failed);
+    assert.equal(
+      apiErrorMessageOf(
+        apiError(
+          403,
+          serverError(
+            'AUTHORIZATION',
+            'Human verification failed, please try again'
+          )
+        ),
+        t
+      ),
+      failed
+    );
+    assert.equal(
+      apiErrorMessageOf(new BotChallengeError('unavailable'), t),
+      unavailable
+    );
+    assert.equal(
+      apiErrorMessageOf(
+        apiError(
+          503,
+          serverError(
+            'INFRASTRUCTURE',
+            'Human verification is unavailable, please try again later'
+          )
+        ),
+        t
+      ),
+      unavailable
     );
   });
 

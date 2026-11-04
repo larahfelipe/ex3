@@ -24,12 +24,28 @@ User
 
 | Entity | Responsibility | Owner | Identity |
 | --- | --- | --- | --- |
-| `User` | Identity, credentials and session. | — | `id`; unique `email` |
+| `User` | Identity, name, credentials and session. | — | `id`; unique `email` |
 | `Portfolio` | Groups a user's ledger and positions under a base currency. It is the access boundary: every financial resource is resolved through the authenticated user's portfolio. | a `User`, who may have several | `id`; unique `(userId, nameKey)` |
 | `Instrument` | The tradable market asset: stock, ETF, fund, REIT, crypto, bond, cash. From the global catalog, shared by every user, or private to whoever registered it. | none in the catalog; a `User` when private | `(ownerId, symbol)`, with the catalog counted as a single owner |
 | `Transaction` | A financial event of a portfolio over an instrument. The source of truth of every movement. | a `Portfolio` | `id` |
 | `Position` | How much of an instrument a portfolio holds and at what cost. A projection derived from the transactions, never edited directly. | a `Portfolio` | `(portfolioId, instrumentId)` |
 | `MarketQuote` | The close of one trading day of an instrument, with currency and source. | — | `(instrumentId, timestamp, source)`, with `timestamp` at the start of the day in UTC |
+
+## User
+
+**A name in two parts.** `firstName` and `lastName` are stored as given,
+trimmed, up to 255 characters each. The last name is optional — not every name
+has one — and an empty one is stored as `null`. `name`, the full name that every
+screen and message reads, is never sent: `personNames`, in
+`domain/PersonName.ts`, writes it with its parts, joined by `fullName` — the
+parts held, one space apart — and leaves it `null` when the account holds
+neither. A change that carries one part keeps the other.
+
+**Accounts from before the split.** The migration
+`20261029000000_user_first_last_name` keeps each stored `name` whole, trimmed, as
+its account's `firstName`, with no `lastName`: no split is right for every name,
+and the full name read from it is the one the account already had. The person
+can split it on the account screen.
 
 ## Portfolio
 

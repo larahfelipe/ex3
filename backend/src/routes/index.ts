@@ -10,7 +10,6 @@ import { userRouter } from './UserRoutes';
 
 const router = Router();
 
-router.use(healthRouter);
 router.use(assetRouter);
 router.use(financeRouter);
 router.use(instrumentRouter);
@@ -18,4 +17,4 @@ router.use(portfolioRouter);
 router.use(transactionRouter);
 router.use(userRouter);
 
-export { router };
+export { healthRouter, router };

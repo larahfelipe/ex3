@@ -7,7 +7,9 @@ import type { UserRepository } from '@/infra/database';
 /**
  * Verified against when the email is unknown, so a missing account costs the
  * same bcrypt work as a wrong password and response time does not reveal which
- * emails are registered. Its value is irrelevant: the outcome is discarded.
+ * emails are registered. Its value is irrelevant: the outcome is discarded. The
+ * digest is hashed at the configured cost as the service is built, so not even
+ * the first unknown email pays for hashing it.
  */
 const UNKNOWN_ACCOUNT_PASSWORD = 'unknown-account-password';
 
@@ -16,7 +18,7 @@ export class GetUserService {
   private readonly userRepository: UserRepository;
   private readonly bcrypt: Bcrypt;
   private readonly jwt: Jwt;
-  private unknownAccountDigest?: Promise<string>;
+  private readonly unknownAccountDigest: Promise<string>;
 
   private constructor(
     userRepository: UserRepository,
@@ -26,6 +28,7 @@ export class GetUserService {
     this.userRepository = userRepository;
     this.bcrypt = bcrypt;
     this.jwt = jwt;
+    this.unknownAccountDigest = bcrypt.hash(UNKNOWN_ACCOUNT_PASSWORD);
   }
 
   static getInstance(userRepository: UserRepository, bcrypt: Bcrypt, jwt: Jwt) {
@@ -43,11 +46,18 @@ export class GetUserService {
 
     const isPasswordValid = await this.bcrypt.compare(
       password,
-      account?.password ?? (await this.getUnknownAccountDigest())
+      account?.password ?? (await this.unknownAccountDigest)
     );
 
     if (!account || !isPasswordValid)
       throw new AuthenticationError(UserMessages.INVALID_CREDENTIALS);
+
+    if (this.bcrypt.needsRehash(account.password))
+      await this.userRepository.rehashPassword(
+        account.id,
+        account.password,
+        password
+      );
 
     const user = (({ password, isAdmin, sessionVersion, ...rest }) => rest)(
       account
@@ -59,13 +69,6 @@ export class GetUserService {
     });
 
     return { ...user, accessToken };
-  }
-
-  /** Hashed with the configured cost, so both branches do equal work. */
-  private getUnknownAccountDigest() {
-    this.unknownAccountDigest ??= this.bcrypt.hash(UNKNOWN_ACCOUNT_PASSWORD);
-
-    return this.unknownAccountDigest;
   }
 }
 

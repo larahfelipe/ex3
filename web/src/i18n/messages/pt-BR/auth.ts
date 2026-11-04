@@ -1,12 +1,14 @@
 export default {
   alternative: '{question} <link>{label}</link>',
   fields: {
-    name: 'Nome',
     email: 'E-mail',
     password: 'Senha',
     confirmPassword: 'Confirmar senha',
     portfolioName: 'Nome da carteira',
     baseCurrency: 'Moeda-base'
+  },
+  challenge: {
+    prompt: 'Confirme que você é uma pessoa para continuar.'
   },
   signIn: {
     title: 'Entre na sua conta',

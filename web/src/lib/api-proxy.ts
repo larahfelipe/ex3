@@ -1,7 +1,7 @@
 import { cookies, headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-import { APP_STORAGE_KEYS } from '@/common/constants';
+import { APP_STORAGE_KEYS, BOT_CHALLENGE } from '@/common/constants';
 
 import { toApiProxyErrorResponse } from './api-error-response';
 import api, { ApiProxyError, UNEXPECTED_ERROR_MESSAGE } from './axios';
@@ -69,8 +69,37 @@ export const clientAddressHeaders = async (): Promise<
     : {};
 };
 
-/** A body the proxy cannot parse is a rejected request, not an upstream failure. */
+/**
+ * The browser's Turnstile token, passed on as sent for the API to verify. One
+ * longer than Cloudflare issues is dropped here, so the API refuses it as
+ * missing without the proxy forwarding an oversized header.
+ */
+export const botChallengeHeadersOf = (req: Request): Record<string, string> => {
+  const token = req.headers.get(BOT_CHALLENGE.Header);
+
+  return token && token.length <= BOT_CHALLENGE.TokenMaxLength
+    ? { [BOT_CHALLENGE.Header]: token }
+    : {};
+};
+
+const JSON_MEDIA_TYPE = 'application/json';
+
+const isJsonRequest = (req: Request) =>
+  req.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ===
+  JSON_MEDIA_TYPE;
+
+/**
+ * A body the proxy cannot parse is a rejected request, not an upstream failure.
+ * Only JSON is read: a form on another site can post text that parses as JSON,
+ * but not under this media type without the browser asking first.
+ */
 export const jsonPayload = async <Payload = unknown>(req: Request) => {
+  if (!isJsonRequest(req))
+    throw new ApiProxyError('Request body is not JSON', {
+      status: 415,
+      statusText: 'Unsupported Media Type'
+    });
+
   try {
     return (await req.json()) as Payload;
   } catch {
@@ -81,6 +110,16 @@ export const jsonPayload = async <Payload = unknown>(req: Request) => {
   }
 };
 
+/**
+ * `encodeURIComponent` leaves `.` and `..` as they are, and the upstream URL
+ * resolves them, so an id of `..` would move the request onto another route:
+ * voiding payment `..` would delete its expense. No id or symbol is only dots.
+ */
+const DOT_SEGMENT_PATTERN = /^(?:\.|%2e){1,2}$/i;
+
+export const hasDotSegment = (path: string) =>
+  path.split('/').some((segment) => DOT_SEGMENT_PATTERN.test(segment));
+
 export const forwardToApi = async <Data>({
   method,
   path,
@@ -88,6 +127,12 @@ export const forwardToApi = async <Data>({
   payloadFrom
 }: ForwardedRequest) => {
   try {
+    if (hasDotSegment(path))
+      throw new ApiProxyError('Request path is not valid', {
+        status: 404,
+        statusText: 'Not Found'
+      });
+
     const { data, status, statusText } = await api.getInstance().request<Data>({
       method,
       url: path,

@@ -137,10 +137,10 @@ on the user's row) and it is the endpoint that increments that version, so the
 token obtained is the same one a real client would receive. Signing locally is
 restricted to the invalid-token tests, which need forged claims.
 
-The rate limiters keep counters in process memory, which survive a test. The
-budgets are deliberately tight (10 sign-in failures per account and address
-every 15 min), so `resetRateLimits()` is called in `beforeEach` and clears the
-`MemoryStore`s of `rateLimitStores` whole instead of listing keys.
+The rate limiters keep counters in Postgres, which survive a test. The budgets
+are deliberately tight (10 sign-in failures per account and address every 15
+min), so `resetRateLimits()` is called in `beforeEach` and clears each store of
+`rateLimitStores` by its prefix instead of listing keys.
 `Harness.integration.ts` asserts that a failed sign-in is in fact being counted
 before resetting, so that a reset which clears nothing fails instead of passing
 silently; a sign-in that gets the password right gives the attempt back and
@@ -989,3 +989,98 @@ the suite runs on changes its result.
 
 The file-by-file table, with the count of each, is in
 [`financial-management.md`](financial-management.md#tests).
+
+## Person names
+
+`src/domain/PersonName.test.ts` covers, in the unit band, the full name read
+from the first and last names: one space between them, the spaces inside each
+kept, the ends trimmed, either one alone, and no full name at all — `null`, not
+an empty string — when the account holds neither.
+`src/routes/Authentication.integration.ts` covers sign-up storing the trimmed
+names with the full name they make, a missing or blank last name stored as
+`null`, an account given no name, and a blank or overlong name refused without
+creating anything; and, under `PATCH /v1/user`, both names replaced with the
+session kept, the part not sent kept, an empty last name clearing it, a blank
+first name refused, and a change with no name leaving them alone. On the web,
+`src/lib/person-name.test.ts` covers the mirror of `fullName` that the
+optimistic profile update uses.
+
+**Migration.** `20261029000000_user_first_last_name` was checked separately, on
+2026-10-29, over a throwaway database with the previous migrations and names in
+the old form: a padded name, a tab and a newline around a name, and two spaces
+inside one became the first name trimmed at the ends only; a `NULL`, empty or
+blank name left the first name `NULL`; no last name was written, and `name`
+kept its stored value in every row.
+
+## Web proxy and cross-site requests
+
+Unit tests, with no server: `NextRequest` and `Request` are built in memory.
+
+* `src/proxy.test.ts`: a write on `/api` whose `Sec-Fetch-Site` is
+  `cross-site`, `same-site` or `none` answers `403` with the proxy's envelope,
+  even with the app's header; a write without that header answers `403` too, on
+  sign-in, sign-out and `PATCH /api/v1/user`; a write from the app passes; both
+  answers are `no-store`; a read passes from anywhere and gets no page CSP. A
+  redirect's cookie deletion repeats `Path`, `HttpOnly` and `SameSite`. On pages,
+  the test recomputes the Sonner hash from the installed package, asserts the
+  exact `style-src-elem` and `style-src-attr`, a fresh nonce per page, and that
+  Turnstile is the only external origin.
+* `src/lib/api-proxy.test.ts`: `hasDotSegment` refuses `.`, `..` and their
+  percent-encoded forms as a whole segment, and passes `BRK.B` and `...`;
+  `jsonPayload` reads `application/json`, in any letter case and with
+  parameters, and refuses `text/plain`, form encodings, `application/jsonp` and
+  a missing type with `415`, and a body that does not parse with `400`;
+  `botChallengeHeadersOf` forwards a token and drops one that is missing, empty
+  or oversized.
+* `src/lib/api-error-message.test.ts`: the challenge's wording, whether the
+  failure came from the browser or from the API.
+* `src/lib/react-query.test.ts`: every server render gets its own
+  `QueryClient`. The browser's single client cannot be reached from a test,
+  where TanStack Query always sees a server.
+
+The redirect of a dot segment was reproduced first against a throwaway local
+HTTP server: axios sent `DELETE /v1/finances/expenses/abc/payments/..` and
+`…/payments/%2e%2e` as `DELETE /v1/finances/expenses/abc/`, which Express's
+non-strict routing serves as the expense's deletion.
+
+These tests cover the proxy's decisions and the response objects it builds, not
+what a browser does with them: see
+[`security.md`](security.md#verified-and-unvalidated).
+
+## Rate limit store
+
+`RateLimitStore.integration.ts` runs against the test database: concurrent hits
+counted once each, a count shared between two store instances that use one
+prefix, the window staying where its first hit opened it and starting anew once
+closed, a give-back that does not go below zero, prefixes kept apart, a sweep
+that removes only closed windows of its own prefix, and a failing database that
+refuses the hit instead of letting it through.
+
+`App.integration.ts` covers the budgets through HTTP: exactly the budget of
+concurrent failed sign-ins is admitted, a count made by another store instance
+is enforced, the daily budgets escalate, a failing store answers `503`, and the
+probes stay outside. "Another process" is simulated by a second instance in the
+same process; no test starts a second server.
+
+## Bot challenge
+
+The suite runs without a Turnstile secret, which leaves the check off, so the
+other tests need no token. `BotChallenge.integration.ts` turns it on for one test
+at a time by replacing `TurnstileVerifier.getInstance` with a real verifier whose
+`fetchResponse` stands in for Cloudflare, so no test reaches the network. It
+checks that a solved token creates the account, a missing one creates nothing and
+asks Cloudflare nothing, a token for the other action and a replayed one are
+refused, an unreachable Cloudflare answers `503` and creates nothing, and an
+unsolved attempt spends its address's budget and not the account's.
+`TurnstileVerifier.test.ts` covers what is sent to `siteverify` and every verdict,
+including malformed answers, and `EnvsSchema.test.ts` that production refuses a
+missing secret or a test one.
+
+## Timing
+
+`Authentication.integration.ts` compares the median of 15 unknown-email sign-ins
+with that of 15 wrong-password ones, and requires the first to be at least 0.6 of
+the second. The margin is wide on purpose: the test must fail when the
+verification is removed, not when the host is busy. Removing it was tried, and
+the test failed at 10.0 ms against 70.3 ms. Rehashing is tested with a digest of another cost, a wrong password that leaves it
+alone, and a password changed between the verification and the write.

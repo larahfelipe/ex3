@@ -36,6 +36,7 @@ x-backend-runtime-environment: &backend-runtime-environment
   JWT_SECRET: ${JWT_SECRET:-}
   API_PROXY_SECRET: ${API_PROXY_SECRET:-}
   YAHOO_FINANCE_API_KEY: ${YAHOO_FINANCE_API_KEY:-}
+  TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
 
 x-postgres-healthcheck: &postgres-healthcheck
   interval: 2s
@@ -107,6 +108,7 @@ services:
     environment:
       API_URL: http://backend:8080
       API_PROXY_SECRET: ${API_PROXY_SECRET:-}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
     ports:
       - '127.0.0.1:3000:3000'
     healthcheck:

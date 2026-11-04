@@ -23,15 +23,22 @@ export class CreateUserController implements Controller {
   }
 
   async handle(req: ControllerRequest, res: Response) {
-    const { name, email, password, baseCurrency, portfolioName } =
-      await validate(CreateUserSchema, req.body);
-
-    const result = await this.createUserService.execute({
+    const {
+      firstName,
+      lastName,
       email,
       password,
       baseCurrency,
-      portfolioName,
-      name: name as string
+      portfolioName
+    } = await validate(CreateUserSchema, req.body);
+
+    const result = await this.createUserService.execute({
+      firstName,
+      lastName,
+      email,
+      password,
+      baseCurrency,
+      portfolioName
     });
 
     return res.status(201).json(result);

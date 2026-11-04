@@ -33,6 +33,15 @@ namespace GetCurrentUserService {
   export type DTO = Record<'user', User>;
   export type Result = Record<
     'user',
-    Pick<User, 'id' | 'name' | 'email' | 'createdAt' | 'updatedAt'>
+    Pick<
+      User,
+      | 'id'
+      | 'name'
+      | 'firstName'
+      | 'lastName'
+      | 'email'
+      | 'createdAt'
+      | 'updatedAt'
+    >
   >;
 }

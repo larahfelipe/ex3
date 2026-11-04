@@ -340,7 +340,7 @@ const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
   return (
     <>
       <DialogHeader className="text-left">
-        <DialogTitle className="pr-6 wrap-anywhere">{description}</DialogTitle>
+        <DialogTitle className="wrap-anywhere">{description}</DialogTitle>
 
         <DialogDescription asChild>
           <div className="flex flex-wrap items-center gap-2">

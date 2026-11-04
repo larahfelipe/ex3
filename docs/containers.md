@@ -103,8 +103,9 @@ docker compose up --build
 
 The root `.env` is read by Compose only. In the container, the backend receives
 `NODE_ENV`, `PORT`, `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`,
-`API_PROXY_SECRET` and `YAHOO_FINANCE_API_KEY` from `compose.yaml`, and the web
-receives `API_URL` and the same `API_PROXY_SECRET`. Because `dotenv` does not
+`API_PROXY_SECRET`, `YAHOO_FINANCE_API_KEY` and `TURNSTILE_SECRET_KEY` from
+`compose.yaml`, and the web receives `API_URL`, the same `API_PROXY_SECRET` and
+`TURNSTILE_SITE_KEY`. Because `dotenv` does not
 overwrite an already defined variable, these values win over a `backend/.env`
 present in the mounted code. The remaining keys (`BCRYPT_SALT`,
 `JWT_EXPIRATION`, `CORS_ALLOWED_ORIGINS`) follow `backend/.env`, if it exists,

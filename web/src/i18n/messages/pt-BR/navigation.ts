@@ -2,6 +2,7 @@ export default {
   appDescription: 'EX3: investimentos e finanças pessoais',
   skipToContent: 'Pular para o conteúdo',
   main: 'Navegação principal',
+  brand: '{title}, visão geral',
   overview: 'Visão geral',
   assets: 'Ativos',
   portfolios: 'Carteiras',
@@ -24,6 +25,7 @@ export default {
     calendar: 'Calendário de contas',
     reports: 'Relatórios financeiros',
     signIn: 'Entrar',
-    signUp: 'Criar conta'
+    signUp: 'Criar conta',
+    notFound: 'Página não encontrada'
   }
 } as const;

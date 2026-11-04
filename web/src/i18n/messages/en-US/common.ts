@@ -9,8 +9,6 @@ export default {
     close: 'Close',
     delete: 'Delete',
     edit: 'Edit',
-    next: 'Next',
-    previous: 'Previous',
     refresh: 'Refresh',
     retry: 'Try again',
     save: 'Save',
@@ -22,6 +20,8 @@ export default {
     stale: "This data couldn't be refreshed and may be out of date"
   },
   pagination: {
+    previous: 'Previous page',
+    next: 'Next page',
     position: 'Page {page, number} of {totalPages, number}',
     positionWithDetail: 'Page {page, number} of {totalPages, number} · {detail}'
   },
@@ -33,6 +33,10 @@ export default {
     showPassword: 'Show password',
     hidePassword: 'Hide password',
     labelInCurrency: '{label}<hidden> in {currency}</hidden>'
+  },
+  personName: {
+    firstName: 'First name',
+    lastName: 'Last name'
   },
   searchableSelect: {
     search: 'Search',
@@ -58,7 +62,14 @@ export default {
   },
   fallback: {
     title: 'Something went wrong',
+    description:
+      "This page couldn't be shown. Try again, and if it keeps happening, come back later.",
     retry: 'Try again'
+  },
+  notFound: {
+    title: 'Page not found',
+    description: 'The address may be wrong, or the page may no longer exist.',
+    action: 'Go to the overview'
   },
   language: {
     label: 'Language',

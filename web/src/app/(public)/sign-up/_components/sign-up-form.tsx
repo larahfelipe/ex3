@@ -1,6 +1,13 @@
 'use client';
 
-import { useId, useMemo, useState, type FC, type SubmitEvent } from 'react';
+import {
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type FC,
+  type SubmitEvent
+} from 'react';
 import { flushSync } from 'react-dom';
 import {
   useForm,
@@ -13,9 +20,18 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 
-import { DEFAULT_CURRENCY, OFFERED_CURRENCIES } from '@/common/constants';
+import {
+  BOT_CHALLENGE,
+  DEFAULT_CURRENCY,
+  OFFERED_CURRENCIES
+} from '@/common/constants';
+import {
+  BotChallenge,
+  type BotChallengeHandle
+} from '@/components/bot-challenge';
 import { ChoiceField, FormField } from '@/components/form-field';
 import { PasswordRequirements } from '@/components/password-requirements';
+import { PersonNameFields } from '@/components/person-name-fields';
 import { SlideTransition } from '@/components/slide-transition';
 import { SubmitButton } from '@/components/submit-button';
 import {
@@ -27,9 +43,10 @@ import {
 import { useSignUp } from '@/hooks/use-user';
 import type { Translator } from '@/i18n/translator';
 import {
-  accountNameSchemaFor,
   emailSchemaFor,
+  firstNameSchemaFor,
   isDerivedFromEmail,
+  lastNameSchemaFor,
   newPasswordSchemaFor
 } from '@/lib/account-schema';
 import { ApiProxyError, isConflictError } from '@/lib/axios';
@@ -49,7 +66,8 @@ type SignUpField = keyof SignUpFormValues;
 const signUpSchemaFor = (t: Translator<'validation'>) =>
   z
     .object({
-      name: accountNameSchemaFor(t),
+      firstName: firstNameSchemaFor(t),
+      lastName: lastNameSchemaFor(t),
       email: emailSchemaFor(t),
       password: newPasswordSchemaFor(t),
       confirmPassword: z.string().min(1, t('password.confirmRequired')),
@@ -66,7 +84,7 @@ const signUpSchemaFor = (t: Translator<'validation'>) =>
     });
 
 const SIGN_UP_STEPS = [
-  { title: 'details', fields: ['name', 'email'] },
+  { title: 'details', fields: ['firstName', 'lastName', 'email'] },
   { title: 'security', fields: ['password', 'confirmPassword'] },
   { title: 'portfolio', fields: ['portfolioName', 'baseCurrency'] }
 ] as const satisfies ReadonlyArray<
@@ -85,8 +103,11 @@ const stepOf = (field: SignUpField) =>
     fields.some((stepField) => stepField === field)
   );
 
-export const SignUpForm: FC = () => {
+type SignUpFormProps = Record<'challengeSiteKey', string | undefined>;
+
+export const SignUpForm: FC<SignUpFormProps> = ({ challengeSiteKey }) => {
   const { mutateAsync: signUp } = useSignUp();
+  const challengeRef = useRef<BotChallengeHandle>(null);
   const t = useTranslations('auth');
   const tValidation = useTranslations('validation');
   const tErrors = useTranslations('errors');
@@ -115,7 +136,8 @@ export const SignUpForm: FC = () => {
     reValidateMode: 'onSubmit',
     resolver: zodResolver(signUpSchema),
     defaultValues: {
-      name: '',
+      firstName: '',
+      lastName: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -151,19 +173,34 @@ export const SignUpForm: FC = () => {
   };
 
   /** The password fields are left out, so typing a password never shows or clears an error until the step is submitted. */
-  const validateOnChange = (field: 'name' | 'email' | 'portfolioName') => ({
+  const validateOnChange = (
+    field: 'firstName' | 'lastName' | 'email' | 'portfolioName'
+  ) => ({
     onChange: () => void trigger(field)
   });
 
   const handleSignUp: SubmitHandler<SignUpFormValues> = async ({
-    name,
+    firstName,
+    lastName,
     email,
     password,
     portfolioName,
     baseCurrency
   }) => {
     try {
-      await signUp({ name, email, password, portfolioName, baseCurrency });
+      const challengeToken = (await challengeRef.current?.solve()) ?? null;
+
+      await signUp({
+        payload: {
+          firstName,
+          lastName,
+          email,
+          password,
+          portfolioName,
+          baseCurrency
+        },
+        challengeToken
+      });
     } catch (error) {
       if (error instanceof ApiProxyError && isConflictError(error)) {
         setError('email', {
@@ -186,6 +223,8 @@ export const SignUpForm: FC = () => {
 
       if (invalidField !== undefined && stepOf(invalidField) !== step)
         goToStep(stepOf(invalidField), invalidField);
+    } finally {
+      challengeRef.current?.reset();
     }
   };
 
@@ -241,21 +280,24 @@ export const SignUpForm: FC = () => {
       <div className="mt-8">
         <SlideTransition panelKey={step} direction={stepDirection}>
           <div className="space-y-5">
-            {step === stepOf('name') && (
+            {step === stepOf('firstName') && (
               <>
-                <FormField
-                  label={t('fields.name')}
-                  error={errors.name?.message}
-                >
-                  {(control) => (
-                    <Input
-                      {...control}
-                      autoComplete="name"
-                      autoCorrect="off"
-                      {...register('name', validateOnChange('name'))}
-                    />
-                  )}
-                </FormField>
+                <PersonNameFields
+                  firstName={{
+                    registration: register(
+                      'firstName',
+                      validateOnChange('firstName')
+                    ),
+                    error: errors.firstName?.message
+                  }}
+                  lastName={{
+                    registration: register(
+                      'lastName',
+                      validateOnChange('lastName')
+                    ),
+                    error: errors.lastName?.message
+                  }}
+                />
 
                 <FormField
                   label={t('fields.email')}
@@ -363,6 +405,12 @@ export const SignUpForm: FC = () => {
           </div>
         </SlideTransition>
       </div>
+
+      <BotChallenge
+        ref={challengeRef}
+        siteKey={challengeSiteKey}
+        action={BOT_CHALLENGE.Actions.SignUp}
+      />
 
       <div className="mt-8 flex gap-3">
         {step > 0 && (

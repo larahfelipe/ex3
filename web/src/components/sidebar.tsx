@@ -96,6 +96,14 @@ const NAVIGATION_ICON_CLASS =
 const NAVIGATION_TOGGLE_CLASS =
   'absolute top-3.5 right-0 z-10 hidden size-6 translate-x-1/2 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-surface ring-offset-background transition-colors before:absolute before:-inset-2.5 hover:border-input hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-90 lg:flex';
 
+/**
+ * The brand leads to the overview. It is drawn 32 px tall, centred on the
+ * toggle's line, with a 44 px target (WCAG 2.5.5) from the pseudo-element
+ * around it; once expanded, its text lines up with the items' icons.
+ */
+const BRAND_LINK_CLASS =
+  'relative -my-0.5 flex h-8 items-center rounded-md px-2 font-display text-lg font-bold outline-hidden ring-offset-background transition-colors before:absolute before:-inset-x-1 before:-inset-y-1.5 hover:bg-accent focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-95';
+
 const isCurrentPath = (pathname: string, path: string) =>
   pathname === path || pathname.startsWith(`${path}/`);
 
@@ -204,8 +212,15 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
       </button>
 
       <div className="contents sm:flex sm:min-h-0 sm:flex-1 sm:flex-col sm:overflow-y-auto sm:px-2 sm:py-3 navigation-expanded:px-3">
-        <div className="hidden sm:flex sm:justify-center navigation-expanded:justify-start navigation-expanded:pl-3">
-          <p className="font-display text-lg font-bold">{APP_TITLE}</p>
+        <div className="hidden sm:flex sm:justify-center navigation-expanded:justify-start navigation-expanded:pl-1">
+          <Link
+            href={APP_ROUTES.Protected.Overview}
+            aria-label={t('brand', { title: APP_TITLE })}
+            title={t('overview')}
+            className={BRAND_LINK_CLASS}
+          >
+            {APP_TITLE}
+          </Link>
         </div>
 
         <ul className="flex flex-3 sm:mt-6 sm:flex-none sm:flex-col sm:gap-1">

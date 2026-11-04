@@ -78,7 +78,7 @@ performance criteria are in [`accessibility.md`](accessibility.md),
 [`performance.md`](performance.md).
 
 **Proxy.** The Route Handlers under `web/src/app/api/v1` are the boundary: they
-read the `httpOnly` `ex3:token` cookie, send `Authorization: Bearer` to the
+read the `httpOnly` session cookie, send `Authorization: Bearer` to the
 backend and return the API's body. The browser never receives the token or the
 backend URL — `API_URL` exists only on the Next server. A handler that merely
 forwards delegates all of this to `forwardToApi`, in
