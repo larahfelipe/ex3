@@ -23,14 +23,19 @@ test exercised from what was only read or depends on the platform, and
 | `x-bot-challenge` on the API | `TurnstileVerifier`: at most 2048 characters, then confirmed by Cloudflare for this site and this action | `403 AUTHORIZATION` when refused, `503 INFRASTRUCTURE` when Cloudflare gives no verdict | none: see [Bot challenge](#bot-challenge) |
 | `x-bot-challenge` on the web | `botChallengeHeadersOf` (`web/src/lib/api-proxy.ts`) forwards it only when non-empty and at most 2048 characters | header dropped, so the API refuses the request | none |
 | `X-Forwarded-For` in the web | `clientAddressHeaders` (`web/src/lib/api-proxy.ts`) uses the last entry only, the one the platform appends | earlier entries ignored | none: whatever the client sends sits before the platform's entry |
-| Body of the web's route handlers | `jsonPayload` (`web/src/lib/api-proxy.ts`): `application/json` only, then parsed | `415 Unsupported Media Type` for any other media type, `400 Bad Request` for a body that does not parse, both with the `{ message, _error }` envelope | none |
+| Body of the web's route handlers | `jsonPayload` (`web/src/lib/api-proxy.ts`): `application/json` only, at most 100 KiB (4 MiB on the import's upload routes), counted in bytes, then parsed | `415 Unsupported Media Type` for any other media type, `413` for a declared length past the bound (unread) or a stream that runs past it (cancelled), `400 Bad Request` for a body that does not parse, all with the `{ message, _error }` envelope | none |
 | Path parameters of the web's route handlers | each id or symbol goes through `encodeURIComponent`, and `forwardToApi` refuses a path with a `.` or `..` segment (`hasDotSegment`), which the upstream URL would otherwise resolve onto another route | `404 Not Found` | none |
 | `Sec-Fetch-Site` and `x-ex3-csrf` on the web's `/api` routes | `isCrossSiteWrite` (`web/src/proxy.ts`): a write must carry the app's header and, when the browser reports it, say `same-origin` | `403 Forbidden` | none: see [Cross-site requests](#cross-site-requests) |
 | Return path after sign-in | `RETURN_PATH_PATTERN` (`sign-in/page.tsx`): a path on this site, not `//` or `/\` and with no whitespace | the default page | none |
+| Imported file (`POST /v1/transaction-import/preview` and `/v1/transaction-import`) | zod: a name of at most 255 characters without control characters, padded base64 of at most 2 MiB, at most 5000 SHA-256 keys; then the kind is decided by the bytes, not the name, and the name must end in `.xlsx` for a workbook or `.csv` for text: a ZIP read as XLSX through its central directory with inflate budgets and CRC checks, XML with no document type declaration, CSV in UTF-8, UTF-16 with a byte order mark or Windows-1252. Formulas are never evaluated. Detail in [`transaction-import.md`](transaction-import.md#security) | `400 VALIDATION` for a malformed body, `413` past the upload body; `422 DOMAIN` for a file past 2 MiB, a legacy `.xls`, a PDF, a name whose extension is not the content's, damaged content, an unrecognized layout, no rows or too many | none: the file is the person's, and every cell is data |
 | Quote provider (Yahoo Finance) | fixed origin, `redirect: 'error'` and a symbol restricted to letters and digits, escaped into the URL; the response is schema-parsed before becoming a price or an instrument attribute, with name and sector length-capped; from the client, registration accepts only symbol, market and currency | infrastructure failure; the position is reported from the ledger | response treated as external data |
 
 The body is capped at `100kb` (`RequestLimits.JSON_BODY_SIZE`) ahead of any
-parsing, and a payload above that answers `413`.
+parsing, and a payload above that answers `413`. The two upload routes of the
+transaction import skip that parser and take `4mb`
+(`RequestLimits.UPLOAD_BODY_SIZE`), parsed only after authentication and their
+rate limit (`BodyParserMiddleware.ts`), so no anonymous caller has a large body
+parsed.
 
 ## Secrets
 
@@ -416,6 +421,11 @@ the same `401`, in about the same time.
   submit while pending and no mutation retries on its own, but a client that
   repeats a request after a lost response records it twice. Nothing moves money,
   and the person can delete the duplicate; see the [register](#risk-register).
+* **Imports.** An import is recorded whole in one serializable transaction,
+  after planning again against the portfolio as it is then; each row's key is
+  unique per portfolio, so the same row is never recorded twice, even by two
+  concurrent imports. Undo is refused, touching nothing, when what is left would
+  not replay. See [`transaction-import.md`](transaction-import.md#recording).
 * **Tampering.** A position is rebuilt from the ledger, so a client cannot state
   one directly, and the ownership checks above apply to every write.
 
@@ -451,10 +461,10 @@ context of this architecture.
 | Brute force, stuffing, spraying | yes | [Rate limiting](#rate-limiting) and [Bot challenge](#bot-challenge) |
 | Open redirect | yes | `RETURN_PATH_PATTERN` accepts only a path on this site; other redirects are fixed |
 | HTTP request smuggling | platform | No custom parsing; Node's HTTP parser and Next serve requests. Whether a front proxy disagrees with them can only be tested in the deployed environment |
-| Path traversal | limited | No file is read from a request's input; `hasDotSegment` stops a route-level traversal in the web's upstream paths |
-| File upload and insecure file handling | no | The application accepts no files and generates none. There are no `multipart` parsers |
+| Path traversal | limited | No file is read from a request's input, and the entry names of an imported workbook are only looked up inside the archive in memory; `hasDotSegment` stops a route-level traversal in the web's upstream paths |
+| File upload and insecure file handling | yes | The transaction import takes one XLSX or CSV file of at most 2 MiB as base64 in JSON, after authentication and its rate limit. Its kind is decided by its bytes and its name's extension must agree; it is read in memory under size and entry budgets, never stored, never executed, and its formulas are never evaluated ([Transaction import](transaction-import.md#security)). There are no `multipart` parsers, and nothing is written to disk |
 | Cache poisoning and leakage | yes | The API and `/api` answer `no-store`; pages are dynamic. Nothing is built from `Host` or `X-Forwarded-Host`. The nonce rules out a shared cache of a page |
-| Insecure deserialization | no | JSON only, capped, then schema-parsed; no YAML, XML or serialized objects |
+| Insecure deserialization | limited | JSON only, capped, then schema-parsed; an imported workbook's XML is scanned with document type declarations refused, so no entity is defined or expanded; no YAML or serialized objects |
 | Prototype pollution | limited | No recursive merge of request bodies; schemas return new objects of known keys |
 | Information disclosure | yes | Generic errors, no stack traces, `x-powered-by` off, no production browser source maps, `/ready` does not say what failed |
 | Supply chain | yes | [Dependencies](#dependencies-and-supply-chain) |
@@ -503,6 +513,7 @@ controls in place. These are judgments, not measurements.
 | TD-065 | Unauthenticated traffic against the web is not limited | Medium | Medium | The Next server is exhausted; the API's budgets do not cover it | **Open**: depends on the platform |
 | — | Tenant isolation only in the application | High | Low | One missing `userId` filter exposes another person's data | **Mitigated**: single access path and cross-user tests; no row-level security |
 | — | Duplicate submission without idempotency | Low | Low | A repeated record, which the person can delete | **Open, accepted**: no money moves |
+| — | A crafted spreadsheet occupying the API | Medium | Low | One request holds CPU and up to tens of MiB while a file is inflated and read | **Mitigated**: signed-in callers only, 30 requests a minute, 2 MiB files, inflate, row, column and cell budgets, linear-time XML; not measured under load |
 | — | Session token not bound to a client | Medium | Low | A stolen token works until revoked or expired | **Accepted**: the cookie's attributes and one live session limit it |
 | — | Cloudflare outage | Medium | Low | Nobody can sign in or up; open sessions continue | **Accepted**: failing closed is the decision |
 | — | Shared address behind NAT or CGNAT | Low | Medium | Legitimate people share a budget and meet `429` | **Accepted**: measure before tightening |
@@ -523,6 +534,8 @@ controls in place. These are judgments, not measurements.
   production host named in `CORS_ALLOWED_ORIGINS`.
 * The `20261030000000_rate_limit_counters` migration runs before the new API
   serves traffic. Until then, every limited route answers `503`.
+* The `20261104000000_transaction_imports` migration runs before the new API
+  serves traffic; until then, reading or writing a transaction fails.
 * A person's address goes to Cloudflare as `remoteip` when a challenge is
   verified. The privacy notice should say so.
 * The platform owns log access and retention, TLS configuration, and volumetric
@@ -553,8 +566,8 @@ environment, which was not available for this review.
 
 ## Verified and unvalidated
 
-**Implemented and verified by tests that ran on 2026-11-01.** 340 backend unit
-tests, 401 backend integration tests against Postgres, and 187 web unit tests,
+**Implemented and verified by tests that ran on 2026-11-04.** 421 backend unit
+tests, 434 backend integration tests against Postgres, and 224 web unit tests,
 all passing, along with type checks, ESLint and Prettier in both packages.
 
 * Rate limiting: concurrent attempts admit exactly the budget; a count made by
@@ -573,6 +586,12 @@ all passing, along with type checks, ESLint and Prettier in both packages.
 * Sessions: expired, unsigned, wrongly signed and revoked tokens are refused.
 * Authorization: cross-user reads and writes, anonymous access, admin routes.
 * Financial writes: rollback on failure, concurrent sales and payments.
+* Transaction import: crafted archives and XML (document type declarations,
+  inflate past budget or declared size, wrong checksums, unclosed markup in
+  linear time), legacy and PDF signatures, a name whose extension is not the
+  content's, the upload body refused anonymously
+  before parsing and past 4 MiB, the 100 KiB limit kept elsewhere, cross-user
+  imports and instruments, and a file imported twice recorded once.
 
 **Verified by inspection of the production build.** `next build` succeeds with
 this policy. The Sonner stylesheet in the built chunk hashes to
@@ -596,6 +615,8 @@ log contents, secrets in client bundles, and the correctness of rounding.
 * Several instances were simulated by separate stores in one process, not by
   separate processes or machines.
 * The latency of a Postgres write per request, and the budgets, are unmeasured.
+* No real B3 export was parsed, and the import's time and memory on a file at
+  its limits were not measured.
 * No DAST scan and no penetration test were run.
 * Smuggling, TLS, and the `X-Forwarded-For` assumptions need the deployed
   platform.

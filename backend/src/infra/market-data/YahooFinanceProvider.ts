@@ -49,6 +49,21 @@ const REQUEST_TIMEOUT_MS = 5_000;
 const QUOTE_BATCH_SIZE = 10;
 
 /**
+ * Seen on this account, not documented: an import looking listings up four at
+ * a time was answered throughout, while a first performance read, which asked
+ * for the history of every instrument at once, had 22 requests refused with
+ * 429. Past this many, a request waits for one of them to finish.
+ */
+const MAX_CONCURRENT_REQUESTS = 4;
+
+/**
+ * The endpoint of current quotes, and of searches, goes ahead of histories and
+ * summaries: it is what a page shows first, and one request answers up to
+ * `QUOTE_BATCH_SIZE` symbols.
+ */
+const PRIORITY_PATHS: ReadonlySet<string> = new Set([QUOTE_PATH]);
+
+/**
  * Assumed, not measured: a quote a minute old is current enough for a portfolio
  * view, and reloads within the minute spend none of the plan's request quota.
  */
@@ -70,8 +85,10 @@ const LISTING_TIME_TO_LIVE_MS = 3_600_000;
 /**
  * Assumed, not measured: searched symbols come from users and not from what is
  * stored, so the listing cache is bounded by count, dropping the oldest entry.
+ * It keeps each provider symbol a search asks for, five for a search in every
+ * market, so this is a thousand such searches.
  */
-const LISTING_CACHE_MAX_ENTRIES = 1_000;
+const LISTING_CACHE_MAX_ENTRIES = 5_000;
 
 /**
  * Assumed, not measured: a range the provider answered with no prices (a
@@ -97,6 +114,7 @@ const EMPTY_HISTORY_CACHE_MAX_ENTRIES = 10_000;
 const FUNDAMENTALS_TIME_TO_LIVE_MS = 3_600_000;
 
 const HTTP_NOT_FOUND = 404;
+const HTTP_TOO_MANY_REQUESTS = 429;
 const PERCENT = 100;
 const MILLISECONDS_PER_SECOND = 1_000;
 const MILLISECONDS_PER_DAY = 86_400_000;
@@ -113,6 +131,25 @@ const LOOKBACK_DAYS: ReadonlyMap<PriceInterval, number> = new Map([
 ]);
 
 const DAILY_RATE_INTERVAL: PriceInterval = '1d';
+
+/**
+ * A pause the provider asks for in `Retry-After` is kept within these bounds,
+ * so a malformed or extreme header neither retries at once nor leaves quotes
+ * off for more than an hour.
+ */
+const RETRY_AFTER_BOUNDS_MS = { min: 1_000, max: 3_600_000 } as const;
+
+/**
+ * Assumed, not documented: the key goes in the header an AWS API Gateway
+ * reads, and such a gateway refuses with one of these messages a request sent
+ * too fast and one past the plan's quota. Only which limit it was is logged,
+ * never the body, which comes from the provider.
+ */
+const LIMIT_BY_THROTTLE_MESSAGE: ReadonlyMap<string, 'rate' | 'quota'> =
+  new Map([
+    ['Too Many Requests', 'rate'],
+    ['Limit Exceeded', 'quota']
+  ]);
 
 /** Letters and digits only, so neither can change the path or query of the provider URL. */
 const QUOTABLE_SYMBOL_PATTERN = /^[A-Z0-9]+$/;
@@ -216,6 +253,8 @@ const ListingSchema = z.object({
   shortName: ListingNameSchema
 });
 
+const ThrottleSchema = z.object({ message: z.string() });
+
 const ProfileSchema = z.object({
   quoteSummary: z.object({
     result: z.tuple([
@@ -311,12 +350,17 @@ type CachedQuote = {
   cachedAt: number;
 };
 
-type SearchedListings = Extract<ListingSearch, { outcome: 'searched' }>;
+type ListingItem = z.infer<typeof ListingSchema>;
 
-type CachedListings = {
-  search: SearchedListings;
+/** What the provider answered for one of its symbols, null when it listed nothing under it. */
+type CachedListingItem = {
+  item: ListingItem | null;
   cachedAt: number;
 };
+
+type ListingItemsResponse =
+  | { outcome: 'responded'; items: ReadonlyMap<string, ListingItem> }
+  | typeof UNAVAILABLE;
 
 type CachedEmptyHistory = {
   outcome: 'quoted' | 'not-found';
@@ -341,9 +385,12 @@ type ListingCandidate = Record<'yahooSymbol' | 'currency', string> &
 /**
  * `pause` leaves the provider alone for `FAILURE_COOLDOWN_MS`, as any quote
  * failure does; `report` only logs it, for an optional answer from an endpoint
- * the plan may not include, which must not take quotes down with it.
+ * the plan may not include, which must not take quotes down with it. A 429
+ * pauses either way: the limit is the account's, not the endpoint's.
  */
 type FailureHandling = 'pause' | 'report';
+
+type RequestQueue = 'priority' | 'regular';
 
 const isMarket = (market: string): market is Market =>
   Object.hasOwn(YAHOO_SYMBOL_BY_MARKET, market);
@@ -357,18 +404,26 @@ const toYahooSymbol = ({ symbol, market, currency }: PricedInstrument) =>
     ? YAHOO_SYMBOL_BY_MARKET[market](symbol, currency)
     : null;
 
-/** The symbol under every market, and under every looked-up currency where the pair names one. */
-const listingCandidatesOf = (symbol: string): ListingCandidate[] =>
+/**
+ * The symbol under every market, and under every looked-up currency where the
+ * pair names one; with a currency, only where it would be quoted in it.
+ */
+const listingCandidatesOf = (
+  symbol: string,
+  currency: string | null
+): ListingCandidate[] =>
   Object.values(Markets).flatMap((market) => {
     const quoteCurrency = MarketQuoteCurrencies[market];
-    const currencies =
+    const currencies: ReadonlyArray<string> =
       quoteCurrency === null ? CryptoListingCurrencies : [quoteCurrency];
 
-    return currencies.map((currency) => ({
-      market,
-      currency,
-      yahooSymbol: YAHOO_SYMBOL_BY_MARKET[market](symbol, currency)
-    }));
+    return currencies
+      .filter((quoted) => currency === null || quoted === currency)
+      .map((quoted) => ({
+        market,
+        currency: quoted,
+        yahooSymbol: YAHOO_SYMBOL_BY_MARKET[market](symbol, quoted)
+      }));
   });
 
 /** Bounded by code points, so a surrogate pair is never split. */
@@ -382,13 +437,11 @@ const toListingName = (name: string) =>
 const toListing = (
   symbol: string,
   { market, currency }: ListingCandidate,
-  item: unknown
+  item: ListingItem | null
 ): Listing | null => {
-  const parsed = ListingSchema.safeParse(item);
+  if (item === null) return null;
 
-  if (!parsed.success) return null;
-
-  const { longName, shortName, quoteType, exchange } = parsed.data;
+  const { longName, shortName, quoteType, exchange } = item;
   const name = longName ?? shortName;
   const quotedType = INSTRUMENT_TYPE_BY_QUOTE_TYPE.get(quoteType);
 
@@ -396,7 +449,7 @@ const toListing = (
     name === undefined ||
     quotedType === undefined ||
     MARKET_BY_EXCHANGE.get(exchange) !== market ||
-    parsed.data.currency !== currency
+    item.currency !== currency
   )
     return null;
 
@@ -413,6 +466,26 @@ const toListing = (
     currency
   };
 };
+
+/** A search is unavailable when the provider never answered one of the symbols it asks for. */
+const searchOf = (
+  symbol: string,
+  candidates: ReadonlyArray<ListingCandidate>,
+  items: ReadonlyMap<string, ListingItem | null>
+): ListingSearch =>
+  candidates.every(({ yahooSymbol }) => items.has(yahooSymbol))
+    ? {
+        outcome: 'searched',
+        listings: candidates.flatMap(
+          (candidate) =>
+            toListing(
+              symbol,
+              candidate,
+              items.get(candidate.yahooSymbol) ?? null
+            ) ?? []
+        )
+      }
+    : UNAVAILABLE;
 
 const toExchangeRateSymbol = (currency: string, baseCurrency: string) =>
   CURRENCY_CODE_PATTERN.test(currency) &&
@@ -478,6 +551,21 @@ const inBatches = <Item>(items: ReadonlyArray<Item>, size: number) =>
     items.slice(index * size, (index + 1) * size)
   );
 
+/** In seconds or as an HTTP date, as `Retry-After` may be written; null when absent or unreadable. */
+const retryAfterMsOf = (header: string | null, now: number) => {
+  const value = header?.trim() ?? '';
+  const delayMs = /^\d+$/.test(value)
+    ? Number(value) * MILLISECONDS_PER_SECOND
+    : Date.parse(value) - now;
+
+  return Number.isNaN(delayMs)
+    ? null
+    : Math.min(
+        Math.max(delayMs, RETRY_AFTER_BOUNDS_MS.min),
+        RETRY_AFTER_BOUNDS_MS.max
+      );
+};
+
 /** Sets the entry as the newest, first dropping the oldest when the cache is full. */
 const cacheWithinBound = <Entry>(
   cache: Map<string, Entry>,
@@ -508,7 +596,9 @@ const cacheWithinBound = <Entry>(
  * fundamentals caches hold only symbols translated from stored instruments and
  * from pairs of stored currency codes, so they are bounded by what is stored;
  * the listing and empty-history caches hold what callers ask for, so they are
- * bounded by count. All of them live in this process.
+ * bounded by count. All of them live in this process, as does the turn each
+ * request waits for: no more than `MAX_CONCURRENT_REQUESTS` are sent at once,
+ * and the ones past it are sent as others finish, quotes first.
  */
 export class YahooFinanceProvider implements MarketDataProvider {
   private static INSTANCE: YahooFinanceProvider;
@@ -518,13 +608,18 @@ export class YahooFinanceProvider implements MarketDataProvider {
   private readonly logEntry: LogSink;
   private readonly quoteCache = new Map<string, CachedQuote>();
   private readonly inFlightQuotes = new Map<string, Promise<QuoteLookup>>();
-  private readonly listingCache = new Map<string, CachedListings>();
+  private readonly listingCache = new Map<string, CachedListingItem>();
   private readonly emptyHistoryCache = new Map<string, CachedEmptyHistory>();
   private readonly fundamentalsCache = new Map<string, CachedFundamentals>();
   private readonly inFlightHistories = new Map<
     string,
     Promise<PriceHistoryLookup>
   >();
+  private readonly waitingRequests: Record<RequestQueue, Array<() => void>> = {
+    priority: [],
+    regular: []
+  };
+  private activeRequests = 0;
   private unavailableUntil = 0;
 
   constructor({
@@ -619,37 +714,47 @@ export class YahooFinanceProvider implements MarketDataProvider {
       : lookup;
   }
 
-  /** A search the provider fails is answered from the last one received for the symbol, however old. */
-  async findListings(symbol: string): Promise<ListingSearch> {
-    if (!QUOTABLE_SYMBOL_PATTERN.test(symbol))
-      return { outcome: 'searched', listings: [] };
-
-    const cached = this.listingCache.get(symbol);
-
-    if (
-      cached !== undefined &&
-      this.now() - cached.cachedAt < LISTING_TIME_TO_LIVE_MS
-    )
-      return cached.search;
-
-    const search = await this.requestListings(symbol);
-
-    if (search.outcome === 'unavailable') return cached?.search ?? search;
-
-    cacheWithinBound(
-      this.listingCache,
-      symbol,
-      { search, cachedAt: this.now() },
-      LISTING_CACHE_MAX_ENTRIES
+  /**
+   * The provider symbols of every search are asked for together, up to
+   * `QUOTE_BATCH_SIZE` a request, and each answer is kept for
+   * `LISTING_TIME_TO_LIVE_MS`; one the provider fails to give is the last
+   * received for that symbol, however old.
+   */
+  async findListings(
+    currencyBySymbol: ReadonlyMap<string, string | null>
+  ): Promise<ReadonlyMap<string, ListingSearch>> {
+    const candidatesBySymbol = new Map(
+      [...currencyBySymbol].map(([symbol, currency]) => [
+        symbol,
+        QUOTABLE_SYMBOL_PATTERN.test(symbol)
+          ? listingCandidatesOf(symbol, currency)
+          : []
+      ])
     );
+    const items = await this.lookUpListingItems([
+      ...new Set(
+        [...candidatesBySymbol.values()].flatMap((candidates) =>
+          candidates.map(({ yahooSymbol }) => yahooSymbol)
+        )
+      )
+    ]);
 
-    return search;
+    return new Map(
+      [...candidatesBySymbol].map(([symbol, candidates]) => [
+        symbol,
+        searchOf(symbol, candidates, items)
+      ])
+    );
   }
 
   async describeListing(instrument: PricedInstrument): Promise<ListingLookup> {
-    const search = await this.findListings(instrument.symbol);
+    const { symbol, currency } = instrument;
+    const search = (await this.findListings(new Map([[symbol, currency]]))).get(
+      symbol
+    );
 
-    if (search.outcome === 'unavailable') return UNAVAILABLE;
+    if (search === undefined || search.outcome === 'unavailable')
+      return UNAVAILABLE;
 
     const listing = search.listings.find(
       ({ market, currency }) =>
@@ -699,37 +804,74 @@ export class YahooFinanceProvider implements MarketDataProvider {
     };
   }
 
-  private async requestListings(symbol: string): Promise<ListingSearch> {
-    const candidates = listingCandidatesOf(symbol);
+  /** Answers only the symbols answered now or before; a search missing one is unavailable. */
+  private async lookUpListingItems(yahooSymbols: ReadonlyArray<string>) {
+    const items = new Map<string, ListingItem | null>();
+    const unrequested: string[] = [];
+
+    for (const yahooSymbol of yahooSymbols) {
+      const cached = this.listingCache.get(yahooSymbol);
+
+      if (
+        cached !== undefined &&
+        this.now() - cached.cachedAt < LISTING_TIME_TO_LIVE_MS
+      )
+        items.set(yahooSymbol, cached.item);
+      else unrequested.push(yahooSymbol);
+    }
+
+    await Promise.all(
+      inBatches(unrequested, QUOTE_BATCH_SIZE).map(async (batch) => {
+        const received = await this.requestListingItems(batch);
+
+        for (const yahooSymbol of batch) {
+          if (received.outcome === 'unavailable') {
+            const last = this.listingCache.get(yahooSymbol);
+
+            if (last !== undefined) items.set(yahooSymbol, last.item);
+          } else {
+            const item = received.items.get(yahooSymbol) ?? null;
+
+            cacheWithinBound(
+              this.listingCache,
+              yahooSymbol,
+              { item, cachedAt: this.now() },
+              LISTING_CACHE_MAX_ENTRIES
+            );
+            items.set(yahooSymbol, item);
+          }
+        }
+      })
+    );
+
+    return items;
+  }
+
+  /** A symbol the provider leaves out of its answer, or answers outside the expected shape, lists nothing. */
+  private async requestListingItems(
+    batch: ReadonlyArray<string>
+  ): Promise<ListingItemsResponse> {
     const response = await this.request(QUOTE_PATH, {
-      symbols: [
-        ...new Set(candidates.map(({ yahooSymbol }) => yahooSymbol))
-      ].join(',')
+      symbols: batch.join(',')
     });
 
     if (response.outcome === 'unavailable') return UNAVAILABLE;
     if (response.outcome === 'not-found')
-      return { outcome: 'searched', listings: [] };
+      return { outcome: 'responded', items: new Map() };
 
     const envelope = QuoteEnvelopeSchema.safeParse(response.body);
 
     if (!envelope.success) return this.reportFailure('invalid quote response');
 
-    const itemsBySymbol = new Map(
-      envelope.data.quoteResponse.result.map((item) => [item.symbol, item])
-    );
-
     return {
-      outcome: 'searched',
-      listings: candidates.flatMap((candidate) => {
-        const listing = toListing(
-          symbol,
-          candidate,
-          itemsBySymbol.get(candidate.yahooSymbol)
-        );
+      outcome: 'responded',
+      items: new Map(
+        envelope.data.quoteResponse.result.flatMap((item) => {
+          const listing = ListingSchema.safeParse(item);
 
-        return listing === null ? [] : [listing];
-      })
+          return listing.success ? [[item.symbol, listing.data] as const] : [];
+        })
+      )
     };
   }
 
@@ -1055,20 +1197,64 @@ export class YahooFinanceProvider implements MarketDataProvider {
     return lookups;
   }
 
+  /** A pause that starts while a request waits for its turn is kept too, without sending it. */
   private async request(
     path: string,
     query: Record<string, string>,
     failureHandling: FailureHandling = 'pause'
   ): Promise<ProviderResponse> {
-    if (this.apiKey === undefined || this.now() < this.unavailableUntil)
-      return UNAVAILABLE;
+    const { apiKey } = this;
 
+    if (apiKey === undefined || this.isPaused()) return UNAVAILABLE;
+
+    return this.inTurn(
+      PRIORITY_PATHS.has(path) ? 'priority' : 'regular',
+      async () =>
+        this.isPaused()
+          ? UNAVAILABLE
+          : this.send(apiKey, path, query, failureHandling)
+    );
+  }
+
+  private isPaused() {
+    return this.now() < this.unavailableUntil;
+  }
+
+  /** Runs `task` once fewer than `MAX_CONCURRENT_REQUESTS` run, then hands its turn to the next waiting. */
+  private async inTurn<Result>(
+    queue: RequestQueue,
+    task: () => Promise<Result>
+  ): Promise<Result> {
+    if (this.activeRequests < MAX_CONCURRENT_REQUESTS) this.activeRequests += 1;
+    else
+      await new Promise<void>((resolve) => {
+        this.waitingRequests[queue].push(resolve);
+      });
+
+    try {
+      return await task();
+    } finally {
+      const next =
+        this.waitingRequests.priority.shift() ??
+        this.waitingRequests.regular.shift();
+
+      if (next === undefined) this.activeRequests -= 1;
+      else next();
+    }
+  }
+
+  private async send(
+    apiKey: string,
+    path: string,
+    query: Record<string, string>,
+    failureHandling: FailureHandling
+  ): Promise<ProviderResponse> {
     const url = new URL(path, YAHOO_FINANCE_ORIGIN);
     url.search = new URLSearchParams(query).toString();
 
     try {
       const response = await this.fetchResponse(url, {
-        headers: { 'x-api-key': this.apiKey, accept: 'application/json' },
+        headers: { 'x-api-key': apiKey, accept: 'application/json' },
         redirect: 'error',
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
       });
@@ -1077,6 +1263,9 @@ export class YahooFinanceProvider implements MarketDataProvider {
         await response.body?.cancel();
         return NOT_FOUND;
       }
+
+      if (response.status === HTTP_TOO_MANY_REQUESTS)
+        return await this.pauseThrottled(response);
 
       if (!response.ok) {
         await response.body?.cancel();
@@ -1090,6 +1279,38 @@ export class YahooFinanceProvider implements MarketDataProvider {
         failureHandling
       );
     }
+  }
+
+  /**
+   * Every request is paused for as long as the provider asks or, when it does
+   * not say, for `FAILURE_COOLDOWN_MS`; a longer pause already running stays.
+   */
+  private async pauseThrottled(
+    response: Response
+  ): Promise<typeof UNAVAILABLE> {
+    const retryInMs =
+      retryAfterMsOf(response.headers.get('retry-after'), this.now()) ??
+      FAILURE_COOLDOWN_MS;
+    const throttle = ThrottleSchema.safeParse(
+      await response.json().catch(() => null)
+    );
+    const limit = throttle.success
+      ? LIMIT_BY_THROTTLE_MESSAGE.get(throttle.data.message)
+      : undefined;
+
+    this.unavailableUntil = Math.max(
+      this.unavailableUntil,
+      this.now() + retryInMs
+    );
+    this.logEntry({
+      severity: LogSeverities.WARNING,
+      event: 'quote_provider_unavailable',
+      reason: `status ${HTTP_TOO_MANY_REQUESTS}`,
+      ...(limit !== undefined && { limit }),
+      retryInMs
+    });
+
+    return UNAVAILABLE;
   }
 
   private reportFailure(
@@ -1106,7 +1327,10 @@ export class YahooFinanceProvider implements MarketDataProvider {
       return UNAVAILABLE;
     }
 
-    this.unavailableUntil = this.now() + FAILURE_COOLDOWN_MS;
+    this.unavailableUntil = Math.max(
+      this.unavailableUntil,
+      this.now() + FAILURE_COOLDOWN_MS
+    );
     this.logEntry({
       severity: LogSeverities.WARNING,
       event: 'quote_provider_unavailable',

@@ -194,11 +194,14 @@ receives with zod — a provider response is untrusted input. It caches a quote
 for 60s, joins a symbol already in flight — and, for history, a window already
 in flight — into the same request, caches an empty history window for one hour
 and, after a failure, answers for 30s with the last observed quote instead of
-insisting, recording `quote_provider_unavailable`. It also resolves a ticker
-across the listings the provider carries — name, class, market and currency,
-from the same quote request, cached for one hour — and the sector, from the
-asset profile, so that registering an instrument does not ask the user for
-those attributes.
+insisting, recording `quote_provider_unavailable`; a `429`, from any endpoint,
+pauses it for as long as `Retry-After` asks. No more than four requests go out
+at once, those to the quote endpoint ahead of histories and profiles. It also
+resolves tickers across the listings the provider carries — name, class, market
+and currency, from the same quote request, several tickers per request, only in
+the currency a caller names, each answer cached for one hour — and the sector,
+from the asset profile, so that registering an instrument does not ask the user
+for those attributes.
 
 A provider failure never becomes a 500: the port answers `not-found`,
 `unavailable` or `range-not-served`, and the service omits from the body the

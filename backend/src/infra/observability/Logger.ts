@@ -20,7 +20,12 @@ export type LogEvent =
   | { event: 'quote_provider_key_missing' }
   | { event: 'bot_challenge_not_enforced' }
   | { event: 'bot_challenge_unavailable'; reason: string }
-  | { event: 'quote_provider_unavailable'; reason: string; retryInMs: number }
+  | {
+      event: 'quote_provider_unavailable';
+      reason: string;
+      limit?: 'rate' | 'quota';
+      retryInMs: number;
+    }
   | { event: 'quote_provider_request_failed'; reason: string }
   | { event: 'quote_provider_fallback_served'; count: number }
   | {

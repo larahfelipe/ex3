@@ -29,7 +29,7 @@ model User {
 }
 
 model Portfolio {
-  id           String        @id @default(uuid())
+  id           String              @id @default(uuid())
   name         String
   /// The name as the unique index compares it: `portfolioNameKey(name)`, in
   /// `src/domain/PortfolioName.ts`.
@@ -37,10 +37,11 @@ model Portfolio {
   baseCurrency String
   positions    Position[]
   transactions Transaction[]
-  user         User?         @relation(fields: [userId], references: [id])
+  imports      TransactionImport[]
+  user         User?               @relation(fields: [userId], references: [id])
   userId       String
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
 
   @@unique([userId, nameKey])
   @@index([userId])
@@ -145,27 +146,62 @@ enum TransactionType {
 }
 
 model Transaction {
-  id           String          @id @default(uuid())
-  sequence     BigInt          @unique @default(autoincrement())
+  id           String             @id @default(uuid())
+  sequence     BigInt             @unique @default(autoincrement())
   type         TransactionType
-  quantity     Decimal         @db.Decimal(38, 18)
-  unitPrice    Decimal         @db.Decimal(38, 18)
-  fees         Decimal         @default(0) @db.Decimal(38, 18)
-  taxes        Decimal         @default(0) @db.Decimal(38, 18)
+  quantity     Decimal            @db.Decimal(38, 18)
+  unitPrice    Decimal            @db.Decimal(38, 18)
+  fees         Decimal            @default(0) @db.Decimal(38, 18)
+  taxes        Decimal            @default(0) @db.Decimal(38, 18)
   currency     String
   executedAt   DateTime
   broker       String?
   notes        String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  portfolio    Portfolio       @relation(fields: [portfolioId], references: [id])
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  portfolio    Portfolio          @relation(fields: [portfolioId], references: [id])
   portfolioId  String
-  instrument   Instrument      @relation(fields: [instrumentId], references: [id])
+  instrument   Instrument         @relation(fields: [instrumentId], references: [id])
   instrumentId String
+  /// What the row of an imported file records, as `src/domain/transaction-import`
+  /// digests it: unique in the portfolio, so a file imported again records
+  /// nothing twice. Null for a transaction recorded by hand.
+  importKey    String?
+  /// The row as the file had it, `{ format, sheet, rowNumber, cells }`, so an
+  /// imported transaction can always be traced back to its source.
+  importedRow  Json?
+  import       TransactionImport? @relation(fields: [importId], references: [id])
+  importId     String?
 
+  @@unique([portfolioId, importKey])
   @@index([portfolioId, instrumentId])
   @@index([instrumentId])
+  @@index([importId])
   @@map("transactions")
+}
+
+/// One file imported into a portfolio. The file is never stored: its SHA-256
+/// identifies it, and each transaction it recorded keeps the row it came from.
+/// Undoing an import deletes its transactions and keeps the record, with the
+/// time it was undone.
+model TransactionImport {
+  id                  String        @id @default(uuid())
+  fileName            String
+  fileDigest          String
+  formats             String[]
+  rowCount            Int
+  importedCount       Int
+  /// The instruments the import opened a position in, closed again when an
+  /// undo leaves them without transactions.
+  openedInstrumentIds String[]
+  createdAt           DateTime      @default(now())
+  undoneAt            DateTime?
+  portfolio           Portfolio     @relation(fields: [portfolioId], references: [id])
+  portfolioId         String
+  transactions        Transaction[]
+
+  @@index([portfolioId, createdAt])
+  @@map("transaction_imports")
 }
 
 /// Personal finance records belong to a user, not to a portfolio: what an

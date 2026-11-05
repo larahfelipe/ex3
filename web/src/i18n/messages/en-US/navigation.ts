@@ -18,6 +18,7 @@ export default {
   pages: {
     overview: 'Overview',
     assets: 'Assets',
+    assetImport: 'Import transactions',
     portfolios: 'Portfolios',
     account: 'My account',
     finances: 'Finances',

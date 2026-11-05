@@ -87,7 +87,28 @@ export default {
       'The end date would remove an occurrence that already has payments.',
     referenceDayOutOfRange:
       "This device's date differs too much from the server's. Check the device's date and time.",
-    rangeReversed: "The end date can't be before the start date."
+    rangeReversed: "The end date can't be before the start date.",
+    importFileUnsupported:
+      "This file isn't accepted. Import an XLSX spreadsheet or a CSV file.",
+    importFileLegacy:
+      "Spreadsheets in the old XLS format can't be read. Save it as XLSX and import it again.",
+    importFileMalformed:
+      "The file couldn't be read: it is damaged or malformed.",
+    importFileTooLarge: 'The file is too large to import.',
+    importFormatUnrecognized:
+      'No B3 statement or EX3 template was recognized in the file. Check that the columns keep their original headers.',
+    importNoRows: 'The file has no rows to import.',
+    importTooManyRows:
+      'The file has more rows than one import takes. Split the period into smaller files.',
+    importChanged:
+      'The portfolio changed since the preview. Review the import again.',
+    importNotFound: "This import wasn't found.",
+    importAlreadyUndone: 'This import was already undone.',
+    importUndoOversold:
+      'Undoing the import would leave a sale larger than the units held. Change the transactions recorded after it first.',
+    importSelectionEmpty: 'Select at least one row to import.',
+    importContentInvalid: "The file's content couldn't be sent.",
+    importFileNameInvalid: 'The file name has characters that are not allowed.'
   },
   limits: {
     startOutsideHorizon:

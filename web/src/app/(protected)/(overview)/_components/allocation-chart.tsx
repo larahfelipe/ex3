@@ -371,7 +371,7 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
               <div className={CHART_LAYOUT_CLASS_NAME}>
                 <AllocationRing groups={groups} />
 
-                <Table label={caption}>
+                <Table label={caption} regionClassName="lg:max-h-96">
                   <TableCaption className="sr-only">{caption}</TableCaption>
 
                   <TableHeader>

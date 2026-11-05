@@ -73,9 +73,11 @@ export class SearchInstrumentsService {
         marketSearch: MarketSearchStatuses.SKIPPED
       };
 
-    const search = await this.marketDataProvider.findListings(symbol);
+    const search = (
+      await this.marketDataProvider.findListings(new Map([[symbol, null]]))
+    ).get(symbol);
 
-    return search.outcome === 'unavailable'
+    return search === undefined || search.outcome === 'unavailable'
       ? {
           instruments,
           listings: [],

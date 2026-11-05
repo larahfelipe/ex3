@@ -7,5 +7,6 @@ export * from './InstrumentRepository';
 export * from './MarketQuoteRepository';
 export * from './PortfolioRepository';
 export * from './RecurringExpenseRepository';
+export * from './TransactionImportRepository';
 export * from './TransactionRepository';
 export * from './UserRepository';

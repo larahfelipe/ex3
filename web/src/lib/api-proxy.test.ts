@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { BOT_CHALLENGE } from '@/common/constants';
+import { BOT_CHALLENGE, REQUEST_LIMITS } from '@/common/constants';
 import { ApiProxyError } from '@/lib/axios';
 
 import { botChallengeHeadersOf, hasDotSegment, jsonPayload } from './api-proxy';
@@ -12,6 +12,13 @@ const requestWith = (contentType: string | null, body = '{"a":1}') =>
     headers: contentType === null ? {} : { 'content-type': contentType },
     body
   });
+
+/** Answered as the API answers it, so the interface words both alike. */
+const isPayloadTooLarge = (error: unknown) =>
+  error instanceof ApiProxyError &&
+  error.status === 413 &&
+  error._error?.code === 'VALIDATION' &&
+  error._error.message === 'Request payload exceeds the maximum allowed size';
 
 describe('a forwarded path', () => {
   it('is refused with a segment of dots, which the upstream URL would resolve', () => {
@@ -61,6 +68,59 @@ describe('a request body', () => {
       jsonPayload(requestWith('application/json', '{')),
       (error) => error instanceof ApiProxyError && error.status === 400
     );
+  });
+
+  it('is read up to its limit, counted in bytes rather than characters', async () => {
+    const body = JSON.stringify({ name: 'Preço' });
+    const bytes = new TextEncoder().encode(body).byteLength;
+
+    assert.deepEqual(
+      await jsonPayload(requestWith('application/json', body), bytes),
+      { name: 'Preço' }
+    );
+    await assert.rejects(
+      jsonPayload(requestWith('application/json', body), bytes - 1),
+      isPayloadTooLarge
+    );
+  });
+
+  it('is refused unread when it declares a length past the limit', async () => {
+    const request = new Request('http://localhost/api/v1/sign-in', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'content-length': String(REQUEST_LIMITS.JsonBodyBytes + 1)
+      },
+      body: '{}'
+    });
+
+    await assert.rejects(jsonPayload(request), isPayloadTooLarge);
+    assert.equal(request.bodyUsed, false);
+  });
+
+  it('is cancelled where a stream that declares no length runs past the limit', async () => {
+    const chunk = new TextEncoder().encode(`"${'a'.repeat(1022)}"`);
+    let pulledChunks = 0;
+    let isCancelled = false;
+
+    const request = new Request('http://localhost/api/v1/sign-in', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: new ReadableStream<Uint8Array>({
+        pull: (controller) => {
+          pulledChunks += 1;
+          controller.enqueue(chunk);
+        },
+        cancel: () => {
+          isCancelled = true;
+        }
+      }),
+      duplex: 'half'
+    } as RequestInit);
+
+    await assert.rejects(jsonPayload(request, 4 * 1024), isPayloadTooLarge);
+    assert.equal(isCancelled, true);
+    assert.ok(pulledChunks <= 6, `pulled ${pulledChunks} chunks`);
   });
 });
 

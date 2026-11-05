@@ -63,14 +63,17 @@ export class PrismaClient extends _PrismaClient {
    * rows it read cannot be invalidated by a concurrent write before it commits.
    * Postgres resolves a conflict by aborting one side, which is rerun from the
    * start, so `operation` must touch nothing but the transaction client.
+   * `timeout` raises Prisma's default for an operation that writes many rows.
    */
   async runSerializable<Result>(
-    operation: (transactionClient: Prisma.TransactionClient) => Promise<Result>
+    operation: (transactionClient: Prisma.TransactionClient) => Promise<Result>,
+    { timeout }: Partial<Record<'timeout', number>> = {}
   ): Promise<Result> {
     for (let attempt = 1; ; attempt += 1) {
       try {
         return await this.$transaction(operation, {
-          isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          ...(timeout !== undefined && { timeout })
         });
       } catch (error) {
         const isRetryableConflict =

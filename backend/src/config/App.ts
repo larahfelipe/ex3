@@ -5,12 +5,12 @@ import helmet from 'helmet';
 import {
   apiRateLimitMiddleware,
   errorHandlerMiddleware,
+  jsonBodyMiddleware,
   notFoundMiddleware,
   requestLogMiddleware
 } from '@/middleware';
 import { healthRouter, router } from '@/routes';
 
-import { RequestLimits } from './Constants';
 import { envs } from './Envs';
 
 /**
@@ -60,7 +60,7 @@ app.use((_req, res, next) => {
   next();
 });
 app.use(cors(corsOptions));
-app.use(express.json({ limit: RequestLimits.JSON_BODY_SIZE }));
+app.use(jsonBodyMiddleware);
 /**
  * The probes answer before the limiter, whose counters are in the database: a
  * database outage must fail readiness, not liveness, and an orchestrator that

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { InstrumentTypes } from '@/config/Constants';
 import type {
   MarketDataProvider,
   PriceInterval
@@ -164,6 +165,42 @@ describe('FakeMarketDataProvider', () => {
     );
   });
 
+  it('lists the seeded listings of each symbol asked for, only in its currency when one is given', async () => {
+    const petr4Listing = {
+      ...PETR4,
+      name: 'Petrobras',
+      type: InstrumentTypes.STOCK
+    };
+    const btcListings = ['BRL', 'USD'].map((currency) => ({
+      symbol: 'BTC',
+      name: `Bitcoin ${currency}`,
+      type: InstrumentTypes.CRYPTO,
+      market: 'CRYPTO',
+      currency
+    }));
+    const withListings: MarketDataProvider = new FakeMarketDataProvider(
+      {},
+      {
+        listings: [{ ...petr4Listing, sector: 'Energy' }, ...btcListings]
+      }
+    );
+
+    assert.deepEqual(
+      await withListings.findListings(
+        new Map([
+          ['PETR4', null],
+          ['BTC', 'USD'],
+          ['VALE3', 'BRL']
+        ])
+      ),
+      new Map([
+        ['PETR4', { outcome: 'searched', listings: [petr4Listing] }],
+        ['BTC', { outcome: 'searched', listings: [btcListings[1]] }],
+        ['VALE3', { outcome: 'searched', listings: [] }]
+      ])
+    );
+  });
+
   it('reports itself unavailable, even for an instrument with prices', async () => {
     const unavailableProvider: MarketDataProvider = new FakeMarketDataProvider(
       { PETR4: [{ price: '37.1', currency: 'BRL', timestamp: MARKET_OPEN }] },
@@ -185,6 +222,10 @@ describe('FakeMarketDataProvider', () => {
     assert.deepEqual(
       await unavailableProvider.getFundamentals(PETR4, ['dividendYield']),
       { outcome: 'unavailable' }
+    );
+    assert.deepEqual(
+      await unavailableProvider.findListings(new Map([['PETR4', 'BRL']])),
+      new Map([['PETR4', { outcome: 'unavailable' }]])
     );
   });
 });

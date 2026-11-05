@@ -67,6 +67,31 @@ export const BOT_CHALLENGE = {
 export type BotChallengeAction =
   (typeof BOT_CHALLENGE.Actions)[keyof typeof BOT_CHALLENGE.Actions];
 
+/**
+ * Mirror of the API's `RequestLimits`, in bytes as its parser counts them: the
+ * proxy reads no more of a body than the API would take.
+ */
+export const REQUEST_LIMITS = {
+  JsonBodyBytes: 100 * 1024,
+  UploadBodyBytes: 4 * 1024 * 1024
+} as const;
+
+/**
+ * Mirror of the API's `ImportLimits`: the largest file one import reads and
+ * the most rows a selection names. A preview reads the file and may ask the
+ * quote provider about dozens of new symbols, a few at a time, so it is given
+ * longer than other requests; assumed, not measured. Re-planning waits for a
+ * pause in the person's picks, so a burst of them is one request.
+ */
+export const TRANSACTION_IMPORT = {
+  FileMaxBytes: 2 * 1024 * 1024,
+  SelectedRowsMax: 5000,
+  Extensions: ['.xlsx', '.csv'],
+  RequestTimeoutMs: 90_000,
+  ReplanDelayMs: 700,
+  RowsPageSize: 50
+} as const;
+
 /** How long a preference kept in a cookie, such as the navigation's state or the language, lasts: a year. */
 export const PREFERENCE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
@@ -140,6 +165,7 @@ export const APP_ROUTES = {
   Protected: {
     Account: '/account',
     Assets: '/assets',
+    AssetImport: '/assets/import',
     Overview: '/',
     Portfolios: '/portfolios',
     Finances: '/finances',

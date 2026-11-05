@@ -113,7 +113,9 @@ const ONE_DAY_IN_MS = 24 * ONE_HOUR_IN_MS;
  * the routes that verify the password of a signed-in account to the budget of
  * a single address. `INSTRUMENT_SEARCH` bounds how fast one session can spend
  * the quote provider's request quota: a debounced search box asks a few times
- * per instrument typed, far below it.
+ * per instrument typed, far below it. `TRANSACTION_IMPORT` bounds the routes
+ * that read an uploaded file, each a few megabytes to parse: a preview runs
+ * again as the person picks rows, a few times a minute at most.
  */
 export const RateLimits = {
   SIGN_IN_PER_ADDRESS: { windowMs: FIFTEEN_MINUTES_IN_MS, limit: 50 },
@@ -127,7 +129,8 @@ export const RateLimits = {
   SIGN_UP_PER_ADDRESS_DAILY: { windowMs: ONE_DAY_IN_MS, limit: 20 },
   ACCOUNT_CHANGE: { windowMs: FIFTEEN_MINUTES_IN_MS, limit: 10 },
   API: { windowMs: ONE_MINUTE_IN_MS, limit: 120 },
-  INSTRUMENT_SEARCH: { windowMs: ONE_MINUTE_IN_MS, limit: 30 }
+  INSTRUMENT_SEARCH: { windowMs: ONE_MINUTE_IN_MS, limit: 30 },
+  TRANSACTION_IMPORT: { windowMs: ONE_MINUTE_IN_MS, limit: 30 }
 } as const;
 
 /**
@@ -149,8 +152,43 @@ export const BotChallenge = {
   SIGN_UP_ACTION: 'sign-up'
 } as const;
 
+/**
+ * `UPLOAD_BODY_SIZE` holds a file of `ImportLimits.FILE_BYTES` in base64, four
+ * bytes for every three, with room for the selection sent along with it.
+ */
 export const RequestLimits = {
-  JSON_BODY_SIZE: '100kb'
+  JSON_BODY_SIZE: '100kb',
+  UPLOAD_BODY_SIZE: '4mb'
+} as const;
+
+/** The routes whose body carries a file, parsed by the route once the caller is authenticated. */
+export const UploadRoutes = {
+  TRANSACTION_IMPORT_PREVIEW: '/v1/transaction-import/preview',
+  TRANSACTION_IMPORT: '/v1/transaction-import'
+} as const;
+
+/**
+ * Assumed, not measured: a B3 statement of several years is a few thousand
+ * rows and well under a megabyte. The spreadsheet limits bound what reading a
+ * file may cost before its rows are looked at, an XLSX being a ZIP archive
+ * whose entries may inflate far past the upload; the data rows, what one
+ * import plans and records in one database transaction. New assets are those
+ * the quote provider is asked about, a few at a time.
+ */
+export const ImportLimits = {
+  FILE_BYTES: 2 * 1024 * 1024,
+  FILE_NAME_MAX_LENGTH: 255,
+  DATA_ROWS: 5000,
+  NEW_ASSETS: 50,
+  LISTING_LOOKUP_CONCURRENCY: 4,
+  RECORD_TIMEOUT_MS: 30_000,
+  SHEETS: 10,
+  SHEET_ROWS: 6000,
+  COLUMNS: 40,
+  CELL_LENGTH: 500,
+  ZIP_ENTRIES: 500,
+  ZIP_ENTRY_BYTES: 16 * 1024 * 1024,
+  ZIP_TOTAL_BYTES: 32 * 1024 * 1024
 } as const;
 
 export const ProbeRoutes = {
@@ -205,6 +243,25 @@ export const TransactionMessages = {
   CREATED: 'Transaction created successfully',
   UPDATED: 'Transaction updated successfully',
   DELETED: 'Transaction deleted successfully'
+};
+
+export const TransactionImportMessages = {
+  FILE_UNSUPPORTED: 'Unsupported file: import an XLSX or CSV file',
+  FILE_LEGACY:
+    'Unsupported file: save the spreadsheet as XLSX and import it again',
+  FILE_MALFORMED: 'The file could not be read: it is damaged or malformed',
+  FILE_TOO_LARGE: 'The file is too large to import',
+  FORMAT_UNRECOGNIZED:
+    'No B3 statement or EX3 template was recognized in the file',
+  NO_ROWS: 'The file has no rows to import',
+  TOO_MANY_ROWS: 'The file has more rows than one import takes',
+  CHANGED: 'The portfolio changed since the preview: review the import again',
+  NOT_FOUND: 'Import not found for this user',
+  ALREADY_UNDONE: 'The import was already undone',
+  UNDO_OVERSOLD:
+    'Undoing the import would leave a sale exceeding the units held: change the transactions recorded after it first',
+  IMPORTED: 'Transactions imported successfully',
+  UNDONE: 'Import undone successfully'
 };
 
 export const UserMessages = {

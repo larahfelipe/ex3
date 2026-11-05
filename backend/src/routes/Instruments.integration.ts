@@ -442,7 +442,9 @@ describe('instruments', () => {
       ]);
       assert.deepEqual(res.body.listings, [VALE_LISTING]);
       assert.equal(res.body.marketSearch, MarketSearchStatuses.SEARCHED);
-      assert.deepEqual(findListings.mock.calls[0].arguments, ['VALE']);
+      assert.deepEqual(findListings.mock.calls[0].arguments, [
+        new Map([['VALE', null]])
+      ]);
     });
 
     it('asks the provider for a symbol only another user registered', async (t) => {

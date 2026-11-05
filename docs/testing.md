@@ -689,13 +689,15 @@ answers `not-found`. An exchange rate is seeded under the pair's codes, such as
 itself, in `previousClose`.
 
 The fake ignores market, currency and interval: translating the instrument and
-respecting each interval's reach is the real adapter's job.
+respecting each interval's reach is the real adapter's job. Listings are the
+exception: `findListings` keeps a symbol's seeded listings in the currency asked
+for, and `describeListing` the one of the market and currency given.
 
 `src/test/FakeMarketDataProvider.test.ts` checks in the unit band the contract
 the tests lean on: the most recent quote in any load order, history in ascending
 order, the interval's start included and its end excluded, an empty interval, a
 symbol with no price, an exchange rate by pair, fundamentals limited to the
-requested metrics, and unavailability. `tsconfig.build.json` excludes
+requested metrics, listings by symbol and currency, and unavailability. `tsconfig.build.json` excludes
 `src/test`, so the fake does not enter the build.
 
 ## Yahoo Finance adapter
@@ -745,7 +747,20 @@ test creates its own provider, with its own responses and clock. It covers:
   `FUNDAMENTALS_TIME_TO_LIVE_MS`, with the response and the 404; an instrument
   with no translation as `not-found` with no request; an error status and an
   invalid format answer `unavailable`, are requested again and do not pause the
-  quotes.
+  quotes;
+* listings: every market in one request, or only where a currency given is
+  quoted; several symbols in requests of `QUOTE_BATCH_SIZE` provider symbols;
+  only the provider symbols no earlier search answered requested, and only the
+  searches of a failed request `unavailable`; at most
+  `LISTING_CACHE_MAX_ENTRIES` provider symbols kept; a description reusing a
+  search made in its currency;
+* requests: at most `MAX_CONCURRENT_REQUESTS` in flight, each of the others sent
+  as one finishes; a quote request ahead of histories that waited longer; a
+  `429` pausing for its `Retry-After`, in seconds or as a date, within
+  `RETRY_AFTER_BOUNDS_MS`, or for `FAILURE_COOLDOWN_MS` without a readable one,
+  logging which `limit` its body names; a `429` from an endpoint whose other
+  failures only report pausing too, and a failure answered after it keeping the
+  longer pause; no request that waited for its turn sent once paused.
 
 The test mirrors at the top the adapter constants it depends on.
 
@@ -1075,6 +1090,88 @@ unsolved attempt spends its address's budget and not the account's.
 `TurnstileVerifier.test.ts` covers what is sent to `siteverify` and every verdict,
 including malformed answers, and `EnvsSchema.test.ts` that production refuses a
 missing secret or a test one.
+
+## Transaction import
+
+No real B3 export was available, so every file is built in the test:
+`src/test/WorkbookBuilder.ts` writes an XLSX archive (stored or deflated
+entries, shared strings or inline text, either date epoch) from rows under the
+headers the B3 statements are known to use, and CSV files are written in the
+tests themselves. The movement statement's rows also follow the columns and
+values of a screenshot of the report: `R$` amounts with a decimal point, a
+unit value of `R$ 0.018`, and `Transferência - Liquidação` for each trade. What
+the import does is in
+[`transaction-import.md`](transaction-import.md).
+
+`infra/spreadsheet/Spreadsheet.test.ts` covers reading: numbers as the decimal
+a spreadsheet shows, sheets in tab order, rich text, namespaced markup, the
+1904 epoch, and CSV in either delimiter and in UTF-8, Windows-1252 and UTF-16.
+It also covers refusing: a document type declaration, an entry inflating past
+its budget or past the size it declares, a wrong checksum, encrypted and
+truncated content, too many rows, sheets, entries or too long a cell, a legacy
+workbook and a PDF by their signature, and unclosed markup read in linear
+time.
+
+`domain/transaction-import` has three suites:
+
+| Suite | Covers |
+| --- | --- |
+| `ImportValues.test.ts` | Labels without accents or case; decimals in either convention, with thousands groups and a currency sign, a fraction after a lone zero (`R$ 0.018`), refused when negative or past `DECIMAL(38,18)`; the decimal a written value shows, if any; days as Brazilian text, ISO text or a serial in either epoch, month first when the sheet says so, a slashed day ambiguous under the English header otherwise, and the order a day past 12 shows; the settlement window forward from a trade and back from a settlement, across a year's end; a trading day starting at midnight in São Paulo, or at 01:00 on the day daylight saving time began |
+| `ImportReading.test.ts` | Each format: cash-market trades in whole and odd lots, another market rejected with every problem of the row, a total that disagrees; income withholding and unit value derived from the net amount, products and events EX3 does not model; movements: a settlement transfer read as the purchase or sale, credited or debited, with an odd lot, a variant header, a missing price, another direction and a total that disagrees, the plain purchase and sale entries ignored, custody and lending ignored, bonuses, splits for review, a payment listed twice, a trade the trading statement in the same file lists given way to it, also for each of 2500 trades and settlements of one asset, the statement as the Investor Area exports it, re-saved with decimal points, and with month-first dates refused; the template in both languages, dates and decimals by the sheet's own values or else the file's convention, broker and notes cut. Also a header under a title, unrecognized sheets skipped, unlabeled and repeated columns, and a file past the row limit refused whole |
+| `ImportPlan.test.ts` | Keys independent of the row's position, equal rows told apart, rows that record nothing unkeyed; duplicates, unresolved symbols, a missing currency filled from the instrument or ledger, possible duplicates matched one to one and at UTC midnight too, and a B3 trade matched to one recorded at its price on the day it was made or settled, each of 5000 settlements to its own trade among 5000 of the same type and quantity; selection by default and by key; the same-day order, the effect on a held position, an asset whose rows break its ledger refused whole and recorded once the breaking row is left out |
+
+`PositionLedger.test.ts` covers `locateLedgerRefusal`: the entry a sale
+exceeding the holding stops at, the one a position past the columns stops at,
+and none for a ledger that replays or one in several currencies.
+
+`TransactionImports.integration.ts` runs the four routes against the test
+database, with the fake quote provider. It checks:
+
+* **Preview:** it writes nothing; figures follow the selected rows; an
+  oversold asset says where it stopped; possible duplicates are left out
+  unless selected; unlisted symbols and an unavailable provider leave rows
+  unresolved.
+* **Import:** a listed asset is registered for the caller alone and its
+  position rebuilt; the import columns stay out of the transaction API; the
+  template's fees and taxes are recorded; only the selection is recorded; the
+  same file twice is refused; a longer statement records only its new rows;
+  nothing is recorded after a change since the preview, while the provider
+  cannot describe a new asset, or with no row selected. A movement statement
+  records its settlements and income at the quantity, average cost, invested
+  value, realized result and net income they replay to; its settlements of
+  trades a trading statement imported are possible duplicates; the same file
+  sent twice at once is recorded once (one `201`, one `409`, one position);
+  and a 5000-row statement is previewed and recorded whole, its average cost
+  within the 1e-18 the ledger truncates per purchase.
+* **Files:** a legacy workbook, a PDF, a damaged workbook, a workbook not
+  named `.xlsx`, a text file named `.xlsx` or `.txt`, a table in no layout and
+  a statement with no rows are refused with their messages; content that is
+  not base64, a name with control characters, a file past 2 MiB and a body
+  past 4 MiB are refused; an anonymous upload is
+  refused before its body is parsed; every other route keeps the 100 KiB
+  limit.
+* **History and undo:** imports are listed newest first; undo closes a
+  position the import opened and rebuilds a held one; an undo a later sale
+  depends on is refused, touching nothing.
+* **Isolation and deletion:** another user's portfolio and import answer as
+  missing; another user's private instrument is not used; a session is
+  required; deleting a portfolio or account deletes its imports.
+
+`Transactions.integration.ts` checks that the three import columns stay out of
+the transactions it reads back.
+
+On the web, `lib/transaction-import.test.ts` covers the file checked before it
+is sent and encoded byte for byte, which rows may be selected and how they are
+filtered and counted, a selection matching a plan only with the same keys, and
+a row's costs summed at the finer scale. `import-display.test.tsx` renders
+every status, reason, warning and problem in both locales, checkboxes only for
+selectable rows, the original cells collapsed, a rejected row without invented
+values, an asset's figures beside their previous values with the refusal
+that cleared it, and the settlement-date note only for a file with a movement
+statement. `api-proxy.test.ts` covers the payload bound (counted in
+bytes, refused unread when the declared length is past it, cancelled when a
+stream runs past it), and `api-error-message.test.ts` that each import refusal
+gets its own message.
 
 ## Timing
 

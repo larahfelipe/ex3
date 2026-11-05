@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { Plus, Wallet } from 'lucide-react';
+import Link from 'next/link';
+
+import { Plus, Upload, Wallet } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
 import { APP_ROUTES } from '@/common/constants';
@@ -20,6 +22,7 @@ export default function Assets() {
   const hasDeletedAssetRef = useRef(false);
   const addAssetButtonRef = useRef<HTMLButtonElement>(null);
   const t = useTranslations('investments.overview');
+  const tImports = useTranslations('imports');
   const tNavigation = useTranslations('navigation.pages');
 
   const {
@@ -56,16 +59,31 @@ export default function Assets() {
         }
         action={
           portfolio && (
-            <Button
-              ref={addAssetButtonRef}
-              size="sm"
-              className="gap-1.5 max-sm:w-full"
-              onClick={() => setAssetDialog({ kind: 'add-asset' })}
-            >
-              <Plus size={16} aria-hidden="true" />
+            <div className="flex gap-2 max-sm:w-full">
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="gap-1.5 max-sm:flex-1"
+              >
+                <Link href={APP_ROUTES.Protected.AssetImport}>
+                  <Upload size={16} aria-hidden="true" />
 
-              {t('addAsset')}
-            </Button>
+                  {tImports('open')}
+                </Link>
+              </Button>
+
+              <Button
+                ref={addAssetButtonRef}
+                size="sm"
+                className="gap-1.5 max-sm:flex-1"
+                onClick={() => setAssetDialog({ kind: 'add-asset' })}
+              >
+                <Plus size={16} aria-hidden="true" />
+
+                {t('addAsset')}
+              </Button>
+            </div>
           )
         }
       />

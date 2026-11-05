@@ -245,6 +245,12 @@ export const instrumentSearchRateLimitMiddleware = limiterOf(
   EVERY_REQUEST
 );
 
+export const transactionImportRateLimitMiddleware = limiterOf(
+  'TRANSACTION_IMPORT',
+  signedInUserKey,
+  EVERY_REQUEST
+);
+
 export const apiRateLimitMiddleware = limiterOf(
   'API',
   sessionKey,

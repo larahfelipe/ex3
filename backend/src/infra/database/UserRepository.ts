@@ -145,6 +145,9 @@ export class UserRepository {
     await this.prismaClient.runSerializable(async (transactionClient) => {
       await transactionClient.transaction.deleteMany({ where: ownedByUser });
       await transactionClient.position.deleteMany({ where: ownedByUser });
+      await transactionClient.transactionImport.deleteMany({
+        where: ownedByUser
+      });
       await transactionClient.marketQuote.deleteMany({
         where: { instrument: { ownerId: id } }
       });

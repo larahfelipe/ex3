@@ -104,7 +104,26 @@ const API_MESSAGE_KEYS: Readonly<Record<string, PlainErrorKey>> = {
     'api.endBeforePaidOccurrence',
   'The reference day must be within one day of the current date':
     'api.referenceDayOutOfRange',
-  'To must not be before from': 'api.rangeReversed'
+  'To must not be before from': 'api.rangeReversed',
+  'Unsupported file: import an XLSX or CSV file': 'api.importFileUnsupported',
+  'Unsupported file: save the spreadsheet as XLSX and import it again':
+    'api.importFileLegacy',
+  'The file could not be read: it is damaged or malformed':
+    'api.importFileMalformed',
+  'The file is too large to import': 'api.importFileTooLarge',
+  'No B3 statement or EX3 template was recognized in the file':
+    'api.importFormatUnrecognized',
+  'The file has no rows to import': 'api.importNoRows',
+  'The file has more rows than one import takes': 'api.importTooManyRows',
+  'The portfolio changed since the preview: review the import again':
+    'api.importChanged',
+  'Import not found for this user': 'api.importNotFound',
+  'The import was already undone': 'api.importAlreadyUndone',
+  'Undoing the import would leave a sale exceeding the units held: change the transactions recorded after it first':
+    'api.importUndoOversold',
+  'Select at least one row to import': 'api.importSelectionEmpty',
+  'File content must be encoded in base64': 'api.importContentInvalid',
+  'File name must not contain control characters': 'api.importFileNameInvalid'
 };
 
 /** Messages the API builds from the web's own limits, so their wording is known in advance. */

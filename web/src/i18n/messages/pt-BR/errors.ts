@@ -87,7 +87,28 @@ export default {
       'A data final removeria uma ocorrência que já tem pagamentos.',
     referenceDayOutOfRange:
       'A data deste dispositivo difere demais da data do servidor. Confira a data e a hora do dispositivo.',
-    rangeReversed: 'A data final não pode ser anterior à data inicial.'
+    rangeReversed: 'A data final não pode ser anterior à data inicial.',
+    importFileUnsupported:
+      'Este arquivo não é aceito. Importe uma planilha XLSX ou um arquivo CSV.',
+    importFileLegacy:
+      'Planilhas no formato XLS antigo não são lidas. Salve-a como XLSX e importe de novo.',
+    importFileMalformed:
+      'Não foi possível ler o arquivo: ele está danificado ou malformado.',
+    importFileTooLarge: 'O arquivo é grande demais para importar.',
+    importFormatUnrecognized:
+      'Nenhum extrato da B3 nem o modelo do EX3 foi reconhecido no arquivo. Confira se as colunas mantêm os títulos originais.',
+    importNoRows: 'O arquivo não tem linhas para importar.',
+    importTooManyRows:
+      'O arquivo tem mais linhas do que uma importação aceita. Divida o período em arquivos menores.',
+    importChanged:
+      'A carteira mudou desde a prévia. Revise a importação de novo.',
+    importNotFound: 'Esta importação não foi encontrada.',
+    importAlreadyUndone: 'Esta importação já foi desfeita.',
+    importUndoOversold:
+      'Desfazer a importação deixaria uma venda maior que as unidades em carteira. Altere primeiro as transações registradas depois dela.',
+    importSelectionEmpty: 'Selecione ao menos uma linha para importar.',
+    importContentInvalid: 'O conteúdo do arquivo não pôde ser enviado.',
+    importFileNameInvalid: 'O nome do arquivo contém caracteres inválidos.'
   },
   limits: {
     startOutsideHorizon:

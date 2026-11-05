@@ -156,6 +156,9 @@ export class PortfolioRepository {
       await transactionClient.position.deleteMany({
         where: { portfolioId: id }
       });
+      await transactionClient.transactionImport.deleteMany({
+        where: { portfolioId: id }
+      });
       await transactionClient.portfolio.delete({ where: { id } });
 
       return { outcome: 'deleted' };

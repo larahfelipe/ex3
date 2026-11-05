@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  locateLedgerRefusal,
   realizeProfitLoss,
   rebuildPosition,
   type LedgerEntry
@@ -411,6 +412,73 @@ describe('realizeProfitLoss', () => {
         ledgerEntry({ type: 'SELL', quantity: '1', unitPrice: '10' })
       ]),
       { outcome: 'negative-amount' }
+    );
+  });
+});
+
+describe('locateLedgerRefusal', () => {
+  it('is null for a ledger that replays', () => {
+    assert.equal(
+      locateLedgerRefusal([
+        ledgerEntry({ type: 'BUY', quantity: '10', unitPrice: '10' }),
+        ledgerEntry({
+          type: 'SELL',
+          quantity: '10',
+          unitPrice: '12',
+          executedAt: EXECUTED_LATER
+        })
+      ]),
+      null
+    );
+  });
+
+  it('returns the entry, of those given, a SELL exceeding the holding stops at', () => {
+    const excess = {
+      ...ledgerEntry({
+        type: 'SELL',
+        quantity: '11',
+        unitPrice: '12',
+        executedAt: EXECUTED_LATER
+      }),
+      label: 'excess'
+    };
+    const refusal = locateLedgerRefusal([
+      excess,
+      {
+        ...ledgerEntry({ type: 'BUY', quantity: '10', unitPrice: '10' }),
+        label: 'buy'
+      }
+    ]);
+
+    assert.equal(refusal?.outcome, 'negative-amount');
+    assert.equal(refusal.entry, excess);
+  });
+
+  it('returns the entry a position past the columns stops at', () => {
+    const overflow = ledgerEntry({
+      type: 'BUY',
+      quantity: COLUMN_MAX,
+      unitPrice: '2'
+    });
+
+    assert.deepEqual(locateLedgerRefusal([overflow]), {
+      outcome: 'out-of-range',
+      entry: overflow
+    });
+  });
+
+  it('locates no entry for a ledger in more than one currency', () => {
+    assert.deepEqual(
+      locateLedgerRefusal([
+        ledgerEntry({ type: 'BUY', quantity: '1', unitPrice: '1' }),
+        ledgerEntry({
+          type: 'BUY',
+          quantity: '1',
+          unitPrice: '1',
+          currency: 'USD'
+        })
+      ]),
+      { outcome: 'currency-mismatch', entry: null }
     );
   });
 });

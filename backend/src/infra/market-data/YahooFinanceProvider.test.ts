@@ -25,7 +25,11 @@ const QUOTE_TIME_TO_LIVE_MS = 60_000;
 const FAILURE_COOLDOWN_MS = 30_000;
 const QUOTE_BATCH_SIZE = 10;
 const LISTING_TIME_TO_LIVE_MS = 3_600_000;
-const LISTING_CACHE_MAX_ENTRIES = 1_000;
+const LISTING_CACHE_MAX_ENTRIES = 5_000;
+/** B3, NYSE and NASDAQ, and crypto in BRL, USD and EUR; NYSE and NASDAQ share the bare symbol. */
+const PROVIDER_SYMBOLS_PER_SEARCH = 5;
+const MAX_CONCURRENT_REQUESTS = 4;
+const RETRY_AFTER_BOUNDS_MS = { min: 1_000, max: 3_600_000 };
 const EMPTY_HISTORY_TIME_TO_LIVE_MS = 3_600_000;
 const EMPTY_HISTORY_CACHE_MAX_ENTRIES = 10_000;
 const FUNDAMENTALS_TIME_TO_LIVE_MS = 3_600_000;
@@ -55,11 +59,18 @@ type ProviderCall = { url: URL; init: RequestInit };
 const toSeconds = (milliseconds: number) =>
   milliseconds / MILLISECONDS_PER_SECOND;
 
-const json = (body: unknown, status = 200) =>
+const json = (
+  body: unknown,
+  status = 200,
+  headers: Record<string, string> = {}
+) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json' }
+    headers: { 'content-type': 'application/json', ...headers }
   });
+
+/** Lets every request already answered settle and every request whose turn came be sent. */
+const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 const quoteItem = (
   symbol: string,
@@ -168,6 +179,13 @@ const stubProvider = (
 
   return { provider, calls, clock, logEntries };
 };
+
+/** The search of one symbol, in every market or only where it is quoted in `currency`. */
+const searchFor = async (
+  provider: YahooFinanceProvider,
+  symbol: string,
+  currency: string | null = null
+) => (await provider.findListings(new Map([[symbol, currency]]))).get(symbol);
 
 describe('YahooFinanceProvider', () => {
   describe('getQuotes', () => {
@@ -534,7 +552,7 @@ describe('YahooFinanceProvider', () => {
         )
       );
 
-      assert.deepEqual(await provider.findListings('PETR4'), {
+      assert.deepEqual(await searchFor(provider, 'PETR4'), {
         outcome: 'searched',
         listings: [PETR4_LISTING]
       });
@@ -572,9 +590,9 @@ describe('YahooFinanceProvider', () => {
       );
 
       const listingsOf = async (symbol: string) => {
-        const search = await provider.findListings(symbol);
+        const search = await searchFor(provider, symbol);
 
-        return search.outcome === 'searched'
+        return search?.outcome === 'searched'
           ? search.listings.map(({ market, currency, type }) => ({
               market,
               currency,
@@ -616,9 +634,9 @@ describe('YahooFinanceProvider', () => {
       );
 
       const typesOf = async (symbol: string) => {
-        const search = await provider.findListings(symbol);
+        const search = await searchFor(provider, symbol);
 
-        return search.outcome === 'searched'
+        return search?.outcome === 'searched'
           ? search.listings.map(({ type }) => type)
           : search;
       };
@@ -641,9 +659,9 @@ describe('YahooFinanceProvider', () => {
       );
 
       const namesOf = async (symbol: string) => {
-        const search = await provider.findListings(symbol);
+        const search = await searchFor(provider, symbol);
 
-        return search.outcome === 'searched'
+        return search?.outcome === 'searched'
           ? search.listings.map(({ name }) => name)
           : search;
       };
@@ -662,13 +680,13 @@ describe('YahooFinanceProvider', () => {
       );
       const searched = { outcome: 'searched', listings: [PETR4_LISTING] };
 
-      assert.deepEqual(await provider.findListings('PETR4'), searched);
+      assert.deepEqual(await searchFor(provider, 'PETR4'), searched);
       clock.now += LISTING_TIME_TO_LIVE_MS - 1;
-      assert.deepEqual(await provider.findListings('PETR4'), searched);
+      assert.deepEqual(await searchFor(provider, 'PETR4'), searched);
       assert.equal(calls.length, 1);
 
       clock.now += 1;
-      assert.deepEqual(await provider.findListings('PETR4'), searched);
+      assert.deepEqual(await searchFor(provider, 'PETR4'), searched);
       assert.equal(calls.length, 2);
     });
 
@@ -678,13 +696,13 @@ describe('YahooFinanceProvider', () => {
       });
       const failing = stubProvider(() => json({}, 503));
 
-      assert.deepEqual(await withoutKey.provider.findListings('PETR4'), {
+      assert.deepEqual(await searchFor(withoutKey.provider, 'PETR4'), {
         outcome: 'unavailable'
       });
-      assert.deepEqual(await failing.provider.findListings('PETR4'), {
+      assert.deepEqual(await searchFor(failing.provider, 'PETR4'), {
         outcome: 'unavailable'
       });
-      assert.deepEqual(await failing.provider.findListings('BRK.B'), {
+      assert.deepEqual(await searchFor(failing.provider, 'BRK.B'), {
         outcome: 'searched',
         listings: []
       });
@@ -692,19 +710,125 @@ describe('YahooFinanceProvider', () => {
       assert.equal(failing.calls.length, 1);
     });
 
+    it('looks several symbols up together, ten provider symbols a request, each only where it is quoted in its currency', async () => {
+      const b3Symbols = ['ABEV3', 'BBAS3', 'ITUB4', 'PETR4', 'VALE3'];
+      const { provider, calls } = stubProvider((url) =>
+        quoteResponse(
+          ...(url.searchParams.get('symbols') ?? '')
+            .split(',')
+            .filter((symbol) => symbol.endsWith('.SA'))
+            .map((symbol) =>
+              listedItem(symbol, { currency: 'BRL', exchange: 'SAO' })
+            ),
+          listedItem('AAPL')
+        )
+      );
+
+      const searches = await provider.findListings(
+        new Map<string, string | null>([
+          ...b3Symbols.map((symbol): [string, string] => [symbol, 'BRL']),
+          ['AAPL', 'USD']
+        ])
+      );
+
+      assert.deepEqual(calls.map(requestedSymbols), [
+        [
+          'ABEV3.SA',
+          'ABEV3-BRL',
+          'BBAS3.SA',
+          'BBAS3-BRL',
+          'ITUB4.SA',
+          'ITUB4-BRL',
+          'PETR4.SA',
+          'PETR4-BRL',
+          'VALE3.SA',
+          'VALE3-BRL'
+        ],
+        ['AAPL', 'AAPL-USD']
+      ]);
+      assert.deepEqual(
+        [...searches].map(([symbol, search]) => [
+          symbol,
+          search.outcome === 'searched'
+            ? search.listings.map(({ market }) => market)
+            : search
+        ]),
+        [...b3Symbols.map((symbol) => [symbol, ['B3']]), ['AAPL', ['NASDAQ']]]
+      );
+    });
+
+    it('asks only for the provider symbols no earlier search answered, and answers unavailable only the searches it could not complete', async () => {
+      const responses = [
+        quoteResponse(PETR4_LISTING_ITEM),
+        quoteResponse(),
+        quoteResponse(listedItem('AAPL')),
+        json({}, 503)
+      ];
+      const { provider, calls } = stubProvider(
+        () => responses.shift() ?? json({}, 500)
+      );
+
+      assert.deepEqual(await searchFor(provider, 'PETR4', 'BRL'), {
+        outcome: 'searched',
+        listings: [PETR4_LISTING]
+      });
+      assert.deepEqual(await searchFor(provider, 'PETR4'), {
+        outcome: 'searched',
+        listings: [PETR4_LISTING]
+      });
+      assert.deepEqual(calls.map(requestedSymbols), [
+        ['PETR4.SA', 'PETR4-BRL'],
+        ['PETR4', 'PETR4-USD', 'PETR4-EUR']
+      ]);
+
+      const searches = await provider.findListings(
+        new Map([
+          ['AAPL', 'USD'],
+          ...Array.from(
+            { length: QUOTE_BATCH_SIZE / 2 },
+            (_, index): [string, string] => [`B${index}`, 'BRL']
+          ),
+          ['PETR4', 'BRL']
+        ])
+      );
+
+      assert.equal(calls.length, 4);
+      assert.deepEqual(searches.get('PETR4'), {
+        outcome: 'searched',
+        listings: [PETR4_LISTING]
+      });
+      assert.deepEqual(searches.get('AAPL'), {
+        outcome: 'searched',
+        listings: [
+          {
+            symbol: 'AAPL',
+            name: 'AAPL Inc.',
+            type: 'STOCK',
+            market: 'NASDAQ',
+            currency: 'USD'
+          }
+        ]
+      });
+      assert.deepEqual(searches.get('B3'), {
+        outcome: 'searched',
+        listings: []
+      });
+      assert.deepEqual(searches.get('B4'), { outcome: 'unavailable' });
+    });
+
     it('bounds the searches it keeps, dropping the oldest first', async () => {
       const { provider, calls } = stubProvider(() => quoteResponse());
       const symbols = Array.from(
-        { length: LISTING_CACHE_MAX_ENTRIES + 1 },
+        { length: LISTING_CACHE_MAX_ENTRIES / PROVIDER_SYMBOLS_PER_SEARCH + 1 },
         (_, index) => `S${index}`
       );
 
-      for (const symbol of symbols) await provider.findListings(symbol);
+      for (const symbol of symbols) await searchFor(provider, symbol);
 
-      await provider.findListings(symbols[1]);
+      await searchFor(provider, symbols[1]);
       assert.equal(calls.length, symbols.length);
 
-      await provider.findListings(symbols[0]);
+      await searchFor(provider, symbols[0]);
       assert.equal(calls.length, symbols.length + 1);
     });
   });
@@ -788,12 +912,243 @@ describe('YahooFinanceProvider', () => {
       }
     });
 
+    it('describes a listing from a search already made in its currency, asking only for its profile', async () => {
+      const { provider, calls } = stubProvider((url) =>
+        url.pathname.startsWith('/v11/finance/quoteSummary/')
+          ? profileResponse({ sector: 'Energy' })
+          : quoteResponse(PETR4_LISTING_ITEM)
+      );
+
+      await searchFor(provider, 'PETR4', 'BRL');
+
+      assert.deepEqual(await provider.describeListing(PETR4), {
+        outcome: 'listed',
+        listing: { ...PETR4_LISTING, sector: 'Energy' }
+      });
+      assert.deepEqual(
+        calls.map(({ url }) => url.pathname),
+        ['/v6/finance/quote', '/v11/finance/quoteSummary/PETR4.SA']
+      );
+    });
+
     it('answers unavailable when the provider cannot search', async () => {
       const { provider } = stubProvider(() => json({}, 503));
 
       assert.deepEqual(await provider.describeListing(PETR4), {
         outcome: 'unavailable'
       });
+    });
+  });
+
+  describe('requests', () => {
+    const RANGE = {
+      from: new Date(NOW - ONE_DAY_MS),
+      to: new Date(NOW)
+    };
+    const b3Instrument = (symbol: string): PricedInstrument => ({
+      symbol,
+      market: 'B3',
+      currency: 'BRL'
+    });
+
+    /** Holds every response until it is released, oldest first. */
+    const stubHeldProvider = (respond: (url: URL) => Response) => {
+      const held: Array<() => void> = [];
+      const stub = stubProvider(
+        (url) =>
+          new Promise<Response>((resolve) => {
+            held.push(() => resolve(respond(url)));
+          })
+      );
+      const release = async () => {
+        held.shift()?.();
+        await settle();
+      };
+      const releaseAll = async () => {
+        while (held.length > 0) await release();
+      };
+
+      return { ...stub, release, releaseAll };
+    };
+
+    it('sends no more than four at once, each of the others as one finishes', async () => {
+      const { provider, calls, release, releaseAll } = stubHeldProvider(() =>
+        chartResponse({})
+      );
+      const symbols = Array.from(
+        { length: MAX_CONCURRENT_REQUESTS + 2 },
+        (_, index) => `S${index}`
+      );
+
+      const histories = Promise.all(
+        symbols.map((symbol) =>
+          provider.getHistoricalPrices(b3Instrument(symbol), RANGE, '1d')
+        )
+      );
+      await settle();
+      assert.equal(calls.length, MAX_CONCURRENT_REQUESTS);
+
+      await release();
+      assert.equal(calls.length, MAX_CONCURRENT_REQUESTS + 1);
+
+      await releaseAll();
+
+      assert.deepEqual(
+        await histories,
+        symbols.map(() => ({ outcome: 'quoted', prices: [] }))
+      );
+      assert.deepEqual(
+        calls.map(({ url }) => url.pathname),
+        symbols.map((symbol) => `/v8/finance/chart/${symbol}.SA`)
+      );
+    });
+
+    it('sends a quote request waiting for its turn ahead of histories that waited longer', async () => {
+      const { provider, calls, release, releaseAll } = stubHeldProvider(
+        (url) =>
+          url.pathname === '/v6/finance/quote'
+            ? quoteResponse(quoteItem('AAPL'))
+            : chartResponse({})
+      );
+
+      const histories = Promise.all(
+        Array.from({ length: MAX_CONCURRENT_REQUESTS + 1 }, (_, index) =>
+          provider.getHistoricalPrices(b3Instrument(`S${index}`), RANGE, '1d')
+        )
+      );
+      const quotes = provider.getQuotes([AAPL]);
+      await settle();
+      await release();
+
+      assert.equal(calls.at(-1)?.url.pathname, '/v6/finance/quote');
+
+      await releaseAll();
+
+      assert.deepEqual(await quotes, new Map([['AAPL', quoted('49', 'USD')]]));
+      assert.equal((await histories).length, MAX_CONCURRENT_REQUESTS + 1);
+      assert.equal(calls.length, MAX_CONCURRENT_REQUESTS + 2);
+    });
+
+    it('pauses for as long as a 429 asks, within bounds, logging which limit it reports', async () => {
+      const cases = [
+        {
+          response: json({ message: 'Too Many Requests' }, 429, {
+            'retry-after': '120'
+          }),
+          limit: 'rate',
+          retryInMs: 120_000
+        },
+        {
+          response: json({ message: 'Limit Exceeded' }, 429, {
+            'retry-after': new Date(NOW + 300_000).toUTCString()
+          }),
+          limit: 'quota',
+          retryInMs: 300_000
+        },
+        {
+          response: json({}, 429, { 'retry-after': '0' }),
+          retryInMs: RETRY_AFTER_BOUNDS_MS.min
+        },
+        {
+          response: json({}, 429, { 'retry-after': '86400' }),
+          retryInMs: RETRY_AFTER_BOUNDS_MS.max
+        },
+        {
+          response: new Response('<html>', {
+            status: 429,
+            headers: { 'retry-after': 'soon' }
+          }),
+          retryInMs: FAILURE_COOLDOWN_MS
+        }
+      ];
+
+      for (const { response, limit, retryInMs } of cases) {
+        const responses = [response];
+        const { provider, calls, clock, logEntries } = stubProvider(
+          () => responses.shift() ?? quoteResponse(quoteItem('AAPL'))
+        );
+        const unavailable = new Map([['AAPL', { outcome: 'unavailable' }]]);
+
+        assert.deepEqual(await provider.getQuotes([AAPL]), unavailable);
+        clock.now += retryInMs - 1;
+        assert.deepEqual(await provider.getQuotes([AAPL]), unavailable);
+        assert.equal(calls.length, 1);
+
+        clock.now += 1;
+        assert.deepEqual(
+          await provider.getQuotes([AAPL]),
+          new Map([['AAPL', quoted('49', 'USD')]])
+        );
+        assert.deepEqual(logEntries, [
+          {
+            severity: 'WARNING',
+            event: 'quote_provider_unavailable',
+            reason: 'status 429',
+            ...(limit !== undefined && { limit }),
+            retryInMs
+          }
+        ]);
+      }
+    });
+
+    it('pauses on a 429 from an endpoint whose other failures it only reports, and a failure answered after it keeps the longer pause', async () => {
+      const responses = [
+        json({ message: 'Too Many Requests' }, 429, { 'retry-after': '600' }),
+        json({}, 503)
+      ];
+      const { provider, calls, clock, release, releaseAll } = stubHeldProvider(
+        () => responses.shift() ?? quoteResponse(quoteItem('AAPL'))
+      );
+
+      const fundamentals = provider.getFundamentals(PETR4, ['dividendYield']);
+      const history = provider.getHistoricalPrices(PETR4, RANGE, '1d');
+      await settle();
+      await release();
+      await release();
+
+      assert.deepEqual(await fundamentals, { outcome: 'unavailable' });
+      assert.deepEqual(await history, { outcome: 'unavailable' });
+
+      clock.now += FAILURE_COOLDOWN_MS;
+      const quotes = provider.getQuotes([AAPL]);
+      await settle();
+      assert.equal(calls.length, 2);
+
+      await releaseAll();
+      assert.deepEqual(
+        await quotes,
+        new Map([['AAPL', { outcome: 'unavailable' }]])
+      );
+    });
+
+    it('sends none of the requests waiting for their turn once a 429 pauses the provider', async () => {
+      const responses = [json({ message: 'Too Many Requests' }, 429)];
+      const { provider, calls, release } = stubHeldProvider(
+        () => responses.shift() ?? chartResponse({})
+      );
+
+      const histories = Promise.all(
+        Array.from({ length: MAX_CONCURRENT_REQUESTS + 2 }, (_, index) =>
+          provider.getHistoricalPrices(b3Instrument(`S${index}`), RANGE, '1d')
+        )
+      );
+      await settle();
+
+      for (let index = 0; index < MAX_CONCURRENT_REQUESTS; index += 1)
+        await release();
+
+      assert.equal(calls.length, MAX_CONCURRENT_REQUESTS);
+      assert.deepEqual(
+        (await histories).map(({ outcome }) => outcome),
+        [
+          'unavailable',
+          'quoted',
+          'quoted',
+          'quoted',
+          'unavailable',
+          'unavailable'
+        ]
+      );
     });
   });
 

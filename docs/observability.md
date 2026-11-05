@@ -33,8 +33,8 @@ content testable without capturing `stdout`.
 | `database_connected` | INFO | — | `PrismaClient.ts` |
 | `database_unreachable` | ERROR | `reason` | `Server.ts`, before `exit(1)` |
 | `quote_provider_key_missing` | WARNING | — | `Server.ts` |
-| `quote_provider_unavailable` | WARNING | `reason`, `retryInMs` | `YahooFinanceProvider.ts` |
-| `quote_provider_request_failed` | WARNING | `reason` | `YahooFinanceProvider.ts`, on the sector lookup, which fails without pausing quotes |
+| `quote_provider_unavailable` | WARNING | `reason`, `retryInMs`, and `limit` on a `429` whose body names it: `rate` for `Too Many Requests`, `quota` for `Limit Exceeded`, the messages an AWS API Gateway answers with (assumed, not documented by the provider) | `YahooFinanceProvider.ts`, on each failure that pauses the provider; `retryInMs` is the `Retry-After` of a `429`, kept between 1 s and 1 h, else 30 s |
+| `quote_provider_request_failed` | WARNING | `reason` | `YahooFinanceProvider.ts`, on the sector and fundamentals lookups, which fail without pausing quotes, except with a `429` |
 | `valuation_incomplete` | WARNING | `portfolioId`, `heldPositionCount`, `valuedPositionCount`, `missingQuotes` (`symbol`, `reason`), `missingRates` (`currency`, `reason`) | `GetPortfolioOverviewService.ts`, on each overview whose totals cannot be calculated because a held position has no price or no exchange rate; a fallback or stale price alone writes nothing, since the totals still stand |
 | `quote_provider_fallback_served` | WARNING | `count`, the quotes and rates answered with the last one received | `YahooFinanceProvider.ts`, on each answer to a failed or paused quote request that serves one |
 | `dependency_unavailable` | WARNING | `dependency`, `reason` | readiness, in `HealthControllerHandlers.ts` |

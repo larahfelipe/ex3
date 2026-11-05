@@ -68,12 +68,14 @@ export type FundamentalsLookup =
  * prices that old at that interval. `getHistoricalExchangeRate` answers that
  * same series for a pair of currencies, the daily closing price of one unit of
  * `currency` in `baseCurrency`, on the terms `getExchangeRates` states for the
- * pair and `getHistoricalPrices` for the range. `findListings` answers every
- * instrument the provider lists under `symbol` in a known market, whose quote
- * currency is the market's or, where the pair names it, one of the currencies
- * crypto is looked up in; `describeListing` answers the one listed under the
- * symbol, market and currency given, with its sector when the provider has
- * one. `getFundamentals` answers what the provider reports of each metric asked
+ * pair and `getHistoricalPrices` for the range. `findListings` answers, for
+ * each symbol asked for, every instrument the provider lists under it in a
+ * known market, whose quote currency is the market's or, where the pair names
+ * it, one of the currencies crypto is looked up in; a symbol asked for with a
+ * currency is looked up only where it would be quoted in that currency.
+ * `describeListing` answers the one listed under the symbol, market and
+ * currency given, with its sector when the provider has one.
+ * `getFundamentals` answers what the provider reports of each metric asked
  * for, leaving out one it does not report. Everything the provider returns is
  * untrusted input, validated before it is answered.
  */
@@ -95,7 +97,9 @@ export interface MarketDataProvider {
     baseCurrency: string,
     range: PriceRange
   ) => Promise<PriceHistoryLookup>;
-  findListings: (symbol: string) => Promise<ListingSearch>;
+  findListings: (
+    currencyBySymbol: ReadonlyMap<string, string | null>
+  ) => Promise<ReadonlyMap<string, ListingSearch>>;
   describeListing: (instrument: PricedInstrument) => Promise<ListingLookup>;
   getFundamentals: (
     instrument: PricedInstrument,

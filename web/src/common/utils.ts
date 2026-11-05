@@ -130,6 +130,24 @@ export const formatDecimal = (
     maximumFractionDigits: fractionDigits
   });
 
+const BYTES_PER_KILOBYTE = 1024;
+
+/** In the binary multiples a file manager shows, under the locale's own unit names. */
+export const formatFileSize = (locale: Locale, bytes: number) => {
+  const kilobytes = bytes / BYTES_PER_KILOBYTE;
+  const [value, unit] =
+    kilobytes < BYTES_PER_KILOBYTE
+      ? [Math.max(kilobytes, 1), 'kilobyte']
+      : [kilobytes / BYTES_PER_KILOBYTE, 'megabyte'];
+
+  return formatNumber(locale, value, {
+    style: 'unit',
+    unit,
+    unitDisplay: 'short',
+    maximumFractionDigits: 1
+  });
+};
+
 export const formatQuantity = (locale: Locale, quantity: DecimalString) =>
   formatNumber(locale, quantity, {
     maximumFractionDigits: decimalPlacesOf(quantity)

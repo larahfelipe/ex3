@@ -19,7 +19,8 @@ and rules are in [`financial-management.md`](financial-management.md).
 ```text
 User
  └── Portfolio ─┬── Transaction ──► Instrument ◄── MarketQuote
-                └── Position ─────► Instrument
+                ├── Position ─────► Instrument
+                └── TransactionImport ◄── Transaction (importId)
 ```
 
 | Entity | Responsibility | Owner | Identity |
@@ -29,6 +30,7 @@ User
 | `Instrument` | The tradable market asset: stock, ETF, fund, REIT, crypto, bond, cash. From the global catalog, shared by every user, or private to whoever registered it. | none in the catalog; a `User` when private | `(ownerId, symbol)`, with the catalog counted as a single owner |
 | `Transaction` | A financial event of a portfolio over an instrument. The source of truth of every movement. | a `Portfolio` | `id` |
 | `Position` | How much of an instrument a portfolio holds and at what cost. A projection derived from the transactions, never edited directly. | a `Portfolio` | `(portfolioId, instrumentId)` |
+| `TransactionImport` | One file imported into a portfolio: its name, digest, formats, counts and the positions it opened, kept after an undo with `undoneAt`. See [`transaction-import.md`](transaction-import.md). | a `Portfolio` | `id` |
 | `MarketQuote` | The close of one trading day of an instrument, with currency and source. | — | `(instrumentId, timestamp, source)`, with `timestamp` at the start of the day in UTC |
 
 ## User
@@ -158,6 +160,7 @@ position it moves is that of `(portfolioId, instrumentId)`.
 | `executedAt` | when the operation happened, with time zone; mandatory and independent of `createdAt` |
 | `broker` | optional, up to 60 characters |
 | `notes` | optional, up to 500 characters |
+| `importId`, `importKey`, `importedRow` | set only on an imported transaction: its import, the row's key, unique per portfolio, and the row as read (format, sheet, row number and cells); never in an API response, and kept when the transaction is edited |
 
 **Income and bonus.** `DIVIDEND`, `JCP` and `INTEREST` record the income the
 position pays: `quantity` is the number of units that generated it, `unitPrice`
@@ -522,9 +525,16 @@ answers `unavailable`, with no request.
 * Quotes are cached in the process's memory for 60 seconds, including
   `not-found`. A symbol already being queried joins the request in flight, and
   the rest go in batches of 10 per request.
+* No more than 4 requests are in flight at once (`MAX_CONCURRENT_REQUESTS`,
+  seen on this account, not documented): the others wait, those to the quote
+  endpoint (quotes, rates and searches) ahead of histories and summaries, and
+  one whose turn comes during a pause is not sent.
 * Each request times out in 5 seconds. An error status, a timeout, a network
   failure or a response outside the format suspend the calls to the provider for
-  30 seconds; on the failure and during the pause, each symbol answers with the
+  30 seconds. A `429`, from any endpoint, suspends them for its `Retry-After`,
+  in seconds or as a date, kept between 1 second and 1 hour, or for 30 seconds
+  without one; a longer pause already running is kept. On the failure and
+  during the pause, each symbol answers with the
   last quote received, with the `timestamp` at which it was observed and
   `isFallback`, or `unavailable` when there is no previous quote. The overview
   reports that in `marketData.isFallback`, and each answer that serves one
@@ -537,23 +547,28 @@ answers `unavailable`, with no request.
   are not kept.
 * The current quote is not stored; what the table keeps is the daily close (see
   [Stored quotes](#stored-quotes)).
-* The listing search asks, in a single quote request, for the ticker in each
-  market — `{symbol}.SA`, `{symbol}` and `{symbol}-{currency}` for `BRL`, `USD`
-  and `EUR` — and accepts only the item whose exchange and currency confirm the
+* The listing search asks the quote endpoint for the ticker in each market —
+  `{symbol}.SA`, `{symbol}` and `{symbol}-{currency}` for `BRL`, `USD` and
+  `EUR` — or, for a ticker searched in a currency, only where it is quoted in it
+  (`{symbol}.SA` and `{symbol}-BRL` in `BRL`). The tickers searched together go
+  in requests of 10 provider symbols. It accepts only the item whose exchange
+  and currency confirm the
   requested market: `SAO` is `B3`; `NYQ`, `ASE` and `PCX` are `NYSE`; `NMS`,
   `NGM` and `NCM` are `NASDAQ`; `CCC` is `CRYPTO`. The class comes from
   `quoteType` (`EQUITY` is `STOCK`, `ETF` is `ETF`, `MUTUALFUND` is `FUND`,
   `CRYPTOCURRENCY` is `CRYPTO`), and a B3 stock with `FII` or `imobiliári` in
   the name is a `REIT`. The name is `longName`, else `shortName`, with the
   spaces collapsed and cut at 120 characters.
-* The search is cached for one hour, up to 1,000 tickers, discarding the oldest;
-  during a failure, it answers with the last search kept. A search failure
-  pauses the provider as a quote failure does.
+* What the provider answers for each provider symbol is cached for one hour, up
+  to 5,000 of them, discarding the oldest, so a search asks only for those not
+  kept; during a failure, it answers with the last answer kept, and a ticker
+  missing one is `unavailable`. A search failure pauses the provider as a quote
+  failure does.
 * The sector comes from
   `/v11/finance/quoteSummary/{symbol}?modules=assetProfile`, requested only when
   registering a `STOCK` or a `REIT`. A failure or a response outside the format
   leave the sector empty, record `quote_provider_request_failed` and do not
-  pause the quotes.
+  pause the quotes, except a `429`, which pauses them.
 * The fundamentals come from the same path, with only the modules of the
   requested indicators: `summaryDetail` (`trailingPE`;
   `trailingAnnualDividendYield`, or `yield` for a fund) and `financialData`
@@ -565,11 +580,12 @@ answers `unavailable`, with no request.
   multiple. The response is cached for one hour, per symbol and modules,
   including the 404; a failure or a response outside the format answer
   `unavailable`, record `quote_provider_request_failed`, do not pause the quotes
-  and are not cached. The field names follow the known `quoteSummary` format,
+  (a `429` does) and are not cached. The field names follow the known `quoteSummary` format,
   with no check against the real provider (TD-079).
 
-The timeout, cache, pause and batch values are assumed, not measured, and the
-provider's plan quota and price were not verified (TD-020). The exchange map and
+The timeout, cache, pause and batch values are assumed, not measured, the
+concurrency cap was seen on this account only, and the provider's plan quota and
+price were not verified (TD-020). The exchange map and
 the REIT rule are also assumed (TD-074).
 
 ### Stored quotes

@@ -44,6 +44,7 @@ arrived without a status and every error became a 500 on the client.
 | `usePosition` | `GET /v1/portfolio/positions/:symbol` | `[...portfolio, 'position', symbol]` | Asset detail | One position with the breakdown the listing does not carry |
 | `usePerformance` | `GET /v1/portfolio/performance` | `[...portfolio, 'performance', params]` | The Overview and detail charts | A time series per period; switching period is another key, fetched once and served from cache on later switches. A benchmark chosen in the URL (`?benchmark=`) goes into the same request in both views, so switching between value and return reads one response; a benchmark the catalog lacks answers `404`, and the series is then asked for without it |
 | `useTransactions` | `GET /v1/transactions` | `[...portfolio, 'transactions', filters]` | Overview (last 5) and asset detail (paginated by symbol) | Distinct cuts of the same listing; neither derives from the other. The Overview page and `RecentTransactions` share `RECENT_TRANSACTIONS_PAGE`, so the page reads the listing's `total` from the same request to choose between the sections and the getting-started guide |
+| `useTransactionImports` | `GET /v1/transaction-imports` | `[...portfolio, 'transaction-imports', page]` | The import history on `/assets/import` | Inside the portfolio's scope, so an import or an undo refreshes it with the rest; keeps the previous page while the next loads. The preview, the import and the undo are mutations (`usePreviewTransactionImport`, `useCreateTransactionImport`, `useUndoTransactionImport`), and the preview is never cached: it answers for a file and a selection, not for a key |
 | `useFinanceAlerts` | `GET /v1/finances/alerts` | `['finances', 'alerts', today]` | `sidebar.tsx` on every protected screen; the Bills page | The overdue count on the Finances badge and the due-soon list; a failure leaves the badge out, and the finance pages show the same count with their own error state |
 | `useFinanceSummary` | `GET /v1/finances/summary` | `['finances', 'summary', params]` | `/finances` | Every figure on the overview, in one request, for the chosen currency |
 | `useFinanceSettings` | `GET /v1/finances/settings` | `['finances', 'settings']` | `/finances`, beside the summary | What is flagged — overdue bills, bills and installments due soon — and the lead days, which the Reminders card shows and its dialog edits |
@@ -134,7 +135,9 @@ and transactions in one call. It is what runs after creating an asset, creating,
 editing and deleting a transaction, and deleting an asset — every write in the
 product — without being awaited: the mutation resolves with the API's response,
 the dialog that fired it closes, and revalidation catches up, with the cached
-data in view until it arrives.
+data in view until it arrives. An import and its undo announce the change the
+same way; an import also invalidates the visible instruments, since it may
+have registered private ones for the asset search.
 
 Two deliberate choices:
 

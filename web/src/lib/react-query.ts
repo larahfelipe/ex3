@@ -19,7 +19,7 @@ import type {
 } from '@/app/api/v1/portfolios';
 import type { TransactionFilters } from '@/app/api/v1/transactions';
 import { ApiProxyError } from '@/lib/axios';
-import type { Maybe } from '@/types';
+import type { Maybe, PageParams } from '@/types';
 
 const QUERY_RETRY_LIMIT = 2;
 
@@ -124,6 +124,12 @@ export const queryKeys = {
     [...portfolioScope(portfolioId), 'performance', params] as const,
   transactions: (portfolioId: PortfolioId, filters: TransactionFilters) =>
     [...portfolioScope(portfolioId), 'transactions', filters] as const,
+  transactionImports: (portfolioId: PortfolioId, requestedPage: PageParams) =>
+    [
+      ...portfolioScope(portfolioId),
+      'transaction-imports',
+      requestedPage
+    ] as const,
   finances: financeScope,
   financeSummary: (params: FinanceSummaryParams) =>
     [...financeScope(), 'summary', params] as const,

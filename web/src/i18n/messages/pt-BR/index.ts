@@ -6,6 +6,7 @@ import common from './common';
 import errors from './errors';
 import financeOverview from './financeOverview';
 import finances from './finances';
+import imports from './imports';
 import installments from './installments';
 import investments from './investments';
 import navigation from './navigation';
@@ -23,6 +24,7 @@ export default {
   portfolios,
   investments,
   transactions,
+  imports,
   finances,
   financeOverview,
   bills,

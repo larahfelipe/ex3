@@ -391,6 +391,9 @@ describe('transactions', () => {
     const listedItem = (
       {
         sequence,
+        importKey,
+        importedRow,
+        importId,
         quantity,
         unitPrice,
         fees,

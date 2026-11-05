@@ -1,0 +1,87 @@
+import type { MarketDataProvider } from '@/domain/MarketDataProvider';
+import type {
+  PortfolioRepository,
+  TransactionImportRepository
+} from '@/infra/database';
+
+import { requireOwnedPortfolio } from '../PortfolioAccess';
+import {
+  lookUpListings,
+  previewOf,
+  readImportFile,
+  type ImportPreview
+} from './ImportFile';
+
+/**
+ * Reads the file and plans its rows into the portfolio without writing
+ * anything. Without a selection, every row that can be recorded is selected;
+ * with one, the effect shown is the effect of the selected rows only.
+ */
+export class PreviewTransactionImportService {
+  private static INSTANCE: PreviewTransactionImportService;
+  private readonly transactionImportRepository: TransactionImportRepository;
+  private readonly portfolioRepository: PortfolioRepository;
+  private readonly marketDataProvider: MarketDataProvider;
+
+  private constructor(
+    transactionImportRepository: TransactionImportRepository,
+    portfolioRepository: PortfolioRepository,
+    marketDataProvider: MarketDataProvider
+  ) {
+    this.transactionImportRepository = transactionImportRepository;
+    this.portfolioRepository = portfolioRepository;
+    this.marketDataProvider = marketDataProvider;
+  }
+
+  static getInstance(
+    transactionImportRepository: TransactionImportRepository,
+    portfolioRepository: PortfolioRepository,
+    marketDataProvider: MarketDataProvider
+  ) {
+    if (!PreviewTransactionImportService.INSTANCE)
+      PreviewTransactionImportService.INSTANCE =
+        new PreviewTransactionImportService(
+          transactionImportRepository,
+          portfolioRepository,
+          marketDataProvider
+        );
+
+    return PreviewTransactionImportService.INSTANCE;
+  }
+
+  async execute({
+    userId,
+    portfolioId,
+    file,
+    selectedKeys
+  }: PreviewTransactionImportService.DTO): Promise<PreviewTransactionImportService.Result> {
+    const portfolio = await requireOwnedPortfolio(this.portfolioRepository, {
+      userId,
+      portfolioId
+    });
+
+    const importFile = readImportFile({
+      name: file.name,
+      content: Buffer.from(file.content, 'base64')
+    });
+    const scope = { portfolioId: portfolio.id, userId, rows: importFile.rows };
+    const listings = await lookUpListings(this.marketDataProvider, {
+      symbols: await this.transactionImportRepository.getUnknownSymbols(scope),
+      rows: importFile.rows
+    });
+    const plan = await this.transactionImportRepository.plan({
+      ...scope,
+      listings,
+      selection: selectedKeys === undefined ? null : new Set(selectedKeys)
+    });
+
+    return { preview: previewOf(importFile, plan) };
+  }
+}
+
+namespace PreviewTransactionImportService {
+  export type DTO = Record<'userId' | 'portfolioId', string> &
+    Record<'file', Record<'name' | 'content', string>> &
+    Partial<Record<'selectedKeys', Array<string>>>;
+  export type Result = Record<'preview', ImportPreview>;
+}

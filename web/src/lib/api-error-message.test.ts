@@ -101,6 +101,55 @@ describe('API errors', () => {
     );
   });
 
+  it('words each refusal of an import by its own message, never by its category', () => {
+    const refusals: ReadonlyArray<[code: string, message: string]> = [
+      ['VALIDATION', 'Unsupported file: import an XLSX or CSV file'],
+      [
+        'VALIDATION',
+        'Unsupported file: save the spreadsheet as XLSX and import it again'
+      ],
+      ['VALIDATION', 'The file could not be read: it is damaged or malformed'],
+      ['VALIDATION', 'The file is too large to import'],
+      [
+        'VALIDATION',
+        'No B3 statement or EX3 template was recognized in the file'
+      ],
+      ['VALIDATION', 'The file has no rows to import'],
+      ['VALIDATION', 'The file has more rows than one import takes'],
+      [
+        'CONFLICT',
+        'The portfolio changed since the preview: review the import again'
+      ],
+      ['NOT_FOUND', 'Import not found for this user'],
+      ['CONFLICT', 'The import was already undone'],
+      [
+        'DOMAIN',
+        'Undoing the import would leave a sale exceeding the units held: change the transactions recorded after it first'
+      ]
+    ];
+
+    const shown = refusals.map(([code, message]) => {
+      const text = apiErrorMessageOf(
+        apiError(422, serverError(code, message)),
+        t
+      );
+
+      assert.notEqual(
+        text,
+        apiErrorMessageOf(apiError(422, serverError(code, 'Unknown')), t),
+        message
+      );
+
+      return text;
+    });
+
+    assert.equal(new Set(shown).size, refusals.length);
+    assert.equal(
+      shown[7],
+      'A carteira mudou desde a prévia. Revise a importação de novo.'
+    );
+  });
+
   it('falls back to the category of a message it does not know', () => {
     const message = 'A rule the web has not been told about';
 
