@@ -32,7 +32,7 @@ jobs:
         working-directory: backend
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         # `workflow_run` checks out the default branch by default, which may
         # already be ahead of the commit whose CI passed.
         with:
