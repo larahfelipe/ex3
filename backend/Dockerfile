@@ -1,4 +1,4 @@
-FROM node:24.15-alpine AS base
+FROM node:26.12-alpine AS base
 
 ENV PNPM_CONFIG_STORE_DIR=/pnpm/store \
     COREPACK_HOME=/opt/corepack \
@@ -49,7 +49,7 @@ EXPOSE 8080
 
 CMD ["pnpm", "dev"]
 
-FROM node:24.15-alpine AS runner
+FROM node:26.12-alpine AS runner
 
 RUN apk add --no-cache tini
 
