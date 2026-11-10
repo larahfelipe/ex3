@@ -52,7 +52,7 @@ x-app-healthcheck: &app-healthcheck
 
 services:
   postgres:
-    image: postgres:17.6-alpine
+    image: postgres:17.10-alpine
     environment:
       POSTGRES_USER: ex3
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
@@ -130,7 +130,7 @@ services:
         condition: service_healthy
 
   postgres-test:
-    image: postgres:17.6-alpine
+    image: postgres:17.10-alpine
     profiles: [check]
     environment:
       POSTGRES_USER: ex3
