@@ -136,10 +136,14 @@ instrument the person sees (catalog or their own private one), or a listing the
 quote provider knows. Of the listings in the row's currency, or all of them
 when the row names none, B3's is picked, else the only one; several elsewhere
 leave the symbol `currency-unknown`. Up to 50 new symbols per import are looked
-up, in one search: each only where it is quoted in its rows' currency, as a B3
+up, in one search. A symbol in brapi's catalog of B3 tickers, read about once
+a day, is answered from it with no request
+([B3 ticker catalog](domain-model.md#b3-ticker-catalog)); the others go to the
+quote provider, each only where it is quoted in its rows' currency, as a B3
 statement's `{symbol}.SA` and `{symbol}-BRL` in BRL, 10 provider symbols per
 request. The rest are unresolved. On import, the listing picked for each
-selected symbol is described with its sector, four at a time.
+selected symbol is described with its sector, four at a time, from the catalog
+when it came from there.
 
 | Status | Meaning | Selectable | Selected by default |
 | --- | --- | --- | --- |
@@ -285,7 +289,8 @@ different plan, or loses the unique key, and answers `409`.
   can be checked and the import undone; the screen says so. No broker or B3
   password is asked for or stored, and no token is held.
 * **Quote provider.** Only symbols no known instrument has are sent, as
-  registering an asset by hand sends them.
+  registering an asset by hand sends them; those in the B3 ticker catalog are
+  not sent at all. Reading the catalog sends brapi nothing about the file.
 
 ## Interface
 

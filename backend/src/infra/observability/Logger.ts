@@ -28,6 +28,9 @@ export type LogEvent =
     }
   | { event: 'quote_provider_request_failed'; reason: string }
   | { event: 'quote_provider_fallback_served'; count: number }
+  | { event: 'ticker_catalog_key_missing' }
+  | { event: 'ticker_catalog_loaded'; count: number }
+  | { event: 'ticker_catalog_unavailable'; reason: string; retryInMs: number }
   | {
       event: 'valuation_incomplete';
       portfolioId: string;

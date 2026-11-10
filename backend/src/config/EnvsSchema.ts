@@ -137,6 +137,7 @@ const EnvsSchema = z
         .optional()
     ),
     YAHOO_FINANCE_API_KEY: blankAsAbsent(z.string().optional()),
+    BRAPI_API_KEY: blankAsAbsent(z.string().optional()),
     TURNSTILE_SECRET_KEY: blankAsAbsent(z.string().optional())
   })
   .superRefine((envs, ctx) => {
@@ -188,6 +189,7 @@ const EnvsSchema = z
     corsAllowedOrigins: envs.CORS_ALLOWED_ORIGINS ?? [],
     apiProxySecret: envs.API_PROXY_SECRET,
     yahooFinanceApiKey: envs.YAHOO_FINANCE_API_KEY,
+    brapiApiKey: envs.BRAPI_API_KEY,
     turnstileSecretKey: envs.TURNSTILE_SECRET_KEY,
     isTurnstileTestSecretKey:
       envs.TURNSTILE_SECRET_KEY !== undefined &&

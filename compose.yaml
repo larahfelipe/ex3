@@ -36,6 +36,7 @@ x-backend-runtime-environment: &backend-runtime-environment
   JWT_SECRET: ${JWT_SECRET:-}
   API_PROXY_SECRET: ${API_PROXY_SECRET:-}
   YAHOO_FINANCE_API_KEY: ${YAHOO_FINANCE_API_KEY:-}
+  BRAPI_API_KEY: ${BRAPI_API_KEY:-}
   TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
 
 x-postgres-healthcheck: &postgres-healthcheck

@@ -97,8 +97,9 @@ every aggregate read one table, and a payment always targets a bill.
 **Applying and reverting.** `pnpm exec prisma migrate deploy` applies the
 migration, as in every environment. Nothing outside the six tables refers to
 them, so reverting means dropping those tables and the five enums. Existing
-database backups cover the new tables with no extra procedure. No backup
-procedure is defined in this repository (TD-060).
+database backups cover the new tables with no extra procedure. Production's
+backups are still an open decision: see
+[`deployment.md`](deployment.md#backups).
 
 ## Business rules
 

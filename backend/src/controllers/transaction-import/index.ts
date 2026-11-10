@@ -4,7 +4,7 @@ import {
   PortfolioRepository,
   TransactionImportRepository
 } from '@/infra/database';
-import { YahooFinanceProvider } from '@/infra/market-data';
+import { CatalogListingSource } from '@/infra/market-data';
 import {
   CreateTransactionImportService,
   GetAllTransactionImportsService,
@@ -23,13 +23,13 @@ export const previewTransactionImportControllerHandler = (
 ) => {
   const transactionImportRepository = TransactionImportRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
-  const marketDataProvider = YahooFinanceProvider.getInstance();
+  const listingSource = CatalogListingSource.getInstance();
 
   const previewTransactionImportService =
     PreviewTransactionImportService.getInstance(
       transactionImportRepository,
       portfolioRepository,
-      marketDataProvider
+      listingSource
     );
 
   const previewTransactionImportController =
@@ -46,13 +46,13 @@ export const createTransactionImportControllerHandler = (
 ) => {
   const transactionImportRepository = TransactionImportRepository.getInstance();
   const portfolioRepository = PortfolioRepository.getInstance();
-  const marketDataProvider = YahooFinanceProvider.getInstance();
+  const listingSource = CatalogListingSource.getInstance();
 
   const createTransactionImportService =
     CreateTransactionImportService.getInstance(
       transactionImportRepository,
       portfolioRepository,
-      marketDataProvider
+      listingSource
     );
 
   const createTransactionImportController =

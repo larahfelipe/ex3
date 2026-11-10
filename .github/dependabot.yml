@@ -37,3 +37,15 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+
+  # The pinned `cloudflared` of compose.prod.yaml, and the images of compose.yaml.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      # The development database's data directory belongs to one major version.
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]

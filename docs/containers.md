@@ -12,6 +12,7 @@ Requires Docker Engine with the Compose v2 plugin (`docker compose`).
 | --- | --- |
 | `compose.yaml` | Development environment and verification services. Project `ex3`, whatever the clone directory is. |
 | `.env.example` → `.env` | Values `compose.yaml` interpolates. `.env` stays out of git. |
+| `compose.prod.yaml`, `.env.production.example` | The production stack and its variables; see [`deployment.md`](deployment.md). |
 | `backend/Dockerfile`, `web/Dockerfile` | Stages `base`, `deps`, `builder`, `prod-deps`, `dev` and `runner`. |
 | `backend/.dockerignore`, `web/.dockerignore` | Keep `.env*`, `node_modules` and build artifacts out of the build context. |
 
@@ -103,7 +104,8 @@ docker compose up --build
 
 The root `.env` is read by Compose only. In the container, the backend receives
 `NODE_ENV`, `PORT`, `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`,
-`API_PROXY_SECRET`, `YAHOO_FINANCE_API_KEY` and `TURNSTILE_SECRET_KEY` from
+`API_PROXY_SECRET`, `YAHOO_FINANCE_API_KEY`, `BRAPI_API_KEY` and
+`TURNSTILE_SECRET_KEY` from
 `compose.yaml`, and the web receives `API_URL`, the same `API_PROXY_SECRET` and
 `TURNSTILE_SITE_KEY`. Because `dotenv` does not
 overwrite an already defined variable, these values win over a `backend/.env`
@@ -166,7 +168,7 @@ The production target is the last stage, `runner`:
 
 - it starts from `node:24.15-alpine` without pnpm and runs as `node`, with
   `tini` as PID 1: Node does not handle SIGTERM when it is PID 1, and the
-  platform that runs the image offers no `--init`;
+  image does not rely on whoever runs it to pass `--init`;
 - it carries production dependencies only, installed in a clean stage
   (`prod-deps`), plus the `builder` artifact: `dist/` and `prisma/` in the
   backend; `build/` without `build/cache`, `public/`, `next.config.js` and
@@ -184,3 +186,6 @@ builder can build them.
 a container environment variable. It is read by the server at runtime, no
 longer inlined into the bundle by `next.config.js` — see `security.md`,
 §Secrets.
+
+`compose.prod.yaml` runs these images in production, read-only and with no
+capability or published port; [`deployment.md`](deployment.md) covers it.

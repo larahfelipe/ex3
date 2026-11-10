@@ -42,9 +42,10 @@ export type Listing = Pick<Instrument, 'symbol' | 'name' | 'type'> &
 export type ListingSearch =
   { outcome: 'searched'; listings: Listing[] } | { outcome: 'unavailable' };
 
+export type DescribedListing = Listing & Pick<Instrument, 'sector'>;
+
 export type ListingLookup =
-  | { outcome: 'listed'; listing: Listing & Pick<Instrument, 'sector'> }
-  | MarketDataFailure;
+  { outcome: 'listed'; listing: DescribedListing } | MarketDataFailure;
 
 export type FundamentalsLookup =
   | (Record<'outcome', 'reported'> &
@@ -105,4 +106,24 @@ export interface MarketDataProvider {
     instrument: PricedInstrument,
     metrics: ReadonlyArray<FundamentalMetric>
   ) => Promise<FundamentalsLookup>;
+}
+
+/** What a provider lists, which a catalog answers in part in its place. */
+export type ListingSource = Pick<
+  MarketDataProvider,
+  'findListings' | 'describeListing'
+>;
+
+export type ListingCatalogLookup =
+  | { outcome: 'listed'; listings: ReadonlyMap<string, DescribedListing> }
+  | { outcome: 'unavailable' };
+
+/**
+ * Every instrument a source lists in a market, by symbol and with its sector,
+ * read whole so that looking up many symbols costs no request per symbol. A
+ * symbol the catalog does not hold may still be listed elsewhere. Everything
+ * the source returns is untrusted input, validated before it is answered.
+ */
+export interface ListingCatalog {
+  getListings: () => Promise<ListingCatalogLookup>;
 }

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { ImportLimits, TransactionImportMessages } from '@/config/Constants';
 import { formatCalendarDay } from '@/domain/CalendarDay';
-import type { MarketDataProvider } from '@/domain/MarketDataProvider';
+import type { ListingSource } from '@/domain/MarketDataProvider';
 import {
   importCurrenciesOf,
   pickListing,
@@ -129,16 +129,16 @@ const inBatches = async <Item, Result>(
 };
 
 /**
- * Asks the quote provider about the symbols no known instrument has, no more
+ * Asks the listing source about the symbols no known instrument has, no more
  * than an import looks up, all in one search; those past the limit, in symbol
  * order, are not asked about. A symbol is looked up only where it is quoted in
  * the currency its rows name, the one a listing is picked by. Searches are
- * cached by the provider; the listing picked for a symbol about to be recorded
+ * cached by the source; the listing picked for a symbol about to be recorded
  * is described too, a few at a time, with its sector, as registering an asset
  * by hand does.
  */
 export const lookUpListings = async (
-  marketDataProvider: MarketDataProvider,
+  listingSource: ListingSource,
   {
     symbols,
     rows,
@@ -150,7 +150,7 @@ export const lookUpListings = async (
   const currencies = importCurrenciesOf(rows);
   const ordered = symbols.toSorted();
   const asked = ordered.slice(0, ImportLimits.NEW_ASSETS);
-  const searches = await marketDataProvider.findListings(
+  const searches = await listingSource.findListings(
     new Map(asked.map((symbol) => [symbol, currencies.get(symbol) ?? null]))
   );
 
@@ -164,9 +164,7 @@ export const lookUpListings = async (
 
     if (picked.outcome !== 'listed' || !described.has(symbol)) return picked;
 
-    const description = await marketDataProvider.describeListing(
-      picked.listing
-    );
+    const description = await listingSource.describeListing(picked.listing);
 
     if (description.outcome === 'listed')
       return { outcome: 'listed', listing: description.listing };

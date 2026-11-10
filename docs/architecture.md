@@ -203,6 +203,14 @@ the currency a caller names, each answer cached for one hour — and the sector,
 from the asset profile, so that registering an instrument does not ask the user
 for those attributes.
 
+An import resolves its tickers through `CatalogListingSource`: what
+`BrapiTickerCatalog` holds — every B3 ticker brapi lists, read whole in a few
+requests and kept for a day — it answers from the catalog, with the sector, and
+it asks `YahooFinanceProvider` about the rest in one search, or about every
+ticker while the catalog is unavailable. The asset search and registering an
+asset by hand still ask Yahoo alone. Quotes and history come from Yahoo either
+way.
+
 A provider failure never becomes a 500: the port answers `not-found`,
 `unavailable` or `range-not-served`, and the service omits from the body the
 field that depended on that price, keeping the 200. Daily closes are persisted

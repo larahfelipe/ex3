@@ -588,6 +588,55 @@ concurrency cap was seen on this account only, and the provider's plan quota and
 price were not verified (TD-020). The exchange map and
 the REIT rule are also assumed (TD-074).
 
+### B3 ticker catalog
+
+An import's ticker lookups would spend the YH Finance quota one search per ten
+provider symbols, and the sector one request per stock. `BrapiTickerCatalog`
+reads instead every ticker brapi lists for B3 (`GET
+https://brapi.dev/api/v2/tickers`, about 2,300 in two pages of 2,000), with
+the `BRAPI_API_KEY` key in the `Authorization: Bearer` header alone and
+redirects refused. The variable is optional: without it, the backend boots,
+logs `ticker_catalog_key_missing`, and an import looks every ticker up in YH
+Finance, with no request to brapi. The endpoint itself does not require a key;
+EX3 sends one so that its use counts against an account's plan, and so that a
+test or an environment without the variable reaches nothing.
+
+| `subType` | `type` |
+| --- | --- |
+| `stock`, `unit`, `bdr` | `STOCK` |
+| `fii` | `REIT` |
+| `etf` | `ETF` |
+| `fi-infra`, `fi-agro`, `fip`, `fidc` | `FUND` |
+
+* Pages are read in symbol order, one after another, as the free plan answers
+  one request at a time, up to 5; a ticker past them is looked up in YH Finance.
+  A page holds at most 2,000 tickers, else it is outside the format.
+* A ticker is listed only when it is in trading (`isActive`), on `B3` in `BRL`,
+  of a known `subType`, with a symbol of up to 6 uppercase letters and digits
+  and a name: `name`, else `longName`, with the spaces collapsed and cut at 120
+  characters. The sector is `sector` as brapi reports it, up to 60 characters,
+  else none. It is not Yahoo's classification: brapi says `Energy Minerals`
+  where Yahoo says `Energy`, so a portfolio with assets from both shows both in
+  its sector allocation.
+* The catalog is kept in the process's memory for one day, and a read already
+  running is joined. Each page times out in 15 seconds. An error status, a
+  timeout, a network failure or a page outside the format, a page after the
+  first included, leave the catalog as it was — the last read, however old, or
+  none — and leave brapi alone for 5 minutes, or for the `Retry-After` of a
+  `429`, kept between 1 second and 1 hour; each such failure logs
+  `ticker_catalog_unavailable`, and each read logs `ticker_catalog_loaded`
+  with the tickers kept.
+* `CatalogListingSource` answers from the catalog a ticker it holds, searched
+  in `BRL` or in no currency, and asks YH Finance about the rest in one search;
+  a ticker it holds is described from it, with its sector, without asking for
+  a profile. A ticker the catalog lacks — a new or delisted one, a crypto in
+  `BRL`, any other market — is looked up as before.
+
+The page limit, the timeout, the time to live and the pause are assumed, not
+measured; the response format follows brapi's documentation, with no check
+against the real API, and the free plan's terms for this endpoint were not
+confirmed.
+
 ### Stored quotes
 
 `MarketQuote` keeps the close of each trading day of an instrument, in the

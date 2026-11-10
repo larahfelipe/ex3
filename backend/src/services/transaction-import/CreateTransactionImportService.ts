@@ -1,5 +1,5 @@
 import { MarketDataMessages, TransactionImportMessages } from '@/config';
-import type { MarketDataProvider } from '@/domain/MarketDataProvider';
+import type { ListingSource } from '@/domain/MarketDataProvider';
 import { importKeysOf } from '@/domain/transaction-import';
 import { ConflictError, UnavailableError } from '@/errors';
 import type {
@@ -26,29 +26,29 @@ export class CreateTransactionImportService {
   private static INSTANCE: CreateTransactionImportService;
   private readonly transactionImportRepository: TransactionImportRepository;
   private readonly portfolioRepository: PortfolioRepository;
-  private readonly marketDataProvider: MarketDataProvider;
+  private readonly listingSource: ListingSource;
 
   private constructor(
     transactionImportRepository: TransactionImportRepository,
     portfolioRepository: PortfolioRepository,
-    marketDataProvider: MarketDataProvider
+    listingSource: ListingSource
   ) {
     this.transactionImportRepository = transactionImportRepository;
     this.portfolioRepository = portfolioRepository;
-    this.marketDataProvider = marketDataProvider;
+    this.listingSource = listingSource;
   }
 
   static getInstance(
     transactionImportRepository: TransactionImportRepository,
     portfolioRepository: PortfolioRepository,
-    marketDataProvider: MarketDataProvider
+    listingSource: ListingSource
   ) {
     if (!CreateTransactionImportService.INSTANCE)
       CreateTransactionImportService.INSTANCE =
         new CreateTransactionImportService(
           transactionImportRepository,
           portfolioRepository,
-          marketDataProvider
+          listingSource
         );
 
     return CreateTransactionImportService.INSTANCE;
@@ -82,7 +82,7 @@ export class CreateTransactionImportService {
       })
     );
     const scope = { portfolioId: portfolio.id, userId, rows };
-    const listings = await lookUpListings(this.marketDataProvider, {
+    const listings = await lookUpListings(this.listingSource, {
       symbols: await this.transactionImportRepository.getUnknownSymbols(scope),
       rows,
       described: selectedSymbols

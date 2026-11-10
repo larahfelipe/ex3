@@ -21,6 +21,12 @@ const bootstrap = async () => {
       event: 'quote_provider_key_missing'
     });
 
+  if (envs.brapiApiKey === undefined)
+    log({
+      severity: LogSeverities.WARNING,
+      event: 'ticker_catalog_key_missing'
+    });
+
   if (envs.turnstileSecretKey === undefined)
     log({
       severity: LogSeverities.WARNING,

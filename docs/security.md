@@ -63,7 +63,8 @@ parsed.
 * `TURNSTILE_SITE_KEY` is public by design and reaches the page as a prop. The
   secret key is read by the backend alone and travels only in the body of a
   request to Cloudflare's fixed origin, with redirects refused. The YH Finance
-  key is sent only from the backend.
+  and brapi keys are sent only from the backend, each in a header to its
+  provider's fixed origin, with redirects refused.
 
 ## Session cookie
 
@@ -436,8 +437,9 @@ One line per completed request, in JSON, with severity derived from the status,
 the symbol), duration, `userId` and the error code the client was answered
 with. No email, no token, no body. A stack trace only on the 5xx error line,
 which stays on the server: the client receives a generic
-`{ code, message, details }`. Access to the logs and how long they are kept
-belong to the platform; see
+`{ code, message, details }`. In production the logs stay on the host, in
+Docker's `local` driver, at most 5 × 10 MB per service
+([`deployment.md`](deployment.md#topology)); see
 [Assumptions and operational requirements](#assumptions-and-operational-requirements).
 
 ## Other attack vectors
@@ -473,7 +475,7 @@ context of this architecture.
 | Resource exhaustion | yes | Body cap, `Pagination.MAX_SIZE`, length-capped text, the 72-byte password limit, budgets and outbound timeouts. Traffic against the web is the gap (TD-065) |
 | Unrestricted sensitive business flows | yes | Sign-up: challenge and every-attempt budgets |
 | Unsafe consumption of third-party APIs | yes | Provider and `siteverify` answers are schema-parsed; a failure is `UNAVAILABLE`, never success |
-| Security misconfiguration | yes | Boot refuses an unsafe configuration; containers run as a non-root user |
+| Security misconfiguration | yes | Boot refuses an unsafe configuration; containers run as a non-root user, and in production on a read-only filesystem, with no capabilities and no published port |
 | Improper inventory | yes | [`api-inventory.md`](api-inventory.md) lists the routes; there is no older API version |
 | Logging and monitoring failures | yes | [Logs](#logs) and [Monitoring](#monitoring-and-reassessment) |
 | Server actions | no | The web defines none |
@@ -510,7 +512,9 @@ controls in place. These are judgments, not measurements.
 | TD-004 | Email enumeration on sign-up | Low | Medium | Confirms an email has an account, which aids phishing and stuffing | **Reduced, accepted**: challenge and 20 probes per address per day; closing it needs email confirmation |
 | TD-005 | New passwords not checked against breaches, no Unicode normalization | Medium | Medium | A password reused from a breach passes; the same password typed in another composition fails | **Open**: needs an external source and a hash migration |
 | — | No MFA | Medium | Low | A stolen password gives full access to a person's records | **Open**: recommended next |
-| TD-065 | Unauthenticated traffic against the web is not limited | Medium | Medium | The Next server is exhausted; the API's budgets do not cover it | **Open**: depends on the platform |
+| TD-065 | Unauthenticated traffic against the web is not limited | Medium | Medium | The Next server is exhausted; the API's budgets do not cover it | **Reduced**: a Cloudflare rate limiting rule, 100 requests per 10 seconds per address ([`deployment.md`](deployment.md#cloudflare)); the threshold is not yet measured against real traffic |
+| — | Production shares its host with development | High | Medium | Anything that compromises a development tool, package or agent session reads the database password and `JWT_SECRET` | **Accepted for now** ([`deployment.md`](deployment.md#accepted-risks)): a host of its own removes it |
+| — | No database backup | High | Low | A dropped table or a broken migration cannot be undone | **Open**: Supabase Pro or a nightly dump ([`deployment.md`](deployment.md#backups)) |
 | — | Tenant isolation only in the application | High | Low | One missing `userId` filter exposes another person's data | **Mitigated**: single access path and cross-user tests; no row-level security |
 | — | Duplicate submission without idempotency | Low | Low | A repeated record, which the person can delete | **Open, accepted**: no money moves |
 | — | A crafted spreadsheet occupying the API | Medium | Low | One request holds CPU and up to tens of MiB while a file is inflated and read | **Mitigated**: signed-in callers only, 30 requests a minute, 2 MiB files, inflate, row, column and cell budgets, linear-time XML; not measured under load |
@@ -524,10 +528,18 @@ controls in place. These are judgments, not measurements.
 * TLS terminates ahead of the web, and the platform appends the real client as
   the last `X-Forwarded-For` entry, with exactly one hop ahead of each service.
   If that changes, `trust proxy` and `clientAddressHeaders` must change with it.
+  In production ([`deployment.md`](deployment.md)) that is Cloudflare through
+  `cloudflared`, which is reported to append the client last; the first
+  deploy's checks confirm it.
 * The API is reachable only by the web. Otherwise `API_PROXY_SECRET` is what
-  stands between a direct caller and a forged client address.
-* The database is reachable only by the API and holds the rate limit counters;
-  while it is down, the API answers `503`.
+  stands between a direct caller and a forged client address. In production
+  the two share an internal network that nothing else joins.
+* The database holds the rate limit counters; while it is down, the API answers
+  `503`. In production it is Supabase, whose pooler accepts connections from the
+  internet: the password, and TLS checked against Supabase's CA by both the API
+  and the migrations, protect it. Restricting it to the VPS's address would also
+  shut out GitHub's runners, which apply the migrations from changing
+  addresses.
 * Production sets `JWT_SECRET`, `API_PROXY_SECRET`, `CORS_ALLOWED_ORIGINS` and
   `TURNSTILE_SECRET_KEY` on the API, and `API_PROXY_SECRET` and
   `TURNSTILE_SITE_KEY` on the web. The Turnstile hostnames must include the
@@ -538,8 +550,8 @@ controls in place. These are judgments, not measurements.
   serves traffic; until then, reading or writing a transaction fails.
 * A person's address goes to Cloudflare as `remoteip` when a challenge is
   verified. The privacy notice should say so.
-* The platform owns log access and retention, TLS configuration, and volumetric
-  protection. Rotating `JWT_SECRET` signs everyone out.
+* Cloudflare owns the TLS configuration and volumetric protection; the host
+  keeps the logs. Rotating `JWT_SECRET` signs everyone out.
 
 ## Monitoring and reassessment
 
@@ -552,6 +564,9 @@ Alert on these events:
 | `bot_challenge_not_enforced` | WARNING | The check is off; must never appear in production |
 | `bot_challenge.site_key_missing` | web error | Production cannot sign anyone in |
 | `api.proxy_secret_missing` | web error | Production cannot forward sign-in or sign-up |
+
+Nothing raises these alerts in production yet: the events are read with
+`ex3-prod logs` ([`deployment.md`](deployment.md#operating)).
 
 Also watch the rate of `429` and `403` on sign-in and sign-up, which is how an
 attack or a budget set too tight would first show, and the latency the counters

@@ -282,4 +282,15 @@ describe('parseEnvs', () => {
 
     assert.equal(envs.yahooFinanceApiKey, 'yahoo-finance-api-key');
   });
+
+  it('reads the ticker catalog key when it is set, and leaves it unset when it is blank', () => {
+    assert.equal(
+      parseEnvs({ ...validEnvs, BRAPI_API_KEY: 'brapi-api-key' }).brapiApiKey,
+      'brapi-api-key'
+    );
+    assert.equal(
+      parseEnvs({ ...validEnvs, BRAPI_API_KEY: '' }).brapiApiKey,
+      undefined
+    );
+  });
 });

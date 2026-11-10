@@ -37,6 +37,9 @@ content testable without capturing `stdout`.
 | `quote_provider_request_failed` | WARNING | `reason` | `YahooFinanceProvider.ts`, on the sector and fundamentals lookups, which fail without pausing quotes, except with a `429` |
 | `valuation_incomplete` | WARNING | `portfolioId`, `heldPositionCount`, `valuedPositionCount`, `missingQuotes` (`symbol`, `reason`), `missingRates` (`currency`, `reason`) | `GetPortfolioOverviewService.ts`, on each overview whose totals cannot be calculated because a held position has no price or no exchange rate; a fallback or stale price alone writes nothing, since the totals still stand |
 | `quote_provider_fallback_served` | WARNING | `count`, the quotes and rates answered with the last one received | `YahooFinanceProvider.ts`, on each answer to a failed or paused quote request that serves one |
+| `ticker_catalog_key_missing` | WARNING | — | `Server.ts`, at boot without `BRAPI_API_KEY`; imports look every ticker up in YH Finance |
+| `ticker_catalog_loaded` | INFO | `count`, the B3 tickers kept | `BrapiTickerCatalog.ts`, on each read of the catalog, at most once a day |
+| `ticker_catalog_unavailable` | WARNING | `reason`, `retryInMs` | `BrapiTickerCatalog.ts`, on each failed read; `retryInMs` is the `Retry-After` of a `429`, kept between 1 s and 1 h, else 5 min |
 | `dependency_unavailable` | WARNING | `dependency`, `reason` | readiness, in `HealthControllerHandlers.ts` |
 | `rate_limit_store_failed` | ERROR | `operation`, `reason` | `RateLimitStore.ts`, on each query the store could not run; a hit it could not count is refused with `503` |
 | `bot_challenge_not_enforced` | WARNING | — | `Server.ts`, at boot without `TURNSTILE_SECRET_KEY`, which only happens outside production |
@@ -136,10 +139,11 @@ routes come from `ProbeRoutes`, in `Constants.ts`, the same constant that
 mounts them.
 
 In `compose.yaml`, the `backend` service's `healthcheck` calls `/ready` every
-10s and `web` waits for `service_healthy`. In production there is no probe: the
-configuration of the service that runs the images — where the startup probe
-would point at `/ready` and the liveness probe at `/health` — lives outside the
-repository (TD-060).
+10s and `web` waits for `service_healthy`. `compose.prod.yaml` does the same in
+production, every 30s, and `up --wait` fails while it does not pass. Docker
+restarts a container that exits, not one that turns unhealthy, so nothing
+calls `/health` there and an unhealthy backend shows only in `ps`
+([`deployment.md`](deployment.md#operating)).
 
 ## How regression is prevented
 

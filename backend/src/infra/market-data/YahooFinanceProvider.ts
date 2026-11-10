@@ -4,7 +4,6 @@ import { z } from 'zod';
 import {
   CryptoListingCurrencies,
   DecimalColumn,
-  InstrumentLimits,
   InstrumentTypes,
   MarketQuoteCurrencies,
   Markets,
@@ -31,6 +30,13 @@ import type {
 } from '@/domain/MarketDataProvider';
 import type { InstrumentType } from '@/domain/models';
 import { log, LogSeverities, type LogSink } from '@/infra/observability';
+
+import {
+  ListingNameSchema,
+  retryAfterMsOf,
+  SectorSchema,
+  toListingName
+} from './ProviderInput';
 
 export const YAHOO_FINANCE_SOURCE = 'yahoo-finance';
 
@@ -131,13 +137,6 @@ const LOOKBACK_DAYS: ReadonlyMap<PriceInterval, number> = new Map([
 ]);
 
 const DAILY_RATE_INTERVAL: PriceInterval = '1d';
-
-/**
- * A pause the provider asks for in `Retry-After` is kept within these bounds,
- * so a malformed or extreme header neither retries at once nor leaves quotes
- * off for more than an hour.
- */
-const RETRY_AFTER_BOUNDS_MS = { min: 1_000, max: 3_600_000 } as const;
 
 /**
  * Assumed, not documented: the key goes in the header an AWS API Gateway
@@ -243,8 +242,6 @@ const QuoteSchema = z.object({
   priceHint: PriceHintSchema.optional()
 });
 
-const ListingNameSchema = z.string().trim().min(1).optional().catch(undefined);
-
 const ListingSchema = z.object({
   currency: CurrencySchema,
   quoteType: z.string(),
@@ -260,13 +257,7 @@ const ProfileSchema = z.object({
     result: z.tuple([
       z.object({
         [PROFILE_MODULE]: z.object({
-          sector: z
-            .string()
-            .trim()
-            .min(1)
-            .max(InstrumentLimits.SECTOR_MAX_LENGTH)
-            .optional()
-            .catch(undefined)
+          sector: SectorSchema.optional().catch(undefined)
         })
       })
     ])
@@ -426,13 +417,6 @@ const listingCandidatesOf = (
       }));
   });
 
-/** Bounded by code points, so a surrogate pair is never split. */
-const toListingName = (name: string) =>
-  [...name.replace(/\s+/g, ' ')]
-    .slice(0, InstrumentLimits.NAME_MAX_LENGTH)
-    .join('')
-    .trimEnd();
-
 /** A candidate is listed only where the venue and the currency the provider reports are its own. */
 const toListing = (
   symbol: string,
@@ -550,21 +534,6 @@ const inBatches = <Item>(items: ReadonlyArray<Item>, size: number) =>
   Array.from({ length: Math.ceil(items.length / size) }, (_, index) =>
     items.slice(index * size, (index + 1) * size)
   );
-
-/** In seconds or as an HTTP date, as `Retry-After` may be written; null when absent or unreadable. */
-const retryAfterMsOf = (header: string | null, now: number) => {
-  const value = header?.trim() ?? '';
-  const delayMs = /^\d+$/.test(value)
-    ? Number(value) * MILLISECONDS_PER_SECOND
-    : Date.parse(value) - now;
-
-  return Number.isNaN(delayMs)
-    ? null
-    : Math.min(
-        Math.max(delayMs, RETRY_AFTER_BOUNDS_MS.min),
-        RETRY_AFTER_BOUNDS_MS.max
-      );
-};
 
 /** Sets the entry as the newest, first dropping the oldest when the cache is full. */
 const cacheWithinBound = <Entry>(

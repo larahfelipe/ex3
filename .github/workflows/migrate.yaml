@@ -45,8 +45,15 @@ jobs:
           package: backend
           install-args: --prod
 
+      # Prisma's CLI checks the server's certificate and hostname only with
+      # `sslaccept=strict` and the CA in `sslcert`. It ignores libpq's
+      # `verify-full` and `sslrootcert`, and with them connects unverified.
       - name: Prisma migration
-        run: pnpm exec prisma migrate deploy
+        run: |
+          : "${DATABASE_CA_CERT:?Set the DATABASE_CA_CERT variable of the production environment}"
+          ca="$RUNNER_TEMP/database-ca.crt"
+          printf '%s\n' "$DATABASE_CA_CERT" > "$ca"
+          DIRECT_URL="$DIRECT_URL?sslmode=require&sslaccept=strict&sslcert=$ca" pnpm exec prisma migrate deploy
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          DATABASE_CA_CERT: ${{ vars.DATABASE_CA_CERT }}

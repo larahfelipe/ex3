@@ -1,6 +1,15 @@
 import { Prisma } from '@prisma/client';
 import assert from 'node:assert/strict';
-import { before, describe, it, type TestContext } from 'node:test';
+import {
+  afterEach,
+  before,
+  beforeEach,
+  describe,
+  it,
+  mock,
+  type Mock,
+  type TestContext
+} from 'node:test';
 
 import {
   Errors,
@@ -10,8 +19,12 @@ import {
   TransactionImportMessages,
   UploadRoutes
 } from '@/config';
+import type {
+  DescribedListing,
+  ListingCatalog
+} from '@/domain/MarketDataProvider';
 import { PrismaClient } from '@/infra/database/PrismaClient';
-import { YahooFinanceProvider } from '@/infra/market-data';
+import { BrapiTickerCatalog, YahooFinanceProvider } from '@/infra/market-data';
 import { apiRequest, bearer, signInWithPortfolio } from '@/test/ApiClient';
 import { FakeMarketDataProvider } from '@/test/FakeMarketDataProvider';
 import {
@@ -179,10 +192,28 @@ const storedLedger = async () => ({
 describe('transaction imports', () => {
   let client: Awaited<ReturnType<typeof apiRequest>>;
 
+  let getTickerListings: Mock<ListingCatalog['getListings']>;
+
   registerIntegrationHooks();
 
   before(async () => {
     client = await apiRequest();
+  });
+
+  /**
+   * The ticker catalog is swapped in every test, so none reads it whatever key
+   * the shell exports; unavailable, it leaves every symbol to the provider.
+   */
+  beforeEach(() => {
+    getTickerListings = mock.method(
+      BrapiTickerCatalog.getInstance(),
+      'getListings',
+      async () => ({ outcome: 'unavailable' }) as const
+    );
+  });
+
+  afterEach(() => {
+    mock.restoreAll();
   });
 
   const preview = (
@@ -480,6 +511,59 @@ describe('transaction imports', () => {
         ]
       );
       assert.equal(transactions[0].broker, BROKER);
+    });
+
+    it('registers a symbol the ticker catalog holds from it, with its sector, asking the provider nothing', async (t) => {
+      const catalogListing: DescribedListing = {
+        ...PETR4_LISTING,
+        name: 'Petróleo Brasileiro S.A.',
+        sector: 'Energy Minerals'
+      };
+      getTickerListings.mock.mockImplementation(async () => ({
+        outcome: 'listed',
+        listings: new Map([[LISTED_SYMBOL, catalogListing]])
+      }));
+      const { findListings, describeListing } = listFrom(t);
+      const caller = await signInWithPortfolio();
+
+      const previewed = await preview(caller, tradingStatementOf());
+
+      assert.equal(previewed.status, 200);
+      assert.equal(previewed.body.preview.assets[0].resolution, 'listed');
+      assert.equal(previewed.body.preview.assets[0].name, catalogListing.name);
+
+      const recorded = await record(
+        caller,
+        tradingStatementOf(),
+        previewed.body.preview.selectedKeys
+      );
+
+      assert.equal(recorded.status, 201);
+
+      const instrument = await prismaClient.instrument.findFirstOrThrow({
+        where: { symbol: LISTED_SYMBOL }
+      });
+
+      assert.deepEqual(
+        {
+          name: instrument.name,
+          type: instrument.type,
+          market: instrument.market,
+          currency: instrument.currency,
+          sector: instrument.sector,
+          ownerId: instrument.ownerId
+        },
+        {
+          name: catalogListing.name,
+          type: catalogListing.type,
+          market: catalogListing.market,
+          currency: catalogListing.currency,
+          sector: catalogListing.sector,
+          ownerId: caller.user.id
+        }
+      );
+      assert.equal(findListings.mock.callCount(), 0);
+      assert.equal(describeListing.mock.callCount(), 0);
     });
 
     it('records the trades and income of a B3 movement statement at the cost and result they replay to', async (t) => {

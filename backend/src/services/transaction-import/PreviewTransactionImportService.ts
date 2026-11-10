@@ -1,4 +1,4 @@
-import type { MarketDataProvider } from '@/domain/MarketDataProvider';
+import type { ListingSource } from '@/domain/MarketDataProvider';
 import type {
   PortfolioRepository,
   TransactionImportRepository
@@ -21,29 +21,29 @@ export class PreviewTransactionImportService {
   private static INSTANCE: PreviewTransactionImportService;
   private readonly transactionImportRepository: TransactionImportRepository;
   private readonly portfolioRepository: PortfolioRepository;
-  private readonly marketDataProvider: MarketDataProvider;
+  private readonly listingSource: ListingSource;
 
   private constructor(
     transactionImportRepository: TransactionImportRepository,
     portfolioRepository: PortfolioRepository,
-    marketDataProvider: MarketDataProvider
+    listingSource: ListingSource
   ) {
     this.transactionImportRepository = transactionImportRepository;
     this.portfolioRepository = portfolioRepository;
-    this.marketDataProvider = marketDataProvider;
+    this.listingSource = listingSource;
   }
 
   static getInstance(
     transactionImportRepository: TransactionImportRepository,
     portfolioRepository: PortfolioRepository,
-    marketDataProvider: MarketDataProvider
+    listingSource: ListingSource
   ) {
     if (!PreviewTransactionImportService.INSTANCE)
       PreviewTransactionImportService.INSTANCE =
         new PreviewTransactionImportService(
           transactionImportRepository,
           portfolioRepository,
-          marketDataProvider
+          listingSource
         );
 
     return PreviewTransactionImportService.INSTANCE;
@@ -65,7 +65,7 @@ export class PreviewTransactionImportService {
       content: Buffer.from(file.content, 'base64')
     });
     const scope = { portfolioId: portfolio.id, userId, rows: importFile.rows };
-    const listings = await lookUpListings(this.marketDataProvider, {
+    const listings = await lookUpListings(this.listingSource, {
       symbols: await this.transactionImportRepository.getUnknownSymbols(scope),
       rows: importFile.rows
     });

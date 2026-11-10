@@ -1,0 +1,119 @@
+name: ex3-prod
+
+# Production on one host behind a Cloudflare Tunnel, with the database on
+# Supabase. Nothing is published on the host: cloudflared connects out to
+# Cloudflare and forwards to the web. Run every command with
+#   docker compose --file compose.prod.yaml --env-file <production env file> …
+# from a checkout used for nothing else; see docs/deployment.md.
+
+x-hardening: &hardening
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ['no-new-privileges:true']
+  pids_limit: 256
+  logging:
+    driver: local
+    options:
+      max-size: 10m
+      max-file: '5'
+
+x-app-healthcheck: &app-healthcheck
+  interval: 30s
+  timeout: 5s
+  retries: 3
+  start_period: 30s
+  start_interval: 2s
+
+services:
+  backend:
+    <<: *hardening
+    build:
+      context: ./backend
+      target: runner
+    environment:
+      NODE_ENV: production
+      PORT: '8080'
+      DATABASE_URL: ${DATABASE_URL:-}
+      JWT_SECRET: ${JWT_SECRET:-}
+      API_PROXY_SECRET: ${API_PROXY_SECRET:-}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      YAHOO_FINANCE_API_KEY: ${YAHOO_FINANCE_API_KEY:-}
+      BRAPI_API_KEY: ${BRAPI_API_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+    secrets:
+      - database_ca
+    tmpfs:
+      - /tmp
+    mem_limit: 512m
+    networks: [api, egress]
+    healthcheck:
+      <<: *app-healthcheck
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8080/ready').then(({ ok }) => process.exit(ok ? 0 : 1), () => process.exit(1))"
+        ]
+
+  web:
+    <<: *hardening
+    build:
+      context: ./web
+      target: runner
+      args:
+        API_URL: http://backend:8080
+    environment:
+      API_PROXY_SECRET: ${API_PROXY_SECRET:-}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+    tmpfs:
+      - /tmp
+      - /usr/src/app/web/build/cache
+    mem_limit: 768m
+    # No route to the internet: the browser loads Turnstile itself, and the
+    # server talks only to the backend.
+    networks: [edge, api]
+    healthcheck:
+      <<: *app-healthcheck
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/sign-in').then(({ ok }) => process.exit(ok ? 0 : 1), () => process.exit(1))"
+        ]
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  cloudflared:
+    <<: *hardening
+    image: cloudflare/cloudflared:2026.10.3@sha256:faa8e0a1475f137c910be6025f43c8e4092fdd35461b31e19fd1390657a1ff39
+    command: ['tunnel', 'run']
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+      # Bound to the container's loopback, so no other container reaches it;
+      # `tunnel ready` reads the same variable.
+      TUNNEL_METRICS: 127.0.0.1:20241
+    mem_limit: 256m
+    networks: [edge, egress]
+    healthcheck:
+      <<: *app-healthcheck
+      test: ['CMD', 'cloudflared', 'tunnel', 'ready']
+    depends_on:
+      web:
+        condition: service_healthy
+
+secrets:
+  # Supabase's CA certificate, which `sslrootcert` in DATABASE_URL names, so
+  # the backend verifies the database it connects to.
+  database_ca:
+    file: ${DATABASE_CA_CERT:?Set DATABASE_CA_CERT to the path of Supabase's CA certificate}
+
+networks:
+  edge:
+    internal: true
+  api:
+    internal: true
+  egress:

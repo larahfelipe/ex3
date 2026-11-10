@@ -764,6 +764,37 @@ test creates its own provider, with its own responses and clock. It covers:
 
 The test mirrors at the top the adapter constants it depends on.
 
+## B3 ticker catalog
+
+`src/infra/market-data/BrapiTickerCatalog.test.ts` runs in the unit band, without
+network, with `fetchResponse` and `now` injected. It covers:
+
+* with no key, `unavailable` with no request;
+* every page read in symbol order, one at a time, with the key only in the
+  `Authorization` header, a refused redirect, and `ticker_catalog_loaded`
+  logged with the count;
+* each `subType` under its `type`, the sector or none; the name from `name`,
+  else `longName`, collapsed and cut at `NAME_MAX_LENGTH`;
+* a ticker out of trading, of an unknown kind, on another venue or in another
+  currency, without a name, with a symbol EX3 cannot list or outside the format
+  left out, and a sector past 60 characters dropped;
+* the catalog kept for `CATALOG_TIME_TO_LIVE_MS` and read again after it; a read
+  in flight joined; no more than `MAX_TICKER_PAGES` pages;
+* a failed page, the first read's second included, answering `unavailable` and
+  pausing for `FAILURE_COOLDOWN_MS`; the last catalog answered, however old,
+  while reading it again fails; a `429` pausing for its `Retry-After`, capped at
+  an hour, or for the cooldown without a readable one; a page outside the
+  format or past 2,000 tickers, a body that is not JSON and a failed request
+  each logged with their `reason`.
+
+`src/infra/market-data/CatalogListingSource.test.ts`, with a catalog stub and a
+`FakeMarketDataProvider`, covers the symbols the catalog holds answered from it
+without a sector and the rest asked of the provider in one search; the provider
+not asked when the catalog holds every symbol; a symbol held in another currency
+than the one asked for, and every symbol while the catalog is unavailable, asked
+of the provider; a description from the catalog, with its sector, only in its
+market and currency, and through the provider otherwise.
+
 ## Valuation
 
 `src/domain/PositionValuation.test.ts`, in the unit band, covers
@@ -886,7 +917,8 @@ while every position is valued, even from fallback or stale prices.
 `node --env-file` does not overwrite a variable already exported in the shell,
 so no test depends on `.env.test` omitting `YAHOO_FINANCE_API_KEY`: no route
 reaches the singleton's `getQuotes` or `getExchangeRates` with a quotable
-instrument or currency without the test swapping them.
+instrument or currency without the test swapping them. Nor on it omitting
+`BRAPI_API_KEY`: the import suite swaps the ticker catalog in every test.
 
 ## Error body
 
@@ -1125,7 +1157,9 @@ exceeding the holding stops at, the one a position past the columns stops at,
 and none for a ledger that replays or one in several currencies.
 
 `TransactionImports.integration.ts` runs the four routes against the test
-database, with the fake quote provider. It checks:
+database, with the fake quote provider. Every test swaps the ticker catalog's
+`getListings`, unavailable unless the test fills it, so none reaches brapi
+whatever `BRAPI_API_KEY` the shell exports. It checks:
 
 * **Preview:** it writes nothing; figures follow the selected rows; an
   oversold asset says where it stopped; possible duplicates are left out
@@ -1136,7 +1170,9 @@ database, with the fake quote provider. It checks:
   template's fees and taxes are recorded; only the selection is recorded; the
   same file twice is refused; a longer statement records only its new rows;
   nothing is recorded after a change since the preview, while the provider
-  cannot describe a new asset, or with no row selected. A movement statement
+  cannot describe a new asset, or with no row selected. A symbol the ticker
+  catalog holds is previewed and registered from it, with its sector, asking
+  the provider nothing. A movement statement
   records its settlements and income at the quantity, average cost, invested
   value, realized result and net income they replay to; its settlements of
   trades a trading statement imported are possible duplicates; the same file
