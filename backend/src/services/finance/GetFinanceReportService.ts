@@ -6,16 +6,16 @@ import {
   monthsBetween
 } from '@/domain/CalendarDay';
 import {
+  categoryFiguresOf,
+  changeOf,
+  kindFiguresOf,
+  monthlyFiguresOf,
+  totalsOf,
   type CategoryFigures,
   type Change,
-  changeOf,
-  categoryFiguresOf,
   type KindFigures,
-  kindFiguresOf,
   type MonthlyFigures,
-  monthlyFiguresOf,
-  type PeriodTotals,
-  totalsOf
+  type PeriodTotals
 } from '@/domain/FinanceAggregates';
 import type { CalendarMonth } from '@/domain/models';
 import type {

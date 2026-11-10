@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { GetPortfolioOverviewService } from '@/services/portfolio';
 import { validate } from '@/validation';
 import { PortfolioScopeSchema } from '@/validation/schema';
@@ -23,7 +23,7 @@ export class GetPortfolioOverviewController implements Controller {
     return GetPortfolioOverviewController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user, query } = req;
 
     const { portfolioId } = await validate(PortfolioScopeSchema, query);

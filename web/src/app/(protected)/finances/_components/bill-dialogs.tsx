@@ -2,14 +2,13 @@ import { useState, type FC } from 'react';
 
 import Link from 'next/link';
 
+import { useTranslations } from 'use-intl';
+
 import type { ExpenseDetail, ExpensePayment } from '@/app/api/v1/finances';
 import {
-  EXPENSE_CATEGORY_LABELS,
   installmentPlanRoute,
-  PAYMENT_METHOD_LABELS,
   recurringExpenseRoute
 } from '@/common/constants';
-import { formatMoney } from '@/common/utils';
 import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
 import { ErrorState, LoadingState } from '@/components/data-state';
 import {
@@ -37,11 +36,13 @@ import {
   useUpdatePayment,
   useVoidPayment
 } from '@/hooks/use-finances';
-import { formatCalendarDay } from '@/lib/dates';
+import { useFormat } from '@/i18n/format';
+import { srOnly } from '@/i18n/rich-text';
+import { apiErrorMessageOf } from '@/lib/api-error-message';
 import { isNonzeroDecimal } from '@/lib/decimal';
 import { cn } from '@/lib/utils';
 
-import { ExpenseFormDialog, expenseChangesOf } from './expense-form-dialog';
+import { expenseChangesOf, ExpenseFormDialog } from './expense-form-dialog';
 import {
   CalendarDayText,
   dueDistanceOf,
@@ -73,6 +74,9 @@ const PaymentRow: FC<
     Record<'canChange', boolean> &
     Record<'onAction', BillDetailsProps['onAction']>
 > = ({ payment, currency, canChange, onAction }) => {
+  const t = useTranslations('bills.payment');
+  const tFinances = useTranslations('finances');
+  const { formatCalendarDay, formatMoney } = useFormat();
   const { amount, discount, fees, paidOn, method, notes, voidedAt } = payment;
   const isVoided = voidedAt !== null;
   const shownDay = formatCalendarDay(paidOn) ?? paidOn;
@@ -86,29 +90,31 @@ const PaymentRow: FC<
             isVoided && 'text-muted-foreground line-through'
           )}
         >
-          <Money value={amount} currency={currency} />
-
-          <span className="font-normal text-muted-foreground">
-            {' on '}
-
-            <CalendarDayText day={paidOn} />
-          </span>
+          {t.rich('paidOn', {
+            money: () => <Money value={amount} currency={currency} />,
+            day: () => <CalendarDayText day={paidOn} />,
+            muted: (chunks) => (
+              <span className="font-normal text-muted-foreground">
+                {chunks}
+              </span>
+            )
+          })}
         </p>
 
         <p className="text-sm text-muted-foreground wrap-anywhere">
           {[
-            isVoided ? 'Voided' : null,
-            method === null ? null : PAYMENT_METHOD_LABELS[method],
+            isVoided ? t('voided') : null,
+            method === null ? null : tFinances(`paymentMethods.${method}`),
             isNonzeroDecimal(discount)
-              ? `${formatMoney(discount, currency)} discount`
+              ? t('discount', { amount: formatMoney(discount, currency) })
               : null,
             isNonzeroDecimal(fees)
-              ? `${formatMoney(fees, currency)} interest and fees`
+              ? t('fees', { amount: formatMoney(fees, currency) })
               : null,
             notes
           ]
             .filter((detail) => detail !== null)
-            .join(' · ') || 'No details'}
+            .join(' · ') || t('noDetails')}
         </p>
       </div>
 
@@ -119,18 +125,16 @@ const PaymentRow: FC<
             size="xs"
             onClick={() => onAction({ kind: 'correct', payment })}
           >
-            Correct
-            <span className="sr-only">{` the payment on ${shownDay}`}</span>
+            {t.rich('correct', { day: shownDay, hidden: srOnly })}
           </Button>
 
           <Button
-            variant="ghost"
+            variant="destructive-subtle"
             size="xs"
-            className="text-destructive hover:text-destructive"
+
             onClick={() => onAction({ kind: 'void', payment })}
           >
-            Void
-            <span className="sr-only">{` the payment on ${shownDay}`}</span>
+            {t.rich('void', { day: shownDay, hidden: srOnly })}
           </Button>
         </div>
       )}
@@ -144,6 +148,9 @@ const BillDetails: FC<BillDetailsProps> = ({
   onRestore,
   isRestoring
 }) => {
+  const t = useTranslations('bills.details');
+  const tFinances = useTranslations('finances');
+  const tActions = useTranslations('common.actions');
   const today = useReferenceDay();
   const {
     description,
@@ -169,7 +176,7 @@ const BillDetails: FC<BillDetailsProps> = ({
   const isCancelled = status === 'CANCELLED';
   const isOpen = isOpenExpense(expense);
   const hasActivePayments = payments.some(isActivePayment);
-  const dueDistance = isOpen ? dueDistanceOf(dueDate, today) : null;
+  const dueDistance = isOpen ? dueDistanceOf(dueDate, today, tFinances) : null;
   const originRoute =
     installmentPlanId !== null
       ? installmentPlanRoute(installmentPlanId)
@@ -180,20 +187,20 @@ const BillDetails: FC<BillDetailsProps> = ({
   return (
     <>
       <DialogHeader className="text-left">
-        <DialogTitle className="pr-6 wrap-anywhere">{description}</DialogTitle>
+        <DialogTitle className="wrap-anywhere">{description}</DialogTitle>
 
         <DialogDescription asChild>
           <div className="flex flex-wrap items-center gap-2">
             <ExpenseStatusBadge status={status} />
 
-            <span>{originLabelOf(expense)}</span>
+            <span>{originLabelOf(expense, tFinances)}</span>
 
             {originRoute !== null && (
               <Link
                 href={originRoute}
                 className="text-primary underline-offset-4 hover:underline"
               >
-                {kind === 'INSTALLMENT' ? 'View plan' : 'View series'}
+                {kind === 'INSTALLMENT' ? t('viewPlan') : t('viewSeries')}
               </Link>
             )}
           </div>
@@ -201,19 +208,19 @@ const BillDetails: FC<BillDetailsProps> = ({
       </DialogHeader>
 
       <dl className="grid gap-4 sm:grid-cols-3">
-        <Metric label="Amount" valueClassName={PROMINENT_VALUE_CLASS}>
+        <Metric label={t('amount')} valueClassName={PROMINENT_VALUE_CLASS}>
           <Money value={amount} currency={currency} />
         </Metric>
 
-        <Metric label="Outstanding" valueClassName={PROMINENT_VALUE_CLASS}>
+        <Metric label={t('outstanding')} valueClassName={PROMINENT_VALUE_CLASS}>
           <Money value={outstandingAmount} currency={currency} />
         </Metric>
 
-        <Metric label="Settled" valueClassName={PROMINENT_VALUE_CLASS}>
+        <Metric label={t('settled')} valueClassName={PROMINENT_VALUE_CLASS}>
           <Money value={settledAmount} currency={currency} />
         </Metric>
 
-        <Metric label="Due date">
+        <Metric label={t('dueDate')}>
           <CalendarDayText day={dueDate} />
 
           {dueDistance !== null && (
@@ -228,7 +235,7 @@ const BillDetails: FC<BillDetailsProps> = ({
           )}
         </Metric>
 
-        <Metric label="Paid in full on">
+        <Metric label={t('paidInFullOn')}>
           {settledOn === null ? (
             <UnavailableValue />
           ) : (
@@ -236,40 +243,40 @@ const BillDetails: FC<BillDetailsProps> = ({
           )}
         </Metric>
 
-        <Metric label="Category">
-          {EXPENSE_CATEGORY_LABELS[category]}
+        <Metric label={t('category')}>
+          {tFinances(`categories.${category}`)}
 
           {subcategory !== null && (
-            <span className="text-muted-foreground">{` · ${subcategory}`}</span>
+            <span className="text-muted-foreground">
+              {' · '}
+
+              {subcategory}
+            </span>
           )}
         </Metric>
 
-        <Metric label="Payment method">
+        <Metric label={t('paymentMethod')}>
           {paymentMethod === null ? (
             <UnavailableValue />
           ) : (
-            PAYMENT_METHOD_LABELS[paymentMethod]
+            tFinances(`paymentMethods.${paymentMethod}`)
           )}
         </Metric>
 
-        <Metric label="Account or card">
-          {account ?? <UnavailableValue />}
-        </Metric>
+        <Metric label={t('account')}>{account ?? <UnavailableValue />}</Metric>
 
-        <Metric label="Notes" className="sm:col-span-3">
+        <Metric label={t('notes')} className="sm:col-span-3">
           {notes ?? <UnavailableValue />}
         </Metric>
       </dl>
 
       <section aria-labelledby="bill-payments" className="space-y-1">
         <h3 id="bill-payments" className="text-sm font-semibold">
-          Payments
+          {t('payments')}
         </h3>
 
         {payments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No payment recorded yet
-          </p>
+          <p className="text-sm text-muted-foreground">{t('noPayments')}</p>
         ) : (
           <ul className="divide-y">
             {payments.map((payment) => (
@@ -287,7 +294,7 @@ const BillDetails: FC<BillDetailsProps> = ({
 
       <section aria-labelledby="bill-history" className="space-y-3">
         <h3 id="bill-history" className="text-sm font-semibold">
-          History
+          {t('history')}
         </h3>
 
         <FinanceHistory events={history} currency={currency} />
@@ -296,11 +303,11 @@ const BillDetails: FC<BillDetailsProps> = ({
       <DialogFooter className="gap-2 sm:flex-wrap">
         {kind === 'ONE_TIME' && !hasActivePayments && (
           <Button
-            variant="outline"
-            className="text-destructive hover:text-destructive sm:mr-auto"
+            variant="destructive-subtle"
+            className="sm:mr-auto"
             onClick={() => onAction({ kind: 'delete' })}
           >
-            Delete
+            {tActions('delete')}
           </Button>
         )}
 
@@ -309,7 +316,7 @@ const BillDetails: FC<BillDetailsProps> = ({
             variant="outline"
             onClick={() => onAction({ kind: 'cancel' })}
           >
-            Cancel bill
+            {t('cancel')}
           </Button>
         )}
 
@@ -321,23 +328,23 @@ const BillDetails: FC<BillDetailsProps> = ({
               if (!isRestoring) void onRestore();
             }}
           >
-            Restore bill
+            {t('restore')}
           </Button>
         )}
 
         <DialogClose asChild>
-          <Button variant="secondary">Close</Button>
+          <Button variant="secondary">{tActions('close')}</Button>
         </DialogClose>
 
         {!isCancelled && (
           <Button variant="outline" onClick={() => onAction({ kind: 'edit' })}>
-            Edit
+            {tActions('edit')}
           </Button>
         )}
 
         {isOpen && (
           <Button onClick={() => onAction({ kind: 'pay' })}>
-            Record payment
+            {t('recordPayment')}
           </Button>
         )}
       </DialogFooter>
@@ -350,6 +357,10 @@ const BillDetails: FC<BillDetailsProps> = ({
  * The details stay underneath each action, so cancelling one returns to them.
  */
 export const BillDialogs: FC<BillDialogsProps> = ({ expenseId, onClose }) => {
+  const t = useTranslations('bills');
+  const tErrors = useTranslations('errors');
+  const tActions = useTranslations('common.actions');
+  const { formatCalendarDay, formatMoney } = useFormat();
   const [action, setAction] = useState<BillAction>({ kind: 'details' });
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const expenseQuery = useExpense(expenseId);
@@ -379,9 +390,7 @@ export const BillDialogs: FC<BillDialogsProps> = ({ expenseId, onClose }) => {
       await updateExpense({ id: expense.id, cancelled: false });
     } catch (error) {
       setRestoreError(
-        error instanceof Error
-          ? error.message
-          : 'The bill could not be restored'
+        apiErrorMessageOf(error, tErrors, t('details.restoreFailed'))
       );
     }
   };
@@ -396,15 +405,15 @@ export const BillDialogs: FC<BillDialogsProps> = ({ expenseId, onClose }) => {
           {expense === undefined && expenseQuery.isError && (
             <>
               <DialogHeader>
-                <DialogTitle>Bill</DialogTitle>
+                <DialogTitle>{t('details.title')}</DialogTitle>
 
                 <DialogDescription className="sr-only">
-                  The bill could not be loaded
+                  {t('details.loadFailed')}
                 </DialogDescription>
               </DialogHeader>
 
               <ErrorState
-                message="This bill could not be loaded"
+                message={t('details.loadFailed')}
                 onRetry={() => void expenseQuery.refetch()}
               />
             </>
@@ -413,14 +422,14 @@ export const BillDialogs: FC<BillDialogsProps> = ({ expenseId, onClose }) => {
           {expense === undefined && !expenseQuery.isError && (
             <>
               <DialogHeader>
-                <DialogTitle>Bill</DialogTitle>
+                <DialogTitle>{t('details.title')}</DialogTitle>
 
                 <DialogDescription className="sr-only">
-                  Loading the bill
+                  {t('details.loading')}
                 </DialogDescription>
               </DialogHeader>
 
-              <LoadingState label="Loading the bill" className="h-72" />
+              <LoadingState label={t('details.loading')} className="h-72" />
             </>
           )}
 
@@ -485,10 +494,14 @@ export const BillDialogs: FC<BillDialogsProps> = ({ expenseId, onClose }) => {
 
       {expense !== undefined && action.kind === 'void' && (
         <ConfirmDeletionDialog
-          title="Void this payment?"
-          description={`${formatMoney(action.payment.amount, expense.currency)} paid on ${formatCalendarDay(action.payment.paidOn) ?? action.payment.paidOn}. It stays in the history as voided, and the bill owes what it settled again.`}
-          confirmLabel="Void payment"
-          failureMessage="The payment could not be voided"
+          title={t('voiding.title')}
+          description={t('voiding.description', {
+            amount: formatMoney(action.payment.amount, expense.currency),
+            day:
+              formatCalendarDay(action.payment.paidOn) ?? action.payment.paidOn
+          })}
+          confirmLabel={t('voiding.confirm')}
+          failureMessage={t('voiding.failed')}
           onCancel={backToDetails}
           onConfirm={async () => {
             await voidPayment({
@@ -502,10 +515,14 @@ export const BillDialogs: FC<BillDialogsProps> = ({ expenseId, onClose }) => {
 
       {expense !== undefined && action.kind === 'cancel' && (
         <ConfirmDeletionDialog
-          title="Cancel this bill?"
-          description={`${expense.description}, due ${formatCalendarDay(expense.dueDate) ?? expense.dueDate}. It stops counting as owed and stays in the history; you can restore it later.`}
-          confirmLabel="Cancel bill"
-          failureMessage="The bill could not be cancelled"
+          title={t('cancellation.title')}
+          description={t('cancellation.description', {
+            description: expense.description,
+            day: formatCalendarDay(expense.dueDate) ?? expense.dueDate
+          })}
+          confirmLabel={t('cancellation.confirm')}
+          cancelLabel={tActions('back')}
+          failureMessage={t('cancellation.failed')}
           onCancel={backToDetails}
           onConfirm={async () => {
             await updateExpense({ id: expense.id, cancelled: true });
@@ -516,10 +533,13 @@ export const BillDialogs: FC<BillDialogsProps> = ({ expenseId, onClose }) => {
 
       {expense !== undefined && action.kind === 'delete' && (
         <ConfirmDeletionDialog
-          title="Delete this bill?"
-          description={`${expense.description}, due ${formatCalendarDay(expense.dueDate) ?? expense.dueDate}. It is removed with its history, and this cannot be undone. Cancel it instead to keep a record.`}
-          confirmLabel="Delete bill"
-          failureMessage="The bill could not be deleted"
+          title={t('deletion.title')}
+          description={t('deletion.description', {
+            description: expense.description,
+            day: formatCalendarDay(expense.dueDate) ?? expense.dueDate
+          })}
+          confirmLabel={t('deletion.confirm')}
+          failureMessage={t('deletion.failed')}
           onCancel={backToDetails}
           onConfirm={async () => {
             await deleteExpense({ id: expense.id });

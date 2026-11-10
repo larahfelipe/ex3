@@ -33,15 +33,36 @@ content testable without capturing `stdout`.
 | `database_connected` | INFO | — | `PrismaClient.ts` |
 | `database_unreachable` | ERROR | `reason` | `Server.ts`, before `exit(1)` |
 | `quote_provider_key_missing` | WARNING | — | `Server.ts` |
-| `quote_provider_unavailable` | WARNING | `reason`, `retryInMs` | `YahooFinanceProvider.ts` |
-| `quote_provider_request_failed` | WARNING | `reason` | `YahooFinanceProvider.ts`, on the sector lookup, which fails without pausing quotes |
+| `quote_provider_unavailable` | WARNING | `reason`, `retryInMs`, and `limit` on a `429` whose body names it: `rate` for `Too Many Requests`, `quota` for `Limit Exceeded`, the messages an AWS API Gateway answers with (assumed, not documented by the provider) | `YahooFinanceProvider.ts`, on each failure that pauses the provider; `retryInMs` is the `Retry-After` of a `429`, kept between 1 s and 1 h, else 30 s |
+| `quote_provider_request_failed` | WARNING | `reason` | `YahooFinanceProvider.ts`, on the sector and fundamentals lookups, which fail without pausing quotes, except with a `429` |
+| `valuation_incomplete` | WARNING | `portfolioId`, `heldPositionCount`, `valuedPositionCount`, `missingQuotes` (`symbol`, `reason`), `missingRates` (`currency`, `reason`) | `GetPortfolioOverviewService.ts`, on each overview whose totals cannot be calculated because a held position has no price or no exchange rate; a fallback or stale price alone writes nothing, since the totals still stand |
+| `quote_provider_fallback_served` | WARNING | `count`, the quotes and rates answered with the last one received | `YahooFinanceProvider.ts`, on each answer to a failed or paused quote request that serves one |
+| `ticker_catalog_key_missing` | WARNING | — | `Server.ts`, at boot without `BRAPI_API_KEY`; imports look every ticker up in YH Finance |
+| `ticker_catalog_loaded` | INFO | `count`, the B3 tickers kept | `BrapiTickerCatalog.ts`, on each read of the catalog, at most once a day |
+| `ticker_catalog_unavailable` | WARNING | `reason`, `retryInMs` | `BrapiTickerCatalog.ts`, on each failed read; `retryInMs` is the `Retry-After` of a `429`, kept between 1 s and 1 h, else 5 min |
 | `dependency_unavailable` | WARNING | `dependency`, `reason` | readiness, in `HealthControllerHandlers.ts` |
+| `rate_limit_store_failed` | ERROR | `operation`, `reason` | `RateLimitStore.ts`, on each query the store could not run; a hit it could not count is refused with `503` |
+| `bot_challenge_not_enforced` | WARNING | — | `Server.ts`, at boot without `TURNSTILE_SECRET_KEY`, which only happens outside production |
+| `bot_challenge_unavailable` | ERROR | `reason` | `TurnstileVerifier.ts`, on each verdict Cloudflare could not give; the request is refused with `503` |
 | `http_request` | follows the status; a served probe produces no line | `requestId`, `method`, `route`, `status`, `durationMs`, `userId?`, `errorCode?` | `RequestLogMiddleware.ts` |
 | `request_failed` | ERROR | `requestId?`, `errorName`, `errorMessage`, `stack?` | `ErrorHandlerMiddleware.ts`, for an exception outside `ApplicationError` only; an early `503`, such as an unavailable provider, was already recorded by the dependency |
 
 `LogEvent` is a discriminated union: a new line is a new member of the type,
 never a free-form message. The severity of `http_request` comes from the status
 — `< 400` is `INFO`, `4xx` is `WARNING`, `5xx` is `ERROR`.
+
+### What a failed refresh leaves
+
+The Overview's refresh button refetches the portfolio's queries from the
+browser, which writes no log of its own: the web sends no telemetry. Each
+request that fails is still recorded twice, by the Next.js proxy, as one
+`api.upstream_request_failed` line on its server's `stderr` (method, URL,
+status, error code and message, built field by field so the bearer token never
+reaches it), and by the backend, as the request's `http_request` line, beside
+the dependency's own event, such as `quote_provider_unavailable`. A refresh that
+succeeds but still leaves a total uncalculated is the `valuation_incomplete`
+above; the browser tells the person apart, with a warning instead of the
+success toast.
 
 ## The six fields of a request
 
@@ -105,10 +126,9 @@ last request happened to observe.
 When the database does not answer, `/ready` goes out with 503 and the
 `INFRASTRUCTURE` error envelope ([`errors.md`](errors.md)), without telling the
 caller what failed; the reason goes to the log only, in the
-`dependency_unavailable` event. Both routes sit behind the API's rate limit,
-like any other: a probe fits comfortably within `RateLimits.API`, and a probe
-that fails only because its IP blew the budget describes an instance that is in
-fact not serving.
+`dependency_unavailable` event. Both routes stay outside the API's rate limit: a
+limiter that refused a probe would report a healthy instance as down, and the
+counters' failure is the database's, which `/ready` already reports.
 
 A served probe (`/health` or `/ready` with status `< 400`) produces no
 `http_request` line: the orchestrator repeats the call at a fixed interval, and
@@ -119,10 +139,11 @@ routes come from `ProbeRoutes`, in `Constants.ts`, the same constant that
 mounts them.
 
 In `compose.yaml`, the `backend` service's `healthcheck` calls `/ready` every
-10s and `web` waits for `service_healthy`. In production there is no probe: the
-configuration of the service that runs the images — where the startup probe
-would point at `/ready` and the liveness probe at `/health` — lives outside the
-repository (TD-060).
+10s and `web` waits for `service_healthy`. `compose.prod.yaml` does the same in
+production, every 30s, and `up --wait` fails while it does not pass. Docker
+restarts a container that exits, not one that turns unhealthy, so nothing
+calls `/health` there and an unhealthy backend shows only in `ps`
+([`deployment.md`](deployment.md#operating)).
 
 ## How regression is prevented
 

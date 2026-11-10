@@ -1,7 +1,11 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
 import { toApiProxyErrorResponse } from '@/lib/api-error-response';
-import { clientAddressHeaders, jsonPayload } from '@/lib/api-proxy';
+import {
+  botChallengeHeadersOf,
+  clientAddressHeaders,
+  jsonPayload
+} from '@/lib/api-proxy';
 import api from '@/lib/axios';
 import { setSessionCookies } from '@/lib/session';
 
@@ -14,7 +18,10 @@ export const POST = async (req: NextRequest) => {
     const { data, status, statusText } = await api
       .getInstance()
       .post<User>('/v1/user', payload, {
-        headers: await clientAddressHeaders()
+        headers: {
+          ...(await clientAddressHeaders()),
+          ...botChallengeHeadersOf(req)
+        }
       });
 
     const { accessToken, ...user } = data;

@@ -19,17 +19,35 @@ and rules are in [`financial-management.md`](financial-management.md).
 ```text
 User
  └── Portfolio ─┬── Transaction ──► Instrument ◄── MarketQuote
-                └── Position ─────► Instrument
+                ├── Position ─────► Instrument
+                └── TransactionImport ◄── Transaction (importId)
 ```
 
 | Entity | Responsibility | Owner | Identity |
 | --- | --- | --- | --- |
-| `User` | Identity, credentials and session. | — | `id`; unique `email` |
+| `User` | Identity, name, credentials and session. | — | `id`; unique `email` |
 | `Portfolio` | Groups a user's ledger and positions under a base currency. It is the access boundary: every financial resource is resolved through the authenticated user's portfolio. | a `User`, who may have several | `id`; unique `(userId, nameKey)` |
 | `Instrument` | The tradable market asset: stock, ETF, fund, REIT, crypto, bond, cash. From the global catalog, shared by every user, or private to whoever registered it. | none in the catalog; a `User` when private | `(ownerId, symbol)`, with the catalog counted as a single owner |
 | `Transaction` | A financial event of a portfolio over an instrument. The source of truth of every movement. | a `Portfolio` | `id` |
 | `Position` | How much of an instrument a portfolio holds and at what cost. A projection derived from the transactions, never edited directly. | a `Portfolio` | `(portfolioId, instrumentId)` |
+| `TransactionImport` | One file imported into a portfolio: its name, digest, formats, counts and the positions it opened, kept after an undo with `undoneAt`. See [`transaction-import.md`](transaction-import.md). | a `Portfolio` | `id` |
 | `MarketQuote` | The close of one trading day of an instrument, with currency and source. | — | `(instrumentId, timestamp, source)`, with `timestamp` at the start of the day in UTC |
+
+## User
+
+**A name in two parts.** `firstName` and `lastName` are stored as given,
+trimmed, up to 255 characters each. The last name is optional — not every name
+has one — and an empty one is stored as `null`. `name`, the full name that every
+screen and message reads, is never sent: `personNames`, in
+`domain/PersonName.ts`, writes it with its parts, joined by `fullName` — the
+parts held, one space apart — and leaves it `null` when the account holds
+neither. A change that carries one part keeps the other.
+
+**Accounts from before the split.** The migration
+`20261029000000_user_first_last_name` keeps each stored `name` whole, trimmed, as
+its account's `firstName`, with no `lastName`: no split is right for every name,
+and the full name read from it is the one the account already had. The person
+can split it on the account screen.
 
 ## Portfolio
 
@@ -142,6 +160,7 @@ position it moves is that of `(portfolioId, instrumentId)`.
 | `executedAt` | when the operation happened, with time zone; mandatory and independent of `createdAt` |
 | `broker` | optional, up to 60 characters |
 | `notes` | optional, up to 500 characters |
+| `importId`, `importKey`, `importedRow` | set only on an imported transaction: its import, the row's key, unique per portfolio, and the row as read (format, sheet, row number and cells); never in an API response, and kept when the transaction is edited |
 
 **Income and bonus.** `DIVIDEND`, `JCP` and `INTEREST` record the income the
 position pays: `quantity` is the number of units that generated it, `unitPrice`
@@ -371,6 +390,23 @@ values in its `baseCurrency`, also in
 * A portfolio with no positions with units answers `totalValue` `0` and empty
   distributions.
 
+### Portfolio income
+
+`GET /v1/portfolio/income` reads the portfolio's ledger up to now and sums its
+`DIVIDEND`, `JCP` and `INTEREST` entries, net of fees and taxes, in
+`backend/src/domain/PortfolioIncome.ts`. It needs no quote, so it answers even
+while the market-data source is down.
+
+| Field | Content |
+| --- | --- |
+| `trailingFrom` | the start of the one-year window, as in a position's indicators |
+| `byCurrency[].currency` | the transactions' currency; the base currency comes first, the others in code order |
+| `byCurrency[].total`, `trailingTotal` | net income in that currency, in all and from `trailingFrom` on |
+| `byCurrency[].byType[]` | `type`, `total` and `trailingTotal` per income type with a payment |
+
+Amounts in different currencies are never converted or added; see
+[Dividends](financial-rules.md#dividends).
+
 ### Portfolio performance
 
 `GET /v1/portfolio/performance` returns a portfolio's historical series, in its
@@ -395,23 +431,29 @@ valuation routes use the current quote; this one uses each day's close (see
   transaction recorded retroactively moves the whole series from its date
   onward.
 * A day only becomes a point when every position held on it, and every
-  transaction executed on it, has a close and an exchange rate to the base
-  currency. A partial day would answer with a portfolio smaller than it is, as
-  if it had lost value, so it stays out of the series.
-* `netContribution` is the day's cash: `BUY` adds quantity × price plus fees and
-  taxes, `SELL` and income subtract the net amount, and `BONUS` adds fees and
-  taxes only, because the attributed cost is not money that came in. With no
-  cash balance (see [Open decisions](#open-decisions)), income leaves the
-  portfolio like a sale's net amount, so it counts as the return of the day it
-  was paid. `twr` is the time-weighted return accumulated since the first point,
-  chaining `(value − netContribution) ÷ the previous day's value`, so that money
-  that came in or out on the day does not count as a gain. A gap in the series
-  makes the following return span the gap.
+  transaction executed since the previous point, has a close and an exchange
+  rate to the base currency. A partial day would answer with a portfolio smaller
+  than it is, as if it had lost value, so it stays out of the series.
+* `netContribution` is the cash since the previous point, or since the start of
+  the window for the first: `BUY` adds quantity × price plus fees and taxes,
+  `SELL` and income subtract the net amount, and `BONUS` adds fees and taxes
+  only, because the attributed cost is not money that came in. A transaction on
+  a day without a point counts at the next one. With no cash balance (see
+  [Open decisions](#open-decisions)), income leaves the portfolio like a sale's
+  net amount, so it counts as the return of the point it falls in. `twr` is the
+  time-weighted return accumulated since the first point, chaining
+  `(value − netContribution) ÷ the previous point's value`, so that money that
+  came in or out does not count as a gain. A gap in the series makes the
+  following return span the gap.
+* `summary`, absent with no point, carries `valueChange` from the first point to
+  the last, `valueChangePercent` over the first value when it is not zero,
+  `netContribution` after the first point and `twr`, the period's return. The
+  change in value includes that money and is not a return.
 * `benchmark` is optional and names a catalog symbol: the body gains
-  `{ symbol, currency, series }`, each point with `close` and the `twr` over the
-  window's first close, comparable with the portfolio's. The benchmark's return
-  is that of the currency it is quoted in, with no conversion to the base
-  currency (TD-030).
+  `{ symbol, name, currency, series }`, each point with the quoted `close` and
+  the price return in the base currency since the portfolio's first point, on
+  the portfolio's own points (see
+  [Benchmarks](financial-rules.md#benchmarks)).
 * `symbol` is optional and restricts the ledger to the transactions of that
   symbol's position in the portfolio, so value, contribution and return of the
   whole series are that position's alone. A symbol with no position in the
@@ -483,12 +525,21 @@ answers `unavailable`, with no request.
 * Quotes are cached in the process's memory for 60 seconds, including
   `not-found`. A symbol already being queried joins the request in flight, and
   the rest go in batches of 10 per request.
+* No more than 4 requests are in flight at once (`MAX_CONCURRENT_REQUESTS`,
+  seen on this account, not documented): the others wait, those to the quote
+  endpoint (quotes, rates and searches) ahead of histories and summaries, and
+  one whose turn comes during a pause is not sent.
 * Each request times out in 5 seconds. An error status, a timeout, a network
   failure or a response outside the format suspend the calls to the provider for
-  30 seconds; on the failure and during the pause, each symbol answers with the
-  last quote received, with the `timestamp` at which it was observed, or
-  `unavailable` when there is no previous quote. The history does not use the
-  quote cache.
+  30 seconds. A `429`, from any endpoint, suspends them for its `Retry-After`,
+  in seconds or as a date, kept between 1 second and 1 hour, or for 30 seconds
+  without one; a longer pause already running is kept. On the failure and
+  during the pause, each symbol answers with the
+  last quote received, with the `timestamp` at which it was observed and
+  `isFallback`, or `unavailable` when there is no previous quote. The overview
+  reports that in `marketData.isFallback`, and each answer that serves one
+  writes `quote_provider_fallback_served`. The history does not use the quote
+  cache.
 * A history query identical to one in flight — same symbol, interval and window
   — joins the request in flight. A window the provider answered with no price,
   or with a 404, is answered the same way for one hour with no new request, up
@@ -496,23 +547,28 @@ answers `unavailable`, with no request.
   are not kept.
 * The current quote is not stored; what the table keeps is the daily close (see
   [Stored quotes](#stored-quotes)).
-* The listing search asks, in a single quote request, for the ticker in each
-  market — `{symbol}.SA`, `{symbol}` and `{symbol}-{currency}` for `BRL`, `USD`
-  and `EUR` — and accepts only the item whose exchange and currency confirm the
+* The listing search asks the quote endpoint for the ticker in each market —
+  `{symbol}.SA`, `{symbol}` and `{symbol}-{currency}` for `BRL`, `USD` and
+  `EUR` — or, for a ticker searched in a currency, only where it is quoted in it
+  (`{symbol}.SA` and `{symbol}-BRL` in `BRL`). The tickers searched together go
+  in requests of 10 provider symbols. It accepts only the item whose exchange
+  and currency confirm the
   requested market: `SAO` is `B3`; `NYQ`, `ASE` and `PCX` are `NYSE`; `NMS`,
   `NGM` and `NCM` are `NASDAQ`; `CCC` is `CRYPTO`. The class comes from
   `quoteType` (`EQUITY` is `STOCK`, `ETF` is `ETF`, `MUTUALFUND` is `FUND`,
   `CRYPTOCURRENCY` is `CRYPTO`), and a B3 stock with `FII` or `imobiliári` in
   the name is a `REIT`. The name is `longName`, else `shortName`, with the
   spaces collapsed and cut at 120 characters.
-* The search is cached for one hour, up to 1,000 tickers, discarding the oldest;
-  during a failure, it answers with the last search kept. A search failure
-  pauses the provider as a quote failure does.
+* What the provider answers for each provider symbol is cached for one hour, up
+  to 5,000 of them, discarding the oldest, so a search asks only for those not
+  kept; during a failure, it answers with the last answer kept, and a ticker
+  missing one is `unavailable`. A search failure pauses the provider as a quote
+  failure does.
 * The sector comes from
   `/v11/finance/quoteSummary/{symbol}?modules=assetProfile`, requested only when
   registering a `STOCK` or a `REIT`. A failure or a response outside the format
   leave the sector empty, record `quote_provider_request_failed` and do not
-  pause the quotes.
+  pause the quotes, except a `429`, which pauses them.
 * The fundamentals come from the same path, with only the modules of the
   requested indicators: `summaryDetail` (`trailingPE`;
   `trailingAnnualDividendYield`, or `yield` for a fund) and `financialData`
@@ -524,12 +580,62 @@ answers `unavailable`, with no request.
   multiple. The response is cached for one hour, per symbol and modules,
   including the 404; a failure or a response outside the format answer
   `unavailable`, record `quote_provider_request_failed`, do not pause the quotes
-  and are not cached. The field names follow the known `quoteSummary` format,
+  (a `429` does) and are not cached. The field names follow the known `quoteSummary` format,
   with no check against the real provider (TD-079).
 
-The timeout, cache, pause and batch values are assumed, not measured, and the
-provider's plan quota and price were not verified (TD-020). The exchange map and
+The timeout, cache, pause and batch values are assumed, not measured, the
+concurrency cap was seen on this account only, and the provider's plan quota and
+price were not verified (TD-020). The exchange map and
 the REIT rule are also assumed (TD-074).
+
+### B3 ticker catalog
+
+An import's ticker lookups would spend the YH Finance quota one search per ten
+provider symbols, and the sector one request per stock. `BrapiTickerCatalog`
+reads instead every ticker brapi lists for B3 (`GET
+https://brapi.dev/api/v2/tickers`, about 2,300 in two pages of 2,000), with
+the `BRAPI_API_KEY` key in the `Authorization: Bearer` header alone and
+redirects refused. The variable is optional: without it, the backend boots,
+logs `ticker_catalog_key_missing`, and an import looks every ticker up in YH
+Finance, with no request to brapi. The endpoint itself does not require a key;
+EX3 sends one so that its use counts against an account's plan, and so that a
+test or an environment without the variable reaches nothing.
+
+| `subType` | `type` |
+| --- | --- |
+| `stock`, `unit`, `bdr` | `STOCK` |
+| `fii` | `REIT` |
+| `etf` | `ETF` |
+| `fi-infra`, `fi-agro`, `fip`, `fidc` | `FUND` |
+
+* Pages are read in symbol order, one after another, as the free plan answers
+  one request at a time, up to 5; a ticker past them is looked up in YH Finance.
+  A page holds at most 2,000 tickers, else it is outside the format.
+* A ticker is listed only when it is in trading (`isActive`), on `B3` in `BRL`,
+  of a known `subType`, with a symbol of up to 6 uppercase letters and digits
+  and a name: `name`, else `longName`, with the spaces collapsed and cut at 120
+  characters. The sector is `sector` as brapi reports it, up to 60 characters,
+  else none. It is not Yahoo's classification: brapi says `Energy Minerals`
+  where Yahoo says `Energy`, so a portfolio with assets from both shows both in
+  its sector allocation.
+* The catalog is kept in the process's memory for one day, and a read already
+  running is joined. Each page times out in 15 seconds. An error status, a
+  timeout, a network failure or a page outside the format, a page after the
+  first included, leave the catalog as it was — the last read, however old, or
+  none — and leave brapi alone for 5 minutes, or for the `Retry-After` of a
+  `429`, kept between 1 second and 1 hour; each such failure logs
+  `ticker_catalog_unavailable`, and each read logs `ticker_catalog_loaded`
+  with the tickers kept.
+* `CatalogListingSource` answers from the catalog a ticker it holds, searched
+  in `BRL` or in no currency, and asks YH Finance about the rest in one search;
+  a ticker it holds is described from it, with its sector, without asking for
+  a profile. A ticker the catalog lacks — a new or delisted one, a crypto in
+  `BRL`, any other market — is looked up as before.
+
+The page limit, the timeout, the time to live and the pause are assumed, not
+measured; the response format follows brapi's documentation, with no check
+against the real API, and the free plan's terms for this endpoint were not
+confirmed.
 
 ### Stored quotes
 
@@ -644,3 +750,13 @@ storage.
   contributions and withdrawals are a record of flow alone.
 * **`ADJUSTMENT`.** What may be adjusted and with what effect on quantity and
   cost.
+* **Portfolio goals.** Evaluated and left out for now. A target allocation or
+  a goal's progress needs what the model does not hold: targets the user sets,
+  per portfolio and per asset or class, stored and validated (shares that add
+  up to at most 100%, a goal's amount, currency and date), with their own
+  routes and screens. Without them, any gap or suggestion would be the
+  product's opinion, not the user's plan, so no rebalancing hint is derived
+  from the current allocation. With targets in place, the gap per group is
+  `target − allocation` over the shares `GET /v1/portfolio/allocation` already
+  computes, and a group without `allocation` would show no gap rather than a
+  guessed one.

@@ -1,7 +1,8 @@
 # Testing
 
 The backend's test infrastructure. It records the decisions that cannot be
-deduced from the files.
+deduced from the files. The web's unit tests are described in
+[`i18n.md`](i18n.md#tests).
 
 ## Commands
 
@@ -136,10 +137,10 @@ on the user's row) and it is the endpoint that increments that version, so the
 token obtained is the same one a real client would receive. Signing locally is
 restricted to the invalid-token tests, which need forged claims.
 
-The rate limiters keep counters in process memory, which survive a test. The
-budgets are deliberately tight (10 sign-in failures per account and address
-every 15 min), so `resetRateLimits()` is called in `beforeEach` and clears the
-`MemoryStore`s of `rateLimitStores` whole instead of listing keys.
+The rate limiters keep counters in Postgres, which survive a test. The budgets
+are deliberately tight (10 sign-in failures per account and address every 15
+min), so `resetRateLimits()` is called in `beforeEach` and clears each store of
+`rateLimitStores` by its prefix instead of listing keys.
 `Harness.integration.ts` asserts that a failed sign-in is in fact being counted
 before resetting, so that a reset which clears nothing fails instead of passing
 silently; a sign-in that gets the password right gives the attempt back and
@@ -688,13 +689,15 @@ answers `not-found`. An exchange rate is seeded under the pair's codes, such as
 itself, in `previousClose`.
 
 The fake ignores market, currency and interval: translating the instrument and
-respecting each interval's reach is the real adapter's job.
+respecting each interval's reach is the real adapter's job. Listings are the
+exception: `findListings` keeps a symbol's seeded listings in the currency asked
+for, and `describeListing` the one of the market and currency given.
 
 `src/test/FakeMarketDataProvider.test.ts` checks in the unit band the contract
 the tests lean on: the most recent quote in any load order, history in ascending
 order, the interval's start included and its end excluded, an empty interval, a
 symbol with no price, an exchange rate by pair, fundamentals limited to the
-requested metrics, and unavailability. `tsconfig.build.json` excludes
+requested metrics, listings by symbol and currency, and unavailability. `tsconfig.build.json` excludes
 `src/test`, so the fake does not enter the build.
 
 ## Yahoo Finance adapter
@@ -716,7 +719,7 @@ test creates its own provider, with its own responses and clock. It covers:
 * an error status, a timeout and a network failure answer `unavailable`, open
   the `FAILURE_COOLDOWN_MS` pause and do not record the key; during the failure,
   the last quote received is returned with the `timestamp` at which it was
-  observed;
+  observed, marked `isFallback`;
 * a response outside the format and an invalid quote (a currency in a minor
   unit, such as `BRp`, a negative price or one outside `DECIMAL(38,18)`, a
   missing time) answer `unavailable`, without affecting the valid ones in the
@@ -744,9 +747,53 @@ test creates its own provider, with its own responses and clock. It covers:
   `FUNDAMENTALS_TIME_TO_LIVE_MS`, with the response and the 404; an instrument
   with no translation as `not-found` with no request; an error status and an
   invalid format answer `unavailable`, are requested again and do not pause the
-  quotes.
+  quotes;
+* listings: every market in one request, or only where a currency given is
+  quoted; several symbols in requests of `QUOTE_BATCH_SIZE` provider symbols;
+  only the provider symbols no earlier search answered requested, and only the
+  searches of a failed request `unavailable`; at most
+  `LISTING_CACHE_MAX_ENTRIES` provider symbols kept; a description reusing a
+  search made in its currency;
+* requests: at most `MAX_CONCURRENT_REQUESTS` in flight, each of the others sent
+  as one finishes; a quote request ahead of histories that waited longer; a
+  `429` pausing for its `Retry-After`, in seconds or as a date, within
+  `RETRY_AFTER_BOUNDS_MS`, or for `FAILURE_COOLDOWN_MS` without a readable one,
+  logging which `limit` its body names; a `429` from an endpoint whose other
+  failures only report pausing too, and a failure answered after it keeping the
+  longer pause; no request that waited for its turn sent once paused.
 
 The test mirrors at the top the adapter constants it depends on.
+
+## B3 ticker catalog
+
+`src/infra/market-data/BrapiTickerCatalog.test.ts` runs in the unit band, without
+network, with `fetchResponse` and `now` injected. It covers:
+
+* with no key, `unavailable` with no request;
+* every page read in symbol order, one at a time, with the key only in the
+  `Authorization` header, a refused redirect, and `ticker_catalog_loaded`
+  logged with the count;
+* each `subType` under its `type`, the sector or none; the name from `name`,
+  else `longName`, collapsed and cut at `NAME_MAX_LENGTH`;
+* a ticker out of trading, of an unknown kind, on another venue or in another
+  currency, without a name, with a symbol EX3 cannot list or outside the format
+  left out, and a sector past 60 characters dropped;
+* the catalog kept for `CATALOG_TIME_TO_LIVE_MS` and read again after it; a read
+  in flight joined; no more than `MAX_TICKER_PAGES` pages;
+* a failed page, the first read's second included, answering `unavailable` and
+  pausing for `FAILURE_COOLDOWN_MS`; the last catalog answered, however old,
+  while reading it again fails; a `429` pausing for its `Retry-After`, capped at
+  an hour, or for the cooldown without a readable one; a page outside the
+  format or past 2,000 tickers, a body that is not JSON and a failed request
+  each logged with their `reason`.
+
+`src/infra/market-data/CatalogListingSource.test.ts`, with a catalog stub and a
+`FakeMarketDataProvider`, covers the symbols the catalog holds answered from it
+without a sector and the rest asked of the provider in one search; the provider
+not asked when the catalog holds every symbol; a symbol held in another currency
+than the one asked for, and every symbol while the catalog is unavailable, asked
+of the provider; a description from the catalog, with its sector, only in its
+market and currency, and through the provider otherwise.
 
 ## Valuation
 
@@ -794,6 +841,12 @@ the base currency beside the catalog and the quote in the quote's currency, with
 the day's change and percentage; truncation toward zero of both; with no
 previous close, neither change nor percentage; a previous close of zero, with no
 percentage; and, with no quote, only the position's and the catalog's fields.
+And `describeMarketData`: every position with units counted as valued when each
+has a quote and a rate; the missing quotes and rates named, each with its
+reason; a quote or rate served in place of a failed one flagged as a fallback;
+the valuation stale once its oldest quote is older than
+`STALE_QUOTE_AFTER_DAYS`; and an incomplete valuation, which has no date, never
+stale.
 
 The `overview` block of `src/routes/Portfolios.integration.ts` covers
 `GET /v1/portfolio/overview`, swapping the singleton's `getQuotes` and
@@ -803,8 +856,9 @@ the position with no units, with exchange requested only for the foreign
 currency; the indicators that depend on a quote left out of the body with the
 provider unavailable; an empty portfolio in its base currency, with
 `heldPositionCount` `0`, and the count of positions with units in the others;
-another user's portfolio the same as a non-existent one; a `portfolioId` that is
-missing or malformed with 400.
+the `marketData` of each, stale for quotes older than the threshold and naming
+the unavailable quote; another user's portfolio the same as a non-existent one;
+a `portfolioId` that is missing or malformed with 400.
 
 The `positions` block of the same file covers `GET /v1/portfolio/positions` with
 the same swap: the requested portfolio's positions in `symbol` order and in the
@@ -845,10 +899,26 @@ in its base currency, worth zero and with empty distributions; another user's
 portfolio the same as a non-existent one; a `portfolioId` that is missing or
 malformed with 400.
 
+The `income` block covers `GET /v1/portfolio/income`, which needs no quote: a
+dividend with a fee in the last year and a JCP with withheld tax older than
+it, summed net per type and in all, with only the dividend in the trailing
+total, and a dividend of another portfolio of the same user left out; a
+portfolio with only purchases with nothing to summarize; another user's
+portfolio the same as a non-existent one; a `portfolioId` that is missing or
+malformed with 400. `src/domain/PortfolioIncome.test.ts` covers the summary
+without a database: fees and taxes netted, the window's first instant
+included, purchases and sales ignored, currencies kept apart with the base one
+first, and nothing for a ledger without income.
+`src/services/portfolio/GetPortfolioOverviewService.test.ts` covers
+`logValuationGaps` through an injected sink: one `valuation_incomplete` with the
+missing symbols and currencies when a total cannot be calculated, and nothing
+while every position is valued, even from fallback or stale prices.
+
 `node --env-file` does not overwrite a variable already exported in the shell,
 so no test depends on `.env.test` omitting `YAHOO_FINANCE_API_KEY`: no route
 reaches the singleton's `getQuotes` or `getExchangeRates` with a quotable
-instrument or currency without the test swapping them.
+instrument or currency without the test swapping them. Nor on it omitting
+`BRAPI_API_KEY`: the import suite swaps the ticker catalog in every test.
 
 ## Error body
 
@@ -911,11 +981,16 @@ window resolution and the series: whole months back from the start of the
 current day in UTC, `YTD`'s current year, the day of `MAX`'s first transaction
 and the empty window of a ledger with no transaction; the position valued at
 each close, with a zero return at the first point; the day's contribution, which
-does not count as a gain; the net income paid on the day counted as a return;
-the `BONUS` units with no contribution; the position quoted in another currency
-taken to the base currency at the day's rate; the day with no rate and the day
-with no close for some held position, both out of the series; the benchmark over
-the window's first close; and the portfolio with nothing quotable, with an empty
+does not count as a gain; money put in on a day left out of the series counted
+at the next point, at its own day's rate, not as a gain; the net income paid on
+the day counted as a return; the `BONUS` units with no contribution; the
+position quoted in another currency taken to the base currency at the day's
+rate; the day with no rate and the day with no close for some held position,
+both out of the series; the benchmark's return from the portfolio's first point,
+on its points, in the base currency, with its latest close carried over a day
+its market is closed, and no benchmark series without a close near the first
+point or without a rate; the period's summary, with no fraction of change when
+the first value is zero; and the portfolio with nothing quotable, with an empty
 series. Now is a parameter, never `new Date()` inside the test.
 
 The `performance` block of `src/routes/Portfolios.integration.ts` covers
@@ -924,7 +999,9 @@ The `performance` block of `src/routes/Portfolios.integration.ts` covers
 the other routes swap the quote: the requested portfolio's series in the base
 currency, with the window that reached the provider; the position in a foreign
 currency converted at each day's rate, with the pair requested once; the
-benchmark beside the portfolio; a benchmark outside the catalog with 404; the
+benchmark beside the portfolio, with its name, and the period's summary; a
+benchmark quoted in another currency taken to the base currency at each day's
+rate; a benchmark outside the catalog with 404; the
 series of a single position, by symbol without distinguishing case, without
 fetching the others' closes or exchange; a symbol with no position in the
 portfolio with 404; a portfolio with no transaction as an empty window; another
@@ -959,3 +1036,184 @@ the suite runs on changes its result.
 
 The file-by-file table, with the count of each, is in
 [`financial-management.md`](financial-management.md#tests).
+
+## Person names
+
+`src/domain/PersonName.test.ts` covers, in the unit band, the full name read
+from the first and last names: one space between them, the spaces inside each
+kept, the ends trimmed, either one alone, and no full name at all — `null`, not
+an empty string — when the account holds neither.
+`src/routes/Authentication.integration.ts` covers sign-up storing the trimmed
+names with the full name they make, a missing or blank last name stored as
+`null`, an account given no name, and a blank or overlong name refused without
+creating anything; and, under `PATCH /v1/user`, both names replaced with the
+session kept, the part not sent kept, an empty last name clearing it, a blank
+first name refused, and a change with no name leaving them alone. On the web,
+`src/lib/person-name.test.ts` covers the mirror of `fullName` that the
+optimistic profile update uses.
+
+**Migration.** `20261029000000_user_first_last_name` was checked separately, on
+2026-10-29, over a throwaway database with the previous migrations and names in
+the old form: a padded name, a tab and a newline around a name, and two spaces
+inside one became the first name trimmed at the ends only; a `NULL`, empty or
+blank name left the first name `NULL`; no last name was written, and `name`
+kept its stored value in every row.
+
+## Web proxy and cross-site requests
+
+Unit tests, with no server: `NextRequest` and `Request` are built in memory.
+
+* `src/proxy.test.ts`: a write on `/api` whose `Sec-Fetch-Site` is
+  `cross-site`, `same-site` or `none` answers `403` with the proxy's envelope,
+  even with the app's header; a write without that header answers `403` too, on
+  sign-in, sign-out and `PATCH /api/v1/user`; a write from the app passes; both
+  answers are `no-store`; a read passes from anywhere and gets no page CSP. A
+  redirect's cookie deletion repeats `Path`, `HttpOnly` and `SameSite`. On pages,
+  the test recomputes the Sonner hash from the installed package, asserts the
+  exact `style-src-elem` and `style-src-attr`, a fresh nonce per page, and that
+  Turnstile is the only external origin.
+* `src/lib/api-proxy.test.ts`: `hasDotSegment` refuses `.`, `..` and their
+  percent-encoded forms as a whole segment, and passes `BRK.B` and `...`;
+  `jsonPayload` reads `application/json`, in any letter case and with
+  parameters, and refuses `text/plain`, form encodings, `application/jsonp` and
+  a missing type with `415`, and a body that does not parse with `400`;
+  `botChallengeHeadersOf` forwards a token and drops one that is missing, empty
+  or oversized.
+* `src/lib/api-error-message.test.ts`: the challenge's wording, whether the
+  failure came from the browser or from the API.
+* `src/lib/react-query.test.ts`: every server render gets its own
+  `QueryClient`. The browser's single client cannot be reached from a test,
+  where TanStack Query always sees a server.
+
+The redirect of a dot segment was reproduced first against a throwaway local
+HTTP server: axios sent `DELETE /v1/finances/expenses/abc/payments/..` and
+`…/payments/%2e%2e` as `DELETE /v1/finances/expenses/abc/`, which Express's
+non-strict routing serves as the expense's deletion.
+
+These tests cover the proxy's decisions and the response objects it builds, not
+what a browser does with them: see
+[`security.md`](security.md#verified-and-unvalidated).
+
+## Rate limit store
+
+`RateLimitStore.integration.ts` runs against the test database: concurrent hits
+counted once each, a count shared between two store instances that use one
+prefix, the window staying where its first hit opened it and starting anew once
+closed, a give-back that does not go below zero, prefixes kept apart, a sweep
+that removes only closed windows of its own prefix, and a failing database that
+refuses the hit instead of letting it through.
+
+`App.integration.ts` covers the budgets through HTTP: exactly the budget of
+concurrent failed sign-ins is admitted, a count made by another store instance
+is enforced, the daily budgets escalate, a failing store answers `503`, and the
+probes stay outside. "Another process" is simulated by a second instance in the
+same process; no test starts a second server.
+
+## Bot challenge
+
+The suite runs without a Turnstile secret, which leaves the check off, so the
+other tests need no token. `BotChallenge.integration.ts` turns it on for one test
+at a time by replacing `TurnstileVerifier.getInstance` with a real verifier whose
+`fetchResponse` stands in for Cloudflare, so no test reaches the network. It
+checks that a solved token creates the account, a missing one creates nothing and
+asks Cloudflare nothing, a token for the other action and a replayed one are
+refused, an unreachable Cloudflare answers `503` and creates nothing, and an
+unsolved attempt spends its address's budget and not the account's.
+`TurnstileVerifier.test.ts` covers what is sent to `siteverify` and every verdict,
+including malformed answers, and `EnvsSchema.test.ts` that production refuses a
+missing secret or a test one.
+
+## Transaction import
+
+No real B3 export was available, so every file is built in the test:
+`src/test/WorkbookBuilder.ts` writes an XLSX archive (stored or deflated
+entries, shared strings or inline text, either date epoch) from rows under the
+headers the B3 statements are known to use, and CSV files are written in the
+tests themselves. The movement statement's rows also follow the columns and
+values of a screenshot of the report: `R$` amounts with a decimal point, a
+unit value of `R$ 0.018`, and `Transferência - Liquidação` for each trade. What
+the import does is in
+[`transaction-import.md`](transaction-import.md).
+
+`infra/spreadsheet/Spreadsheet.test.ts` covers reading: numbers as the decimal
+a spreadsheet shows, sheets in tab order, rich text, namespaced markup, the
+1904 epoch, and CSV in either delimiter and in UTF-8, Windows-1252 and UTF-16.
+It also covers refusing: a document type declaration, an entry inflating past
+its budget or past the size it declares, a wrong checksum, encrypted and
+truncated content, too many rows, sheets, entries or too long a cell, a legacy
+workbook and a PDF by their signature, and unclosed markup read in linear
+time.
+
+`domain/transaction-import` has three suites:
+
+| Suite | Covers |
+| --- | --- |
+| `ImportValues.test.ts` | Labels without accents or case; decimals in either convention, with thousands groups and a currency sign, a fraction after a lone zero (`R$ 0.018`), refused when negative or past `DECIMAL(38,18)`; the decimal a written value shows, if any; days as Brazilian text, ISO text or a serial in either epoch, month first when the sheet says so, a slashed day ambiguous under the English header otherwise, and the order a day past 12 shows; the settlement window forward from a trade and back from a settlement, across a year's end; a trading day starting at midnight in São Paulo, or at 01:00 on the day daylight saving time began |
+| `ImportReading.test.ts` | Each format: cash-market trades in whole and odd lots, another market rejected with every problem of the row, a total that disagrees; income withholding and unit value derived from the net amount, products and events EX3 does not model; movements: a settlement transfer read as the purchase or sale, credited or debited, with an odd lot, a variant header, a missing price, another direction and a total that disagrees, the plain purchase and sale entries ignored, custody and lending ignored, bonuses, splits for review, a payment listed twice, a trade the trading statement in the same file lists given way to it, also for each of 2500 trades and settlements of one asset, the statement as the Investor Area exports it, re-saved with decimal points, and with month-first dates refused; the template in both languages, dates and decimals by the sheet's own values or else the file's convention, broker and notes cut. Also a header under a title, unrecognized sheets skipped, unlabeled and repeated columns, and a file past the row limit refused whole |
+| `ImportPlan.test.ts` | Keys independent of the row's position, equal rows told apart, rows that record nothing unkeyed; duplicates, unresolved symbols, a missing currency filled from the instrument or ledger, possible duplicates matched one to one and at UTC midnight too, and a B3 trade matched to one recorded at its price on the day it was made or settled, each of 5000 settlements to its own trade among 5000 of the same type and quantity; selection by default and by key; the same-day order, the effect on a held position, an asset whose rows break its ledger refused whole and recorded once the breaking row is left out |
+
+`PositionLedger.test.ts` covers `locateLedgerRefusal`: the entry a sale
+exceeding the holding stops at, the one a position past the columns stops at,
+and none for a ledger that replays or one in several currencies.
+
+`TransactionImports.integration.ts` runs the four routes against the test
+database, with the fake quote provider. Every test swaps the ticker catalog's
+`getListings`, unavailable unless the test fills it, so none reaches brapi
+whatever `BRAPI_API_KEY` the shell exports. It checks:
+
+* **Preview:** it writes nothing; figures follow the selected rows; an
+  oversold asset says where it stopped; possible duplicates are left out
+  unless selected; unlisted symbols and an unavailable provider leave rows
+  unresolved.
+* **Import:** a listed asset is registered for the caller alone and its
+  position rebuilt; the import columns stay out of the transaction API; the
+  template's fees and taxes are recorded; only the selection is recorded; the
+  same file twice is refused; a longer statement records only its new rows;
+  nothing is recorded after a change since the preview, while the provider
+  cannot describe a new asset, or with no row selected. A symbol the ticker
+  catalog holds is previewed and registered from it, with its sector, asking
+  the provider nothing. A movement statement
+  records its settlements and income at the quantity, average cost, invested
+  value, realized result and net income they replay to; its settlements of
+  trades a trading statement imported are possible duplicates; the same file
+  sent twice at once is recorded once (one `201`, one `409`, one position);
+  and a 5000-row statement is previewed and recorded whole, its average cost
+  within the 1e-18 the ledger truncates per purchase.
+* **Files:** a legacy workbook, a PDF, a damaged workbook, a workbook not
+  named `.xlsx`, a text file named `.xlsx` or `.txt`, a table in no layout and
+  a statement with no rows are refused with their messages; content that is
+  not base64, a name with control characters, a file past 2 MiB and a body
+  past 4 MiB are refused; an anonymous upload is
+  refused before its body is parsed; every other route keeps the 100 KiB
+  limit.
+* **History and undo:** imports are listed newest first; undo closes a
+  position the import opened and rebuilds a held one; an undo a later sale
+  depends on is refused, touching nothing.
+* **Isolation and deletion:** another user's portfolio and import answer as
+  missing; another user's private instrument is not used; a session is
+  required; deleting a portfolio or account deletes its imports.
+
+`Transactions.integration.ts` checks that the three import columns stay out of
+the transactions it reads back.
+
+On the web, `lib/transaction-import.test.ts` covers the file checked before it
+is sent and encoded byte for byte, which rows may be selected and how they are
+filtered and counted, a selection matching a plan only with the same keys, and
+a row's costs summed at the finer scale. `import-display.test.tsx` renders
+every status, reason, warning and problem in both locales, checkboxes only for
+selectable rows, the original cells collapsed, a rejected row without invented
+values, an asset's figures beside their previous values with the refusal
+that cleared it, and the settlement-date note only for a file with a movement
+statement. `api-proxy.test.ts` covers the payload bound (counted in
+bytes, refused unread when the declared length is past it, cancelled when a
+stream runs past it), and `api-error-message.test.ts` that each import refusal
+gets its own message.
+
+## Timing
+
+`Authentication.integration.ts` compares the median of 15 unknown-email sign-ins
+with that of 15 wrong-password ones, and requires the first to be at least 0.6 of
+the second. The margin is wide on purpose: the test must fail when the
+verification is removed, not when the host is busy. Removing it was tried, and
+the test failed at 10.0 ms against 70.3 ms. Rehashing is tested with a digest of another cost, a wrong password that leaves it
+alone, and a password changed between the verification and the write.

@@ -1,10 +1,15 @@
 name: ex3
 
+x-dev-user-args: &dev-user-args
+  HOST_UID: ${HOST_UID:-1000}
+  HOST_GID: ${HOST_GID:-1000}
+
 x-backend-workspace: &backend-workspace
   image: ex3-backend-dev
   build:
     context: ./backend
     target: dev
+    args: *dev-user-args
   init: true
   volumes:
     - ./backend:/usr/src/app/backend
@@ -16,6 +21,7 @@ x-web-workspace: &web-workspace
   build:
     context: ./web
     target: dev
+    args: *dev-user-args
   init: true
   volumes:
     - ./web:/usr/src/app/web
@@ -30,6 +36,8 @@ x-backend-runtime-environment: &backend-runtime-environment
   JWT_SECRET: ${JWT_SECRET:-}
   API_PROXY_SECRET: ${API_PROXY_SECRET:-}
   YAHOO_FINANCE_API_KEY: ${YAHOO_FINANCE_API_KEY:-}
+  BRAPI_API_KEY: ${BRAPI_API_KEY:-}
+  TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
 
 x-postgres-healthcheck: &postgres-healthcheck
   interval: 2s
@@ -101,6 +109,7 @@ services:
     environment:
       API_URL: http://backend:8080
       API_PROXY_SECRET: ${API_PROXY_SECRET:-}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
     ports:
       - '127.0.0.1:3000:3000'
     healthcheck:
@@ -151,7 +160,7 @@ services:
   web-check:
     <<: *web-workspace
     profiles: [check]
-    command: ['sh', '-c', 'pnpm lint && pnpm typecheck && pnpm build']
+    command: ['sh', '-c', 'pnpm lint && pnpm typecheck && pnpm test && pnpm build']
     depends_on:
       web-deps:
         condition: service_completed_successfully

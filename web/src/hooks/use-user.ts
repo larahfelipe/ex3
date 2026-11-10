@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import { toast } from 'sonner';
+import { useTranslations } from 'use-intl';
 
 import type {
   SignInRequestPayload,
@@ -20,10 +21,12 @@ import type {
   UpdateProfileRequestPayload
 } from '@/app/api/v1/user';
 import { APP_ROUTES } from '@/common/constants';
-import api, {
-  type ApiProxyErrorData,
-  UNEXPECTED_ERROR_MESSAGE
-} from '@/lib/axios';
+import api, { type ApiProxyErrorData } from '@/lib/axios';
+import {
+  botChallengeHeaders,
+  type ChallengedRequest
+} from '@/lib/bot-challenge';
+import { fullName } from '@/lib/person-name';
 import { queryKeys } from '@/lib/react-query';
 import type { Maybe } from '@/types';
 
@@ -42,56 +45,63 @@ export const useCurrentUser = () =>
 
 /** The public layout drops the cached queries once the protected pages have unmounted. */
 const useLeaveSession = () => {
-  const { push } = useRouter();
+  const router = useRouter();
 
   return (message: string) => {
     selectActivePortfolio(null);
     toast.success(message);
-    push(APP_ROUTES.Public.SignIn);
+    router.push(APP_ROUTES.Public.SignIn);
   };
 };
 
 export const useSignIn = (destination: string) => {
-  const { push } = useRouter();
+  const router = useRouter();
+  const t = useTranslations('auth.signIn');
 
   return useMutation<
     AxiosResponse<SignInResponseData>,
     ApiProxyErrorData,
-    SignInRequestPayload
+    ChallengedRequest<SignInRequestPayload>
   >({
-    mutationFn: (payload) => api.getInstance().post('/v1/sign-in', payload),
+    mutationFn: ({ payload, challengeToken }) =>
+      api.getInstance().post('/v1/sign-in', payload, {
+        headers: botChallengeHeaders(challengeToken)
+      }),
     onSuccess: ({ data: userData }) => {
-      toast.success(`Signed in as ${userData.name ?? userData.email}`);
-      push(destination);
+      toast.success(t('welcome', { name: userData.name ?? userData.email }));
+      router.push(destination);
     }
   });
 };
 
 export const useSignUp = () => {
-  const { push } = useRouter();
+  const router = useRouter();
+  const t = useTranslations('auth.signUp');
 
   return useMutation<
     AxiosResponse<SignUpResponseData>,
     ApiProxyErrorData,
-    SignUpRequestPayload
+    ChallengedRequest<SignUpRequestPayload>
   >({
-    mutationFn: (payload) => api.getInstance().post('/v1/sign-up', payload),
+    mutationFn: ({ payload, challengeToken }) =>
+      api.getInstance().post('/v1/sign-up', payload, {
+        headers: botChallengeHeaders(challengeToken)
+      }),
     onSuccess: ({ data: { user: userData } }) => {
-      toast.success(
-        `Account created. Signed in as ${userData.name ?? userData.email}`
-      );
-      push(APP_ROUTES.Protected.Overview);
+      toast.success(t('welcome', { name: userData.name ?? userData.email }));
+      router.push(APP_ROUTES.Protected.Overview);
     }
   });
 };
 
 export const useSignOut = () => {
   const leaveSession = useLeaveSession();
+  const t = useTranslations('auth.signOut');
 
   return useMutation<AxiosResponse<SignOutResponseData>>({
     mutationFn: () => api.getInstance().post('/v1/sign-out'),
-    onSuccess: () => leaveSession('Signed out'),
-    onError: () => toast.error(UNEXPECTED_ERROR_MESSAGE)
+    onSuccess: () => leaveSession(t('done')),
+    onError: () => toast.error(t('failed'))
   });
 };
 
@@ -107,6 +117,7 @@ type CurrentUserResponse = AxiosResponse<GetCurrentUserResponseData>;
 export const useUpdateProfile = () => {
   const queryClient = useQueryClient();
   const currentUserKey = queryKeys.currentUser();
+  const t = useTranslations('account.profile');
 
   return useMutation<
     AxiosResponse<UpdateCurrentUserResponseData>,
@@ -115,7 +126,7 @@ export const useUpdateProfile = () => {
     Maybe<CurrentUserResponse>
   >({
     mutationFn: (payload) => api.getInstance().patch('/v1/user', payload),
-    onMutate: async ({ name }) => {
+    onMutate: async ({ firstName, lastName }) => {
       await queryClient.cancelQueries({ queryKey: currentUserKey });
 
       const previousUser =
@@ -124,7 +135,14 @@ export const useUpdateProfile = () => {
       if (previousUser)
         queryClient.setQueryData<CurrentUserResponse>(currentUserKey, {
           ...previousUser,
-          data: { user: { ...previousUser.data.user, name } }
+          data: {
+            user: {
+              ...previousUser.data.user,
+              firstName,
+              lastName: lastName === '' ? null : lastName,
+              name: fullName(firstName, lastName)
+            }
+          }
         });
 
       return previousUser;
@@ -143,7 +161,7 @@ export const useUpdateProfile = () => {
         currentUserKey,
         (current) => current && { ...current, data: { user: data.user } }
       );
-      toast.success(data.message);
+      toast.success(t('saved'));
     }
   });
 };
@@ -151,6 +169,7 @@ export const useUpdateProfile = () => {
 /** The API revokes the session that changed the password, and the proxy clears its cookie in the same response. */
 export const useChangePassword = () => {
   const leaveSession = useLeaveSession();
+  const t = useTranslations('account.security');
 
   return useMutation<
     AxiosResponse<UpdateCurrentUserResponseData>,
@@ -158,7 +177,6 @@ export const useChangePassword = () => {
     ChangePasswordRequestPayload
   >({
     mutationFn: (payload) => api.getInstance().patch('/v1/user', payload),
-    onSuccess: () =>
-      leaveSession('Password changed. Sign in with your new password')
+    onSuccess: () => leaveSession(t('changed'))
   });
 };

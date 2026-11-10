@@ -1,7 +1,8 @@
-import { useId, useState, type FC } from 'react';
+import { useId, useMemo, useState, type FC } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 
 import type {
@@ -9,6 +10,7 @@ import type {
   UpdateExpenseRequestPayload
 } from '@/app/api/v1/finances';
 import { DEFAULT_CURRENCY } from '@/common/constants';
+import { FormSection } from '@/components/form-field';
 import { InfoNote } from '@/components/info-note';
 import { SubmitButton } from '@/components/submit-button';
 import {
@@ -21,55 +23,55 @@ import {
   DialogTitle
 } from '@/components/ui';
 import { useReferenceDay } from '@/hooks/use-finances';
+import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
 import { presentSubmitError } from '@/lib/submit-error';
 
 import {
-  CurrencyField,
   DayField,
+  DESCRIPTION_FORM_FIELDS,
   DescriptionFields,
-  DescriptionFormFields,
+  descriptionFormFieldsFor,
   EMPTY_DESCRIPTION_FORM,
   fieldOfPath,
   FormRootError,
   MoneyField,
-  positiveMoneyField,
-  requiredDayField,
+  PaymentDetailsFields,
+  positiveMoneyFieldFor,
+  requiredDayFieldFor,
   requireMinorUnitsOf,
-  toDescriptionFormValues
+  toDescriptionFormValues,
+  type ValidationTranslator
 } from './finance-form';
 
 export type ExpenseFormTarget =
   | Record<'kind', 'create'>
   | (Record<'kind', 'edit'> & Record<'expense', Expense>);
 
-export type ExpenseDraft = z.output<typeof ExpenseFormSchema>;
+export type ExpenseDraft = z.output<ReturnType<typeof expenseFormSchemaFor>>;
 
-type ExpenseFormInput = z.input<typeof ExpenseFormSchema>;
+type ExpenseFormInput = z.input<ReturnType<typeof expenseFormSchemaFor>>;
 
 type ExpenseFormDialogProps = Record<'target', ExpenseFormTarget> &
   Record<'onCancel', VoidFunction> &
   Record<'onSubmit', (draft: ExpenseDraft) => Promise<unknown>>;
 
-const SUBMIT_FAILURE_MESSAGE = 'The bill could not be saved';
+const expenseFormSchemaFor = (t: ValidationTranslator) =>
+  descriptionFormFieldsFor(t)
+    .extend({
+      amount: positiveMoneyFieldFor(t),
+      currency: z.string().min(1, t('currency.required')),
+      dueDate: requiredDayFieldFor(t)
+    })
+    .superRefine(requireMinorUnitsOf(['amount'], t));
 
-const ExpenseFormFields = DescriptionFormFields.extend({
-  amount: positiveMoneyField('Amount'),
-  currency: z.string().min(1, 'Currency is required'),
-  dueDate: requiredDayField('Due date')
-});
+const EXPENSE_FORM_FIELDS = [
+  ...DESCRIPTION_FORM_FIELDS,
+  'amount',
+  'currency',
+  'dueDate'
+] as const satisfies ReadonlyArray<keyof ExpenseFormInput>;
 
-const ExpenseFormSchema = ExpenseFormFields.superRefine(
-  requireMinorUnitsOf(['amount'])
-);
-
-const expenseFieldOf = fieldOfPath(ExpenseFormFields.keyof().options);
-
-const ORIGIN_HINTS: Partial<Record<Expense['kind'], string>> = {
-  INSTALLMENT:
-    'Changes apply to this installment only. To change what is left of the plan, reschedule it from the installments page.',
-  RECURRING:
-    'Changes apply to this occurrence only, and later edits to the series leave it as it is.'
-};
+const expenseFieldOf = fieldOfPath(EXPENSE_FORM_FIELDS);
 
 /** A bill's currency is fixed once it exists, so an edit sends everything else. */
 export const expenseChangesOf = ({
@@ -115,26 +117,38 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
   onCancel,
   onSubmit
 }) => {
+  const t = useTranslations('bills.form');
+  const tValidation = useTranslations('validation');
+  const tErrors = useTranslations('errors');
+  const tActions = useTranslations('common.actions');
   const formId = useId();
   const today = useReferenceDay();
   const [isSaving, setIsSaving] = useState(false);
+  const schema = useMemo(
+    () => expenseFormSchemaFor(tValidation),
+    [tValidation]
+  );
 
   const methods = useForm<ExpenseFormInput, unknown, ExpenseDraft>({
     mode: 'onChange',
-    resolver: zodResolver(ExpenseFormSchema),
+    resolver: zodResolver(schema),
     defaultValues: defaultValuesOf(target, today)
   });
+
+  useRevalidateOnLocaleChange(methods.formState.errors, methods.trigger);
 
   const {
     control,
     handleSubmit,
     setError,
-    formState: { isSubmitting }
+    formState: { isDirty, isSubmitting }
   } = methods;
 
   const currency = useWatch({ control, name: 'currency' });
-  const originHint =
-    target.kind === 'edit' ? ORIGIN_HINTS[target.expense.kind] : undefined;
+  const originKind =
+    target.kind === 'edit' && target.expense.kind !== 'ONE_TIME'
+      ? target.expense.kind
+      : null;
 
   const submitDraft = async (draft: ExpenseDraft) => {
     setIsSaving(true);
@@ -145,7 +159,8 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
       presentSubmitError(error, {
         setError,
         fieldOf: expenseFieldOf,
-        fallbackMessage: SUBMIT_FAILURE_MESSAGE
+        t: tErrors,
+        fallbackMessage: t('failed')
       });
     } finally {
       setIsSaving(false);
@@ -159,16 +174,16 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl" hasUnsavedChanges={isDirty}>
         <DialogHeader>
           <DialogTitle>
-            {target.kind === 'create' ? 'Add a bill' : 'Edit bill'}
+            {target.kind === 'create' ? t('addTitle') : t('editTitle')}
           </DialogTitle>
 
           <DialogDescription>
             {target.kind === 'create'
-              ? 'A bill is owed until you record its payment.'
-              : `Amounts in ${target.expense.currency}.`}
+              ? t('addDescription')
+              : t('editDescription', { currency: target.expense.currency })}
           </DialogDescription>
         </DialogHeader>
 
@@ -176,24 +191,31 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
           <form
             id={formId}
             noValidate
-            className="grid gap-4"
+            className="grid gap-6"
             onSubmit={handleSubmit(submitDraft)}
           >
-            {originHint !== undefined && <InfoNote>{originHint}</InfoNote>}
+            {originKind !== null && (
+              <InfoNote>{t(`originHints.${originKind}`)}</InfoNote>
+            )}
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <MoneyField name="amount" label="Amount" currency={currency} />
+            <FormSection title={t('amountSection')}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <MoneyField
+                  name="amount"
+                  label={t('amount')}
+                  currency={currency}
+                  currencyName={
+                    target.kind === 'create' ? 'currency' : undefined
+                  }
+                />
 
-              <CurrencyField name="currency" isFixed={target.kind === 'edit'} />
-
-              <DayField
-                name="dueDate"
-                label="Due date"
-                className="sm:col-span-2"
-              />
-            </div>
+                <DayField name="dueDate" label={t('dueDate')} />
+              </div>
+            </FormSection>
 
             <DescriptionFields />
+
+            <PaymentDetailsFields />
 
             <FormRootError />
           </form>
@@ -201,11 +223,13 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
-            Cancel
+            {tActions('cancel')}
           </Button>
 
           <SubmitButton form={formId} isPending={isSubmitting}>
-            {target.kind === 'create' ? 'Add bill' : 'Save changes'}
+            {target.kind === 'create'
+              ? t('submitAdd')
+              : tActions('saveChanges')}
           </SubmitButton>
         </DialogFooter>
       </DialogContent>

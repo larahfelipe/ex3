@@ -1,5 +1,7 @@
 import type { FC } from 'react';
 
+import { useTranslations } from 'use-intl';
+
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { AddAssetDialog } from '@/components/add-asset-dialog';
 import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
@@ -16,23 +18,30 @@ export type AssetDialog =
 type AssetDialogsProps = Record<'portfolio', Portfolio> &
   Record<'dialog', Maybe<AssetDialog>> &
   Record<'onDialogChange', (dialog: Maybe<AssetDialog>) => void> &
+  Partial<Record<'offersTransaction', boolean>> &
   Partial<Record<'onAssetDeleted', VoidFunction>>;
 
 /**
  * Only page state holds the open dialog: the router's search params trail a
  * `replaceState` by a render, so a dialog also mirrored in the URL reopens as
- * the user closes it.
+ * the user closes it. The toast for an added asset offers its first
+ * transaction unless `offersTransaction` is false, where the page offers it.
  */
 export const AssetDialogs: FC<AssetDialogsProps> = ({
   portfolio,
   dialog,
   onDialogChange,
+  offersTransaction = true,
   onAssetDeleted
 }) => {
+  const t = useTranslations('investments.assets.deletion');
   const closeDialog = () => onDialogChange(null);
 
-  const { mutateAsync: createAsset } = useCreateAsset(portfolio, (symbol) =>
-    onDialogChange({ kind: 'add-transaction', symbol })
+  const { mutateAsync: createAsset } = useCreateAsset(
+    portfolio,
+    offersTransaction
+      ? (symbol) => onDialogChange({ kind: 'add-transaction', symbol })
+      : undefined
   );
   const { mutateAsync: createTransaction } = useCreateTransaction(portfolio);
   const { mutateAsync: deleteAsset } = useDeleteAsset(portfolio);
@@ -69,10 +78,13 @@ export const AssetDialogs: FC<AssetDialogsProps> = ({
     case 'delete-asset':
       return (
         <ConfirmDeletionDialog
-          title={`Delete ${dialog.symbol}?`}
-          description={`Every transaction of ${dialog.symbol} in ${portfolio.name} is deleted with it, and this cannot be undone.`}
-          confirmLabel="Delete asset"
-          failureMessage="The asset could not be deleted"
+          title={t('title', { symbol: dialog.symbol })}
+          description={t('description', {
+            symbol: dialog.symbol,
+            portfolio: portfolio.name
+          })}
+          confirmLabel={t('confirm')}
+          failureMessage={t('failed')}
           onCancel={closeDialog}
           onConfirm={async () => {
             await deleteAsset({ symbol: dialog.symbol });

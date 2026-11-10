@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { DeleteUserService } from '@/services/user';
 import { validate } from '@/validation';
 import { DeleteUserSchema } from '@/validation/schema';
@@ -22,7 +22,7 @@ export class DeleteUserController implements Controller {
     return DeleteUserController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user, body } = req;
 
     const { password } = await validate(DeleteUserSchema, body);

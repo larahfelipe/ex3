@@ -1,6 +1,7 @@
 import { useId, useState, type FC, type Ref } from 'react';
 
 import { CalendarDays } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import type { FieldControlProps } from '@/components/form-field';
 import {
@@ -10,10 +11,12 @@ import {
   PopoverContent,
   PopoverTrigger
 } from '@/components/ui';
+import { useFormat } from '@/i18n/format';
 import {
+  calendarDayOf,
   calendarDayOfDate,
-  dateOfCalendarDay,
-  formatCalendarDay
+  currentInstant,
+  dateOfCalendarDay
 } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
@@ -26,11 +29,10 @@ type DatePickerProps = Omit<FieldControlProps, 'required'> & {
   onBlur?: VoidFunction;
 };
 
-const PLACEHOLDER = 'Pick a date';
-
 /**
  * A label names a button in place of its content, so the chosen day, which
- * the button shows, also describes it for a screen reader.
+ * the button shows, also describes it for a screen reader. Below the month,
+ * Today picks the current day in one step, from whichever month is shown.
  */
 export const DatePicker: FC<DatePickerProps> = ({
   id,
@@ -43,11 +45,18 @@ export const DatePicker: FC<DatePickerProps> = ({
   'aria-describedby': describedBy
 }) => {
   const valueId = useId();
+  const t = useTranslations('common');
+  const { formatCalendarDay } = useFormat();
 
   const [isOpen, setIsOpen] = useState(false);
 
   const selected = dateOfCalendarDay(value);
   const shownDay = formatCalendarDay(value);
+
+  const choose = (day: string) => {
+    onValueChange(day);
+    setIsOpen(false);
+  };
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -68,7 +77,7 @@ export const DatePicker: FC<DatePickerProps> = ({
         >
           <CalendarDays size={16} aria-hidden="true" />
 
-          <span id={valueId}>{shownDay ?? PLACEHOLDER}</span>
+          <span id={valueId}>{shownDay ?? t('form.datePlaceholder')}</span>
         </Button>
       </PopoverTrigger>
 
@@ -81,11 +90,20 @@ export const DatePicker: FC<DatePickerProps> = ({
           captionLayout="dropdown"
           selected={selected}
           defaultMonth={selected}
-          onSelect={(date) => {
-            onValueChange(calendarDayOfDate(date));
-            setIsOpen(false);
-          }}
+          onSelect={(date) => choose(calendarDayOfDate(date))}
         />
+
+        <div className="mt-3 border-t pt-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="w-full"
+            onClick={() => choose(calendarDayOf(currentInstant()))}
+          >
+            {t('calendar.today')}
+          </Button>
+        </div>
       </PopoverContent>
     </Popover>
   );

@@ -1,5 +1,16 @@
 import type { FC } from 'react';
 
+import {
+  Ban,
+  CircleAlert,
+  CircleCheck,
+  CircleDot,
+  CircleStop,
+  Clock,
+  type LucideIcon
+} from 'lucide-react';
+import { useTranslations } from 'use-intl';
+
 import type {
   Expense,
   ExpenseCategory,
@@ -10,61 +21,81 @@ import type {
   RecurringExpenseStatus
 } from '@/app/api/v1/finances';
 import {
-  EXPENSE_CATEGORY_LABELS,
-  EXPENSE_KIND_LABELS,
-  EXPENSE_STATUS_LABELS,
+  EXPENSE_CATEGORIES,
   EXPENSE_STATUS_TONES,
-  FINANCE_EVENT_LABELS,
-  INSTALLMENT_PLAN_STATUS_LABELS,
   INSTALLMENT_PLAN_STATUS_TONES,
-  PAYMENT_METHOD_LABELS,
-  RECURRING_EXPENSE_STATUS_LABELS,
+  PAYMENT_METHODS,
   RECURRING_EXPENSE_STATUS_TONES
 } from '@/common/constants';
-import { formatMoney } from '@/common/utils';
-import {
-  daysBetween,
-  formatCalendarDay,
-  formatExecutionDay
-} from '@/lib/dates';
+import { useFormat, type Format } from '@/i18n/format';
+import type { Translator } from '@/i18n/translator';
+import { daysBetween } from '@/lib/dates';
 import { isStorableDecimal } from '@/lib/decimal';
 import { cn } from '@/lib/utils';
 
 type ChangeEntry = Record<'from' | 'to', unknown>;
 
-const CHANGED_FIELD_LABELS: Record<string, string> = {
-  description: 'description',
-  category: 'category',
-  subcategory: 'subcategory',
-  paymentMethod: 'payment method',
-  account: 'account',
-  notes: 'notes',
-  amount: 'amount',
-  dueDate: 'due date',
-  effectiveFrom: 'effective from',
-  entryDate: 'entry date',
-  principalAmount: 'cash price',
-  isVariable: 'variable amount',
-  endDate: 'end date',
-  discount: 'discount',
-  fees: 'fees',
-  paidOn: 'payment date',
-  method: 'payment method'
-};
+type FinancesTranslator = Translator<'finances'>;
+
+const CHANGED_FIELDS = [
+  'description',
+  'category',
+  'subcategory',
+  'paymentMethod',
+  'account',
+  'notes',
+  'amount',
+  'dueDate',
+  'effectiveFrom',
+  'entryDate',
+  'principalAmount',
+  'isVariable',
+  'endDate',
+  'discount',
+  'fees',
+  'paidOn',
+  'method'
+] as const;
+
+type ChangedField = (typeof CHANGED_FIELDS)[number];
 
 type StatusBadgeProps<Status extends string> = Record<'status', Status> &
   Partial<Record<'className', string>>;
 
+const EXPENSE_STATUS_ICONS: Record<ExpenseStatus, LucideIcon> = {
+  PENDING: Clock,
+  OVERDUE: CircleAlert,
+  PAID: CircleCheck,
+  CANCELLED: Ban
+};
+
+const PLAN_STATUS_ICONS: Record<InstallmentPlanStatus, LucideIcon> = {
+  ACTIVE: CircleDot,
+  COMPLETED: CircleCheck,
+  CANCELLED: Ban
+};
+
+const SERIES_STATUS_ICONS: Record<RecurringExpenseStatus, LucideIcon> = {
+  ACTIVE: CircleDot,
+  ENDED: CircleCheck,
+  CANCELLED: CircleStop
+};
+
+/** Each status has its own icon besides its tone, so statuses differ in shape as well as in color. */
 const StatusBadge: FC<
-  Record<'tone' | 'label', string> & Partial<Record<'className', string>>
-> = ({ tone, label, className }) => (
+  Record<'tone' | 'label', string> &
+    Record<'icon', LucideIcon> &
+    Partial<Record<'className', string>>
+> = ({ tone, label, icon: Icon, className }) => (
   <span
     className={cn(
-      'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+      'inline-flex items-center gap-1 rounded-full border py-0.5 pr-2 pl-1.5 text-xs font-medium whitespace-nowrap',
       tone,
       className
     )}
   >
+    <Icon aria-hidden className="size-3 shrink-0" />
+
     {label}
   </span>
 );
@@ -72,45 +103,61 @@ const StatusBadge: FC<
 export const ExpenseStatusBadge: FC<StatusBadgeProps<ExpenseStatus>> = ({
   status,
   className
-}) => (
-  <StatusBadge
-    tone={EXPENSE_STATUS_TONES[status]}
-    label={EXPENSE_STATUS_LABELS[status]}
-    className={className}
-  />
-);
+}) => {
+  const t = useTranslations('finances.statuses');
+
+  return (
+    <StatusBadge
+      tone={EXPENSE_STATUS_TONES[status]}
+      label={t(status)}
+      icon={EXPENSE_STATUS_ICONS[status]}
+      className={className}
+    />
+  );
+};
 
 export const PlanStatusBadge: FC<StatusBadgeProps<InstallmentPlanStatus>> = ({
   status,
   className
-}) => (
-  <StatusBadge
-    tone={INSTALLMENT_PLAN_STATUS_TONES[status]}
-    label={INSTALLMENT_PLAN_STATUS_LABELS[status]}
-    className={className}
-  />
-);
+}) => {
+  const t = useTranslations('finances.planStatuses');
+
+  return (
+    <StatusBadge
+      tone={INSTALLMENT_PLAN_STATUS_TONES[status]}
+      label={t(status)}
+      icon={PLAN_STATUS_ICONS[status]}
+      className={className}
+    />
+  );
+};
 
 export const SeriesStatusBadge: FC<
   StatusBadgeProps<RecurringExpenseStatus>
-> = ({ status, className }) => (
-  <StatusBadge
-    tone={RECURRING_EXPENSE_STATUS_TONES[status]}
-    label={RECURRING_EXPENSE_STATUS_LABELS[status]}
-    className={className}
-  />
-);
+> = ({ status, className }) => {
+  const t = useTranslations('finances.seriesStatuses');
+
+  return (
+    <StatusBadge
+      tone={RECURRING_EXPENSE_STATUS_TONES[status]}
+      label={t(status)}
+      icon={SERIES_STATUS_ICONS[status]}
+      className={className}
+    />
+  );
+};
 
 export const InstallmentProgress: FC<
   Record<'paid' | 'count', number> & Partial<Record<'className', string>>
 > = ({ paid, count, className }) => {
-  const text = `${paid} of ${count} paid`;
+  const t = useTranslations('finances.display');
+  const text = t('progress', { paid, count });
 
   return (
     <div className={cn('space-y-1', className)}>
       <div
         role="progressbar"
-        aria-label="Installments paid"
+        aria-label={t('installmentsPaid')}
         aria-valuemin={0}
         aria-valuemax={count}
         aria-valuenow={paid}
@@ -130,36 +177,46 @@ export const InstallmentProgress: FC<
   );
 };
 
-export const originLabelOf = ({
-  kind,
-  installmentNumber,
-  installmentCount
-}: Pick<Expense, 'kind' | 'installmentNumber' | 'installmentCount'>) =>
+export const originLabelOf = (
+  {
+    kind,
+    installmentNumber,
+    installmentCount
+  }: Pick<Expense, 'kind' | 'installmentNumber' | 'installmentCount'>,
+  t: FinancesTranslator
+) =>
   kind === 'INSTALLMENT' &&
   installmentNumber !== null &&
   installmentCount !== null
-    ? `Installment ${installmentNumber} of ${installmentCount}`
-    : EXPENSE_KIND_LABELS[kind];
+    ? t('display.installmentOf', {
+        number: installmentNumber,
+        count: installmentCount
+      })
+    : t(`kinds.${kind}`);
 
 /** How far the due date is from `today`, for a bill still owed. */
-export const dueDistanceOf = (dueDate: string, today: string) => {
+export const dueDistanceOf = (
+  dueDate: string,
+  today: string,
+  t: FinancesTranslator
+) => {
   const days = daysBetween(today, dueDate);
 
   if (days === null) return null;
-  if (days === 0) return 'Due today';
-  if (days === 1) return 'Due tomorrow';
-  if (days > 1) return `Due in ${days} days`;
-  if (days === -1) return '1 day overdue';
 
-  return `${-days} days overdue`;
+  return days >= 0
+    ? t('display.dueIn', { days })
+    : t('display.overdueBy', { days: -days });
 };
 
 export const isOpenExpense = ({ status }: Pick<Expense, 'status'>) =>
   status === 'PENDING' || status === 'OVERDUE';
 
-export const CalendarDayText: FC<Record<'day', string>> = ({ day }) => (
-  <time dateTime={day}>{formatCalendarDay(day) ?? day}</time>
-);
+export const CalendarDayText: FC<Record<'day', string>> = ({ day }) => {
+  const { formatCalendarDay } = useFormat();
+
+  return <time dateTime={day}>{formatCalendarDay(day) ?? day}</time>;
+};
 
 const MONEY_FIELDS = new Set([
   'amount',
@@ -181,23 +238,35 @@ const DAY_FIELDS = new Set([
 const PAYMENT_METHOD_FIELDS = new Set(['paymentMethod', 'method']);
 
 const isPaymentMethod = (value: string): value is PaymentMethod =>
-  Object.hasOwn(PAYMENT_METHOD_LABELS, value);
+  PAYMENT_METHODS.some((method) => method === value);
 
 const isExpenseCategory = (value: string): value is ExpenseCategory =>
-  Object.hasOwn(EXPENSE_CATEGORY_LABELS, value);
+  EXPENSE_CATEGORIES.some((category) => category === value);
+
+const isChangedField = (field: string): field is ChangedField =>
+  CHANGED_FIELDS.some((known) => known === field);
 
 /** A value as the event recorded it: amounts and days as the API writes them. */
-const recordedTextOf = (field: string, value: unknown, currency: string) => {
-  if (value === null || value === undefined || value === '') return 'none';
-  if (typeof value === 'boolean') return value ? 'yes' : 'no';
-  if (typeof value !== 'string') return String(value);
+const recordedTextOf = (
+  field: string,
+  value: unknown,
+  currency: string,
+  t: FinancesTranslator,
+  { formatCalendarDay, formatMoney }: Format
+) => {
+  if (value === null || value === undefined || value === '')
+    return t('history.none');
+  if (typeof value === 'boolean')
+    return value ? t('history.yes') : t('history.no');
+  if (typeof value === 'number') return String(value);
+  if (typeof value !== 'string') return JSON.stringify(value);
   if (MONEY_FIELDS.has(field) && isStorableDecimal(value))
     return formatMoney(value, currency);
   if (DAY_FIELDS.has(field)) return formatCalendarDay(value) ?? value;
   if (PAYMENT_METHOD_FIELDS.has(field) && isPaymentMethod(value))
-    return PAYMENT_METHOD_LABELS[value];
+    return t(`paymentMethods.${value}`);
   if (field === 'category' && isExpenseCategory(value))
-    return EXPENSE_CATEGORY_LABELS[value];
+    return t(`categories.${value}`);
 
   return value;
 };
@@ -208,29 +277,40 @@ const isChangeEntry = (value: unknown): value is ChangeEntry =>
   'from' in value &&
   'to' in value;
 
-const fromDayOf = (changes: FinanceEvent['changes']) =>
-  typeof changes.effectiveFrom === 'string'
-    ? ` from ${recordedTextOf('effectiveFrom', changes.effectiveFrom, '')}`
-    : '';
-
 const countOf = (value: unknown) => (Array.isArray(value) ? value.length : 0);
 
 /** One line per event: what changed, from what to what, in the record's currency. */
 export const describeEvent = (
   { type, changes }: Pick<FinanceEvent, 'type' | 'changes'>,
-  currency: string
+  currency: string,
+  t: FinancesTranslator,
+  format: Format
 ) => {
+  const recordedText = (field: string, value: unknown) =>
+    recordedTextOf(field, value, currency, t, format);
+  const fromDay =
+    typeof changes.effectiveFrom === 'string'
+      ? recordedText('effectiveFrom', changes.effectiveFrom)
+      : null;
   const changedFields = Object.entries(changes).filter(([, change]) =>
     isChangeEntry(change)
   ) as Array<[string, ChangeEntry]>;
 
-  if (changedFields.length > 0)
-    return `${changedFields
-      .map(
-        ([field, { from, to }]) =>
-          `${CHANGED_FIELD_LABELS[field] ?? field}: ${recordedTextOf(field, from, currency)} → ${recordedTextOf(field, to, currency)}`
+  if (changedFields.length > 0) {
+    const changesText = changedFields
+      .map(([field, { from, to }]) =>
+        t('history.change', {
+          field: isChangedField(field) ? t(`changedFields.${field}`) : field,
+          from: recordedText(field, from),
+          to: recordedText(field, to)
+        })
       )
-      .join('; ')}${fromDayOf(changes)}`;
+      .join('; ');
+
+    return fromDay === null
+      ? changesText
+      : t('history.changesFrom', { changes: changesText, day: fromDay });
+  }
 
   const {
     amount,
@@ -242,26 +322,40 @@ export const describeEvent = (
   } = changes;
 
   if (type.startsWith('PAYMENT_') && typeof amount === 'string')
-    return `${recordedTextOf('amount', amount, currency)}${typeof paidOn === 'string' ? ` paid on ${recordedTextOf('paidOn', paidOn, currency)}` : ''}`;
+    return typeof paidOn === 'string'
+      ? t('history.paidOn', {
+          amount: recordedText('amount', amount),
+          day: recordedText('paidOn', paidOn)
+        })
+      : t('history.paid', { amount: recordedText('amount', amount) });
 
   if (type === 'RESCHEDULED' && Array.isArray(scheduled))
-    return `${countOf(replaced)} open installments replaced by ${countOf(scheduled)}`;
+    return t('history.rescheduled', {
+      replaced: countOf(replaced),
+      scheduled: countOf(scheduled)
+    });
 
-  if (type === 'CANCELLED' && typeof changes.effectiveFrom === 'string')
-    return `Stopped${fromDayOf(changes)}; ${countOf(removedOccurrences) + countOf(cancelledOccurrences)} unpaid occurrences dropped`;
+  if (type === 'CANCELLED' && fromDay !== null)
+    return t('history.stopped', {
+      day: fromDay,
+      dropped: countOf(removedOccurrences) + countOf(cancelledOccurrences)
+    });
 
   return null;
 };
 
 export const FinanceHistory: FC<
   Record<'events', ReadonlyArray<FinanceEvent>> & Record<'currency', string>
-> = ({ events, currency }) =>
-  events.length === 0 ? (
-    <p className="text-sm text-muted-foreground">No changes recorded</p>
+> = ({ events, currency }) => {
+  const t = useTranslations('finances');
+  const format = useFormat();
+
+  return events.length === 0 ? (
+    <p className="text-sm text-muted-foreground">{t('history.empty')}</p>
   ) : (
     <ol className="space-y-3 border-l pl-4">
       {events.map((event) => {
-        const description = describeEvent(event, currency);
+        const description = describeEvent(event, currency, t, format);
 
         return (
           <li key={event.id} className="relative space-y-0.5">
@@ -271,13 +365,13 @@ export const FinanceHistory: FC<
             />
 
             <p className="text-sm font-medium">
-              {FINANCE_EVENT_LABELS[event.type]}
+              {t(`events.${event.type}`)}
 
               <span className="font-normal text-muted-foreground">
                 {' · '}
 
                 <time dateTime={event.createdAt}>
-                  {formatExecutionDay(event.createdAt)}
+                  {format.formatExecutionDay(event.createdAt)}
                 </time>
               </span>
             </p>
@@ -292,3 +386,4 @@ export const FinanceHistory: FC<
       })}
     </ol>
   );
+};

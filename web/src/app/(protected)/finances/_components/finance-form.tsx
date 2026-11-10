@@ -1,6 +1,7 @@
 import { useState, type FC, type ReactNode } from 'react';
 import { useController, useFormContext, useFormState } from 'react-hook-form';
 
+import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 
 import type {
@@ -10,32 +11,36 @@ import type {
 } from '@/app/api/v1/finances';
 import {
   EXPENSE_CATEGORIES,
-  EXPENSE_CATEGORY_LABELS,
   FINANCE_LIMITS,
-  OFFERED_CURRENCIES,
-  PAYMENT_METHOD_LABELS,
   PAYMENT_METHODS
 } from '@/common/constants';
-import { currencyFractionDigits, currencySymbolOf } from '@/common/utils';
+import { currencyFractionDigits } from '@/common/utils';
 import { DatePicker } from '@/components/date-picker';
-import { FormField, type FieldControlProps } from '@/components/form-field';
-import { MoneyInput, type RejectedAmount } from '@/components/money-input';
+import {
+  DeferredSection,
+  FormField,
+  FormSection,
+  type FieldControlProps
+} from '@/components/form-field';
+import { CurrencyAmountInput, CurrencySelect } from '@/components/money-input';
 import {
   Input,
+  SearchableSelect,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue
 } from '@/components/ui';
+import { useFormat } from '@/i18n/format';
+import { srOnly } from '@/i18n/rich-text';
+import type { Translator } from '@/i18n/translator';
+import { decimalLimitsIssueOf, pastedAmountIssueOf } from '@/lib/amount-issues';
 import {
-  DECIMAL_COLUMN,
   decimalPlacesOf,
-  INTEGER_DIGITS,
   isNonzeroDecimal,
   isStorableDecimal
 } from '@/lib/decimal';
-import { cn } from '@/lib/utils';
 
 export type DescriptionFormInput = Record<
   'description' | 'subcategory' | 'account' | 'notes',
@@ -46,7 +51,10 @@ export type DescriptionFormInput = Record<
 
 type PaymentMethodChoice = PaymentMethod | typeof NO_PAYMENT_METHOD;
 
+export type ValidationTranslator = Translator<'validation'>;
+
 type MoneyFieldProps = Record<'name' | 'label' | 'currency', string> &
+  Partial<Record<'currencyName', string>> &
   Partial<Record<'isOptional', boolean>> &
   Partial<Record<'hint', ReactNode>> &
   Partial<Record<'className', string>> &
@@ -57,14 +65,8 @@ type DayFieldProps = Record<'name' | 'label', string> &
   Partial<Record<'className', string>> &
   Partial<Record<'isOptional', boolean>>;
 
-type CurrencyFieldProps = Record<'name', string> &
-  Partial<Record<'isFixed', boolean>> &
-  Partial<Record<'className', string>>;
-
 /** A Radix select item cannot carry an empty value, so "not specified" has its own. */
 export const NO_PAYMENT_METHOD = 'NONE';
-
-const DECIMAL_LIMITS = `at most ${INTEGER_DIGITS} integer digits and ${DECIMAL_COLUMN.SCALE} decimal places`;
 
 export const TEXTAREA_CLASS =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-negative md:text-sm';
@@ -80,66 +82,69 @@ export const triggerPropsOf = ({
   'aria-describedby': describedBy
 });
 
-const pastedAmountIssueOf = (field: string, reading: RejectedAmount) =>
-  reading.outcome === 'ambiguous'
-    ? `The pasted ${field.toLowerCase()} may be ${reading.asDecimal} or ${reading.asWhole}: type its digits instead`
-    : `The pasted ${field.toLowerCase()} is not a number with ${DECIMAL_LIMITS}`;
-
-export const requiredTextField = (field: string, maxLength: number) =>
+/**
+ * Every message below is about the field it sits under, which its label
+ * already names, so none repeats the label: a message never has to agree with
+ * a field's name in gender or number.
+ */
+export const requiredTextFieldFor = (
+  t: ValidationTranslator,
+  maxLength: number
+) =>
   z
     .string()
     .trim()
-    .min(1, `${field} is required`)
-    .max(maxLength, `${field} must have at most ${maxLength} characters`);
+    .min(1, t('text.required'))
+    .max(maxLength, t('text.tooLong', { max: maxLength }));
 
-export const optionalTextField = (field: string, maxLength: number) =>
+export const optionalTextFieldFor = (
+  t: ValidationTranslator,
+  maxLength: number
+) =>
   z
     .string()
     .trim()
-    .max(maxLength, `${field} must have at most ${maxLength} characters`)
+    .max(maxLength, t('text.tooLong', { max: maxLength }))
     .transform((value) => (value === '' ? null : value));
 
 /** An amount above zero, as the money input writes it. */
-export const positiveMoneyField = (field: string) =>
+export const positiveMoneyFieldFor = (t: ValidationTranslator) =>
   z
     .string()
-    .min(1, `${field} is required`)
-    .refine(
-      isStorableDecimal,
-      `${field} must be a number with ${DECIMAL_LIMITS}`
-    )
-    .refine(isNonzeroDecimal, `${field} must be greater than zero`);
+    .min(1, t('amount.required'))
+    .refine(isStorableDecimal, decimalLimitsIssueOf(t))
+    .refine(isNonzeroDecimal, t('amount.notPositive'));
 
 /** An amount that may be left out, recorded as zero. */
-export const optionalMoneyField = (field: string) =>
+export const optionalMoneyFieldFor = (t: ValidationTranslator) =>
   z
     .string()
     .transform((value) => (value === '' ? '0' : value))
-    .refine(
-      isStorableDecimal,
-      `${field} must be a number with ${DECIMAL_LIMITS}`
-    );
+    .refine(isStorableDecimal, decimalLimitsIssueOf(t));
 
 /** An amount that may be left out, recorded as none; when given, above zero. */
-export const optionalPositiveMoneyField = (field: string) =>
+export const optionalPositiveMoneyFieldFor = (t: ValidationTranslator) =>
   z
     .string()
     .transform((value) => (value === '' ? null : value))
     .refine(
       (value) => value === null || isStorableDecimal(value),
-      `${field} must be a number with ${DECIMAL_LIMITS}`
+      decimalLimitsIssueOf(t)
     )
     .refine(
       (value) => value === null || isNonzeroDecimal(value),
-      `${field} must be greater than zero`
+      t('amount.notPositive')
     );
 
-export const requiredDayField = (field: string) =>
-  z.string().min(1, `${field} is required`);
+export const requiredDayFieldFor = (t: ValidationTranslator) =>
+  z.string().min(1, t('day.required'));
 
 /** The API refuses an amount finer than the currency's minor unit: say so before it does. */
 export const requireMinorUnitsOf =
-  <Field extends string>(fields: ReadonlyArray<Field>) =>
+  <Field extends string>(
+    fields: ReadonlyArray<Field>,
+    t: ValidationTranslator
+  ) =>
   (
     values: Partial<Record<Field, string | null>> & Record<'currency', string>,
     ctx: z.RefinementCtx
@@ -153,32 +158,34 @@ export const requireMinorUnitsOf =
         ctx.addIssue({
           code: 'custom',
           path: [field],
-          message:
-            places === 0
-              ? `${values.currency} amounts have no decimal places`
-              : `${values.currency} amounts have at most ${places} decimal places`
+          message: t('amount.minorUnits', {
+            places,
+            currency: values.currency
+          })
         });
     }
   };
 
-export const DescriptionFormFields = z.object({
-  description: requiredTextField(
-    'Description',
-    FINANCE_LIMITS.DescriptionMaxLength
-  ),
-  category: z.enum(EXPENSE_CATEGORIES),
-  subcategory: optionalTextField(
-    'Subcategory',
-    FINANCE_LIMITS.SubcategoryMaxLength
-  ),
-  paymentMethod: z
-    .union([z.enum(PAYMENT_METHODS), z.literal(NO_PAYMENT_METHOD)])
-    .transform((method) => (method === NO_PAYMENT_METHOD ? null : method)),
-  account: optionalTextField('Account', FINANCE_LIMITS.AccountMaxLength),
-  notes: optionalTextField('Notes', FINANCE_LIMITS.NotesMaxLength)
-});
+export const descriptionFormFieldsFor = (t: ValidationTranslator) =>
+  z.object({
+    description: requiredTextFieldFor(t, FINANCE_LIMITS.DescriptionMaxLength),
+    category: z.enum(EXPENSE_CATEGORIES),
+    subcategory: optionalTextFieldFor(t, FINANCE_LIMITS.SubcategoryMaxLength),
+    paymentMethod: z
+      .union([z.enum(PAYMENT_METHODS), z.literal(NO_PAYMENT_METHOD)])
+      .transform((method) => (method === NO_PAYMENT_METHOD ? null : method)),
+    account: optionalTextFieldFor(t, FINANCE_LIMITS.AccountMaxLength),
+    notes: optionalTextFieldFor(t, FINANCE_LIMITS.NotesMaxLength)
+  });
 
-export const DESCRIPTION_FORM_FIELDS = DescriptionFormFields.keyof().options;
+export const DESCRIPTION_FORM_FIELDS = [
+  'description',
+  'category',
+  'subcategory',
+  'paymentMethod',
+  'account',
+  'notes'
+] as const satisfies ReadonlyArray<keyof DescriptionFormInput>;
 
 export const EMPTY_DESCRIPTION_FORM: DescriptionFormInput = {
   description: '',
@@ -234,50 +241,96 @@ export const useSubmitter = <Draft, Payload>(
   return { isSaving, submit };
 };
 
+/**
+ * An amount with its currency attached. With `currencyName`, the code that
+ * closes the field selects the form's currency; without it, the currency is
+ * fixed and shown as text.
+ */
 export const MoneyField: FC<MoneyFieldProps> = ({
   name,
   label,
   currency,
+  currencyName,
   isOptional = false,
   hint,
   className,
   action
 }) => {
+  const tForm = useTranslations('common.form');
+  const tValidation = useTranslations('validation');
+  const format = useFormat();
   const { control, setError } = useFormContext<Record<string, string>>();
   const {
     field: { ref, value, onChange, onBlur },
     fieldState: { error }
   } = useController({ name, control });
+  const { errors } = useFormState({ control, name: currencyName ?? name });
+  const currencyError =
+    currencyName === undefined ? undefined : errors[currencyName]?.message;
 
   return (
     <FormField
       isOptional={isOptional}
-      label={`${label} (${currency})`}
+      label={
+        currencyName === undefined
+          ? tForm.rich('labelInCurrency', { label, currency, hidden: srOnly })
+          : label
+      }
       hint={hint}
-      error={error?.message}
+      error={error?.message ?? currencyError}
       action={action}
       className={className}
     >
       {(fieldControl) => (
-        <MoneyInput
+        <CurrencyAmountInput
           {...fieldControl}
           ref={ref}
           name={name}
           value={value}
+          currency={currency}
           decimals={currencyFractionDigits(currency)}
-          leftElement={
-            <span aria-hidden className="text-sm text-muted-foreground">
-              {currencySymbolOf(currency)}
-            </span>
+          currencyControl={
+            currencyName === undefined ? undefined : (
+              <CurrencyControl
+                name={currencyName}
+                isInvalid={currencyError !== undefined}
+                describedBy={fieldControl['aria-describedby']}
+              />
+            )
           }
           onValueChange={onChange}
           onBlur={onBlur}
           onRejectedPaste={(reading) =>
-            setError(name, { message: pastedAmountIssueOf(label, reading) })
+            setError(name, {
+              message: pastedAmountIssueOf(reading, tValidation, format)
+            })
           }
         />
       )}
     </FormField>
+  );
+};
+
+const CurrencyControl: FC<
+  Record<'name', string> &
+    Record<'isInvalid', boolean> &
+    Partial<Record<'describedBy', string>>
+> = ({ name, isInvalid, describedBy }) => {
+  const { control } = useFormContext<Record<string, string>>();
+  const {
+    field: { ref, value, onChange, onBlur }
+  } = useController({ name, control });
+
+  return (
+    <CurrencySelect
+      ref={ref}
+      name={name}
+      value={value}
+      aria-invalid={isInvalid}
+      aria-describedby={describedBy}
+      onValueChange={onChange}
+      onBlur={onBlur}
+    />
   );
 };
 
@@ -318,202 +371,173 @@ export const DayField: FC<DayFieldProps> = ({
   );
 };
 
-export const CurrencyField: FC<CurrencyFieldProps> = ({
-  name,
-  isFixed = false,
-  className
-}) => {
-  const { control } = useFormContext<Record<string, string>>();
-  const {
-    field,
-    fieldState: { error }
-  } = useController({ name, control });
-
-  const currencies: ReadonlyArray<string> = OFFERED_CURRENCIES.some(
-    (currency) => currency === field.value
-  )
-    ? OFFERED_CURRENCIES
-    : [...OFFERED_CURRENCIES, field.value];
-
-  return (
-    <FormField
-      label="Currency"
-      error={error?.message}
-      hint={isFixed ? 'Fixed when the record was created' : undefined}
-      className={className}
-    >
-      {(fieldControl) => (
-        <Select
-          name={field.name}
-          value={field.value}
-          disabled={isFixed}
-          onValueChange={field.onChange}
-        >
-          <SelectTrigger
-            {...triggerPropsOf(fieldControl)}
-            ref={field.ref}
-            onBlur={field.onBlur}
-          >
-            <SelectValue />
-          </SelectTrigger>
-
-          <SelectContent>
-            {currencies.map((currency) => (
-              <SelectItem key={currency} value={currency}>
-                {currency}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-    </FormField>
-  );
-};
-
 /**
- * The fields every bill, plan and series is described with. The form that
- * renders them provides its methods through `FormProvider`.
+ * What every bill, plan and series is: its description and category. The form
+ * that renders it provides its methods through `FormProvider`.
  */
-export const DescriptionFields: FC<Partial<Record<'className', string>>> = ({
-  className
-}) => {
+export const DescriptionFields: FC = () => {
+  const t = useTranslations('finances');
   const { control, register } = useFormContext<DescriptionFormInput>();
   const { errors } = useFormState({ control });
-
   const { field: categoryField } = useController({
     name: 'category',
     control
   });
+  const categoryOptions = EXPENSE_CATEGORIES.map((category) => ({
+    value: category,
+    label: t(`categories.${category}`)
+  }));
+
+  return (
+    <FormSection title={t('form.descriptionSection')}>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField
+          label={t('form.description')}
+          error={errors.description?.message}
+          className="sm:col-span-2"
+        >
+          {(fieldControl) => (
+            <Input
+              {...fieldControl}
+              type="text"
+              autoComplete="off"
+              maxLength={FINANCE_LIMITS.DescriptionMaxLength}
+              {...register('description')}
+            />
+          )}
+        </FormField>
+
+        <FormField label={t('form.category')} error={errors.category?.message}>
+          {(fieldControl) => (
+            <SearchableSelect
+              {...triggerPropsOf(fieldControl)}
+              ref={categoryField.ref}
+              name={categoryField.name}
+              value={categoryField.value}
+              options={categoryOptions}
+              onValueChange={categoryField.onChange}
+              onBlur={categoryField.onBlur}
+            />
+          )}
+        </FormField>
+
+        <FormField
+          isOptional
+          label={t('form.subcategory')}
+          error={errors.subcategory?.message}
+        >
+          {(fieldControl) => (
+            <Input
+              {...fieldControl}
+              type="text"
+              autoComplete="off"
+              maxLength={FINANCE_LIMITS.SubcategoryMaxLength}
+              {...register('subcategory')}
+            />
+          )}
+        </FormField>
+      </div>
+    </FormSection>
+  );
+};
+
+const PAYMENT_DETAILS = [
+  'paymentMethod',
+  'account',
+  'notes'
+] as const satisfies ReadonlyArray<keyof DescriptionFormInput>;
+
+/** How a bill, plan or series is paid, and any notes on it: all optional. */
+export const PaymentDetailsFields: FC = () => {
+  const t = useTranslations('finances');
+  const { control, register, getValues, setFocus } =
+    useFormContext<DescriptionFormInput>();
+  const { errors } = useFormState({ control });
   const { field: methodField } = useController({
     name: 'paymentMethod',
     control
   });
+  const { paymentMethod, account, notes } = getValues();
 
   return (
-    <div className={cn('grid gap-4 sm:grid-cols-2', className)}>
-      <FormField
-        label="Description"
-        error={errors.description?.message}
-        className="sm:col-span-2"
-      >
-        {(fieldControl) => (
-          <Input
-            {...fieldControl}
-            type="text"
-            autoComplete="off"
-            maxLength={FINANCE_LIMITS.DescriptionMaxLength}
-            {...register('description')}
-          />
-        )}
-      </FormField>
-
-      <FormField label="Category" error={errors.category?.message}>
-        {(fieldControl) => (
-          <Select
-            name={categoryField.name}
-            value={categoryField.value}
-            onValueChange={categoryField.onChange}
-          >
-            <SelectTrigger
-              {...triggerPropsOf(fieldControl)}
-              ref={categoryField.ref}
-              onBlur={categoryField.onBlur}
+    <DeferredSection
+      title={t('form.paymentSection')}
+      revealLabel={t('form.addPaymentDetails')}
+      isInitiallyRevealed={
+        paymentMethod !== NO_PAYMENT_METHOD || account !== '' || notes !== ''
+      }
+      hasError={PAYMENT_DETAILS.some((name) => errors[name] !== undefined)}
+      onReveal={() => setFocus('paymentMethod')}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField
+          isOptional
+          label={t('form.paymentMethod')}
+          error={errors.paymentMethod?.message}
+        >
+          {(fieldControl) => (
+            <Select
+              name={methodField.name}
+              value={methodField.value}
+              onValueChange={methodField.onChange}
             >
-              <SelectValue />
-            </SelectTrigger>
+              <SelectTrigger
+                {...triggerPropsOf(fieldControl)}
+                ref={methodField.ref}
+                onBlur={methodField.onBlur}
+              >
+                <SelectValue />
+              </SelectTrigger>
 
-            <SelectContent>
-              {EXPENSE_CATEGORIES.map((category) => (
-                <SelectItem key={category} value={category}>
-                  {EXPENSE_CATEGORY_LABELS[category]}
+              <SelectContent>
+                <SelectItem value={NO_PAYMENT_METHOD}>
+                  {t('form.noPaymentMethod')}
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </FormField>
 
-      <FormField
-        isOptional
-        label="Subcategory"
-        error={errors.subcategory?.message}
-      >
-        {(fieldControl) => (
-          <Input
-            {...fieldControl}
-            type="text"
-            autoComplete="off"
-            maxLength={FINANCE_LIMITS.SubcategoryMaxLength}
-            {...register('subcategory')}
-          />
-        )}
-      </FormField>
+                {PAYMENT_METHODS.map((method) => (
+                  <SelectItem key={method} value={method}>
+                    {t(`paymentMethods.${method}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FormField>
 
-      <FormField
-        isOptional
-        label="Payment method"
-        error={errors.paymentMethod?.message}
-      >
-        {(fieldControl) => (
-          <Select
-            name={methodField.name}
-            value={methodField.value}
-            onValueChange={methodField.onChange}
-          >
-            <SelectTrigger
-              {...triggerPropsOf(fieldControl)}
-              ref={methodField.ref}
-              onBlur={methodField.onBlur}
-            >
-              <SelectValue />
-            </SelectTrigger>
+        <FormField
+          isOptional
+          label={t('form.account')}
+          error={errors.account?.message}
+        >
+          {(fieldControl) => (
+            <Input
+              {...fieldControl}
+              type="text"
+              autoComplete="off"
+              maxLength={FINANCE_LIMITS.AccountMaxLength}
+              {...register('account')}
+            />
+          )}
+        </FormField>
 
-            <SelectContent>
-              <SelectItem value={NO_PAYMENT_METHOD}>Not specified</SelectItem>
-
-              {PAYMENT_METHODS.map((method) => (
-                <SelectItem key={method} value={method}>
-                  {PAYMENT_METHOD_LABELS[method]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </FormField>
-
-      <FormField
-        isOptional
-        label="Account or card"
-        error={errors.account?.message}
-      >
-        {(fieldControl) => (
-          <Input
-            {...fieldControl}
-            type="text"
-            autoComplete="off"
-            maxLength={FINANCE_LIMITS.AccountMaxLength}
-            {...register('account')}
-          />
-        )}
-      </FormField>
-
-      <FormField
-        isOptional
-        label="Notes"
-        error={errors.notes?.message}
-        className="sm:col-span-2"
-      >
-        {(fieldControl) => (
-          <textarea
-            {...fieldControl}
-            rows={2}
-            maxLength={FINANCE_LIMITS.NotesMaxLength}
-            className={TEXTAREA_CLASS}
-            {...register('notes')}
-          />
-        )}
-      </FormField>
-    </div>
+        <FormField
+          isOptional
+          label={t('form.notes')}
+          error={errors.notes?.message}
+          className="sm:col-span-2"
+        >
+          {(fieldControl) => (
+            <textarea
+              {...fieldControl}
+              rows={2}
+              maxLength={FINANCE_LIMITS.NotesMaxLength}
+              className={TEXTAREA_CLASS}
+              {...register('notes')}
+            />
+          )}
+        </FormField>
+      </div>
+    </DeferredSection>
   );
 };
 

@@ -3,11 +3,11 @@ import { IncomeTransactionTypes } from '@/config/Constants';
 import type { PriceRange } from './MarketDataProvider';
 import type { MarketQuote, Position } from './models';
 import {
-  PerformanceRanges,
   performanceRangeOf,
+  PerformanceRanges,
   type PerformanceRange
 } from './PortfolioPerformance';
-import { type LedgerEntry, realizeProfitLoss } from './PositionLedger';
+import { realizeProfitLoss, type LedgerEntry } from './PositionLedger';
 import { truncateToColumnScale, ValuationDecimal } from './PositionValuation';
 import { startOfDayInUtc } from './PriceHistory';
 
@@ -79,7 +79,7 @@ export type IndicatedPosition = {
 
 const dayOf = (instant: Date) => startOfDayInUtc(instant).getTime();
 
-const yearStartOf = (now: Date) =>
+export const yearStartOf = (now: Date) =>
   performanceRangeOf(PerformanceRanges.ONE_YEAR, now).from;
 
 /**
@@ -183,10 +183,10 @@ const pricesOf = (
   };
 };
 
-const isIncome = ({ type }: LedgerEntry) =>
+export const isIncome = ({ type }: LedgerEntry) =>
   Object.hasOwn(IncomeTransactionTypes, type);
 
-const netIncomeOf = (entries: ReadonlyArray<LedgerEntry>) =>
+export const netIncomeOf = (entries: ReadonlyArray<LedgerEntry>) =>
   truncateToColumnScale(
     entries.reduce(
       (total, { quantity, unitPrice, fees, taxes }) =>

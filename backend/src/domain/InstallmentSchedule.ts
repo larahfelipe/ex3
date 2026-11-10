@@ -1,9 +1,9 @@
 import { formatCalendarDay } from './CalendarDay';
 import {
   decimalOf,
-  type DecimalInput,
   splitIntoInstallments,
-  sumOf
+  sumOf,
+  type DecimalInput
 } from './FinanceMoney';
 import type { InstallmentPlanStatus, RecurrenceFrequency } from './models';
 import { occurrenceAt } from './Recurrence';

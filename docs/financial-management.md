@@ -25,7 +25,7 @@ meant for it.
 | Notifications | None: no email provider, no push, no scheduler or queue | Reminders are in-app only (see [Notifications](#notifications)) |
 | Income or cash balance | None. Portfolio value is invested wealth, not available cash | No projected balance: there is no compatible data to compute one from |
 | Accounts and cards | No entity | A free-text `account` field on each record |
-| Tests | `node:test` unit tests and integration tests against Postgres; no web test runner (TD-058) | Backend unit and integration tests; the web is checked with `lint`, `typecheck`, `build` and by rendering it |
+| Tests | `node:test` unit tests and integration tests against Postgres; no web test runner | Backend unit and integration tests; web unit tests of the module's wording, formats and charts (see [`i18n.md`](i18n.md#tests)); the web is also checked with `lint`, `typecheck`, `build` and by rendering it |
 
 ## Integration
 
@@ -97,8 +97,9 @@ every aggregate read one table, and a payment always targets a bill.
 **Applying and reverting.** `pnpm exec prisma migrate deploy` applies the
 migration, as in every environment. Nothing outside the six tables refers to
 them, so reverting means dropping those tables and the five enums. Existing
-database backups cover the new tables with no extra procedure. No backup
-procedure is defined in this repository (TD-060).
+database backups cover the new tables with no extra procedure. Production's
+backups are still an open decision: see
+[`deployment.md`](deployment.md#backups).
 
 ## Business rules
 
@@ -343,6 +344,17 @@ payment goes through `POST /api/v1/finances/expenses/[id]/payments/create`.
   alone.
 * Forms validate on the client with the same limits as the API. The API
   still validates everything.
+* Every amount field carries its currency: the symbol leads the figures and
+  the code closes the field. Where the currency is chosen — a new bill, plan
+  or series — that code is the currency selector (BRL, USD, EUR). The
+  currency is stored as its code with the record, and changing it never
+  converts the amount typed.
+* The plan form shows, as the fields change, the installments, the total
+  payable, the first and last due dates and the difference from the cash
+  price. The payment form says what the payment leaves owed.
+* The bills list keeps search, status and sort in view, folds the rarer
+  filters into a panel, shows each filter in force as a removable chip, and
+  offers *Pay* on each open bill.
 * Hooks live in `web/src/hooks/use-finances.ts`, with the query list in
   [`data-fetching.md`](data-fetching.md).
 
@@ -375,7 +387,8 @@ The alerts endpoint already computes what such a job would send.
 2. Start the API and the web as in the [README](../README.md#setup). Sign in.
    *Finances* is in the navigation.
 3. Run the backend tests: `pnpm test:db:up && pnpm test`.
-4. Run the web gates: `pnpm lint`, `pnpm typecheck` and `pnpm build`.
+4. Run the web gates: `pnpm lint`, `pnpm typecheck`, `pnpm test` and
+   `pnpm build`.
 
 A manual check that covers each rule:
 

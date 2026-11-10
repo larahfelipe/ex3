@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { GetAllPortfoliosService } from '@/services/portfolio';
 import { validate } from '@/validation';
 import { PaginationQuerySchema } from '@/validation/schema';
@@ -22,7 +22,7 @@ export class GetAllPortfoliosController implements Controller {
     return GetAllPortfoliosController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user, query } = req;
 
     const { page, limit } = await validate(PaginationQuerySchema, query);

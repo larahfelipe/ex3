@@ -1,7 +1,7 @@
 import {
   Prisma,
-  type Expense as ExpenseRow,
   type ExpensePayment as ExpensePaymentRow,
+  type Expense as ExpenseRow,
   type FinanceEvent as FinanceEventRow
 } from '@prisma/client';
 
@@ -109,7 +109,7 @@ const recordedValueOf = (value: unknown): Prisma.InputJsonValue | null => {
   if (value instanceof Date) return formatCalendarDay(value);
   if (Prisma.Decimal.isDecimal(value)) return value.toFixed();
 
-  return value as Prisma.InputJsonValue;
+  return value;
 };
 
 export const recordedValuesOf = (values: Record<string, unknown>) =>
@@ -158,7 +158,7 @@ export const recordFinanceEvent = (
   transactionClient.financeEvent.create({
     data: {
       ...event,
-      changes: recordedValuesOf(event.changes) as Prisma.InputJsonObject
+      changes: recordedValuesOf(event.changes)
     }
   });
 

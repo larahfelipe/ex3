@@ -93,18 +93,29 @@ export class UserRepository {
    * token issued before the change survives it.
    */
   async update(params: UserRepository.UpdateParams) {
-    const { id, name, password } = params;
+    const { id, names, password } = params;
 
     return this.prismaClient.user.update({
       where: { id },
       data: {
-        ...(name && { name }),
+        ...names,
         ...(password && {
           password: await this.bcrypt.hash(password),
           sessionVersion: { increment: 1 }
         })
       },
       omit: PROFILE_OMITTED_COLUMNS
+    });
+  }
+
+  /**
+   * Rehashes at the configured cost only while the stored digest is still the
+   * one the sign-in verified, so a password changed meanwhile is kept.
+   */
+  async rehashPassword(id: string, verifiedDigest: string, password: string) {
+    await this.prismaClient.user.updateMany({
+      where: { id, password: verifiedDigest },
+      data: { password: await this.bcrypt.hash(password) }
     });
   }
 
@@ -134,6 +145,9 @@ export class UserRepository {
     await this.prismaClient.runSerializable(async (transactionClient) => {
       await transactionClient.transaction.deleteMany({ where: ownedByUser });
       await transactionClient.position.deleteMany({ where: ownedByUser });
+      await transactionClient.transactionImport.deleteMany({
+        where: ownedByUser
+      });
       await transactionClient.marketQuote.deleteMany({
         where: { instrument: { ownerId: id } }
       });
@@ -161,9 +175,13 @@ export class UserRepository {
 }
 
 namespace UserRepository {
-  export type AddParams = Pick<User, 'name' | 'email' | 'password'> &
+  export type AddParams = Pick<
+    User,
+    'name' | 'firstName' | 'lastName' | 'email' | 'password'
+  > &
     Record<'portfolio', Pick<Portfolio, 'name' | 'baseCurrency'>>;
-  export type UpdateParams = Pick<User, 'id' | 'name'> & {
+  export type UpdateParams = Pick<User, 'id'> & {
+    names: Pick<User, 'name' | 'firstName' | 'lastName'> | null;
     password: string | null;
   };
 }

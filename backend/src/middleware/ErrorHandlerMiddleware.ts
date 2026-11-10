@@ -2,7 +2,7 @@ import type { ErrorRequestHandler } from 'express';
 
 import { Errors } from '@/config/Constants';
 import { ApplicationError } from '@/errors';
-import { LogSeverities, log, type LogSink } from '@/infra/observability';
+import { log, LogSeverities, type LogSink } from '@/infra/observability';
 
 type BodyParserError = Error & { type?: string; status?: number };
 

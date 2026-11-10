@@ -7,11 +7,11 @@ import {
 } from './CalendarDay';
 import {
   decimalOf,
-  type DecimalInput,
-  type FinanceDecimal,
   ratioOf,
   sumOf,
-  ZERO
+  ZERO,
+  type DecimalInput,
+  type FinanceDecimal
 } from './FinanceMoney';
 import type {
   CalendarDay,

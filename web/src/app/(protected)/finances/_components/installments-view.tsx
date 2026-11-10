@@ -5,25 +5,23 @@ import { useId, useState, type FC } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
-import { Plus } from 'lucide-react';
+import { CreditCard, Plus } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import type {
   InstallmentPlan,
   InstallmentPlanStatus
 } from '@/app/api/v1/finances';
 import {
-  EXPENSE_CATEGORY_LABELS,
   INSTALLMENT_PLAN_DETAIL_PARAM,
-  INSTALLMENT_PLAN_STATUS_LABELS,
   INSTALLMENT_PLAN_STATUSES
 } from '@/common/constants';
-import { formatMoney, updateUrlQuery } from '@/common/utils';
+import { updateUrlQuery } from '@/common/utils';
 import {
   EmptyState,
   ErrorState,
   LoadingState,
   NoResultsState,
-  STALE_DATA_MESSAGE,
   StaleState
 } from '@/components/data-state';
 import { Money } from '@/components/financial';
@@ -47,6 +45,7 @@ import {
   useInstallmentPlans,
   useReferenceDay
 } from '@/hooks/use-finances';
+import { useFormat } from '@/i18n/format';
 import { isNonzeroDecimal } from '@/lib/decimal';
 import { FIRST_PAGE, pageNumberFrom } from '@/lib/pagination';
 import { cn } from '@/lib/utils';
@@ -70,6 +69,9 @@ const SKELETON_ROWS = Array.from({ length: 5 }, (_, row) => row);
 const PlanProgressText: FC<
   Record<'plan', InstallmentPlan> & Record<'today', string>
 > = ({ plan, today }) => {
+  const t = useTranslations('installments.progress');
+  const tFinances = useTranslations('finances');
+  const { formatMoney } = useFormat();
   const {
     status,
     installmentCount,
@@ -79,30 +81,35 @@ const PlanProgressText: FC<
     currency
   } = plan;
 
-  if (status === 'COMPLETED')
-    return `All ${installmentCount} installments paid`;
+  if (status === 'COMPLETED') return t('allPaid', { count: installmentCount });
 
   if (status === 'CANCELLED')
     return isNonzeroDecimal(outstandingAmount)
-      ? `Cancelled, ${formatMoney(outstandingAmount, currency)} still owed`
-      : 'Cancelled';
+      ? t('cancelledOwing', {
+          amount: formatMoney(outstandingAmount, currency)
+        })
+      : t('cancelled');
 
   if (nextDueDate === null || nextInstallmentNumber === null)
-    return `${installmentCount} installments`;
+    return t('installments', { count: installmentCount });
 
-  const distance = dueDistanceOf(nextDueDate, today);
+  const distance = dueDistanceOf(nextDueDate, today, tFinances);
 
   return (
     <>
-      {`Installment ${nextInstallmentNumber} of ${installmentCount}, `}
-
-      <CalendarDayText day={nextDueDate} />
+      {t.rich('next', {
+        number: nextInstallmentNumber,
+        count: installmentCount,
+        day: () => <CalendarDayText day={nextDueDate} />
+      })}
 
       {distance !== null && (
         <span
           className={cn(nextDueDate < today && 'font-medium text-negative')}
         >
-          {` · ${distance}`}
+          {' · '}
+
+          {distance}
         </span>
       )}
     </>
@@ -114,6 +121,9 @@ const PlanRow: FC<
     Record<'href', string> &
     Record<'today', string>
 > = ({ plan, href, today }) => {
+  const t = useTranslations('installments');
+  const tFinances = useTranslations('finances');
+  const { formatMoney } = useFormat();
   const {
     description,
     category,
@@ -137,7 +147,7 @@ const PlanRow: FC<
         </Link>
 
         <span className="text-xs text-muted-foreground">
-          {EXPENSE_CATEGORY_LABELS[category]}
+          {tFinances(`categories.${category}`)}
         </span>
 
         <span className="text-xs text-muted-foreground">
@@ -154,7 +164,9 @@ const PlanRow: FC<
           </span>
 
           <span className="text-xs text-muted-foreground">
-            {`left of ${formatMoney(totalAmount, currency)}`}
+            {t('outstandingOf', {
+              total: formatMoney(totalAmount, currency)
+            })}
           </span>
         </div>
 
@@ -165,6 +177,8 @@ const PlanRow: FC<
 };
 
 export const InstallmentsView: FC = () => {
+  const t = useTranslations('installments');
+  const tFinances = useTranslations('finances');
   const searchParams = useSearchParams();
   const today = useReferenceDay();
   const headingId = useId();
@@ -224,7 +238,7 @@ export const InstallmentsView: FC = () => {
   const statusFilter = (
     <div className="flex items-center gap-2 max-sm:w-full">
       <Label htmlFor={statusId} className="sr-only">
-        Status
+        {t('status')}
       </Label>
 
       <Select
@@ -249,11 +263,11 @@ export const InstallmentsView: FC = () => {
         </SelectTrigger>
 
         <SelectContent>
-          <SelectItem value={ALL_OPTION}>All statuses</SelectItem>
+          <SelectItem value={ALL_OPTION}>{t('allStatuses')}</SelectItem>
 
           {INSTALLMENT_PLAN_STATUSES.map((option) => (
             <SelectItem key={option} value={option}>
-              {INSTALLMENT_PLAN_STATUS_LABELS[option]}
+              {tFinances(`planStatuses.${option}`)}
             </SelectItem>
           ))}
         </SelectContent>
@@ -264,8 +278,8 @@ export const InstallmentsView: FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Installments"
-        description="Purchases paid in installments: what each plan has left and when the next one is due"
+        title={t('title')}
+        description={t('description')}
         action={
           <Button
             size="sm"
@@ -273,21 +287,26 @@ export const InstallmentsView: FC = () => {
             onClick={() => setIsAdding(true)}
           >
             <Plus size={16} aria-hidden="true" />
-            Add plan
+
+            {t('add')}
           </Button>
         }
       />
 
       <section aria-labelledby={headingId} className="min-w-0">
         <Card>
-          <SectionHeader id={headingId} title="Plans" action={statusFilter} />
+          <SectionHeader
+            id={headingId}
+            title={t('plans')}
+            action={statusFilter}
+          />
 
           <CardContent
             aria-busy={isLoading || isPlaceholderData}
             className="space-y-4"
           >
             {isLoading && (
-              <LoadingState label="Loading installment plans">
+              <LoadingState label={t('loading')}>
                 <div aria-hidden="true" className="divide-y">
                   {SKELETON_ROWS.map((row) => (
                     <div
@@ -310,25 +329,20 @@ export const InstallmentsView: FC = () => {
             )}
 
             {data === undefined && isError && (
-              <ErrorState
-                message="The installment plans could not be loaded"
-                onRetry={refetch}
-              />
+              <ErrorState message={t('loadFailed')} onRetry={refetch} />
             )}
 
             {isRefetchError && (
-              <StaleState
-                message={STALE_DATA_MESSAGE}
-                isRetrying={isFetching}
-                onRetry={refetch}
-              />
+              <StaleState isRetrying={isFetching} onRetry={refetch} />
             )}
 
             {data?.total === 0 && status === undefined && (
               <EmptyState
-                message="No installment plans yet"
+                icon={CreditCard}
+                title={t('emptyTitle')}
+                message={t('empty')}
                 action={{
-                  label: 'Add plan',
+                  label: t('add'),
                   onSelect: () => setIsAdding(true)
                 }}
               />
@@ -336,7 +350,7 @@ export const InstallmentsView: FC = () => {
 
             {data?.total === 0 && status !== undefined && (
               <NoResultsState
-                message={`No ${INSTALLMENT_PLAN_STATUS_LABELS[status].toLowerCase()} plans`}
+                message={t('noResults', { status })}
                 onClear={() => updateListing({ status: undefined })}
               />
             )}
@@ -345,9 +359,9 @@ export const InstallmentsView: FC = () => {
               data.total > 0 &&
               data.items.length === 0 && (
                 <EmptyState
-                  message={`No plans on page ${data.page}`}
+                  message={t('emptyPage', { page: data.page })}
                   action={{
-                    label: `Go to page ${data.totalPages}`,
+                    label: t('goToPage', { page: data.totalPages }),
                     onSelect: () => updateListing({ page: data.totalPages })
                   }}
                 />
@@ -355,7 +369,7 @@ export const InstallmentsView: FC = () => {
 
             {data !== undefined && data.items.length > 0 && (
               <ul
-                aria-label="Installment plans"
+                aria-label={t('list')}
                 className={cn(
                   'divide-y transition-opacity sm:grid sm:grid-cols-[minmax(0,1fr)_10rem_auto] sm:gap-x-6',
                   isPlaceholderData && 'opacity-60'
@@ -375,10 +389,10 @@ export const InstallmentsView: FC = () => {
             {data !== undefined && data.total > 0 && (
               <div className="flex justify-end">
                 <PageNavigation
-                  label="Installment plan pages"
+                  label={t('pages')}
                   page={data.page}
                   totalPages={data.totalPages}
-                  detail={`${data.total} ${data.total === 1 ? 'plan' : 'plans'}`}
+                  detail={t('count', { count: data.total })}
                   onPageChange={(nextPage) => updateListing({ page: nextPage })}
                 />
               </div>

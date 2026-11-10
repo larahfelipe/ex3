@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { Plus } from 'lucide-react';
+import Link from 'next/link';
+
+import { Plus, Upload, Wallet } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import { APP_ROUTES } from '@/common/constants';
 import { AssetDialogs, type AssetDialog } from '@/components/asset-dialogs';
@@ -16,9 +19,11 @@ import { PositionsTable } from './_components/positions-table';
 
 export default function Assets() {
   const [assetDialog, setAssetDialog] = useState<Maybe<AssetDialog>>(null);
-  const [hasDeletedAsset, setHasDeletedAsset] = useState(false);
-
+  const hasDeletedAssetRef = useRef(false);
   const addAssetButtonRef = useRef<HTMLButtonElement>(null);
+  const t = useTranslations('investments.overview');
+  const tImports = useTranslations('imports');
+  const tNavigation = useTranslations('navigation.pages');
 
   const {
     data: portfolio,
@@ -33,53 +38,69 @@ export default function Assets() {
       setAssetDialog({ kind, symbol });
 
   useEffect(() => {
-    if (!hasDeletedAsset || assetDialog !== null) return;
+    if (!hasDeletedAssetRef.current || assetDialog !== null) return;
 
-    setHasDeletedAsset(false);
+    hasDeletedAssetRef.current = false;
     addAssetButtonRef.current?.focus();
-  }, [hasDeletedAsset, assetDialog]);
+  }, [assetDialog]);
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Assets"
+        title={tNavigation('assets')}
         isPending={isPending}
         description={
           portfolio
-            ? `${portfolio.name} · Base currency ${portfolio.baseCurrency}`
+            ? t('description', {
+                name: portfolio.name,
+                currency: portfolio.baseCurrency
+              })
             : undefined
         }
         action={
           portfolio && (
-            <Button
-              ref={addAssetButtonRef}
-              size="sm"
-              className="gap-1.5 max-sm:w-full"
-              onClick={() => setAssetDialog({ kind: 'add-asset' })}
-            >
-              <Plus size={16} aria-hidden="true" />
-              Add asset
-            </Button>
+            <div className="flex gap-2 max-sm:w-full">
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="gap-1.5 max-sm:flex-1"
+              >
+                <Link href={APP_ROUTES.Protected.AssetImport}>
+                  <Upload size={16} aria-hidden="true" />
+
+                  {tImports('open')}
+                </Link>
+              </Button>
+
+              <Button
+                ref={addAssetButtonRef}
+                size="sm"
+                className="gap-1.5 max-sm:flex-1"
+                onClick={() => setAssetDialog({ kind: 'add-asset' })}
+              >
+                <Plus size={16} aria-hidden="true" />
+
+                {t('addAsset')}
+              </Button>
+            </div>
           )
         }
       />
 
-      {isPending && (
-        <LoadingState label="Loading your portfolio" className="h-96" />
-      )}
+      {isPending && <LoadingState label={t('loading')} className="h-96" />}
 
       {isError && !portfolio && (
-        <ErrorState
-          message="Your portfolio could not be loaded"
-          onRetry={refetch}
-        />
+        <ErrorState message={t('loadFailed')} onRetry={refetch} />
       )}
 
       {isSuccess && !portfolio && (
         <EmptyState
-          message="No portfolio found for this account"
+          icon={Wallet}
+          title={t('noPortfolioTitle')}
+          message={t('noPortfolio')}
           action={{
-            label: 'Create a portfolio',
+            label: t('createPortfolio'),
             href: APP_ROUTES.Protected.Portfolios
           }}
         />
@@ -98,7 +119,9 @@ export default function Assets() {
             portfolio={portfolio}
             dialog={assetDialog}
             onDialogChange={setAssetDialog}
-            onAssetDeleted={() => setHasDeletedAsset(true)}
+            onAssetDeleted={() => {
+              hasDeletedAssetRef.current = true;
+            }}
           />
         </>
       )}

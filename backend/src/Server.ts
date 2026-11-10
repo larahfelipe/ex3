@@ -1,6 +1,6 @@
 import { app, envs } from '@/config';
 import { PrismaClient } from '@/infra/database/PrismaClient';
-import { LogSeverities, log } from '@/infra/observability';
+import { log, LogSeverities } from '@/infra/observability';
 
 const bootstrap = async () => {
   try {
@@ -21,6 +21,18 @@ const bootstrap = async () => {
       event: 'quote_provider_key_missing'
     });
 
+  if (envs.brapiApiKey === undefined)
+    log({
+      severity: LogSeverities.WARNING,
+      event: 'ticker_catalog_key_missing'
+    });
+
+  if (envs.turnstileSecretKey === undefined)
+    log({
+      severity: LogSeverities.WARNING,
+      event: 'bot_challenge_not_enforced'
+    });
+
   app.listen(envs.port, () =>
     log({
       severity: LogSeverities.INFO,
@@ -30,4 +42,4 @@ const bootstrap = async () => {
   );
 };
 
-bootstrap();
+void bootstrap();

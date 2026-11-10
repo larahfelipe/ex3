@@ -1,6 +1,7 @@
 import { useRef, useState, type FC, type ReactNode } from 'react';
 
 import { Loader2 } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import { FormField } from '@/components/form-field';
 import {
@@ -14,6 +15,7 @@ import {
   Button,
   Input
 } from '@/components/ui';
+import { apiErrorMessageOf } from '@/lib/api-error-message';
 import type { Maybe } from '@/types';
 
 type ConfirmDeletionDialogProps = Record<
@@ -22,6 +24,8 @@ type ConfirmDeletionDialogProps = Record<
 > & {
   description: ReactNode;
   confirmationPhrase?: string;
+  /** For a dialog whose action is itself a cancellation, so its two buttons never read alike. */
+  cancelLabel?: string;
   onCancel: VoidFunction;
   onConfirm: () => Promise<unknown>;
 };
@@ -37,6 +41,7 @@ export const ConfirmDeletionDialog: FC<ConfirmDeletionDialogProps> = ({
   confirmLabel,
   failureMessage,
   confirmationPhrase,
+  cancelLabel,
   onCancel,
   onConfirm
 }) => {
@@ -45,6 +50,8 @@ export const ConfirmDeletionDialog: FC<ConfirmDeletionDialogProps> = ({
   const [typedPhrase, setTypedPhrase] = useState('');
   const [isMismatchShown, setIsMismatchShown] = useState(false);
   const phraseInputRef = useRef<HTMLInputElement>(null);
+  const t = useTranslations('common');
+  const tErrors = useTranslations('errors');
 
   /** NFC on both sides, so a name typed with decomposed accents still matches what it looks like. */
   const isPhraseTyped =
@@ -58,7 +65,7 @@ export const ConfirmDeletionDialog: FC<ConfirmDeletionDialogProps> = ({
     try {
       await onConfirm();
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : failureMessage);
+      setDeleteError(apiErrorMessageOf(error, tErrors, failureMessage));
       setIsDeleting(false);
     }
   };
@@ -108,20 +115,17 @@ export const ConfirmDeletionDialog: FC<ConfirmDeletionDialogProps> = ({
         >
           {confirmationPhrase !== undefined && (
             <FormField
-              label={
-                <>
-                  {'Type '}
-
+              label={t.rich('confirmDeletion.typeToConfirm', {
+                phrase: confirmationPhrase,
+                strong: (chunks) => (
                   <span className="whitespace-pre-wrap wrap-anywhere font-semibold">
-                    {confirmationPhrase}
+                    {chunks}
                   </span>
-
-                  {' to confirm'}
-                </>
-              }
+                )
+              })}
               error={
                 isMismatchShown && !isPhraseTyped
-                  ? 'This does not match the name above'
+                  ? t('confirmDeletion.mismatch')
                   : undefined
               }
             >
@@ -148,7 +152,9 @@ export const ConfirmDeletionDialog: FC<ConfirmDeletionDialogProps> = ({
           )}
 
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>
+              {cancelLabel ?? t('actions.cancel')}
+            </AlertDialogCancel>
 
             <Button
               type="submit"

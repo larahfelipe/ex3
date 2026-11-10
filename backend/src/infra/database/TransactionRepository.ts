@@ -6,20 +6,24 @@ import type {
   TransactionEntry
 } from '@/domain/models';
 import {
+  rebuildPosition,
   type LedgerRefusal,
-  type RebuiltPosition,
-  rebuildPosition
+  type RebuiltPosition
 } from '@/domain/PositionLedger';
 import type { Page } from '@/interfaces';
 
 import { PrismaClient } from './PrismaClient';
 
+/** What the import keeps to trace a transaction to its file is not part of the transaction. */
 const toTransaction = ({
   sequence,
   quantity,
   unitPrice,
   fees,
   taxes,
+  importKey,
+  importedRow,
+  importId,
   ...row
 }: TransactionRow): Transaction => ({
   ...row,

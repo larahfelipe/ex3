@@ -1,17 +1,17 @@
 import type { FC } from 'react';
 
 import { Check, Circle } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
+import { srOnly } from '@/i18n/rich-text';
 import {
   hasPasswordMinLength,
   isDerivedFromEmail,
-  PASSWORD_MIN_LENGTH_REQUIREMENT
+  PASSWORD_MIN_CODE_POINTS
 } from '@/lib/account-schema';
 import { cn } from '@/lib/utils';
 
 type PasswordRequirementsProps = Partial<Record<'password' | 'email', string>>;
-
-const EMAIL_REQUIREMENT = 'Does not include your email';
 
 /**
  * The password rules as the password field's description. Given the password,
@@ -23,12 +23,19 @@ export const PasswordRequirements: FC<PasswordRequirementsProps> = ({
   password,
   email
 }) => {
+  const t = useTranslations('auth.passwordRequirements');
+
+  const minLengthRequirement = t('minLength', {
+    min: PASSWORD_MIN_CODE_POINTS
+  });
+  const emailRequirement = t('notEmail');
+
   if (password === undefined)
     return (
       <ul className="list-disc space-y-1 ps-4">
-        <li>{PASSWORD_MIN_LENGTH_REQUIREMENT}</li>
+        <li>{minLengthRequirement}</li>
 
-        <li>{EMAIL_REQUIREMENT}</li>
+        <li>{emailRequirement}</li>
       </ul>
     );
 
@@ -36,11 +43,11 @@ export const PasswordRequirements: FC<PasswordRequirementsProps> = ({
 
   const requirements = [
     {
-      label: PASSWORD_MIN_LENGTH_REQUIREMENT,
+      label: minLengthRequirement,
       isMet: hasPasswordMinLength(password)
     },
     {
-      label: EMAIL_REQUIREMENT,
+      label: emailRequirement,
       isMet:
         isTyped && (email === undefined || !isDerivedFromEmail(password, email))
     }
@@ -63,9 +70,11 @@ export const PasswordRequirements: FC<PasswordRequirementsProps> = ({
           )}
 
           <span>
-            <span className="sr-only">{isMet ? 'Met: ' : 'Not met: '}</span>
-
-            {label}
+            {t.rich('item', {
+              status: isMet ? 'met' : 'notMet',
+              requirement: label,
+              hidden: srOnly
+            })}
           </span>
         </li>
       ))}

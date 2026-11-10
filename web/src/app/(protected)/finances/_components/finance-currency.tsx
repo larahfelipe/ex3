@@ -2,6 +2,8 @@ import { useEffect, useId, type FC } from 'react';
 
 import { useSearchParams } from 'next/navigation';
 
+import { useTranslations } from 'use-intl';
+
 import { updateUrlQuery } from '@/common/utils';
 import {
   Label,
@@ -80,6 +82,7 @@ export const CurrencyPicker: FC<CurrencyPickerProps> = ({
   currencies,
   onChange
 }) => {
+  const t = useTranslations('common.form');
   const pickerId = useId();
   const offered = currencies.includes(value)
     ? currencies
@@ -93,7 +96,7 @@ export const CurrencyPicker: FC<CurrencyPickerProps> = ({
         htmlFor={pickerId}
         className="text-sm font-normal text-muted-foreground"
       >
-        Currency
+        {t('currency')}
       </Label>
 
       <Select value={value} onValueChange={onChange}>

@@ -34,15 +34,17 @@ arrived without a status and every error became a 500 on the client.
 | Hook | Endpoint | Key | Trigger | Rationale |
 | --- | --- | --- | --- | --- |
 | `useActivePortfolio` | `GET /v1/portfolio?portfolioId=` with a chosen portfolio; otherwise `GET /v1/portfolios?page=1&limit=1` | `['portfolios', 'details', id]` or `['portfolios', 'page', {page,limit}]` | Every protected screen | The chosen portfolio id comes from `localStorage` (`useSyncExternalStore`, with `undefined` on the server so nothing is requested before the read); with no choice, the oldest one. A single cache entry serves every screen |
-| `usePortfolios` | `GET /v1/portfolios` | `['portfolios', 'page', {page,limit}]` | `/portfolios` | The paginated list on the portfolios screen |
+| `usePortfolios` | `GET /v1/portfolios` | `['portfolios', 'page', {page,limit}]` | `/portfolios` and the Overview's `PortfolioSwitcher` | The paginated list on the portfolios screen; the switcher asks for the first 100, the API's largest page, shows nothing below two portfolios and links to the screen when there are more |
 | `useInstrumentSearch` | `GET /v1/instruments/search` | `['instruments', 'search', query]` | `AddAssetDialog`, once the user types | An empty field requests nothing (`skipToken`). A 500 ms debounce, which Enter short-circuits: the pause is that of someone who stopped typing, so one term costs about one of the 30 searches per minute the API grants; each term is a key, and the previous result stays visible while the next loads |
 | `useCurrentUser` | `GET /v1/user` | `['user']` | `sidebar.tsx` and `/account` | Name and email for the navigation header; both consumers share the same key, so it is one request, not two. Saving the profile writes the `PATCH` response into the key, with no new `GET` |
 | `usePortfolioOverview` | `GET /v1/portfolio/overview` | `[...portfolio, 'overview']` | `PortfolioValueCard`, `PortfolioTotalValue` | Aggregate totals the positions listing does not carry. On the portfolios screen, one query per row, under the same key as the Overview: an asset or transaction write invalidates the portfolio scope and updates both |
 | `useAllocation` | `GET /v1/portfolio/allocation` | `[...portfolio, 'allocation']` | `AllocationChart` | Grouping by asset and by class, with percentages computed on the server; the web sorts by percentage |
-| `usePositions` | `GET /v1/portfolio/positions` | `[...portfolio, 'positions', listing]` | The Overview summary and the `/assets` table | Two distinct cuts — 10 unfiltered rows against the filtered, sorted and paginated listing — hence two keys and two requests |
+| `useIncome` | `GET /v1/portfolio/income` | `[...portfolio, 'income']` | `IncomeSummary` on the Overview | The recorded income, net and per currency, summed on the server from the whole ledger; it needs no quote, and a recorded `DIVIDEND`, `JCP` or `INTEREST` reaches it through the portfolio scope's invalidation |
+| `usePositions` | `GET /v1/portfolio/positions` | `[...portfolio, 'positions', listing]` | The Overview summary, `GettingStarted` and the `/assets` table | Distinct cuts — 10 unfiltered rows, the first asset of a portfolio with no transaction yet, and the filtered, sorted and paginated listing — hence distinct keys and requests |
 | `usePosition` | `GET /v1/portfolio/positions/:symbol` | `[...portfolio, 'position', symbol]` | Asset detail | One position with the breakdown the listing does not carry |
-| `usePerformance` | `GET /v1/portfolio/performance` | `[...portfolio, 'performance', params]` | The Overview and detail charts | A time series per period; switching period is another key, fetched once and served from cache on later switches |
-| `useTransactions` | `GET /v1/transactions` | `[...portfolio, 'transactions', filters]` | Overview (last 5) and asset detail (paginated by symbol) | Distinct cuts of the same listing; neither derives from the other |
+| `usePerformance` | `GET /v1/portfolio/performance` | `[...portfolio, 'performance', params]` | The Overview and detail charts | A time series per period; switching period is another key, fetched once and served from cache on later switches. A benchmark chosen in the URL (`?benchmark=`) goes into the same request in both views, so switching between value and return reads one response; a benchmark the catalog lacks answers `404`, and the series is then asked for without it |
+| `useTransactions` | `GET /v1/transactions` | `[...portfolio, 'transactions', filters]` | Overview (last 5) and asset detail (paginated by symbol) | Distinct cuts of the same listing; neither derives from the other. The Overview page and `RecentTransactions` share `RECENT_TRANSACTIONS_PAGE`, so the page reads the listing's `total` from the same request to choose between the sections and the getting-started guide |
+| `useTransactionImports` | `GET /v1/transaction-imports` | `[...portfolio, 'transaction-imports', page]` | The import history on `/assets/import` | Inside the portfolio's scope, so an import or an undo refreshes it with the rest; keeps the previous page while the next loads. The preview, the import and the undo are mutations (`usePreviewTransactionImport`, `useCreateTransactionImport`, `useUndoTransactionImport`), and the preview is never cached: it answers for a file and a selection, not for a key |
 | `useFinanceAlerts` | `GET /v1/finances/alerts` | `['finances', 'alerts', today]` | `sidebar.tsx` on every protected screen; the Bills page | The overdue count on the Finances badge and the due-soon list; a failure leaves the badge out, and the finance pages show the same count with their own error state |
 | `useFinanceSummary` | `GET /v1/finances/summary` | `['finances', 'summary', params]` | `/finances` | Every figure on the overview, in one request, for the chosen currency |
 | `useFinanceSettings` | `GET /v1/finances/settings` | `['finances', 'settings']` | `/finances`, beside the summary | What is flagged — overdue bills, bills and installments due soon — and the lead days, which the Reminders card shows and its dialog edits |
@@ -71,7 +73,11 @@ visible while the requested one loads: paginating, sorting or switching period
 remains **one** request per parameter change, not two. The placeholder applies
 within the same portfolio only (`partialMatchKey` against
 `['portfolio', id]`), so switching the active portfolio shows the loading
-state, never the previous one's numbers.
+state, never the previous one's numbers. The chosen portfolio itself does not
+wait: while `GET /v1/portfolio` confirms it, `useActivePortfolio` shows it as a
+cached `['portfolios', 'page', …]` lists it (`listedPortfolioOf`), so the header
+and the switcher stay mounted, focus included, and its sections start loading at
+once.
 
 Creating, editing or deleting a portfolio invalidates `['portfolios']`; editing
 also invalidates the portfolio scope, because the base currency changes the
@@ -93,10 +99,14 @@ screen's other queries.
 
 ```text
 /v1/portfolios
-└─ in parallel: overview · allocation · performance · positions · transactions
+└─ in parallel: overview · allocation · performance · positions · transactions · portfolio list
 ```
 
-On the Overview that is 1 + 5 requests, the five of them simultaneous. The
+On the Overview that is 1 + 6 requests, the six of them simultaneous; the
+portfolio list is the switcher's, under a key of its own. The sections mount
+while the transaction listing loads, so a portfolio with no transaction still
+asks for everything at once, and the guide takes their place when the listing
+answers with no transaction. The
 extra level is inherent to the current contract — the portfolio id does not
 exist on the client before the listing — and costs one round trip on the
 session's first screen only, because the 60 s of `staleTime` cover later
@@ -120,12 +130,14 @@ run together.
 ## Invalidation
 
 `useRefreshPortfolio` invalidates the `['portfolio', portfolioId]` prefix,
-which reaches overview, allocation, performance, positions, position and
-transactions in one call. It is what runs after creating an asset, creating,
+which reaches overview, allocation, income, performance, positions, position
+and transactions in one call. It is what runs after creating an asset, creating,
 editing and deleting a transaction, and deleting an asset — every write in the
 product — without being awaited: the mutation resolves with the API's response,
 the dialog that fired it closes, and revalidation catches up, with the cached
-data in view until it arrives.
+data in view until it arrives. An import and its undo announce the change the
+same way; an import also invalidates the visible instruments, since it may
+have registered private ones for the asset search.
 
 Two deliberate choices:
 
@@ -139,6 +151,14 @@ Two deliberate choices:
   no data from one account may survive into the next. It is done on mount, not
   on sign-out, because removing queries that are still observed refetches them
   without a session.
+* **A `QueryClient` per server render, one for the browser's life**
+  (`getQueryClient`, `lib/react-query.ts`). TanStack Query never collects a
+  query on the server (its `gcTime` defaults to `Infinity` there), and until
+  2026-10-30 the client was a module singleton: every server render added its
+  visitor's query keys to one cache that lived as long as the process, and a
+  cache written during one request would have reached the next visitor. No
+  query fetches during a server render today, so no data leaked; the memory
+  grew all the same.
 
 ## Request and integration audit — 2026-09-24
 
@@ -150,7 +170,7 @@ the response.
 
 | Write | Optimistic | Reason |
 | --- | --- | --- |
-| Profile name | Yes | The form validates by the same rule as the API, so refusal is rare, and renaming again undoes it. The name changes in the navigation and in the form on submit; a failure restores the previous name and revalidates `['user']`, because a timeout may have saved the new one; the error appears in the form |
+| Profile names | Yes | The form validates by the same rule as the API, so refusal is rare, and renaming again undoes it. The first and last names change in the form, and the full name they make in the navigation, on submit; a failure restores the previous names and revalidates `['user']`, because a timeout may have saved the new one; the error appears in the form |
 | Password | No | Changing the password ends the session on the server (`sessionVersion`); there is no interface state to anticipate |
 | Create, edit and delete a transaction | No | The ledger is validated on the server — a sale above the units held on the date, a single currency per position, a position within the supported range — and every write recomputes position, average cost and performance on the server. Anticipating would show numbers the API may refuse or compute differently |
 | Create an asset | No | The server resolves the instrument, and the private one from the provider's listing; the row depends on a quote the client does not have |
@@ -177,6 +197,23 @@ during revalidation joins it instead of restarting it, and the button stays
 (`QUOTE_TIME_TO_LIVE_MS`), so repeating the refresh within the minute redoes
 the database read but does not call the provider.
 
+When every request settles, a toast reports the outcome. It says the portfolio
+was reloaded, never that prices changed: the API serves what the market-data
+source has published, which may be the same. The refresh counts as failed only
+when an active query of the scope ends in an error a later reload could fix
+(`isReloadable`): a server or network failure, or a `429`, which holds only
+until the rate-limit window resets. Any other `4xx`, such as a benchmark
+missing from the catalog, answers the same however often it is asked, and the
+section that received it already says so.
+
+A reload that succeeds is not always a recovery: the source may still be down,
+so the overview comes back with a price or a rate missing, or with fallback or
+stale prices. `useRefreshPortfolio` resolves with one of three outcomes
+(`RefreshOutcome`): `failed`, as above; `degraded`, when the refetched overview
+in the cache still has `isMarketDataDegraded`; or `reloaded`. A `degraded`
+refresh gets a warning toast that points to the value card's notice, instead of
+the success toast that would say all was well.
+
 ### Backend and provider
 
 | Finding | Fix |
@@ -202,13 +239,14 @@ performance endpoint shows that sort in a measured p95.
 ### Redis: adoption criteria
 
 Not adopted. Everything a shared cache would solve today is solved in the
-process's memory, because the cost it avoids — a provider call, a rate-limit
-count — is per instance and has not been measured yet. It starts to pay off
-when at least one of these is measured:
+process's memory, because the cost it avoids, a provider call, is per instance
+and has not been measured yet. Rate limit counters moved to Postgres, which the
+application already requires, to hold across instances (TD-006; see
+[`security.md`](security.md#rate-limiting)). It starts to pay off when at least
+one of these is measured:
 
-* **Rate limiting across instances (TD-006).** With more than one instance
-  serving traffic, the effective limit is the budget times the number of
-  instances. If that stops being acceptable, the counters need a shared store.
+* **Rate limit writes.** If the write each request adds to `rate_limit_counters`
+  shows up in a measured p95, or as contention on that table.
 * **Provider quota.** If measured plan consumption (TD-020) shows the same
   quote or history window being requested by several instances, or again after
   every cold start, to the point of threatening the quota.

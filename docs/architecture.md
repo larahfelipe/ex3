@@ -78,7 +78,7 @@ performance criteria are in [`accessibility.md`](accessibility.md),
 [`performance.md`](performance.md).
 
 **Proxy.** The Route Handlers under `web/src/app/api/v1` are the boundary: they
-read the `httpOnly` `ex3:token` cookie, send `Authorization: Bearer` to the
+read the `httpOnly` session cookie, send `Authorization: Bearer` to the
 backend and return the API's body. The browser never receives the token or the
 backend URL — `API_URL` exists only on the Next server. A handler that merely
 forwards delegates all of this to `forwardToApi`, in
@@ -194,11 +194,22 @@ receives with zod — a provider response is untrusted input. It caches a quote
 for 60s, joins a symbol already in flight — and, for history, a window already
 in flight — into the same request, caches an empty history window for one hour
 and, after a failure, answers for 30s with the last observed quote instead of
-insisting, recording `quote_provider_unavailable`. It also resolves a ticker
-across the listings the provider carries — name, class, market and currency,
-from the same quote request, cached for one hour — and the sector, from the
-asset profile, so that registering an instrument does not ask the user for
-those attributes.
+insisting, recording `quote_provider_unavailable`; a `429`, from any endpoint,
+pauses it for as long as `Retry-After` asks. No more than four requests go out
+at once, those to the quote endpoint ahead of histories and profiles. It also
+resolves tickers across the listings the provider carries — name, class, market
+and currency, from the same quote request, several tickers per request, only in
+the currency a caller names, each answer cached for one hour — and the sector,
+from the asset profile, so that registering an instrument does not ask the user
+for those attributes.
+
+An import resolves its tickers through `CatalogListingSource`: what
+`BrapiTickerCatalog` holds — every B3 ticker brapi lists, read whole in a few
+requests and kept for a day — it answers from the catalog, with the sector, and
+it asks `YahooFinanceProvider` about the rest in one search, or about every
+ticker while the catalog is unavailable. The asset search and registering an
+asset by hand still ask Yahoo alone. Quotes and history come from Yahoo either
+way.
 
 A provider failure never becomes a 500: the port answers `not-found`,
 `unavailable` or `range-not-served`, and the service omits from the body the
@@ -257,5 +268,6 @@ decisions, and what has already been fixed, are in
 * Per-use-case composition is written by hand in the controllers' `index.ts`.
   It is explicit and needs no injection container, at the cost of repetition
   when a service gains a dependency.
-* The frontend has no test runner; its gates are `lint`, `typecheck` and
-  `build`.
+* The frontend's unit tests cover formatting, dates, decimals, error wording,
+  the catalogs and component markup; there is no browser or end-to-end
+  runner. Its gates are `lint`, `typecheck`, `test` and `build`.

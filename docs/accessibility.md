@@ -40,6 +40,8 @@ Automation covers part of the set; no item below counts as met merely because
 | K5 | No keyboard trap outside a modal dialog | 2.1.2 · full walkthrough with `Tab` and `Shift+Tab` |
 | K6 | Minimum touch target of 24×24 px; 44×44 px in the main navigation | 2.5.8 (AA) and 2.5.5 as an internal rule · `NAVIGATION_ITEM_CLASS` in `sidebar.tsx` |
 | K7 | Authentication accepts pasting into a password field and requires no transcription of a secret | 3.3.8 · `sign-in` and `sign-up` with no `paste` blocking |
+| K8 | A series chart is a `slider` over its points: `Arrow`, `Home`, `End`, `Page Up` and `Page Down` move the reading, `Esc` and leaving it let go, and each point is announced through `aria-valuetext` | 2.1.1, 4.1.2 · `SeriesChart` in `series-chart.tsx`, named and described by `PerformanceChart` and the price chart |
+| K9 | A long option list is a `combobox` that filters as one types: typing on the closed field, or `Arrow`, opens it with focus in the search box; `Arrow` moves through the matches, `Page Up` and `Page Down` jump to the first and the last, `Enter` picks, `Esc` and `Tab` close it and give focus back to the field. The active option is named through `aria-activedescendant`, and the number of matches is announced politely | 2.1.1, 4.1.2, 4.1.3 · `SearchableSelect` in `searchable-select.tsx`: the category and portfolio pickers |
 
 ## 2. Focus
 
@@ -48,7 +50,7 @@ Automation covers part of the set; no item below counts as met merely because
 | F1 | A visible indicator on every focusable element, with the pair `focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2` and `ring-offset-background`, without which Tailwind 4 paints the gap white | 2.4.7 · `components/ui/button.tsx`, `input.tsx`, `checkbox.tsx` and every component's own control |
 | F2 | Opening an overlay moves focus inside it | 2.4.3 · Radix; no competing `autoFocus` |
 | F3 | Closing an overlay returns focus to the originating element | 2.4.3 · Radix, provided the trigger is still mounted on close |
-| F4 | No focused element is removed from the tree without focus going to a predictable destination | 2.4.3 · changing page, clearing filters, deleting a row; `QuerySection` returns focus to the section's `<h2>` when the content changes and focus falls to `body` |
+| F4 | No focused element is removed from the tree without focus going to a predictable destination | 2.4.3 · changing page, clearing filters, deleting a row; `QuerySection` returns focus to the section's `<h2>` when the content changes and focus falls to `body`; hiding the Overview's getting-started guide moves focus to the header's "Add asset" button, the next step it pointed to; inside the guide, focus lost with the add-asset button once the asset lands goes to the next step's button, and focus lost as the guide completes or leaves goes to the header's "Add asset" button |
 | F5 | The focused element is not covered by the fixed navigation bar or by an overlay | 2.4.11 · `sm` viewport with the bottom bar; `--navigation-bar` already reserves the space in `(protected)/layout.tsx` |
 | F6 | Focus does not change context because of typing or of a value change | 3.2.1, 3.2.2 · search, filter selects and forms |
 
@@ -70,7 +72,7 @@ Automation covers part of the set; no item below counts as met merely because
 | --- | --- | --- |
 | C1 | Normal text ≥ 4.5:1 and large text ≥ 3:1 against its own background | 1.4.3 · measured per token/surface pair |
 | C2 | A border, a state and the focus indicator ≥ 3:1 against what is adjacent | 1.4.11 · `--border`, `--focus`, `--input` |
-| C3 | Colour is the only vector of no information: a sign, a label or an icon accompanies the tone | 1.4.1 · `signedValueTone`, `Trend`, `ProfitLoss` |
+| C3 | Colour is the only vector of no information: a sign, a label or an icon accompanies the tone | 1.4.1 · `signedValueTone`, `Trend`, `ProfitLoss`; the benchmark line is dashed and named in a legend, and the market-data warning carries an icon and text |
 | C4 | No literal colour in the code: everything comes from the tokens in `globals.css` | 1.4.3 · sweep for `#`, `rgb(` and `hsl(` outside `globals.css`; the single exception, `APP_THEME_COLOR`, the theme's `--background` in hex for `theme-color`, which the browser reads without resolving a token |
 | C5 | Text resizable to 200% and reflow at 320 px with no loss of content | 1.4.4, 1.4.10 · relative units; verified alongside PHASE 15 |
 
@@ -92,6 +94,8 @@ browser's default. The measured ratios are in §Measured contrast.
 | P5 | An identity or credential field has `autocomplete` | 1.3.5 · `sign-in`, `sign-up`, `account` |
 | P6 | The submit result — success and failure — is announced without stealing focus | 4.1.3 · `role="alert"` in the form and a `sonner` toast |
 | P7 | Data already provided in the flow is not asked for again without need | 3.3.7 · the chained asset and transaction dialogs |
+| P8 | An optional group of fields waits behind a button that names what it adds; revealing it focuses its first field, and it opens on its own when it already holds a value or when one of its fields reports an error, so the focus moved to the first invalid field always lands on something visible | 2.4.3, 3.3.1 · `DeferredSection` in `form-field.tsx`: the payment details of a bill, plan or series and of a payment |
+| P9 | A numeric field accepts only what it can parse: an amount fills from the right as digits are typed, and a count or quantity drops any other character, with the caret kept in place | 3.3.1 · `MoneyInput` in `money-input.tsx` and `NumberInput` in `number-input.tsx`; the currency picked beside an amount is named for the AT, not only by its symbol |
 
 ## 6. Dialogs
 
@@ -112,7 +116,7 @@ browser's default. The measured ratios are in §Measured contrast.
 | N3 | Count, pagination and total change inside `aria-live="polite"` | 4.1.3 · `PageNavigation`, in `page-navigation.tsx`, in the four paginated listings |
 | N4 | A toast is never the only channel of an error that blocks the task | 4.1.3 · the state also appears in the affected region |
 | N5 | Stale data displayed during a refetch is marked with `aria-busy` on the container | 4.1.3 · `isPlaceholderData` in `positions-table.tsx` and `performance-chart.tsx` |
-| N6 | Under `prefers-reduced-motion`, non-essential animation and transition are neutralized in `globals.css`; the busy indicator keeps spinning, more slowly. framer-motion follows the same preference: `MotionScope` (`MotionConfig reducedMotion="user"`) turns off the slide of the panels and of the `SegmentedControl`'s indicator, which merely change place, and keeps the fade; the panel's height, which is not a transform, changes with no transition through `useReducedMotion`. Under `prefers-reduced-transparency`, the dialogs' overlay loses the blur and becomes more opaque | 2.3.3 · the `@media (prefers-reduced-motion: reduce)` block; touch transform under `motion-safe:`; `MotionScope` and `SlideTransition` |
+| N6 | Under `prefers-reduced-motion`, non-essential animation and transition are neutralized in `globals.css`; the busy indicator keeps spinning, more slowly. framer-motion follows the same preference: `MotionScope` (`MotionConfig reducedMotion="user"`) turns off the slide of the panels and of the `SegmentedControl`'s indicator, which merely change place, and keeps the fade; the panel's height, which is not a transform, changes with no transition through `useReducedMotion`, and otherwise animates only on a switch of panel, never while a panel grows on its own. Under `prefers-reduced-transparency`, the dialogs' overlay loses the blur and becomes more opaque | 2.3.3 · the `@media (prefers-reduced-motion: reduce)` block; touch transform under `motion-safe:`; `MotionScope` and `SlideTransition` |
 | N7 | No automatic content update outside the user's control | 2.2.2 · a refetch is fired by an action or by a mutation's invalidation |
 
 ## Known gaps at capture
@@ -149,7 +153,8 @@ before measuring. No browser is needed to repeat the measurement — the inputs
 are the tokens themselves.
 
 The 78 pairs measured in each palette pass the threshold of the rule they
-exercise, as of the palette revision of 2026-09-24 (below): text of each tone
+exercise, as of the palette revision of 2026-09-24 (below), and the pairs over
+a token changed in the revision of 2026-10-29 were measured again: text of each tone
 over background, surface and elevated surface, a solid button's label including
 on hover, text over the tone at 10%, field border, focus ring and each chart
 colour over the card. The script lives outside the repository; the inputs are
@@ -159,9 +164,12 @@ current ones, with the pre-TD-053 ones in parentheses:
 
 | Pair | Where it appears | Light (was) | Dark (was) | Threshold |
 | --- | --- | --- | --- | --- |
-| `--destructive` as text | the deletion action in `transaction-details-dialog.tsx`, in the row menu of `positions-table.tsx` and in the list of `portfolios/page.tsx` | 5.75:1 (3.76:1) | 7.02:1, 5.97:1 over `--surface-elevated` (2.01:1) | 4.5:1 |
+| `--destructive` as text | the deletion item of `positions-table.tsx`'s row menu at rest | 5.75:1 (3.76:1) | 7.02:1, 5.65:1 over `--popover`, the menu's (2.01:1) | 4.5:1 |
+| `--destructive` over `bg-destructive/10` | the `destructive-subtle` button — the deletion action of the transaction detail, the portfolio list and the bill, plan and series dialogs — and the focused deletion item in `positions-table.tsx`'s row menu; `/12` on hover, `/14` when pressed | 4.88:1, 4.72:1 on hover, 4.56:1 pressed (new) | over `--surface-elevated`: 5.27:1, 5.09:1, 4.89:1; over `--surface`: 5.76:1, 5.58:1, 5.38:1; the focused menu item over `--popover`: 4.87:1 (new) | 4.5:1 |
+| `--primary` over `bg-primary/10` | the number of the getting-started guide's current step, over the card | 5.01:1 | 5.15:1 | 4.5:1 |
+| `--secondary-foreground` over `--secondary` | a toast's action, inside the toast's `--surface-elevated`; `/0.8` on hover | 16.12:1, 16.43:1 on hover | 12.97:1, 13.52:1 on hover | 4.5:1 |
 | `--primary-foreground` over `--primary` | the label of every primary button; `/0.9` on hover | 5.57:1, 4.66:1 on hover (16.95:1, with the navy `--primary`) | 5.71:1, 4.78:1 on hover (3.49:1) | 4.5:1 |
-| `--border`/`--input` over `--background` | field border, the control's only visual cue | `--input` 3.52:1 (1.24:1) | `--input` 3.63:1, 3.08:1 over `--surface-elevated` (1.33:1) | 3:1 |
+| `--border`/`--input` over `--background` | field border, the control's only visual cue | `--input` 4.20:1 (1.24:1) | `--input` 4.19:1, 3.93:1 over `--surface`, 3.62:1 over `--surface-elevated` (1.33:1) | 3:1 |
 | `--destructive-foreground` over `--destructive` | solid deletion button; `/0.9` on hover | 5.50:1, 4.84:1 on hover (3.60:1) | 6.53:1, 5.44:1 on hover (9.59:1) | 4.5:1 |
 | `--muted-foreground` over `--muted` | secondary text on a highlight surface | 4.91:1 (4.39:1) | 5.37:1 (6.00:1) | 4.5:1 |
 | `--warning` over `bg-warning/10` | alert chip | 5.00:1 (4.40:1) | 9.63:1 (10.28:1) | 4.5:1 |
@@ -169,10 +177,10 @@ current ones, with the pre-TD-053 ones in parentheses:
 `--border` remains below 3:1 in both palettes (1.24:1 light, 1.42:1 dark) by
 decision: since the correction it is a decorative separator only, and every
 interactive control — input, select, segmented control — uses `--input` for the
-border, which passes. In the dark palette, `--input` sits at 42% lightness, the
-minimum that still yields 3:1 over `--surface-elevated`, the lightest background
-under a field, the one every dialog has: the border is as discreet as 1.4.11
-allows. `AlertDialog`/`Dialog` uses `bg-scrim` instead of `bg-black` for the
+border, which passes. In the dark palette, `--input` sits at 46% lightness,
+3.62:1 over `--surface-elevated`, the lightest background under a field, the one
+every dialog has: a margin over 1.4.11's floor that gives a field its outline,
+while staying far below the text, so the border never outweighs the label. `AlertDialog`/`Dialog` uses `bg-scrim` instead of `bg-black` for the
 overlay — at 60% with blur, or at 80% without blur under
 `prefers-reduced-transparency` — and `Input`/`SelectTrigger`/the notes textarea
 gained `aria-invalid:border-negative`, so the invalid state is also visible
@@ -181,9 +189,11 @@ outside focus.
 The remaining pairs pass in both palettes, with room to spare: default text
 20.14:1 and 18.48:1; `--muted-foreground` over `--background` 5.40:1 and 7.65:1;
 `--negative` 5.42:1 and 7.02:1; `--positive` 5.96:1 and 10.05:1; `--info` 5.94:1
-and 9.17:1; focus ring 20.14:1 and 6.15:1, 5.23:1 over `--surface-elevated`; the
-weakest chart colour, 3.02:1 (`--chart-9`, light) and 4.68:1 (`--chart-1`,
-dark), over the card.
+and 9.17:1; focus ring 20.14:1 and 6.15:1, 5.30:1 over `--surface-elevated` and
+4.94:1 over `--popover`; the weakest chart colour, 3.02:1 (`--chart-9`, light)
+and 4.75:1 (`--chart-1`, dark), over the card. The revision of 2026-10-29 brings
+two dark pairs closer to the threshold, both over the lighter `--accent`:
+`--destructive` 4.53:1 and `--muted-foreground` 4.94:1.
 
 The light palette still has no runtime consumer (TD-048): the measurement proves
 it would pass if enabled, not that it was seen rendered. TD-053 is resolved —
@@ -205,6 +215,19 @@ taste alone.
 | Light: `--positive` 24% → 23% and `--negative` 51% → 47% | they failed in pairs the code produces: the `success` button's label on hover, 4.40:1, and negative text over `bg-negative/10`, in the authentication notice and in the "Sign out" hover, 4.11:1 |
 | `ring-offset-background` on the sort button of `positions-table.tsx` and on the `summary` of `performance-chart.tsx` | Tailwind 4.3 paints the `ring-offset-2` gap with `--tw-ring-offset-color`, `#fff` by default: both painted a white band between the control and the orange ring in the dark theme |
 | `theme-color` from `#070707` to `APP_THEME_COLOR` (`#0e0e0e`) | follows the new `--background`; the name and the comment tie the literal to the token |
+
+### Palette revision — 2026-10-29
+
+The dark palette gains a fourth level, and fields and surfaces gain
+definition; the background, and so `APP_THEME_COLOR`, stay as they were.
+
+| Change | Reason |
+| --- | --- |
+| Dark: `--surface` 9.2% → 8.8%, `--surface-elevated` 12.3% → 11.6% and a `--popover` of its own, 14.3%, in L* 7.5, 11 and 14.5 over the background's 4 | the menus, selects, popovers and chart readings used the dialog's surface, so a select opened in a dialog had the dialog's fill and only its border set it apart. The fourth level keeps the equal steps, now 3.5 L*, which brings the card half a step closer to the page it sits on |
+| Dark: `--accent` 18.1% → 20.2% (L* 21.5) | it stays 7 L* above the lightest surface it appears on, now the popover, where it marks the focused option. `--muted`, `--secondary` and `--border` stay at 18.1%, so the `DialogFooter`'s divider keeps its contrast |
+| `--input` 42% → 46% dark and 55% → 50% light | fields with more definition: 3.62:1 over the elevated surface instead of 3.09:1, and 4.20:1 over white instead of 3.52:1 |
+| `SelectContent`, `PopoverContent`, `DropdownMenuContent` and the readings of `SeriesChart` and `finance-charts.tsx`: `bg-surface-elevated` → `bg-popover` | every floating layer on one token, a level above the dialog it can open from |
+| `--shadow-surface` and `--shadow-elevated` with a 1 px highlight inside the top edge, `--surface-highlight` (white at 5% dark, none light), and the card's shadow at 40% black in the dark palette, `--surface-shade` | a shadow at 5% black does not show over a dark background; the highlight sets the card off from the page by its edge rather than by more lightness. Tailwind inlines a theme shadow's value and only wraps its colours, so redefining `--shadow-*` per palette would have no effect: the shadows reference colour tokens that each palette sets |
 
 Left as they were: the chart colours, which pass 3:1 over the card in both
 palettes; the achromatic neutrals, because tinting them would be aesthetics
@@ -423,3 +446,28 @@ the old password refused and with the new one accepted.
 | Finding | Fix |
 | --- | --- |
 | Only the portfolio's value warned when the new fetch failed and the displayed value came from the cache; the Overview's other sections, the asset detail and the positions table showed the previous values as current (TD-024, N2, 4.1.3) | `StaleState` with a retry in `QuerySection`, above every section's content, and in the positions table, with the same message (`STALE_DATA_MESSAGE`) |
+
+## Names, pagination and brand (2026-10-29)
+
+| Change | Accessibility |
+| --- | --- |
+| Sign-up and the account screen split the name into first name and last name, `PersonNameFields`, side by side from 24 rem of the form's width and stacked below it | each field keeps its visible `<Label htmlFor>` (P1) and `autoComplete` `given-name`/`family-name` (1.3.5); the last name is marked optional in the label, not by the placeholder |
+| `PageNavigation`'s "Previous" and "Next" became chevron buttons, 36×36 px | the accessible name, "Previous page" and "Next page", comes from `aria-label` (S6) and shows as a tooltip through `title`; the chevrons are `aria-hidden`. The end buttons keep `aria-disabled` and their focus (F4), with the outline button's dimmed state |
+| The sidebar's "EX3" became a link to the Overview | the name says where it goes, "EX3, overview", and keeps the visible text at its start (2.5.3); 32 px drawn with a 44 px target (K6), the same hover and focus ring as the items. It is shown from `sm` up, as the brand was; below, the bottom bar's first tab is the Overview |
+
+## Audit — 2026-10-30
+
+| Finding | Criterion | Change |
+| --- | --- | --- |
+| The toast's close button was sonner's 20 × 20 px | 2.5.8 Target Size (Minimum) | `size-6!` in `components/toaster.tsx`: 24 px |
+| The dialog's close button was exactly 24 px, the minimum, and a long title could run under it | 2.5.8 (met before, now with margin); the overlap is a visual defect, under no criterion | 32 px target around the same icon, at the same place; `DialogTitle` keeps clear of it |
+| An unknown address showed Next's default 404, in English, titled only "EX3", with no way back | 2.4.2 Page Titled; 3.1.1 Language of Page (English text under `lang="pt-BR"`) | `app/not-found.tsx`: translated, titled, with a link to the Overview |
+| A page that failed to render took the whole app down to the global fallback, navigation included, and focus fell to `<body>` | 2.4.3 Focus Order; 3.2.3 Consistent Navigation | `app/(protected)/error.tsx`: the layout stays, and the heading takes focus |
+| One click on a form dialog's backdrop threw away everything typed | 3.3.4 Error Prevention, applied beyond its legal and financial scope | `DialogContent`'s `hasUnsavedChanges`, set by each form's `isDirty` |
+
+Not verified in a browser: this machine has none, and the component tests
+render markup only, with no DOM to dispatch a pointer event in. The backdrop
+guard is checked by type and by reading Radix's `onPointerDownOutside`
+contract, the target sizes in the compiled CSS. No automated checker (axe or
+Lighthouse) ran, and no screen reader was used; both remain to be done in a
+browser.

@@ -3,13 +3,13 @@ import type { MarketDataProvider } from '@/domain/MarketDataProvider';
 import {
   holdsUnits,
   matchesPositionFilter,
+  PositionSortFields,
+  sortPositionsBy,
+  valuePositionsInBaseCurrency,
   type PortfolioPosition,
   type PositionFilter,
   type PositionSortField,
-  PositionSortFields,
-  type SortOrder,
-  sortPositionsBy,
-  valuePositionsInBaseCurrency
+  type SortOrder
 } from '@/domain/PortfolioValuation';
 import type { AssetRepository, PortfolioRepository } from '@/infra/database';
 import type { Page } from '@/interfaces';

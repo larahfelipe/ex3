@@ -1,11 +1,18 @@
 import {
+  createContext,
+  use,
   useId,
+  useState,
   type FC,
   type InputHTMLAttributes,
   type ReactNode
 } from 'react';
+import { flushSync } from 'react-dom';
 
-import { Label } from '@/components/ui';
+import { Plus } from 'lucide-react';
+import { useTranslations } from 'use-intl';
+
+import { Button, Label } from '@/components/ui';
 import { APPEAR_CLASS } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
@@ -27,11 +34,24 @@ type FormFieldProps = FieldDescription & {
   children: (control: FieldControlProps) => ReactNode;
 };
 
+type FormSectionProps = Record<'title', string> &
+  Partial<Record<'isOptional', boolean>> &
+  Partial<Record<'action' | 'children', ReactNode>> &
+  Partial<Record<'className', string>>;
+
+type DeferredSectionProps = Omit<FormSectionProps, 'isOptional'> &
+  Record<'revealLabel', string> &
+  Record<'onReveal', VoidFunction> &
+  Partial<Record<'isInitiallyRevealed' | 'hasError', boolean>>;
+
 type ChoiceFieldProps = FieldDescription & {
   legend: string;
   className?: string;
   children: ReactNode;
 };
+
+/** Inside an optional section the title already says so, and its fields do not repeat it. */
+const OptionalSectionContext = createContext(false);
 
 const useFieldDescription = ({ hint, error }: FieldDescription) => {
   const hintId = useId();
@@ -74,19 +94,26 @@ export const FormField: FC<FormFieldProps> = ({
 }) => {
   const controlId = useId();
   const { describedBy, description } = useFieldDescription({ hint, error });
+  const isInOptionalSection = use(OptionalSectionContext);
+  const t = useTranslations('common.form');
 
   const fieldLabel = (
     <Label htmlFor={controlId}>
-      {label}
-
-      {isOptional && (
-        <span className="font-normal text-muted-foreground"> (optional)</span>
-      )}
+      {isOptional && !isInOptionalSection
+        ? t.rich('optionalLabel', {
+            label: () => label,
+            muted: (chunks) => (
+              <span className="font-normal text-muted-foreground">
+                {chunks}
+              </span>
+            )
+          })
+        : label}
     </Label>
   );
 
   return (
-    <div className={cn('space-y-1.5', className)}>
+    <div className={cn('space-y-2', className)}>
       {action === undefined ? (
         fieldLabel
       ) : (
@@ -124,15 +151,98 @@ export const ChoiceField: FC<ChoiceFieldProps> = ({
       data-invalid={error !== undefined || undefined}
       className={className}
     >
-      <legend className="mb-1.5 text-sm font-medium leading-none">
+      <legend className="mb-2 text-sm font-medium leading-none">
         {legend}
       </legend>
 
       {children}
 
       {describedBy !== undefined && (
-        <div className="mt-1.5 space-y-1.5">{description}</div>
+        <div className="mt-2 space-y-1.5">{description}</div>
       )}
     </fieldset>
+  );
+};
+
+/** A titled group of a form's fields, with an optional control beside the title. */
+export const FormSection: FC<FormSectionProps> = ({
+  title,
+  isOptional = false,
+  action,
+  className,
+  children
+}) => {
+  const titleId = useId();
+  const t = useTranslations('common.form');
+
+  return (
+    <div
+      role="group"
+      aria-labelledby={titleId}
+      className={cn('grid min-w-0 gap-3', className)}
+    >
+      <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <h3
+          id={titleId}
+          className="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+        >
+          {isOptional
+            ? t.rich('optionalSectionTitle', {
+                title: () => title,
+                muted: (chunks) => (
+                  <span className="font-normal tracking-normal normal-case">
+                    {chunks}
+                  </span>
+                )
+              })
+            : title}
+        </h3>
+
+        {action}
+      </div>
+
+      <OptionalSectionContext value={isOptional}>
+        <div className="grid gap-4">{children}</div>
+      </OptionalSectionContext>
+    </div>
+  );
+};
+
+/**
+ * An optional section that waits behind a button until it is asked for, so a
+ * form opens on what it needs. It is open from the start when it already holds
+ * something, and opens for good when one of its fields reports an error.
+ * `onReveal` runs once its fields are in the page, to focus the first.
+ */
+export const DeferredSection: FC<DeferredSectionProps> = ({
+  revealLabel,
+  onReveal,
+  isInitiallyRevealed = false,
+  hasError = false,
+  ...section
+}) => {
+  const [isRevealed, setIsRevealed] = useState(isInitiallyRevealed);
+
+  if (hasError && !isRevealed) setIsRevealed(true);
+
+  if (isRevealed || hasError) return <FormSection isOptional {...section} />;
+
+  return (
+    <div>
+      <Button
+        type="button"
+        variant="outline"
+        size="xs"
+        className="gap-1.5"
+        onClick={() => {
+          flushSync(() => setIsRevealed(true));
+          onReveal();
+        }}
+      >
+        <Plus size={14} aria-hidden="true" />
+
+        {revealLabel}
+      </Button>
+    </div>
   );
 };

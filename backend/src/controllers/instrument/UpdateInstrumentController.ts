@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { UpdateInstrumentService } from '@/services/instrument';
 import { validate } from '@/validation';
 import { UpdateInstrumentSchema } from '@/validation/schema';
@@ -22,7 +22,7 @@ export class UpdateInstrumentController implements Controller {
     return UpdateInstrumentController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user, body, params } = req;
 
     const { symbol, attributes } = await validate(UpdateInstrumentSchema, {

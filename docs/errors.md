@@ -59,6 +59,10 @@ the gap recorded in [`observability.md`](observability.md) during TASK 18.1.
 
 * Services throw the category's class; nothing outside `src/errors` constructs
   an `ApplicationError` directly.
+* `ApplicationError` extends `Error`, so a rejection carries a stack and
+  `instanceof Error` holds for it, as the type-aware `only-throw-error`
+  requires of what is thrown; its `name` is the subclass's. None of that reaches the client: the
+  boundary picks `code`, `message` and `details` explicitly.
 * `ErrorHandlerMiddleware` is the only boundary that writes the
   `{ code, message, details }` envelope, converts whatever is not an
   `ApplicationError` into `INTERNAL`, and records the code in `req.errorCode`.
@@ -66,3 +70,7 @@ the gap recorded in [`observability.md`](observability.md) during TASK 18.1.
   refused field. In every other category it is `[]`, always present.
 * No response carries a stack, SQL or driver message: see
   [`api-inventory.md`](api-inventory.md), §Response shape.
+* The web does not show `message` as it arrives:
+  `web/src/lib/api-error-message.ts` rewords a known message in Portuguese and
+  anything else by its `code`, as described in
+  [`i18n.md`](i18n.md#error-messages).

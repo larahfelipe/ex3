@@ -1,6 +1,7 @@
 import type { DecimalString, Maybe, Page, PageParams } from '@/types';
 
 import type { Portfolio } from '../portfolios';
+import type { TransactionType } from '../transactions';
 
 export type InstrumentType =
   | 'STOCK'
@@ -32,6 +33,17 @@ export type PortfolioOverview = WithBaseCurrency &
   > &
   Partial<Record<'quotedAt', string>>;
 
+/** Why a price or a rate is missing: the source is down, or it does not know the symbol or the pair. */
+export type MarketDataGapReason = 'unavailable' | 'not-found';
+
+type MarketDataGap = Record<'reason', MarketDataGapReason>;
+
+/** What the overview's value was built from: what is left out of it and how fresh the rest is. */
+export type MarketDataStatus = Record<'valuedPositionCount', number> &
+  Record<'missingQuotes', Array<Record<'symbol', string> & MarketDataGap>> &
+  Record<'missingRates', Array<Record<'currency', string> & MarketDataGap>> &
+  Record<'isFallback' | 'isStale', boolean>;
+
 export type PortfolioPosition = WithBaseCurrency &
   Record<'symbol' | 'name', string> &
   Record<'quantity', DecimalString> &
@@ -59,7 +71,8 @@ export type PortfolioAllocation = WithBaseCurrency &
     byCurrency: Array<Record<'currency', Maybe<string>> & AllocationShare>;
   };
 
-export type GetPortfolioOverviewResponseData = PortfolioOverview;
+export type GetPortfolioOverviewResponseData = PortfolioOverview &
+  Record<'marketData', MarketDataStatus>;
 
 export type PositionSortField = keyof Pick<
   PortfolioPosition,
@@ -111,12 +124,32 @@ export type PerformanceRange = '1W' | '1M' | '3M' | '6M' | '1Y' | 'YTD' | 'MAX';
 export type PerformancePoint = Record<'date', string> &
   Record<'value' | 'investedValue' | 'netContribution' | 'twr', DecimalString>;
 
+/** The period from its first point to its last; the percentage is left out when the first value is zero. */
+export type PerformanceSummary = Record<
+  'valueChange' | 'netContribution' | 'twr',
+  DecimalString
+> &
+  Partial<Record<'valueChangePercent', DecimalString>>;
+
+/**
+ * A day's price return in the base currency since the portfolio's first point.
+ * A day of the portfolio without a close or a rate near it has no point here.
+ */
+export type BenchmarkPoint = Record<'date', string> &
+  Record<'close' | 'twr', DecimalString>;
+
+export type PerformanceBenchmark = Record<'symbol' | 'name', string> &
+  Record<'currency', Maybe<string>> &
+  Record<'series', Array<BenchmarkPoint>>;
+
 export type PortfolioPerformance = WithBaseCurrency &
   Record<'from' | 'to', string> &
-  Record<'series', Array<PerformancePoint>>;
+  Record<'series', Array<PerformancePoint>> &
+  Partial<Record<'summary', PerformanceSummary>> &
+  Partial<Record<'benchmark', PerformanceBenchmark>>;
 
 export type PerformanceParams = Record<'range', PerformanceRange> &
-  Partial<Record<'symbol', string>>;
+  Partial<Record<'symbol' | 'benchmark', string>>;
 
 export type GetPortfolioPerformanceRequestParams = PortfolioScopeParams &
   PerformanceParams;
@@ -153,6 +186,24 @@ export type PositionIndicators = Partial<{
 }>;
 
 export type GetPositionIndicatorsResponseData = PositionIndicators;
+
+export type IncomeType = Extract<
+  TransactionType,
+  'DIVIDEND' | 'JCP' | 'INTEREST'
+>;
+
+/** Net of fees and taxes: all that was recorded, and what was executed since `trailingFrom`. */
+export type IncomeTotals = Record<'total' | 'trailingTotal', DecimalString>;
+
+export type CurrencyIncome = Record<'currency', string> &
+  IncomeTotals &
+  Record<'byType', Array<Record<'type', IncomeType> & IncomeTotals>>;
+
+/** Each currency apart and unconverted, the base currency first; one without income is left out. */
+export type PortfolioIncome = Record<'trailingFrom', string> &
+  Record<'byCurrency', Array<CurrencyIncome>>;
+
+export type GetPortfolioIncomeResponseData = PortfolioIncome;
 
 /** A multiple, as `12.5` for 12.5 times, or a share of one, as `0.12` for 12%. */
 export type FundamentalRatio =

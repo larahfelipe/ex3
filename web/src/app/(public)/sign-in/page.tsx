@@ -5,15 +5,17 @@ import {
   SIGN_IN_PARAMS,
   SIGN_IN_REASONS
 } from '@/common/constants';
+import { getServerTranslator } from '@/i18n/server';
+import { botChallengeSiteKey } from '@/lib/bot-challenge';
 
 import { AuthAlternative } from '../_components/auth-alternative';
 import { AuthNotice } from '../_components/auth-notice';
 import { PublicPageHeader } from '../_components/public-page-header';
 import { SignInForm } from './_components/sign-in-form';
 
-export const metadata: Metadata = {
-  title: 'Sign in'
-};
+export const generateMetadata = async (): Promise<Metadata> => ({
+  title: (await getServerTranslator('navigation.pages'))('signIn')
+});
 
 /**
  * The return path arrives in the address bar, so only a path on this origin is
@@ -36,24 +38,28 @@ export default async function SignIn({ searchParams }: SignInProps) {
       : APP_ROUTES.Protected.Overview;
   const hasSessionExpired =
     params[SIGN_IN_PARAMS.Reason] === SIGN_IN_REASONS.SessionExpired;
+  const t = await getServerTranslator('auth.signIn');
 
   return (
     <>
-      <PublicPageHeader title="Sign in to your account" />
+      <PublicPageHeader title={t('title')} />
 
       <section>
         {hasSessionExpired && (
           <AuthNotice tone="warning" className="mb-6">
-            Your session expired. Sign in again to continue.
+            {t('sessionExpired')}
           </AuthNotice>
         )}
 
-        <SignInForm destination={destination} />
+        <SignInForm
+          destination={destination}
+          challengeSiteKey={botChallengeSiteKey()}
+        />
 
         <AuthAlternative
-          question="Not registered?"
+          question={t('noAccount')}
           href={APP_ROUTES.Public.SignUp}
-          label="Create account"
+          label={t('createAccount')}
         />
       </section>
     </>

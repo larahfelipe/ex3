@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { GetInstallmentPlanService } from '@/services/finance';
 import { validate } from '@/validation';
 import { InstallmentPlanReadSchema } from '@/validation/schema';
@@ -22,7 +22,7 @@ export class GetInstallmentPlanController implements Controller {
     return GetInstallmentPlanController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user, params, query } = req;
 
     const plan = await validate(InstallmentPlanReadSchema, {

@@ -99,8 +99,24 @@ exchange rate; a partial one would report a smaller portfolio as if it had lost
 value. `quotedAt` is the **earliest** instant among the quotes and exchange
 rates used: it describes the age of the total, not of the last query.
 
+The overview's `marketData` says what the totals rest on, so an incomplete or
+old valuation is explained rather than shown as complete:
+
+| Field | Meaning |
+| --- | --- |
+| `valuedPositionCount` | positions with units that have a quote and the rate from its currency |
+| `missingQuotes` | `{ symbol, reason }` of each position with units without a quote |
+| `missingRates` | `{ currency, reason }` of each currency, of a quote or of a cost that is not zero, without a rate to the base currency |
+| `isFallback` | some quote or rate used is the last one received, answered because the source failed |
+| `isStale` | `quotedAt` is more than 4 days old (`STALE_QUOTE_AFTER_DAYS`), longer than a weekend |
+
+`reason` is `not-found` when the source does not know the symbol or the pair,
+which retrying does not change, and `unavailable` when the source failed or has
+no key, which it may. A quote is the last traded price, timestamped by the
+market, and the source is not real time.
+
 `backend/src/domain/PositionValuation.ts`,
-`backend/src/domain/PortfolioValuation.ts`
+`backend/src/domain/PortfolioValuation.ts` (`describeMarketData`)
 
 ## P&L
 
@@ -143,6 +159,13 @@ below `totalValue` by less than `n · 10⁻¹⁸`, and below 1 by less than
 
 `allocatePortfolio`, in `backend/src/domain/PortfolioValuation.ts`
 
+**Concentration.** The Overview's asset view names the largest position's share
+and, with more than three positions, the three largest together. The web adds
+the API's own `allocation` strings in `bigint` units of `10⁻¹⁸`
+(`concentrationOf`, `web/src/lib/decimal.ts`), so the figure is exact and never
+recomputed from values; with a single position or a position without a share,
+nothing is said.
+
 ## Performance
 
 The daily series of the portfolio's value in the base currency. The window ends
@@ -155,19 +178,23 @@ at the start of the current day in UTC, exclusive, and starts at:
 | `MAX` | the day of the ledger's first transaction |
 
 A day becomes a point of the series only when every position held on it, and
-every transaction executed on it, has a close and an exchange rate. Each day's
-position is rebuilt from the ledger up to that day's close, so a transaction
-entered retroactively moves the whole series before it.
+every transaction executed since the previous point, has a close and an
+exchange rate. Each day's position is rebuilt from the ledger up to that day's
+close, so a transaction entered retroactively moves the whole series before it.
 
-Each entry's cash flow, in the base currency of the day:
+Each entry's cash flow, in the base currency at the point's rate:
 
 ```text
 BUY                        +(q · p + f + t)        contribution
 BONUS                      +(f + t)
 SELL                       −(q · p − f − t)        withdrawal
 DIVIDEND, JCP, INTEREST    −(q · p − f − t)        distribution
-netContribution(day) = Σ of the flows of the entries executed on that day
+netContributionᵢ = Σ of the flows executed after point i−1's close, up to point i's
 ```
+
+The first point counts from the start of the window. A transaction on a day
+without a point — a weekend, or a day some held position has no close — still
+counts once, at the next point, and never as a gain.
 
 The time-weighted return, chained from the first point:
 
@@ -180,6 +207,19 @@ twrᵢ    = growthᵢ − 1
 Subtracting the day's contribution before dividing is what keeps money put in or
 taken out from counting as a gain. An interval with no points makes the
 following return span the whole interval. `twr` is a fraction: `0.1` is 10%.
+
+The period's `summary`, from the first point to the last:
+
+```text
+valueChange        = value_last − value_first
+valueChangePercent = valueChange ÷ value_first                       (absent if value_first = 0)
+netContribution    = Σ netContributionᵢ, i > 1
+twr                = twr_last
+```
+
+`valueChange` is not a return: it includes the money put in or taken out,
+`netContribution`, and the movement of prices and exchange rates. The web shows
+it as the change in value, next to that money, and keeps `twr` for the return.
 
 `trackPortfolioPerformance`, in `backend/src/domain/PortfolioPerformance.ts`
 
@@ -203,8 +243,22 @@ date still receives it. Two rules:
 
 A position's income is summed in
 `GET /v1/portfolio/positions/:symbol/indicators` (see Position indicators,
-below). For the portfolio there is no aggregation: no route returns a monthly
-total, a yearly total or the whole portfolio's `yield`.
+below). The portfolio's is summed in `GET /v1/portfolio/income`
+(`summarizeIncome`, in `backend/src/domain/PortfolioIncome.ts`):
+
+* Each payment counts net, `q · p − f − t`, under the currency it was recorded
+  in. **Currencies are not added together**: converting them would take a rate
+  the ledger does not settle — the day's of each payment or today's — and
+  either choice would make a past amount move with the exchange rate. Each
+  currency has its own totals, the base currency first.
+* `total` is everything recorded up to now; `trailingTotal`, what was executed
+  from `trailingFrom` on, the same one-year window as a position's
+  `trailingIncome`, inclusive of its first instant.
+* `byType` splits both totals by `DIVIDEND`, `JCP` and `INTEREST`, leaving out a
+  type with no payment.
+* Only what was recorded counts: there is no forecast, no announced but unpaid
+  income and no portfolio-wide `yield`, which would need one cost in one
+  currency.
 
 ## Position indicators
 
@@ -319,15 +373,25 @@ An optional comparison series in `GET /v1/portfolio/performance`, by catalog
 symbol:
 
 ```text
-twr(day) = close(day) ÷ close(window's first day) − 1
+valueBase(point) = close(point) · rate(point)                    rate = 1 in the base currency
+twr(point)       = valueBase(point) ÷ valueBase(portfolio's first point) − 1
 ```
 
-It is a pure price return: it does not reinvest the index's income and does not
-convert currency — the series comes with the `currency` the benchmark is quoted
-in, and it falls to whoever reads it not to compare different currencies without
-a caveat. Empty when the first close is zero or the window has no close.
+It is measured on the portfolio's own points, so both series start on the same
+day and span the same window, and in the portfolio's base currency, at the rate
+of each day, so an exchange-rate move counts in both alike. `close` and `rate`
+are each the latest on or before the point, at most 7 days earlier
+(`BENCHMARK_CARRY_DAYS`), because the benchmark's market may be closed on a day
+the portfolio's trade; both are read from 7 days before the window for that. A
+later point without them is left out; without them on the first point, or with a
+zero value there, the series is empty. `close` is the quoted close, in the
+benchmark's `currency`.
 
-`returnsOf`, in `backend/src/domain/PortfolioPerformance.ts`
+It is a pure price return: it does not reinvest the benchmark's income, while
+the portfolio's `twr` counts the income it was paid. The web says so beside the
+comparison.
+
+`benchmarkReturnsOf`, in `backend/src/domain/PortfolioPerformance.ts`
 
 ## Drawdown and risk metrics
 
@@ -338,6 +402,11 @@ the input those numbers would need, and no web screen displays a risk measure.
 
 ## What these definitions do not do
 
+* **There are no portfolio goals or rebalancing hints.** No target allocation
+  is stored, so no gap or suggestion is computed; see
+  [Open decisions](domain-model.md#open-decisions).
+* **Recorded income is not converted.** `GET /v1/portfolio/income` keeps each
+  currency apart; see [Dividends](#dividends).
 * **There is no per-lot cost.** The average cost is weighted over the whole
   position; FIFO, LIFO and specific cost are not options.
 * **The realized result does not enter P&L.** `profitLoss` is always the

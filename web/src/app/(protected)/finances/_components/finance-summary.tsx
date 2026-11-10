@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { CircleAlert, Clock } from 'lucide-react';
 
 import type { Change, CurrencyAmount } from '@/app/api/v1/finances';
-import { formatMoney, formatPercent } from '@/common/utils';
 import { Card, CardContent } from '@/components/ui';
+import { useFormat, type Format } from '@/i18n/format';
+import type { Translator } from '@/i18n/translator';
 import { isNonzeroDecimal } from '@/lib/decimal';
 import { cn } from '@/lib/utils';
 
@@ -27,7 +28,10 @@ const ALERT_ICONS = {
   warning: { Icon: Clock, className: 'text-warning' }
 } as const;
 
-export const totalsText = (totals: ReadonlyArray<CurrencyAmount>) =>
+export const totalsText = (
+  totals: ReadonlyArray<CurrencyAmount>,
+  { formatMoney }: Format
+) =>
   totals
     .map(({ amount, currency }) => formatMoney(amount, currency))
     .join(' · ');
@@ -39,6 +43,7 @@ export const AlertTotals: FC<
     Record<'totals', ReadonlyArray<CurrencyAmount>> &
     Partial<Record<'href', string>>
 > = ({ tone, title, totals, href }) => {
+  const format = useFormat();
   const { Icon, className } = ALERT_ICONS[tone];
   const content = (
     <>
@@ -51,7 +56,7 @@ export const AlertTotals: FC<
         <span className="block text-sm font-semibold">{title}</span>
 
         <span className="block text-sm text-muted-foreground tabular-nums wrap-anywhere">
-          {totalsText(totals)}
+          {totalsText(totals, format)}
         </span>
       </span>
     </>
@@ -80,20 +85,31 @@ const UNSIGNED: Intl.NumberFormatOptions = { signDisplay: 'never' };
 
 /**
  * More or less than the previous period, in words: spending more is neither
- * good nor bad by itself, so the change carries no gain or loss color.
+ * good nor bad by itself, so the change carries no gain or loss color. The
+ * period is `lastMonth`, or a phrase for the previous one, such as
+ * "em out. de 2026".
  */
 export const changeTextOf = (
   { amount, percent }: Change,
   currency: string,
-  period: string
+  period: string,
+  t: Translator<'finances.summary'>,
+  { formatMoney, formatPercent }: Format
 ) => {
-  if (!isNonzeroDecimal(amount)) return `Same as ${period}`;
+  if (!isNonzeroDecimal(amount)) return t('same', { period });
 
-  const direction = amount.startsWith('-') ? 'less' : 'more';
-  const percentText =
-    percent === null ? '' : ` (${formatPercent(percent, UNSIGNED)})`;
+  const money = formatMoney(amount, currency, UNSIGNED);
+  const amountText =
+    percent === null
+      ? money
+      : t('withPercent', {
+          amount: money,
+          percent: formatPercent(percent, UNSIGNED)
+        });
 
-  return `${formatMoney(amount, currency, UNSIGNED)}${percentText} ${direction} than ${period}`;
+  return amount.startsWith('-')
+    ? t('less', { amount: amountText, period })
+    : t('more', { amount: amountText, period });
 };
 
 /** A headline figure that opens the records it counts. */

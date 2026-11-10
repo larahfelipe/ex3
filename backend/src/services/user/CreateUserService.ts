@@ -1,5 +1,6 @@
 import { UserMessages } from '@/config';
 import type { Portfolio, User } from '@/domain/models';
+import { personNames } from '@/domain/PersonName';
 import { ConflictError } from '@/errors';
 import type { Jwt } from '@/infra/cryptography';
 import type { UserRepository } from '@/infra/database';
@@ -29,7 +30,8 @@ export class CreateUserService {
   }
 
   async execute({
-    name,
+    firstName,
+    lastName,
     email,
     password,
     baseCurrency,
@@ -38,7 +40,7 @@ export class CreateUserService {
     const account = await this.userRepository.add({
       email,
       password,
-      name: name ?? '',
+      ...personNames(firstName ?? null, lastName ?? null),
       portfolio: { name: portfolioName ?? FIRST_PORTFOLIO_NAME, baseCurrency }
     });
 
@@ -60,8 +62,9 @@ export class CreateUserService {
 }
 
 namespace CreateUserService {
-  export type DTO = Pick<User, 'name' | 'email' | 'password'> &
+  export type DTO = Pick<User, 'email' | 'password'> &
     Pick<Portfolio, 'baseCurrency'> &
+    Partial<Pick<User, 'firstName' | 'lastName'>> &
     Partial<Record<'portfolioName', Portfolio['name']>>;
   export type Result = {
     user: Omit<User, 'password' | 'isAdmin' | 'sessionVersion' | 'portfolios'> &

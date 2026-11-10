@@ -16,6 +16,40 @@
   }
 }
 
+/*
+ * The authentication pages' backdrop: a warm glow that cools towards indigo,
+ * from the `--brand-glow-*` tokens, so it follows the theme without an image.
+ * Each glow eases out over two stops rather than one, so they blend into one
+ * wash instead of reading as separate spots.
+ */
+@utility bg-brand-glow {
+  background-color: hsl(var(--brand-glow-base));
+  background-image:
+    radial-gradient(
+      55% 35% at 18% 6%,
+      hsl(var(--brand-glow-highlight) / 0.45),
+      transparent
+    ),
+    radial-gradient(
+      120% 70% at 5% 0%,
+      hsl(var(--brand-glow-warm) / 0.85),
+      hsl(var(--brand-glow-warm) / 0.35) 45%,
+      transparent
+    ),
+    radial-gradient(
+      100% 75% at 100% 50%,
+      hsl(var(--brand-glow-rose) / 0.45),
+      hsl(var(--brand-glow-rose) / 0.15) 50%,
+      transparent
+    ),
+    radial-gradient(
+      110% 70% at 10% 105%,
+      hsl(var(--brand-glow-cool) / 0.4),
+      hsl(var(--brand-glow-cool) / 0.12) 50%,
+      transparent
+    );
+}
+
 @theme {
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
@@ -84,30 +118,13 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
 
-  --shadow-surface: 0 1px 2px 0 hsl(0 0% 0% / 0.05);
-  --shadow-elevated: 0 12px 32px -12px hsl(0 0% 0% / 0.55);
-
-  --animate-accordion-down: accordion-down 0.2s ease-out;
-  --animate-accordion-up: accordion-up 0.2s ease-out;
-
-  --transition-property-default: all 0.2s ease;
-
-  @keyframes accordion-down {
-    from {
-      height: 0;
-    }
-    to {
-      height: var(--radix-accordion-content-height);
-    }
-  }
-  @keyframes accordion-up {
-    from {
-      height: var(--radix-accordion-content-height);
-    }
-    to {
-      height: 0;
-    }
-  }
+  /* Each shadow's top edge catches the light: a highlight that shows only where the theme sets one. */
+  --shadow-surface:
+    inset 0 1px 0 0 hsl(var(--surface-highlight)),
+    0 1px 2px 0 hsl(var(--surface-shade));
+  --shadow-elevated:
+    inset 0 1px 0 0 hsl(var(--surface-highlight)),
+    0 12px 32px -12px hsl(0 0% 0% / 0.55);
 }
 
 @layer base {
@@ -119,6 +136,9 @@
     --surface-foreground: 224 71.4% 4.1%;
     --surface-elevated: 0 0% 100%;
     --surface-elevated-foreground: 224 71.4% 4.1%;
+    --surface-highlight: 0 0% 100% / 0;
+    --surface-shade: 0 0% 0% / 0.05;
+    --popover: 0 0% 100%;
     --primary: 21 100% 35%;
     --primary-foreground: 210 20% 98%;
     --secondary: 220 14.3% 95.9%;
@@ -138,7 +158,7 @@
     --info: 201 96% 32%;
     --info-foreground: 0 0% 98%;
     --border: 220 13% 91%;
-    --input: 220 9% 55%;
+    --input: 220 9% 50%;
     --focus: 224 71.4% 4.1%;
     --scrim: 224 71.4% 4.1%;
     --radius: 0.75rem;
@@ -152,23 +172,31 @@
     --chart-8: 243 75% 59%;
     --chart-9: 85 85% 35%;
     --chart-10: 293 69% 49%;
+    --brand-glow-base: 240 40% 98%;
+    --brand-glow-highlight: 36 100% 70%;
+    --brand-glow-warm: 21 100% 62%;
+    --brand-glow-rose: 347 85% 70%;
+    --brand-glow-cool: 255 85% 75%;
   }
 
   .dark {
     color-scheme: dark;
     --background: 0 0% 5.5%;
     --foreground: 0 0% 98%;
-    --surface: 0 0% 9.2%;
+    --surface: 0 0% 8.8%;
     --surface-foreground: 0 0% 98%;
-    --surface-elevated: 0 0% 12.3%;
+    --surface-elevated: 0 0% 11.6%;
     --surface-elevated-foreground: 0 0% 98%;
+    --surface-highlight: 0 0% 100% / 0.05;
+    --surface-shade: 0 0% 0% / 0.4;
+    --popover: 0 0% 14.3%;
     --primary: 21 100% 50%;
     --primary-foreground: 0 0% 9%;
     --secondary: 0 0% 18.1%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 18.1%;
     --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 18.1%;
+    --accent: 0 0% 20.2%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 91% 71%;
     --destructive-foreground: 0 0% 9%;
@@ -181,7 +209,7 @@
     --info: 198 93% 60%;
     --info-foreground: 0 0% 9%;
     --border: 0 0% 18.1%;
-    --input: 0 0% 42%;
+    --input: 0 0% 46%;
     --focus: 21 100% 50%;
     --scrim: 0 0% 0%;
     --chart-1: 21 100% 45%;
@@ -194,13 +222,17 @@
     --chart-8: 234 89% 74%;
     --chart-9: 82 85% 67%;
     --chart-10: 292 91% 73%;
+    --brand-glow-base: 240 30% 8%;
+    --brand-glow-highlight: 32 100% 62%;
+    --brand-glow-warm: 21 100% 50%;
+    --brand-glow-rose: 347 85% 60%;
+    --brand-glow-cool: 255 85% 65%;
   }
 
   :root,
   .dark {
     --card: var(--surface);
     --card-foreground: var(--surface-foreground);
-    --popover: var(--surface-elevated);
     --popover-foreground: var(--surface-elevated-foreground);
     --navigation-rail: 5rem;
     --navigation-sidebar: 13rem;
@@ -299,6 +331,32 @@
 [data-sonner-toaster]:active [data-sonner-toast][data-swipe-out='false'],
 [data-document-hidden] [data-sonner-toast][data-swipe-out='false'] {
   animation-play-state: paused;
+}
+
+/*
+ * A list in a popover scrolls behind a thin scrollbar rather than scroll
+ * buttons, and keeps the page behind it still. Radix hides the scrollbar of
+ * its select lists from an unlayered style of its own, so this is unlayered
+ * and more specific.
+ */
+.popover-list,
+.popover-list[data-radix-select-viewport] {
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.45) transparent;
+}
+
+.popover-list::-webkit-scrollbar,
+.popover-list[data-radix-select-viewport]::-webkit-scrollbar {
+  display: block;
+  width: 0.5rem;
+}
+
+.popover-list::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
+  background-color: hsl(var(--muted-foreground) / 0.45);
 }
 
 @media (prefers-reduced-motion: reduce) {

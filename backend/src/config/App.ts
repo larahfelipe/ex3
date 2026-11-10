@@ -5,12 +5,12 @@ import helmet from 'helmet';
 import {
   apiRateLimitMiddleware,
   errorHandlerMiddleware,
+  jsonBodyMiddleware,
   notFoundMiddleware,
   requestLogMiddleware
 } from '@/middleware';
-import { router } from '@/routes';
+import { healthRouter, router } from '@/routes';
 
-import { RequestLimits } from './Constants';
 import { envs } from './Envs';
 
 /**
@@ -41,10 +41,32 @@ app.disable('x-powered-by');
  */
 app.set('trust proxy', envs.isProduction ? 1 : false);
 
+/**
+ * Every answer is JSON for one caller, about one account, so no cache on the
+ * way may keep it, and no page may embed or execute it.
+ */
+const helmetOptions: Parameters<typeof helmet>[0] = {
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] }
+  },
+  frameguard: { action: 'deny' }
+};
+
 app.use(requestLogMiddleware);
-app.use(helmet());
+app.use(helmet(helmetOptions));
+app.use((_req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 app.use(cors(corsOptions));
-app.use(express.json({ limit: RequestLimits.JSON_BODY_SIZE }));
+app.use(jsonBodyMiddleware);
+/**
+ * The probes answer before the limiter, whose counters are in the database: a
+ * database outage must fail readiness, not liveness, and an orchestrator that
+ * polls them is not a client to throttle.
+ */
+app.use(healthRouter);
 app.use(apiRateLimitMiddleware);
 app.use(router);
 app.use(notFoundMiddleware);

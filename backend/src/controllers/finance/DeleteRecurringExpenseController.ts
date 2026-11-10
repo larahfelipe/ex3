@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { DeleteRecurringExpenseService } from '@/services/finance';
 import { validate } from '@/validation';
 import { RecurringExpenseParamsSchema } from '@/validation/schema';
@@ -25,7 +25,7 @@ export class DeleteRecurringExpenseController implements Controller {
     return DeleteRecurringExpenseController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user, params } = req;
 
     const { id } = await validate(RecurringExpenseParamsSchema, params);

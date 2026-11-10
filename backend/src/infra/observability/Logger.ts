@@ -18,9 +18,33 @@ export type LogEvent =
   | { event: 'database_connected' }
   | { event: 'database_unreachable'; reason: string }
   | { event: 'quote_provider_key_missing' }
-  | { event: 'quote_provider_unavailable'; reason: string; retryInMs: number }
+  | { event: 'bot_challenge_not_enforced' }
+  | { event: 'bot_challenge_unavailable'; reason: string }
+  | {
+      event: 'quote_provider_unavailable';
+      reason: string;
+      limit?: 'rate' | 'quota';
+      retryInMs: number;
+    }
   | { event: 'quote_provider_request_failed'; reason: string }
+  | { event: 'quote_provider_fallback_served'; count: number }
+  | { event: 'ticker_catalog_key_missing' }
+  | { event: 'ticker_catalog_loaded'; count: number }
+  | { event: 'ticker_catalog_unavailable'; reason: string; retryInMs: number }
+  | {
+      event: 'valuation_incomplete';
+      portfolioId: string;
+      heldPositionCount: number;
+      valuedPositionCount: number;
+      missingQuotes: Array<Record<'symbol' | 'reason', string>>;
+      missingRates: Array<Record<'currency' | 'reason', string>>;
+    }
   | { event: 'dependency_unavailable'; dependency: 'database'; reason: string }
+  | {
+      event: 'rate_limit_store_failed';
+      operation: 'decrement' | 'get' | 'increment' | 'reset' | 'sweep';
+      reason: string;
+    }
   | {
       event: 'http_request';
       requestId: string;

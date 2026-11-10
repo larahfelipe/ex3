@@ -11,15 +11,21 @@ export type WithStatusHeader = {
   statusText: string;
 };
 
+/**
+ * `message` is technical, for logs: the interface words an error from its
+ * `_error`, its status and `retryAfterSeconds` (see `apiErrorMessageOf`).
+ */
 export type ApiProxyErrorData = {
   _error: ApiServerErrorData | null;
   message: string;
+  /** From a throttled answer's `Retry-After`; null when it named no delay. */
+  retryAfterSeconds?: number | null;
 };
 
 export type ApiProxyErrorFields = WithStatusHeader & ApiProxyErrorData;
 
-export const UNEXPECTED_ERROR_MESSAGE =
-  'Something went wrong. Please try again later';
+/** The technical message of an error that carries no other; it never reaches the interface. */
+export const UNEXPECTED_ERROR_MESSAGE = 'Unexpected error';
 
 const VALIDATION_ERROR_CODE = 'VALIDATION';
 
@@ -46,6 +52,7 @@ export const isDomainError = ({ _error }: Pick<ApiProxyErrorData, '_error'>) =>
 
 export class ApiProxyError extends AxiosError implements ApiProxyErrorFields {
   _error: ApiServerErrorData | null = null;
+  retryAfterSeconds: number | null = null;
   statusText: string = 'Internal Server Error';
   override status: number = 500;
   override message: string;
@@ -57,5 +64,6 @@ export class ApiProxyError extends AxiosError implements ApiProxyErrorFields {
     this.statusText = init?.statusText ?? this.statusText;
     this.status = init?.status ?? this.status;
     this._error = init?._error ?? null;
+    this.retryAfterSeconds = init?.retryAfterSeconds ?? null;
   }
 }

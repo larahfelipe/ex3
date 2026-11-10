@@ -1,8 +1,8 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { UpdateAssetService } from '@/services/asset';
-import { validate } from '@/validation';
+import { fieldsOf, validate } from '@/validation';
 import { UpdateAssetSchema } from '@/validation/schema';
 
 export class UpdateAssetController implements Controller {
@@ -22,16 +22,12 @@ export class UpdateAssetController implements Controller {
     return UpdateAssetController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user, body, params } = req;
 
     const { oldSymbol, newSymbol, portfolioId } = await validate(
       UpdateAssetSchema,
-      {
-        oldSymbol: params.symbol,
-        newSymbol: body.newSymbol,
-        portfolioId: body.portfolioId
-      }
+      { ...fieldsOf(body), oldSymbol: params.symbol }
     );
 
     const result = await this.updateAssetService.execute({

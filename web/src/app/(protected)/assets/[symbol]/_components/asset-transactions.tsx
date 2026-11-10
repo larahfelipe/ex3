@@ -1,5 +1,7 @@
 import type { FC } from 'react';
 
+import { useTranslations } from 'use-intl';
+
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { EmptyState, LoadingState } from '@/components/data-state';
 import { PageNavigation } from '@/components/page-navigation';
@@ -19,6 +21,7 @@ export const AssetTransactions: FC<AssetTransactionsProps> = ({
   portfolio,
   symbol
 }) => {
+  const t = useTranslations('investments.asset.transactions');
   const [requestedPage, goToPage] = usePageParam(TRANSACTIONS_PAGE_PARAM);
 
   const transactionsQuery = useTransactions(portfolio, {
@@ -29,19 +32,19 @@ export const AssetTransactions: FC<AssetTransactionsProps> = ({
 
   return (
     <QuerySection
-      title="Transactions"
+      title={t('title')}
       query={transactionsQuery}
-      errorMessage="The transactions could not be loaded"
-      loading={<LoadingState label="Loading transactions" />}
+      errorMessage={t('loadFailed')}
+      loading={<LoadingState label={t('loading')} />}
       isEmpty={({ total }) => total === 0}
-      empty={<EmptyState message="No transactions for this asset" />}
+      empty={<EmptyState message={t('empty')} />}
     >
       {({ items, page, totalPages }) =>
         items.length === 0 ? (
           <EmptyState
-            message={`No transactions on page ${page}`}
+            message={t('emptyPage', { page })}
             action={{
-              label: `Go to page ${totalPages}`,
+              label: t('goToPage', { page: totalPages }),
               onSelect: () => goToPage(totalPages)
             }}
           />
@@ -55,7 +58,7 @@ export const AssetTransactions: FC<AssetTransactionsProps> = ({
 
             {totalPages > FIRST_PAGE && (
               <PageNavigation
-                label="Transactions pages"
+                label={t('pages')}
                 page={page}
                 totalPages={totalPages}
                 onPageChange={goToPage}

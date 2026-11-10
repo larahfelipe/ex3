@@ -4,11 +4,11 @@ import { describe, it } from 'node:test';
 import { TransactionTypes } from '@/config/Constants';
 
 import {
-  type DailyPrice,
-  PerformanceRanges,
   performanceRangeOf,
-  type PortfolioLedgerEntry,
-  trackPortfolioPerformance
+  PerformanceRanges,
+  trackPortfolioPerformance,
+  type DailyPrice,
+  type PortfolioLedgerEntry
 } from './PortfolioPerformance';
 
 const NOW = new Date('2026-09-16T14:30:00.000Z');
@@ -151,6 +151,93 @@ describe('trackPortfolioPerformance', () => {
       [
         { value: '100', netContribution: '100', twr: '0' },
         { value: '220', netContribution: '110', twr: '0.1' }
+      ]
+    );
+  });
+
+  it('counts money put in on a day without a point at the next point, not as a gain', () => {
+    const { series } = trackPortfolioPerformance({
+      baseCurrency: 'BRL',
+      range: { from: day('2026-09-14'), to: day('2026-09-17') },
+      ledger: [
+        ...BOUGHT_IN_BASE_CURRENCY,
+        tradeOf(TransactionTypes.BUY, '2026-09-15T13:00:00.000Z', '10', '10')
+      ],
+      instruments: quotedIn('BRL', [
+        closeOn('2026-09-14', '10'),
+        closeOn('2026-09-16', '10')
+      ]),
+      ratesByCurrency: new Map()
+    });
+
+    assert.deepEqual(
+      series.map(({ date, value, netContribution, twr }) => ({
+        date,
+        value,
+        netContribution,
+        twr
+      })),
+      [
+        {
+          date: day('2026-09-14'),
+          value: '100',
+          netContribution: '100',
+          twr: '0'
+        },
+        {
+          date: day('2026-09-16'),
+          value: '200',
+          netContribution: '100',
+          twr: '0'
+        }
+      ]
+    );
+  });
+
+  it('carries money put in on a day left out to the next point, at its rate', () => {
+    const { series } = trackPortfolioPerformance({
+      baseCurrency: 'BRL',
+      range: { from: day('2026-09-14'), to: day('2026-09-17') },
+      ledger: [
+        ...BOUGHT_IN_FOREIGN_CURRENCY,
+        tradeOf(
+          TransactionTypes.BUY,
+          '2026-09-15T13:00:00.000Z',
+          '2',
+          '10',
+          'USD'
+        )
+      ],
+      instruments: quotedIn('USD', [
+        closeOn('2026-09-14', '10'),
+        closeOn('2026-09-15', '10'),
+        closeOn('2026-09-16', '10')
+      ]),
+      ratesByCurrency: new Map([
+        ['USD', [closeOn('2026-09-14', '5'), closeOn('2026-09-16', '6')]]
+      ])
+    });
+
+    assert.deepEqual(
+      series.map(({ date, value, netContribution, twr }) => ({
+        date,
+        value,
+        netContribution,
+        twr
+      })),
+      [
+        {
+          date: day('2026-09-14'),
+          value: '100',
+          netContribution: '100',
+          twr: '0'
+        },
+        {
+          date: day('2026-09-16'),
+          value: '240',
+          netContribution: '120',
+          twr: '0.2'
+        }
       ]
     );
   });
@@ -302,7 +389,114 @@ describe('trackPortfolioPerformance', () => {
     );
   });
 
-  it('returns the benchmark over its first close of the range', () => {
+  it("returns the benchmark from the portfolio's first point, on its points", () => {
+    const { benchmark } = trackPortfolioPerformance({
+      baseCurrency: 'BRL',
+      range: RANGE,
+      ledger: BOUGHT_IN_BASE_CURRENCY,
+      instruments: quotedIn('BRL', [
+        closeOn('2026-09-14', '10'),
+        closeOn('2026-09-15', '11')
+      ]),
+      ratesByCurrency: new Map(),
+      benchmark: {
+        symbol: 'BOVA11',
+        name: 'iShares Ibovespa',
+        currency: 'BRL',
+        closes: [
+          closeOn('2026-09-11', '90'),
+          closeOn('2026-09-14', '100'),
+          closeOn('2026-09-15', '110')
+        ]
+      }
+    });
+
+    assert.deepEqual(benchmark, {
+      symbol: 'BOVA11',
+      name: 'iShares Ibovespa',
+      currency: 'BRL',
+      series: [
+        { date: day('2026-09-14'), close: '100', twr: '0' },
+        { date: day('2026-09-15'), close: '110', twr: '0.1' }
+      ]
+    });
+  });
+
+  it('returns a benchmark quoted in another currency in the base currency', () => {
+    const { benchmark } = trackPortfolioPerformance({
+      baseCurrency: 'BRL',
+      range: RANGE,
+      ledger: BOUGHT_IN_BASE_CURRENCY,
+      instruments: quotedIn('BRL', [
+        closeOn('2026-09-14', '10'),
+        closeOn('2026-09-15', '10')
+      ]),
+      ratesByCurrency: new Map([
+        ['USD', [closeOn('2026-09-14', '5'), closeOn('2026-09-15', '6')]]
+      ]),
+      benchmark: {
+        symbol: 'VOO',
+        name: 'Vanguard S&P 500',
+        currency: 'USD',
+        closes: [closeOn('2026-09-14', '100'), closeOn('2026-09-15', '100')]
+      }
+    });
+
+    assert.deepEqual(
+      benchmark?.series.map(({ close, twr }) => ({ close, twr })),
+      [
+        { close: '100', twr: '0' },
+        { close: '100', twr: '0.2' }
+      ]
+    );
+  });
+
+  it("carries the benchmark's latest close over a day its market is closed", () => {
+    const { benchmark } = trackPortfolioPerformance({
+      baseCurrency: 'BRL',
+      range: RANGE,
+      ledger: BOUGHT_IN_BASE_CURRENCY,
+      instruments: quotedIn('BRL', [
+        closeOn('2026-09-14', '10'),
+        closeOn('2026-09-15', '10')
+      ]),
+      ratesByCurrency: new Map(),
+      benchmark: {
+        symbol: 'BOVA11',
+        name: 'iShares Ibovespa',
+        currency: 'BRL',
+        closes: [closeOn('2026-09-11', '100'), closeOn('2026-09-15', '105')]
+      }
+    });
+
+    assert.deepEqual(benchmark?.series, [
+      { date: day('2026-09-14'), close: '100', twr: '0' },
+      { date: day('2026-09-15'), close: '105', twr: '0.05' }
+    ]);
+  });
+
+  it("answers no benchmark series without a close near the portfolio's first point", () => {
+    const { benchmark } = trackPortfolioPerformance({
+      baseCurrency: 'BRL',
+      range: RANGE,
+      ledger: BOUGHT_IN_BASE_CURRENCY,
+      instruments: quotedIn('BRL', [
+        closeOn('2026-09-14', '10'),
+        closeOn('2026-09-15', '10')
+      ]),
+      ratesByCurrency: new Map(),
+      benchmark: {
+        symbol: 'BOVA11',
+        name: 'iShares Ibovespa',
+        currency: 'BRL',
+        closes: [closeOn('2026-09-01', '100'), closeOn('2026-09-15', '105')]
+      }
+    });
+
+    assert.deepEqual(benchmark?.series, []);
+  });
+
+  it('answers no benchmark series without a rate to the base currency', () => {
     const { benchmark } = trackPortfolioPerformance({
       baseCurrency: 'BRL',
       range: RANGE,
@@ -310,19 +504,55 @@ describe('trackPortfolioPerformance', () => {
       instruments: quotedIn('BRL', [closeOn('2026-09-14', '10')]),
       ratesByCurrency: new Map(),
       benchmark: {
-        symbol: 'BOVA11',
-        currency: 'BRL',
-        closes: [closeOn('2026-09-14', '100'), closeOn('2026-09-15', '110')]
+        symbol: 'VOO',
+        name: 'Vanguard S&P 500',
+        currency: 'USD',
+        closes: [closeOn('2026-09-14', '100')]
       }
     });
 
-    assert.deepEqual(benchmark, {
-      symbol: 'BOVA11',
-      currency: 'BRL',
-      series: [
-        { date: day('2026-09-14'), close: '100', twr: '0' },
-        { date: day('2026-09-15'), close: '110', twr: '0.1' }
-      ]
+    assert.deepEqual(benchmark?.series, []);
+  });
+
+  it('sums up the period: the change in value, the money put in after the first point and the return', () => {
+    const { summary } = trackPortfolioPerformance({
+      baseCurrency: 'BRL',
+      range: RANGE,
+      ledger: [
+        ...BOUGHT_IN_BASE_CURRENCY,
+        tradeOf(TransactionTypes.BUY, '2026-09-15T13:00:00.000Z', '10', '11')
+      ],
+      instruments: quotedIn('BRL', [
+        closeOn('2026-09-14', '10'),
+        closeOn('2026-09-15', '11')
+      ]),
+      ratesByCurrency: new Map()
+    });
+
+    assert.deepEqual(summary, {
+      valueChange: '120',
+      valueChangePercent: '1.2',
+      netContribution: '110',
+      twr: '0.1'
+    });
+  });
+
+  it('leaves the change in value without a fraction when the first value is zero', () => {
+    const { summary } = trackPortfolioPerformance({
+      baseCurrency: 'BRL',
+      range: { from: day('2026-09-13'), to: day('2026-09-16') },
+      ledger: BOUGHT_IN_BASE_CURRENCY,
+      instruments: quotedIn('BRL', [
+        closeOn('2026-09-13', '10'),
+        closeOn('2026-09-14', '10')
+      ]),
+      ratesByCurrency: new Map()
+    });
+
+    assert.deepEqual(summary, {
+      valueChange: '100',
+      netContribution: '100',
+      twr: '0'
     });
   });
 

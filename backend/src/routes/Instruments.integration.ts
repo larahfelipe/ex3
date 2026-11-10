@@ -15,9 +15,9 @@ import { YahooFinanceProvider } from '@/infra/market-data';
 import { apiRequest, bearer, signIn } from '@/test/ApiClient';
 import { FakeMarketDataProvider } from '@/test/FakeMarketDataProvider';
 import {
-  FIXTURE_PASSWORD,
   createInstrument,
   createUser,
+  FIXTURE_PASSWORD,
   seedPortfolio
 } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
@@ -442,7 +442,9 @@ describe('instruments', () => {
       ]);
       assert.deepEqual(res.body.listings, [VALE_LISTING]);
       assert.equal(res.body.marketSearch, MarketSearchStatuses.SEARCHED);
-      assert.deepEqual(findListings.mock.calls[0].arguments, ['VALE']);
+      assert.deepEqual(findListings.mock.calls[0].arguments, [
+        new Map([['VALE', null]])
+      ]);
     });
 
     it('asks the provider for a symbol only another user registered', async (t) => {

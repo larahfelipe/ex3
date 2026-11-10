@@ -2,7 +2,7 @@ import type { Request, RequestHandler, Response } from 'express';
 
 import { Errors } from '@/config/Constants';
 import { PrismaClient } from '@/infra/database/PrismaClient';
-import { LogSeverities, log, type LogSink } from '@/infra/observability';
+import { log, LogSeverities, type LogSink } from '@/infra/observability';
 
 const DATABASE_DEPENDENCY = 'database';
 

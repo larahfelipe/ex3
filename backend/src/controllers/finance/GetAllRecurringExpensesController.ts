@@ -1,6 +1,6 @@
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 
-import type { Controller } from '@/interfaces';
+import type { Controller, ControllerRequest } from '@/interfaces';
 import type { GetAllRecurringExpensesService } from '@/services/finance';
 import { validate } from '@/validation';
 import { GetRecurringExpensesQuerySchema } from '@/validation/schema';
@@ -25,7 +25,7 @@ export class GetAllRecurringExpensesController implements Controller {
     return GetAllRecurringExpensesController.INSTANCE;
   }
 
-  async handle(req: Request, res: Response) {
+  async handle(req: ControllerRequest, res: Response) {
     const { user, query } = req;
 
     const filters = await validate(GetRecurringExpensesQuerySchema, query);

@@ -1,8 +1,8 @@
 import { InstrumentMessages } from '@/config';
 import type {
   MarketDataProvider,
-  PriceInterval,
   PricedInstrument,
+  PriceInterval,
   PriceRange
 } from '@/domain/MarketDataProvider';
 import type { Instrument, MarketQuote } from '@/domain/models';

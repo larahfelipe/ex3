@@ -19,14 +19,14 @@ import {
   signInWithPortfolio
 } from '@/test/ApiClient';
 import {
+  createAsset,
+  createPortfolio,
+  createTransaction,
   FIXTURE_ASSET_SYMBOL,
   FIXTURE_BASE_CURRENCY,
   FIXTURE_EXECUTED_AT,
   FIXTURE_USER_EMAIL,
-  MISSING_UUID,
-  createAsset,
-  createPortfolio,
-  createTransaction
+  MISSING_UUID
 } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
 import { injectWriteFailure } from '@/test/TestDatabase';
@@ -391,6 +391,9 @@ describe('transactions', () => {
     const listedItem = (
       {
         sequence,
+        importKey,
+        importedRow,
+        importId,
         quantity,
         unitPrice,
         fees,

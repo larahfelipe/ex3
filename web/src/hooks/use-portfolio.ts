@@ -8,13 +8,17 @@ import {
   useQuery,
   useQueryClient,
   type InvalidateOptions,
+  type Query,
+  type QueryClient,
   type QueryKey
 } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
 import { toast } from 'sonner';
+import { useTranslations } from 'use-intl';
 
 import type {
   GetPortfolioAllocationResponseData,
+  GetPortfolioIncomeResponseData,
   GetPortfolioOverviewResponseData,
   GetPortfolioPerformanceRequestParams,
   GetPortfolioPerformanceResponseData,
@@ -44,10 +48,11 @@ import api, {
   isValidationError,
   type ApiProxyErrorData
 } from '@/lib/axios';
+import { isMarketDataDegraded } from '@/lib/market-data';
 import { FIRST_PAGE } from '@/lib/pagination';
-import { queryKeys } from '@/lib/react-query';
+import { isReloadable, queryKeys } from '@/lib/react-query';
 import { toastLifetimeOf } from '@/lib/toast-lifetime';
-import type { Maybe, WithMessage } from '@/types';
+import type { Maybe } from '@/types';
 
 /** Portfolios are listed in creation order, so this page holds the one the account was created with. */
 const PRIMARY_PORTFOLIO_PAGE: GetPortfoliosRequestParams = {
@@ -101,16 +106,57 @@ export const requirePortfolio = (portfolio: Maybe<Portfolio>): Portfolio => {
   return portfolio;
 };
 
+/**
+ * How a refresh went: a query on screen failed, the portfolio's value came
+ * back resting on missing, fallback or stale market data, or everything
+ * reloaded. Without the value on screen there is nothing to tell the second
+ * from the third.
+ */
+export type RefreshOutcome = 'reloaded' | 'degraded' | 'failed';
+
+/**
+ * Resolves once every query of the portfolio on screen has settled, to how the
+ * refresh went. A request the API rejects fails the same way however often it
+ * is repeated, so only the failures a later reload could fix count.
+ */
+export const refreshPortfolioScope = async (
+  queryClient: QueryClient,
+  portfolioId: Maybe<string> | undefined,
+  options?: InvalidateOptions
+): Promise<RefreshOutcome> => {
+  const queryKey = queryKeys.portfolio(portfolioId);
+
+  await queryClient.invalidateQueries({ queryKey }, options);
+
+  const queryCache = queryClient.getQueryCache();
+
+  if (
+    queryCache
+      .findAll({ queryKey, type: 'active' })
+      .some(({ state: { error } }) => error !== null && isReloadable(error))
+  )
+    return 'failed';
+
+  const overview = queryCache.find<
+    AxiosResponse<GetPortfolioOverviewResponseData>
+  >({
+    queryKey: queryKeys.portfolioOverview(portfolioId),
+    exact: true,
+    type: 'active'
+  })?.state.data?.data;
+
+  return overview && isMarketDataDegraded(overview.marketData)
+    ? 'degraded'
+    : 'reloaded';
+};
+
 export const useRefreshPortfolio = (portfolio: Maybe<Portfolio>) => {
   const queryClient = useQueryClient();
   const portfolioId = portfolio?.id;
 
   return useCallback(
     (options?: InvalidateOptions) =>
-      queryClient.invalidateQueries(
-        { queryKey: queryKeys.portfolio(portfolioId) },
-        options
-      ),
+      refreshPortfolioScope(queryClient, portfolioId, options),
     [queryClient, portfolioId]
   );
 };
@@ -121,6 +167,18 @@ type PortfolioScopedQuery<Data> = {
   request: (portfolioId: string) => Promise<AxiosResponse<Data>>;
   keepsPreviousPage?: boolean;
 };
+
+/** A page of the same portfolio stands in while the next one loads; another portfolio's never does. */
+export const previousPageOfPortfolio =
+  (portfolioId: Maybe<string> | undefined) =>
+  <Data>(
+    previousData: Data | undefined,
+    previousQuery: Maybe<Pick<Query, 'queryKey'>> | undefined
+  ) =>
+    previousQuery &&
+    partialMatchKey(previousQuery.queryKey, queryKeys.portfolio(portfolioId))
+      ? previousData
+      : undefined;
 
 export const usePortfolioScopedQuery = <Data>({
   queryKey,
@@ -133,14 +191,7 @@ export const usePortfolioScopedQuery = <Data>({
     queryFn: portfolio ? () => request(portfolio.id) : skipToken,
     select: ({ data }) => data,
     placeholderData: keepsPreviousPage
-      ? (previousData, previousQuery) =>
-          previousQuery &&
-          partialMatchKey(
-            previousQuery.queryKey,
-            queryKeys.portfolio(portfolio?.id)
-          )
-            ? previousData
-            : undefined
+      ? previousPageOfPortfolio(portfolio?.id)
       : undefined
   });
 
@@ -193,11 +244,34 @@ export const useAnnouncePortfolioChange = (portfolio: Maybe<Portfolio>) => {
   );
 };
 
+/** The portfolio as a page of the account's portfolios already lists it, in that page's response. */
+export const listedPortfolioOf = (
+  queryClient: QueryClient,
+  portfolioId: Maybe<string> | undefined
+): AxiosResponse<GetPortfolioResponseData> | undefined => {
+  if (!portfolioId) return undefined;
+
+  for (const [, response] of queryClient.getQueriesData<
+    AxiosResponse<GetPortfoliosResponseData>
+  >({ queryKey: queryKeys.portfolioPages() })) {
+    const listed = response?.data.portfolios.find(
+      ({ id }) => id === portfolioId
+    );
+
+    if (response && listed) return { ...response, data: listed };
+  }
+
+  return undefined;
+};
+
 /**
  * The server snapshot is `undefined`, not the `null` of no stored choice, so no
- * portfolio is requested before the choice is read on the client.
+ * portfolio is requested before the choice is read on the client. A portfolio
+ * picked from a list shows as listed while the API confirms it, so the page
+ * keeps its controls, and the focus on them, instead of loading again.
  */
 export const useActivePortfolio = () => {
+  const queryClient = useQueryClient();
   const activePortfolioId = useSyncExternalStore(
     subscribeToActivePortfolio,
     readActivePortfolioId,
@@ -218,7 +292,8 @@ export const useActivePortfolio = () => {
             } satisfies PortfolioScopeParams
           })
       : skipToken,
-    select: ({ data }) => data
+    select: ({ data }) => data,
+    placeholderData: () => listedPortfolioOf(queryClient, activePortfolioId)
   });
 
   const { error } = chosenPortfolioQuery;
@@ -262,22 +337,22 @@ export const usePortfolios = (requestedPage: GetPortfoliosRequestParams) =>
     placeholderData: keepPreviousData
   });
 
-const useAnnouncePortfoliosChange = () => {
+const useAnnouncePortfoliosChange = (
+  change: 'created' | 'updated' | 'deleted'
+) => {
   const queryClient = useQueryClient();
+  const t = useTranslations('portfolios.notifications');
 
-  return useCallback(
-    async ({ data }: AxiosResponse<WithMessage>) => {
-      toast.success(data.message);
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.portfolios()
-      });
-    },
-    [queryClient]
-  );
+  return useCallback(async () => {
+    toast.success(t(change));
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.portfolios()
+    });
+  }, [queryClient, change, t]);
 };
 
 export const useCreatePortfolio = () => {
-  const announceChange = useAnnouncePortfoliosChange();
+  const announceChange = useAnnouncePortfoliosChange('created');
 
   return useMutation<
     AxiosResponse<CreatePortfolioResponseData>,
@@ -291,13 +366,13 @@ export const useCreatePortfolio = () => {
           '/v1/portfolios/create',
           payload satisfies CreatePortfolioRequestPayload
         ),
-    onSuccess: announceChange
+    onSuccess: () => announceChange()
   });
 };
 
 export const useUpdatePortfolio = () => {
   const queryClient = useQueryClient();
-  const announceChange = useAnnouncePortfoliosChange();
+  const announceChange = useAnnouncePortfoliosChange('updated');
 
   return useMutation<
     AxiosResponse<UpdatePortfolioResponseData>,
@@ -311,9 +386,9 @@ export const useUpdatePortfolio = () => {
           '/v1/portfolio',
           payload satisfies UpdatePortfolioRequestPayload
         ),
-    onSuccess: async (response, { portfolioId }) => {
+    onSuccess: async (_response, { portfolioId }) => {
       await Promise.all([
-        announceChange(response),
+        announceChange(),
         queryClient.invalidateQueries({
           queryKey: queryKeys.portfolio(portfolioId)
         })
@@ -324,7 +399,7 @@ export const useUpdatePortfolio = () => {
 
 export const useDeletePortfolio = () => {
   const queryClient = useQueryClient();
-  const announceChange = useAnnouncePortfoliosChange();
+  const announceChange = useAnnouncePortfoliosChange('deleted');
 
   return useMutation<
     AxiosResponse<DeletePortfolioResponseData>,
@@ -335,7 +410,7 @@ export const useDeletePortfolio = () => {
       api.getInstance().delete('/v1/portfolio', {
         params: params satisfies PortfolioScopeParams
       }),
-    onSuccess: async (response, { portfolioId }) => {
+    onSuccess: async (_response, { portfolioId }) => {
       if (readActivePortfolioId() === portfolioId) selectActivePortfolio(null);
 
       queryClient.removeQueries({ queryKey: queryKeys.portfolio(portfolioId) });
@@ -343,7 +418,7 @@ export const useDeletePortfolio = () => {
         queryKey: queryKeys.portfolioDetails(portfolioId)
       });
 
-      await announceChange(response);
+      await announceChange();
     }
   });
 };
@@ -442,6 +517,16 @@ export const useAllocation = (portfolio: Maybe<Portfolio>) =>
     portfolio,
     request: (portfolioId) =>
       api.getInstance().get('/v1/portfolio/allocation', {
+        params: { portfolioId } satisfies PortfolioScopeParams
+      })
+  });
+
+export const useIncome = (portfolio: Maybe<Portfolio>) =>
+  usePortfolioScopedQuery<GetPortfolioIncomeResponseData>({
+    queryKey: queryKeys.income(portfolio?.id),
+    portfolio,
+    request: (portfolioId) =>
+      api.getInstance().get('/v1/portfolio/income', {
         params: { portfolioId } satisfies PortfolioScopeParams
       })
   });

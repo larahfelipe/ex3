@@ -1,4 +1,12 @@
-import { useId, useRef, useState, type FC, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type FC,
+  type ReactNode
+} from 'react';
 import { flushSync } from 'react-dom';
 import {
   useController,
@@ -9,6 +17,7 @@ import {
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Minus, Plus } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 
 import type { InstrumentType, PositionDetail } from '@/app/api/v1/portfolio';
@@ -17,21 +26,13 @@ import type {
   ListedTransaction,
   TransactionType
 } from '@/app/api/v1/transactions';
-import {
-  TRANSACTION_TYPE_LABELS,
-  TRANSACTION_TYPES,
-  TRANSACTION_UNIT_PRICE_LABELS,
-  UNIT_PRICE_DECIMALS
-} from '@/common/constants';
-import {
-  currencyFractionDigits,
-  currencySymbolOf,
-  formatQuantity
-} from '@/common/utils';
+import { TRANSACTION_TYPES, UNIT_PRICE_DECIMALS } from '@/common/constants';
+import { currencyFractionDigits } from '@/common/utils';
 import { LoadingState } from '@/components/data-state';
 import { DatePicker } from '@/components/date-picker';
 import { ChoiceField, FormField } from '@/components/form-field';
-import { MoneyInput, type RejectedAmount } from '@/components/money-input';
+import { CurrencyAmountInput } from '@/components/money-input';
+import { NumberInput } from '@/components/number-input';
 import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
@@ -46,29 +47,37 @@ import {
   SegmentedControlItem
 } from '@/components/ui';
 import { usePosition } from '@/hooks/use-portfolio';
+import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
+import { useFormat, type Format } from '@/i18n/format';
+import { srOnly } from '@/i18n/rich-text';
+import type { Translator } from '@/i18n/translator';
+import {
+  decimalLimitsIssueOf,
+  pastedAmountIssueOf,
+  typedAmountIssueOf
+} from '@/lib/amount-issues';
 import {
   calendarDayOf,
   currentInstant,
-  formatQuoteTime,
   instantOfCalendarDay
 } from '@/lib/dates';
 import {
-  DECIMAL_COLUMN,
-  INTEGER_DIGITS,
   isNonzeroDecimal,
   isStorableDecimal,
-  readDecimal,
   roundDecimal,
   shiftByWholeUnits
 } from '@/lib/decimal';
 import { presentSubmitError } from '@/lib/submit-error';
+import { isCostOf, transactionEffectOf } from '@/lib/transaction-effect';
 import type { Maybe } from '@/types';
 
 export type TransactionFormTarget =
   | { kind: 'create'; symbol: string; currency: string }
   | { kind: 'edit'; transaction: ListedTransaction };
 
-export type TransactionDraft = z.output<typeof TransactionFormSchema>;
+export type TransactionDraft = z.output<
+  ReturnType<typeof transactionFormSchemaFor>
+>;
 
 type TransactionFormDialogProps = {
   portfolio: Portfolio;
@@ -82,9 +91,12 @@ type TransactionFormProps = Pick<
   'target' | 'onCancel' | 'onSubmit'
 > &
   Record<'formId' | 'currency', string> &
-  Record<'position', Maybe<PositionDetail>>;
+  Record<'position', Maybe<PositionDetail>> &
+  Record<'onDirtyChange', (isDirty: boolean) => void>;
 
-type TransactionFormInput = z.input<typeof TransactionFormSchema>;
+type TransactionFormInput = z.input<
+  ReturnType<typeof transactionFormSchemaFor>
+>;
 
 type TransactionFormField = keyof TransactionFormInput;
 
@@ -107,22 +119,11 @@ type AmountFieldProps = Record<'name', AmountField> &
 const BROKER_MAX_LENGTH = 60;
 const NOTES_MAX_LENGTH = 500;
 
-const DECIMAL_LIMITS = `at most ${INTEGER_DIGITS} integer digits and ${DECIMAL_COLUMN.SCALE} decimal places`;
-
-const EXECUTION_DAY_ISSUE = 'Execution date must be a day of the calendar';
-
-const SUBMIT_FAILURE_MESSAGE = 'The transaction could not be saved';
-
-const MARKET_PRICE_HINT = 'Market price';
-
 /** One whole unit, keeping the fraction, moves a quantity of any class. */
 const QUANTITY_STEP = 1;
 
 /** A new transaction starts at one unit, the stepper's own step. */
 const INITIAL_QUANTITY = '1';
-
-/** A quantity is never negative, so its sign is never typed. */
-const NEGATIVE_SIGNS = /[-\u2212]/g;
 
 /**
  * Side by side, the unit price and the quantity start their inputs at the same
@@ -139,34 +140,6 @@ const TRANSACTION_DETAILS = [
   'notes'
 ] as const satisfies ReadonlyArray<TransactionFormField>;
 
-const TRANSACTION_DETAIL_LABELS: Record<TransactionDetail, string> = {
-  fees: 'Fees',
-  taxes: 'Taxes',
-  broker: 'Broker',
-  notes: 'Notes'
-};
-
-const TRANSACTION_TYPE_HINTS: Record<TransactionType, string> = {
-  BUY: 'Adds units to the position. Price, fees and taxes go into its average cost.',
-  SELL: 'Removes units from the position and realizes the profit against its average cost.',
-  DIVIDEND:
-    'Income on the units held: enter them and the gross amount per unit. The position does not change.',
-  JCP: 'Interest on equity for the units held: enter them, the gross amount per unit and the tax withheld. The position does not change.',
-  INTEREST:
-    'Interest on the units held: enter them and the gross amount per unit. The position does not change.',
-  BONUS:
-    'Bonus units received, at the cost per unit the company attributed, which can be zero.'
-};
-
-const CREATE_SUBMIT_LABELS: Record<TransactionType, string> = {
-  BUY: 'Add buy',
-  SELL: 'Add sell',
-  DIVIDEND: 'Add dividend',
-  JCP: 'Add JCP',
-  INTEREST: 'Add interest',
-  BONUS: 'Add bonus'
-};
-
 /** A trade happens at the market, so its price is the one to start from. */
 const isTradedAtMarket = (type: TransactionType) =>
   type === 'BUY' || type === 'SELL';
@@ -178,68 +151,57 @@ const isQuantityOfHeldUnits = (type: TransactionType) =>
 /** Interest on equity is paid net of a tax withheld at source. */
 const hasWithheldTax = (type: TransactionType) => type === 'JCP';
 
-const typedDecimalIssueOf = (field: string, reading: RejectedAmount) =>
-  reading.outcome === 'ambiguous'
-    ? `${field} is ambiguous: write ${reading.asDecimal} for decimals or ${reading.asWhole} for a whole number`
-    : `${field} must be a number with ${DECIMAL_LIMITS}`;
-
-const pastedAmountIssueOf = (field: string, reading: RejectedAmount) =>
-  reading.outcome === 'ambiguous'
-    ? `The pasted ${field.toLowerCase()} may be ${reading.asDecimal} or ${reading.asWhole}: type its digits instead`
-    : `The pasted ${field.toLowerCase()} is not a number with ${DECIMAL_LIMITS}`;
-
-const quantityField = z
-  .string()
-  .trim()
-  .min(1, 'Quantity is required')
-  .transform((text, ctx) => {
-    const reading = readDecimal(text);
-
-    if (reading.outcome !== 'read') {
-      ctx.addIssue({
-        code: 'custom',
-        message: typedDecimalIssueOf('Quantity', reading)
-      });
-
-      return z.NEVER;
-    }
-
-    if (!isNonzeroDecimal(reading.value)) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Quantity must be greater than zero'
-      });
-
-      return z.NEVER;
-    }
-
-    return reading.value;
-  });
-
-const chargeField = (field: string) =>
-  z
-    .string()
-    .transform((value) => (value === '' ? '0' : value))
-    .refine(
-      isStorableDecimal,
-      `${field} must be a number with ${DECIMAL_LIMITS}`
-    );
-
-const optionalTextField = (field: string, maxLength: number) =>
+const quantityFieldFor = (t: Translator<'validation'>, format: Format) =>
   z
     .string()
     .trim()
-    .max(maxLength, `${field} must have at most ${maxLength} characters`)
+    .min(1, t('quantity.required'))
+    .transform((text, ctx) => {
+      const reading = format.readDecimal(text);
+
+      if (reading.outcome !== 'read') {
+        ctx.addIssue({
+          code: 'custom',
+          message: typedAmountIssueOf(reading, t, format)
+        });
+
+        return z.NEVER;
+      }
+
+      if (!isNonzeroDecimal(reading.value)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: t('quantity.notPositive')
+        });
+
+        return z.NEVER;
+      }
+
+      return reading.value;
+    });
+
+const chargeFieldFor = (t: Translator<'validation'>) =>
+  z
+    .string()
+    .transform((value) => (value === '' ? '0' : value))
+    .refine(isStorableDecimal, decimalLimitsIssueOf(t));
+
+const optionalTextFieldFor = (t: Translator<'validation'>, max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max, t('text.tooLong', { max }))
     .transform((value) => (value === '' ? null : value));
 
-const unitPriceIssueOf = (type: TransactionType, unitPrice: string) => {
-  const label = TRANSACTION_UNIT_PRICE_LABELS[type];
-
-  if (unitPrice === '') return `${label} is required`;
-  if (!isStorableDecimal(unitPrice))
-    return `${label} must be a number with ${DECIMAL_LIMITS}`;
+const unitPriceIssueOf = (
+  type: TransactionType,
+  unitPrice: string,
+  t: Translator<'validation'>
+) => {
+  if (unitPrice === '') return t('amount.required');
+  if (!isStorableDecimal(unitPrice)) return decimalLimitsIssueOf(t);
   if (type !== 'BONUS' && !isNonzeroDecimal(unitPrice))
-    return `${label} must be greater than zero`;
+    return t('amount.notPositive');
 
   return null;
 };
@@ -273,13 +235,17 @@ const marketUnitPriceOf = (
   return isNonzeroDecimal(rounded) ? rounded : marketPrice;
 };
 
-const marketPriceHintOf = (quote: PositionDetail['quote']) =>
+const marketPriceHintOf = (
+  quote: PositionDetail['quote'],
+  t: Translator<'transactions.form'>,
+  { formatQuoteTime }: Format
+) =>
   quote === undefined
-    ? MARKET_PRICE_HINT
-    : `${MARKET_PRICE_HINT} as of ${formatQuoteTime(quote.timestamp)}`;
+    ? t('marketPrice')
+    : t('marketPriceAsOf', { time: formatQuoteTime(quote.timestamp) });
 
 /** The quantity the stepper moves from, or null while the text is not a number. */
-const steppableQuantityOf = (quantity: string) => {
+const steppableQuantityOf = (quantity: string, { readDecimal }: Format) => {
   if (quantity.trim() === '') return '0';
 
   const reading = readDecimal(quantity);
@@ -287,42 +253,54 @@ const steppableQuantityOf = (quantity: string) => {
   return reading.outcome === 'read' ? reading.value : null;
 };
 
-const TransactionFormFields = z.object({
-  type: z.enum(TRANSACTION_TYPES),
-  quantity: quantityField,
-  unitPrice: z.string(),
-  fees: chargeField('Fees'),
-  taxes: chargeField('Taxes'),
-  executionDay: z.string().min(1, 'Execution date is required'),
-  broker: optionalTextField('Broker', BROKER_MAX_LENGTH),
-  notes: optionalTextField('Notes', NOTES_MAX_LENGTH)
-});
-
 /** The day is the browser's; the API receives the instant `instantOfCalendarDay` anchors it to. */
-const TransactionFormSchema = TransactionFormFields.superRefine(
-  ({ type, unitPrice }, ctx) => {
-    const message = unitPriceIssueOf(type, unitPrice);
+const transactionFormSchemaFor = (
+  t: Translator<'validation'>,
+  format: Format
+) =>
+  z
+    .object({
+      type: z.enum(TRANSACTION_TYPES),
+      quantity: quantityFieldFor(t, format),
+      unitPrice: z.string(),
+      fees: chargeFieldFor(t),
+      taxes: chargeFieldFor(t),
+      executionDay: z.string().min(1, t('day.required')),
+      broker: optionalTextFieldFor(t, BROKER_MAX_LENGTH),
+      notes: optionalTextFieldFor(t, NOTES_MAX_LENGTH)
+    })
+    .superRefine(({ type, unitPrice }, ctx) => {
+      const message = unitPriceIssueOf(type, unitPrice, t);
 
-    if (message !== null)
-      ctx.addIssue({ code: 'custom', path: ['unitPrice'], message });
-  }
-).transform(({ executionDay, ...entry }, ctx) => {
-  const executedAt = instantOfCalendarDay(executionDay);
+      if (message !== null)
+        ctx.addIssue({ code: 'custom', path: ['unitPrice'], message });
+    })
+    .transform(({ executionDay, ...entry }, ctx) => {
+      const executedAt = instantOfCalendarDay(executionDay);
 
-  if (executedAt === null) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['executionDay'],
-      message: EXECUTION_DAY_ISSUE
+      if (executedAt === null) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['executionDay'],
+          message: t('day.invalid')
+        });
+
+        return z.NEVER;
+      }
+
+      return { ...entry, executedAt };
     });
 
-    return z.NEVER;
-  }
-
-  return { ...entry, executedAt };
-});
-
-const TRANSACTION_FORM_FIELDS = TransactionFormFields.keyof().options;
+const TRANSACTION_FORM_FIELDS = [
+  'type',
+  'quantity',
+  'unitPrice',
+  'fees',
+  'taxes',
+  'executionDay',
+  'broker',
+  'notes'
+] as const satisfies ReadonlyArray<TransactionFormField>;
 
 const EMPTY_TRANSACTION_FORM: TransactionFormInput = {
   type: 'BUY',
@@ -345,18 +323,21 @@ const formFieldOf = (path: string) => {
   return isTransactionFormField(path) ? path : undefined;
 };
 
-const toTransactionFormValues = ({
+const toTransactionFormValues = (
+  {
+    type,
+    quantity,
+    unitPrice,
+    fees,
+    taxes,
+    executedAt,
+    broker,
+    notes
+  }: ListedTransaction,
+  { decimalInputTextOf }: Format
+): TransactionFormInput => ({
   type,
-  quantity,
-  unitPrice,
-  fees,
-  taxes,
-  executedAt,
-  broker,
-  notes
-}: ListedTransaction): TransactionFormInput => ({
-  type,
-  quantity,
+  quantity: decimalInputTextOf(quantity),
   unitPrice,
   fees: isNonzeroDecimal(fees) ? fees : '',
   taxes: isNonzeroDecimal(taxes) ? taxes : '',
@@ -393,6 +374,9 @@ const AmountField: FC<AmountFieldProps> = ({
   action,
   control: formControl
 }) => {
+  const tForm = useTranslations('common.form');
+  const tValidation = useTranslations('validation');
+  const format = useFormat();
   const {
     field: { ref, value, onChange, onBlur },
     fieldState: { error }
@@ -403,28 +387,30 @@ const AmountField: FC<AmountFieldProps> = ({
   return (
     <FormField
       isOptional={isOptional}
-      label={`${label} (${currency})`}
+      label={tForm.rich('labelInCurrency', {
+        label,
+        currency,
+        hidden: srOnly
+      })}
       hint={hint}
       error={error?.message}
       action={action}
       className={className}
     >
       {(control) => (
-        <MoneyInput
+        <CurrencyAmountInput
           {...control}
           ref={ref}
           name={name}
           value={value}
+          currency={currency}
           decimals={decimals}
-          leftElement={
-            <span aria-hidden className="text-sm text-muted-foreground">
-              {currencySymbolOf(currency)}
-            </span>
-          }
           onValueChange={onChange}
           onBlur={onBlur}
           onRejectedPaste={(reading) =>
-            setError(name, { message: pastedAmountIssueOf(label, reading) })
+            setError(name, {
+              message: pastedAmountIssueOf(reading, tValidation, format)
+            })
           }
         />
       )}
@@ -438,8 +424,21 @@ const TransactionForm: FC<TransactionFormProps> = ({
   currency,
   position,
   onCancel,
-  onSubmit
+  onSubmit,
+  onDirtyChange
 }) => {
+  const t = useTranslations('transactions');
+  const tForm = useTranslations('transactions.form');
+  const tValidation = useTranslations('validation');
+  const tErrors = useTranslations('errors');
+  const tActions = useTranslations('common.actions');
+  const format = useFormat();
+  const { decimalInputTextOf, formatMoney, formatPrice, formatQuantity } =
+    format;
+  const transactionFormSchema = useMemo(
+    () => transactionFormSchemaFor(tValidation, format),
+    [tValidation, format]
+  );
   const openedAt = currentInstant();
 
   const unitPriceDecimals = unitPriceDecimalsOf(position?.type, currency);
@@ -457,7 +456,7 @@ const TransactionForm: FC<TransactionFormProps> = ({
           unitPrice: marketUnitPrice ?? '',
           executionDay: calendarDayOf(openedAt)
         }
-      : toTransactionFormValues(target.transaction);
+      : toTransactionFormValues(target.transaction, format);
 
   const [shownDetails, setShownDetails] = useState(() =>
     shownDetailsOf(target)
@@ -475,16 +474,25 @@ const TransactionForm: FC<TransactionFormProps> = ({
     setValue,
     setError,
     setFocus,
-    formState: { errors, dirtyFields, isSubmitting }
+    trigger,
+    formState: { errors, dirtyFields, isDirty, isSubmitting }
   } = useForm<TransactionFormInput, unknown, TransactionDraft>({
     mode: 'onChange',
-    resolver: zodResolver(TransactionFormSchema),
+    resolver: zodResolver(transactionFormSchema),
     defaultValues
   });
+
+  useRevalidateOnLocaleChange(errors, trigger);
+
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   const selectedType = useWatch({ control: formControl, name: 'type' });
   const unitPrice = useWatch({ control: formControl, name: 'unitPrice' });
   const quantity = useWatch({ control: formControl, name: 'quantity' });
+  const fees = useWatch({ control: formControl, name: 'fees' });
+  const taxes = useWatch({ control: formControl, name: 'taxes' });
 
   const { field: executionDayField } = useController({
     name: 'executionDay',
@@ -510,16 +518,24 @@ const TransactionForm: FC<TransactionFormProps> = ({
     marketUnitPrice !== null &&
     unitPrice === marketUnitPrice &&
     isTradedAtMarket(selectedType)
-      ? marketPriceHintOf(position?.quote)
+      ? marketPriceHintOf(position?.quote, tForm, format)
       : undefined;
 
-  const baseQuantity = steppableQuantityOf(quantity);
+  const baseQuantity = steppableQuantityOf(quantity, format);
 
   const shiftedQuantityOf = (count: number) =>
     baseQuantity === null ? null : shiftByWholeUnits(baseQuantity, count);
 
   const decreasedQuantity = shiftedQuantityOf(-QUANTITY_STEP);
   const increasedQuantity = shiftedQuantityOf(QUANTITY_STEP);
+
+  const quantityReading = format.readDecimal(quantity);
+  const effect = transactionEffectOf(selectedType, {
+    quantity: quantityReading.outcome === 'read' ? quantityReading.value : '',
+    unitPrice,
+    fees,
+    taxes
+  });
 
   /**
    * A unit price still at the market price follows the type: a trade keeps it,
@@ -551,7 +567,7 @@ const TransactionForm: FC<TransactionFormProps> = ({
   const stepQuantityTo = (nextQuantity: string | null) => {
     if (nextQuantity === null) return;
 
-    setValue('quantity', nextQuantity, {
+    setValue('quantity', decimalInputTextOf(nextQuantity), {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true
@@ -582,10 +598,9 @@ const TransactionForm: FC<TransactionFormProps> = ({
       className="text-muted-foreground"
       onClick={() => removeDetail(detail)}
     >
-      Remove
-      <span className="sr-only">
-        {` ${TRANSACTION_DETAIL_LABELS[detail].toLowerCase()}`}
-      </span>
+      {tForm.rich(`removeDetail.${detail}`, {
+        hidden: (chunks) => <span className="sr-only">{chunks}</span>
+      })}
     </Button>
   );
 
@@ -608,7 +623,8 @@ const TransactionForm: FC<TransactionFormProps> = ({
       presentSubmitError(error, {
         setError,
         fieldOf: formFieldOf,
-        fallbackMessage: SUBMIT_FAILURE_MESSAGE
+        t: tErrors,
+        fallbackMessage: tForm('failed')
       });
     }
   };
@@ -618,8 +634,8 @@ const TransactionForm: FC<TransactionFormProps> = ({
       <form id={formId} noValidate onSubmit={handleSubmit(submitDraft)}>
         <div className="grid gap-4 sm:grid-cols-2">
           <ChoiceField
-            legend="Type"
-            hint={TRANSACTION_TYPE_HINTS[selectedType]}
+            legend={t('fields.type')}
+            hint={tForm(`typeHints.${selectedType}`)}
             error={errors.type?.message}
             className="sm:col-span-2"
           >
@@ -630,95 +646,14 @@ const TransactionForm: FC<TransactionFormProps> = ({
                   value={type}
                   {...register('type', { onChange: followSelectedType })}
                 >
-                  {TRANSACTION_TYPE_LABELS[type]}
+                  {t(`types.${type}`)}
                 </SegmentedControlItem>
               ))}
             </SegmentedControl>
           </ChoiceField>
 
-          <AmountField
-            name="unitPrice"
-            label={TRANSACTION_UNIT_PRICE_LABELS[selectedType]}
-            currency={currency}
-            decimals={unitPriceDecimals}
-            hint={unitPriceHint}
-            className={PAIRED_FIELD_CLASS}
-            control={formControl}
-          />
-
           <FormField
-            label="Quantity"
-            error={errors.quantity?.message}
-            className={PAIRED_FIELD_CLASS}
-            action={
-              heldQuantity !== null && isQuantityOfHeldUnits(selectedType) ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xxs"
-                  className="text-muted-foreground"
-                  onClick={() => {
-                    stepQuantityTo(heldQuantity);
-                    setFocus('quantity');
-                  }}
-                >
-                  {`Use ${formatQuantity(heldQuantity)} held`}
-                </Button>
-              ) : undefined
-            }
-          >
-            {(control) => (
-              <div className="flex gap-2">
-                <div className="min-w-0 flex-1">
-                  <Input
-                    {...control}
-                    ref={quantityInput.ref}
-                    type="text"
-                    inputMode="decimal"
-                    autoComplete="off"
-                    className="tabular-nums"
-                    name={quantityInput.name}
-                    value={quantityInput.value}
-                    onChange={(event) =>
-                      quantityInput.onChange(
-                        event.target.value.replace(NEGATIVE_SIGNS, '')
-                      )
-                    }
-                    onBlur={quantityInput.onBlur}
-                  />
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label={`Decrease quantity by ${QUANTITY_STEP}`}
-                  aria-controls={control.id}
-                  aria-disabled={decreasedQuantity === null}
-                  className="shrink-0"
-                  onClick={() => stepQuantityTo(decreasedQuantity)}
-                >
-                  <Minus size={16} aria-hidden="true" />
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label={`Increase quantity by ${QUANTITY_STEP}`}
-                  aria-controls={control.id}
-                  aria-disabled={increasedQuantity === null}
-                  className="shrink-0"
-                  onClick={() => stepQuantityTo(increasedQuantity)}
-                >
-                  <Plus size={16} aria-hidden="true" />
-                </Button>
-              </div>
-            )}
-          </FormField>
-
-          <FormField
-            label="Date"
+            label={t('fields.date')}
             error={errors.executionDay?.message}
             className="sm:col-span-2"
           >
@@ -736,11 +671,90 @@ const TransactionForm: FC<TransactionFormProps> = ({
             )}
           </FormField>
 
+          <FormField
+            label={t('fields.quantity')}
+            error={errors.quantity?.message}
+            className={PAIRED_FIELD_CLASS}
+            action={
+              heldQuantity !== null && isQuantityOfHeldUnits(selectedType) ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xxs"
+                  className="text-muted-foreground"
+                  onClick={() => {
+                    stepQuantityTo(heldQuantity);
+                    setFocus('quantity');
+                  }}
+                >
+                  {tForm('useHeld', {
+                    quantity: formatQuantity(heldQuantity)
+                  })}
+                </Button>
+              ) : undefined
+            }
+          >
+            {(control) => (
+              <div className="flex gap-2">
+                <div className="min-w-0 flex-1">
+                  <NumberInput
+                    {...control}
+                    allowsDecimals
+                    ref={quantityInput.ref}
+                    className="tabular-nums"
+                    name={quantityInput.name}
+                    value={quantityInput.value}
+                    onChange={({ target }) =>
+                      quantityInput.onChange(target.value)
+                    }
+                    onBlur={quantityInput.onBlur}
+                  />
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label={tForm('decrease', { step: QUANTITY_STEP })}
+                  aria-controls={control.id}
+                  aria-disabled={decreasedQuantity === null}
+                  className="shrink-0"
+                  onClick={() => stepQuantityTo(decreasedQuantity)}
+                >
+                  <Minus size={16} aria-hidden="true" />
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label={tForm('increase', { step: QUANTITY_STEP })}
+                  aria-controls={control.id}
+                  aria-disabled={increasedQuantity === null}
+                  className="shrink-0"
+                  onClick={() => stepQuantityTo(increasedQuantity)}
+                >
+                  <Plus size={16} aria-hidden="true" />
+                </Button>
+              </div>
+            )}
+          </FormField>
+
+          <AmountField
+            name="unitPrice"
+            label={t(`unitPrice.${selectedType}`)}
+            currency={currency}
+            decimals={unitPriceDecimals}
+            hint={unitPriceHint}
+            className={PAIRED_FIELD_CLASS}
+            control={formControl}
+          />
+
           {shownDetails.has('fees') && (
             <AmountField
               isOptional
               name="fees"
-              label="Fees"
+              label={t('fields.fees')}
               currency={currency}
               decimals={amountDecimals}
               action={removeDetailButton('fees')}
@@ -752,7 +766,7 @@ const TransactionForm: FC<TransactionFormProps> = ({
             <AmountField
               isOptional
               name="taxes"
-              label="Taxes"
+              label={t('fields.taxes')}
               currency={currency}
               decimals={amountDecimals}
               action={removeDetailButton('taxes')}
@@ -763,7 +777,7 @@ const TransactionForm: FC<TransactionFormProps> = ({
           {shownDetails.has('broker') && (
             <FormField
               isOptional
-              label="Broker"
+              label={t('fields.broker')}
               error={errors.broker?.message}
               action={removeDetailButton('broker')}
             >
@@ -781,7 +795,7 @@ const TransactionForm: FC<TransactionFormProps> = ({
           {shownDetails.has('notes') && (
             <FormField
               isOptional
-              label="Notes"
+              label={t('fields.notes')}
               error={errors.notes?.message}
               action={removeDetailButton('notes')}
               className="sm:col-span-2"
@@ -798,10 +812,37 @@ const TransactionForm: FC<TransactionFormProps> = ({
             </FormField>
           )}
 
+          {effect !== null && (
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg bg-muted/50 px-3 py-2.5 text-sm sm:col-span-2">
+              <span className="text-muted-foreground">
+                {tForm(`effect.${selectedType}`)}
+              </span>
+
+              <span className="font-semibold tabular-nums">
+                {formatMoney(effect.net, currency)}
+              </span>
+
+              <span className="w-full text-xs text-muted-foreground tabular-nums">
+                {tForm(
+                  !isNonzeroDecimal(effect.charges)
+                    ? 'effectOf.units'
+                    : isCostOf(selectedType)
+                      ? 'effectOf.unitsPlusCharges'
+                      : 'effectOf.unitsLessCharges',
+                  {
+                    quantity: formatQuantity(effect.quantity),
+                    unitPrice: formatPrice(effect.unitPrice, currency),
+                    charges: formatMoney(effect.charges, currency)
+                  }
+                )}
+              </span>
+            </div>
+          )}
+
           {hiddenDetails.length > 0 && (
             <div
               role="group"
-              aria-label="Optional details"
+              aria-label={tForm('optionalDetails')}
               className="flex flex-wrap gap-2 sm:col-span-2"
             >
               {hiddenDetails.map((detail) => (
@@ -819,9 +860,11 @@ const TransactionForm: FC<TransactionFormProps> = ({
                   <Plus size={14} aria-hidden="true" />
 
                   <span>
-                    <span className="sr-only">Add </span>
-
-                    {TRANSACTION_DETAIL_LABELS[detail]}
+                    {tForm.rich(`addDetail.${detail}`, {
+                      hidden: (chunks) => (
+                        <span className="sr-only">{chunks}</span>
+                      )
+                    })}
                   </span>
                 </Button>
               ))}
@@ -838,13 +881,13 @@ const TransactionForm: FC<TransactionFormProps> = ({
 
       <DialogFooter>
         <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
-          Cancel
+          {tActions('cancel')}
         </Button>
 
         <SubmitButton form={formId} isPending={isSubmitting}>
           {target.kind === 'create'
-            ? CREATE_SUBMIT_LABELS[selectedType]
-            : 'Save changes'}
+            ? tForm(`submit.${selectedType}`)
+            : tActions('saveChanges')}
         </SubmitButton>
       </DialogFooter>
     </>
@@ -864,8 +907,11 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
   onSubmit
 }) => {
   const formId = useId();
+  const t = useTranslations('transactions.form');
+  const tActions = useTranslations('common.actions');
 
   const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const { symbol, currency } =
     target.kind === 'create' ? target : target.transaction;
@@ -889,26 +935,29 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent
+        className="sm:max-w-xl"
+        hasUnsavedChanges={hasUnsavedChanges}
+      >
         <DialogHeader>
           <DialogTitle>
             {target.kind === 'create'
-              ? `Add ${symbol} transaction`
-              : `Edit ${symbol} transaction`}
+              ? t('newTitle', { symbol })
+              : t('editTitle', { symbol })}
           </DialogTitle>
 
           <DialogDescription>
-            {`Amounts in ${currency}. Fees and taxes left out are recorded as zero.`}
+            {t('description', { currency })}
           </DialogDescription>
         </DialogHeader>
 
         {positionQuery.isPending ? (
           <>
-            <LoadingState label={`Loading ${symbol}`} className="h-72" />
+            <LoadingState label={t('loading', { symbol })} className="h-72" />
 
             <DialogFooter>
               <Button variant="outline" onClick={onCancel}>
-                Cancel
+                {tActions('cancel')}
               </Button>
             </DialogFooter>
           </>
@@ -920,6 +969,7 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
             position={positionQuery.data}
             onCancel={onCancel}
             onSubmit={save}
+            onDirtyChange={setHasUnsavedChanges}
           />
         )}
       </DialogContent>

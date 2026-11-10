@@ -8,9 +8,9 @@ import {
 } from '@/middleware/RateLimitMiddleware';
 
 import {
-  FIXTURE_PASSWORD,
   createPortfolio,
   createUser,
+  FIXTURE_PASSWORD,
   seedPortfolio
 } from './Fixtures';
 

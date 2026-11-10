@@ -4,6 +4,8 @@ export type WithAccessToken = Record<'accessToken', string>;
 
 export type UserProperties = {
   name: string | null;
+  firstName: string | null;
+  lastName: string | null;
   email: string;
 };
 

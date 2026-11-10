@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { NewPasswordSchema, SubmittedPasswordSchema } from './PasswordSchema';
+import { FirstNameSchema, LastNameSchema } from './PersonNameSchema';
 
 /**
  * A new password is accepted only together with the current one: holding a
@@ -8,7 +9,8 @@ import { NewPasswordSchema, SubmittedPasswordSchema } from './PasswordSchema';
  */
 export const UpdateUserSchema = z
   .object({
-    name: z.string().optional(),
+    firstName: FirstNameSchema.optional(),
+    lastName: LastNameSchema.optional(),
     oldPassword: SubmittedPasswordSchema.optional(),
     newPassword: NewPasswordSchema.optional()
   })
@@ -17,8 +19,9 @@ export const UpdateUserSchema = z
       (oldPassword === undefined) === (newPassword === undefined),
     'Changing the password requires both oldPassword and newPassword'
   )
-  .transform(({ name, oldPassword, newPassword }) => ({
-    name,
+  .transform(({ firstName, lastName, oldPassword, newPassword }) => ({
+    firstName,
+    lastName,
     passwordChange:
       oldPassword !== undefined && newPassword !== undefined
         ? { oldPassword, newPassword }

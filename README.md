@@ -5,7 +5,10 @@ position from the ledger, and reports cost, market value, allocation and
 performance in the portfolio's base currency. A separate Finances section
 tracks what the account owes: bills and their payments, installment purchases,
 recurring expenses, a due-date calendar and spending reports — kept apart from
-the investments, whose data it never reads or changes.
+the investments, whose data it never reads or changes. The interface is in
+Brazilian Portuguese by default and in American English on request, from the
+sidebar or the account page, with each language's number and date formats;
+each record keeps its own currency ([`docs/i18n.md`](docs/i18n.md)).
 
 Two independent packages, each with its own `package.json` and lockfile. There
 is no root `package.json` and no pnpm workspace: every command runs inside
@@ -28,8 +31,9 @@ browser ──▶ web                                  ──▶ backend        
 
 The browser never talks to the backend. Every request goes through the Route
 Handlers in `web/src/app/api/v1`, which read the JWT from the `httpOnly`
-`ex3:token` cookie and forward it as `Authorization: Bearer`. The backend knows
-nothing about cookies or browser sessions.
+`ex3:token` cookie (`__Host-ex3:token` in production) and forward it as
+`Authorization: Bearer`. The backend knows nothing about cookies or browser
+sessions.
 
 In the backend, each layer depends only on the one below it: `routes` declares
 the HTTP contract, `services` orchestrates the use case and the database
@@ -64,6 +68,7 @@ the Finances section.
 cp .env.example .env
 # POSTGRES_PASSWORD: openssl rand -hex 24   (hex goes into the connection URL unescaped)
 # JWT_SECRET:        openssl rand -base64 48
+# HOST_UID, HOST_GID: id -u, id -g   (Linux, when they are not 1000)
 docker compose up --build
 ```
 
@@ -111,7 +116,9 @@ docker compose exec postgres psql --username=ex3 --dbname=ex3 \
 
 Without `YAHOO_FINANCE_API_KEY` the application still works: every quote is
 reported as unavailable, and the screens show quantity and cost, with no market
-value.
+value. `BRAPI_API_KEY`, from brapi's free plan, lets an import resolve its B3
+tickers from brapi's catalog instead of spending the YH Finance quota on them;
+without it, imports look every ticker up in YH Finance.
 
 Finances need no configuration or seed: every user starts with an empty
 section, and the reminders show inside the application only — no email or push
@@ -132,6 +139,11 @@ required when `NODE_ENV=production`: with it the web attests to the API the
 address of whoever signs in or signs up, and throttling counts per browser
 rather than per web server. In development it may be left blank on both sides.
 
+`TURNSTILE_SECRET_KEY`, in the backend, and `TURNSTILE_SITE_KEY`, in the web, are
+a Cloudflare Turnstile pair guarding sign-in and sign-up. Production requires
+both and refuses Cloudflare's test secrets; in development, leaving both blank
+turns the challenge off. See [`docs/security.md`](docs/security.md#bot-challenge).
+
 The backend's remaining keys have defaults: `NODE_ENV=development`, `PORT=8080`,
 `BCRYPT_SALT=12` (minimum 10), `JWT_EXPIRATION=1d` (a positive integer followed
 by `s`, `m`, `h` or `d`, at most `30d`) and `DIRECT_URL`, which only the Prisma
@@ -145,8 +157,9 @@ as absent and receives the default.
 
 Prisma 7 does not read the connection string from `schema.prisma`: the runtime
 receives it through the driver adapter (`DATABASE_URL`) and the CLI reads it
-from `prisma.config.ts`, which prefers `DIRECT_URL` — the direct connection,
-with no pooler, that the migrations require.
+from `prisma.config.ts`, which prefers `DIRECT_URL` — a connection without
+transaction pooling, which the migrations require; on Supabase, the Session
+pooler ([`docs/deployment.md`](docs/deployment.md#supabase)).
 
 | Command | When |
 | --- | --- |
@@ -174,7 +187,7 @@ Backend (`cd backend`):
 | `pnpm prettier` / `pnpm prettier:fix` | formatting |
 
 Web (`cd web`): `pnpm dev`, `pnpm build`, `pnpm start`, `pnpm lint`,
-`pnpm typecheck`, `pnpm prettier`.
+`pnpm typecheck`, `pnpm test`, `pnpm prettier`.
 
 Both packages also expose `pnpm lint:fix`.
 
@@ -192,9 +205,15 @@ The runner is `node:test`, with no additional framework. The unit tests
 exercise the API over HTTP, with `supertest`, one at a time. Conventions and
 limits are in [`docs/testing.md`](docs/testing.md).
 
+The web's unit tests (`cd web && pnpm test`) use the same runner, through
+`tsx`, and need no database. They cover the message catalogs, the pt-BR and
+en-US number, currency and date formats across time zones, language
+switching, error wording, decimal reading and component markup; see
+[`docs/i18n.md`](docs/i18n.md#tests). The
+web's gates are `lint`, `typecheck`, `test` and `build`.
+
 `docker compose --profile check up` runs both packages' gates in a container,
-the way CI does. The web has no test runner yet, and its gates are `lint`,
-`typecheck` and `build`.
+the way CI does.
 
 ## Deployment
 
@@ -202,16 +221,18 @@ the way CI does. The web has no test runner yet, and its gates are `lint`,
 | --- | --- |
 | Gates for every push and PR to `master` and `develop` | `.github/workflows/ci.yaml` |
 | Production migrations | `.github/workflows/migrate.yaml`, after CI passes on `master` |
-| Production image | the `runner` stage of each `Dockerfile` |
+| Production stack | `compose.prod.yaml`: the `runner` stage of each `Dockerfile` behind a Cloudflare Tunnel, with the database on Supabase |
 
 The web's `API_URL` enters as a build arg and the `runner` stage declares it as
 a container environment variable; the Next server reads it at runtime, and it
 never reaches the client bundle. `API_PROXY_SECRET` is an environment variable
-of both services in production, preferably from a secret manager and never a
-build arg, because an image would keep it in its layers. The backend does not
-start in production without it. The repository neither builds nor publishes an
-image: building, publishing and configuring the service that runs them —
-variables, `GET /ready` and `GET /health` probes — live outside it (TD-060).
+of both services in production, never a build arg, because an image would keep
+it in its layers. The backend does not start in production without it.
+`TURNSTILE_SECRET_KEY` follows the same rule, and `TURNSTILE_SITE_KEY`, though
+public, is read at runtime rather than built in. The images are built on the
+host that runs them and published nowhere. Setup, deploys, rollbacks and the
+risks of sharing the host with development are in
+[`docs/deployment.md`](docs/deployment.md).
 
 ## Documentation
 
@@ -228,10 +249,13 @@ variables, `GET /ready` and `GET /health` probes — live outside it (TD-060).
 | [`docs/observability.md`](docs/observability.md) | structured logging, request correlation, health and readiness |
 | [`docs/testing.md`](docs/testing.md) | test infrastructure and conventions |
 | [`docs/containers.md`](docs/containers.md) | Compose, volumes and production images |
+| [`docs/deployment.md`](docs/deployment.md) | the production stack: Cloudflare Tunnel, Supabase, setup, deploys, backups and accepted risks |
 | [`docs/data-fetching.md`](docs/data-fetching.md) | every browser request, hook by hook |
 | [`docs/component-inventory.md`](docs/component-inventory.md) | the web's reusable components, what to keep and what to rewrite |
+| [`docs/i18n.md`](docs/i18n.md) | the web's pt-BR and en-US catalogs, the language selector and its persistence, message conventions, number, currency and date formats, error wording, and how to add a locale |
 | [`docs/accessibility.md`](docs/accessibility.md), [`docs/responsiveness.md`](docs/responsiveness.md), [`docs/performance.md`](docs/performance.md) | normative frontend criteria |
 | [`docs/toolchain.md`](docs/toolchain.md) | pinned versions and why |
+| [`docs/competitive-benchmarking.md`](docs/competitive-benchmarking.md) | what other investment trackers document, and what ex3 adopted, adapted or left out |
 
 ## License
 

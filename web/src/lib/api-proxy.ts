@@ -1,7 +1,11 @@
 import { cookies, headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-import { APP_STORAGE_KEYS } from '@/common/constants';
+import {
+  APP_STORAGE_KEYS,
+  BOT_CHALLENGE,
+  REQUEST_LIMITS
+} from '@/common/constants';
 
 import { toApiProxyErrorResponse } from './api-error-response';
 import api, { ApiProxyError, UNEXPECTED_ERROR_MESSAGE } from './axios';
@@ -11,6 +15,10 @@ type ForwardedRequest = {
   path: string;
   searchParams?: URLSearchParams;
   payloadFrom?: Request;
+  /** The largest body read from `payloadFrom`, in bytes; the API's JSON limit unless the route takes more. */
+  maxPayloadBytes?: number;
+  /** For a route that may outlast the default, as one that reads a file and asks the quote provider about it. */
+  timeoutMs?: number;
 };
 
 /** The browser never holds the token: it is read from the httpOnly cookie and sent only to the API. */
@@ -69,10 +77,92 @@ export const clientAddressHeaders = async (): Promise<
     : {};
 };
 
-/** A body the proxy cannot parse is a rejected request, not an upstream failure. */
-export const jsonPayload = async <Payload = unknown>(req: Request) => {
+/**
+ * The browser's Turnstile token, passed on as sent for the API to verify. One
+ * longer than Cloudflare issues is dropped here, so the API refuses it as
+ * missing without the proxy forwarding an oversized header.
+ */
+export const botChallengeHeadersOf = (req: Request): Record<string, string> => {
+  const token = req.headers.get(BOT_CHALLENGE.Header);
+
+  return token && token.length <= BOT_CHALLENGE.TokenMaxLength
+    ? { [BOT_CHALLENGE.Header]: token }
+    : {};
+};
+
+const JSON_MEDIA_TYPE = 'application/json';
+
+const isJsonRequest = (req: Request) =>
+  req.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ===
+  JSON_MEDIA_TYPE;
+
+/** The API's own answer to a body past its limit, so the interface words both alike. */
+const payloadTooLargeError = () =>
+  new ApiProxyError('Request body is too large', {
+    status: 413,
+    statusText: 'Payload Too Large',
+    _error: {
+      code: 'VALIDATION',
+      message: 'Request payload exceeds the maximum allowed size',
+      details: []
+    }
+  });
+
+/**
+ * The body as text, read no further than `maxBytes`: a declared length past it
+ * is refused before reading, and a body that runs past it while streaming,
+ * declared or not, is cancelled there.
+ */
+const boundedTextOf = async (req: Request, maxBytes: number) => {
+  if (Number(req.headers.get('content-length')) > maxBytes)
+    throw payloadTooLargeError();
+
+  if (req.body === null) return '';
+
+  const reader = req.body.getReader();
+  const decoder = new TextDecoder();
+  let text = '';
+  let size = 0;
+
+  for (
+    let chunk = await reader.read();
+    !chunk.done;
+    chunk = await reader.read()
+  ) {
+    size += chunk.value.byteLength;
+
+    if (size > maxBytes) {
+      await reader.cancel();
+      throw payloadTooLargeError();
+    }
+
+    text += decoder.decode(chunk.value, { stream: true });
+  }
+
+  return text + decoder.decode();
+};
+
+/**
+ * A body the proxy cannot parse is a rejected request, not an upstream failure.
+ * Only JSON is read: a form on another site can post text that parses as JSON,
+ * but not under this media type without the browser asking first. A body past
+ * `maxBytes` is refused as the API would refuse it, without the proxy holding
+ * it whole.
+ */
+export const jsonPayload = async <Payload = unknown>(
+  req: Request,
+  maxBytes: number = REQUEST_LIMITS.JsonBodyBytes
+) => {
+  if (!isJsonRequest(req))
+    throw new ApiProxyError('Request body is not JSON', {
+      status: 415,
+      statusText: 'Unsupported Media Type'
+    });
+
+  const text = await boundedTextOf(req, maxBytes);
+
   try {
-    return (await req.json()) as Payload;
+    return JSON.parse(text) as Payload;
   } catch {
     throw new ApiProxyError('Request body is not valid JSON', {
       status: 400,
@@ -81,19 +171,38 @@ export const jsonPayload = async <Payload = unknown>(req: Request) => {
   }
 };
 
+/**
+ * `encodeURIComponent` leaves `.` and `..` as they are, and the upstream URL
+ * resolves them, so an id of `..` would move the request onto another route:
+ * voiding payment `..` would delete its expense. No id or symbol is only dots.
+ */
+const DOT_SEGMENT_PATTERN = /^(?:\.|%2e){1,2}$/i;
+
+export const hasDotSegment = (path: string) =>
+  path.split('/').some((segment) => DOT_SEGMENT_PATTERN.test(segment));
+
 export const forwardToApi = async <Data>({
   method,
   path,
   searchParams,
-  payloadFrom
+  payloadFrom,
+  maxPayloadBytes,
+  timeoutMs
 }: ForwardedRequest) => {
   try {
+    if (hasDotSegment(path))
+      throw new ApiProxyError('Request path is not valid', {
+        status: 404,
+        statusText: 'Not Found'
+      });
+
     const { data, status, statusText } = await api.getInstance().request<Data>({
       method,
       url: path,
       headers: await authorizationHeaders(),
       params: searchParams,
-      data: payloadFrom && (await jsonPayload(payloadFrom))
+      data: payloadFrom && (await jsonPayload(payloadFrom, maxPayloadBytes)),
+      timeout: timeoutMs
     });
 
     return NextResponse.json<Data>(data, { status, statusText });

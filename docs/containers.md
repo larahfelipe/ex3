@@ -12,6 +12,7 @@ Requires Docker Engine with the Compose v2 plugin (`docker compose`).
 | --- | --- |
 | `compose.yaml` | Development environment and verification services. Project `ex3`, whatever the clone directory is. |
 | `.env.example` → `.env` | Values `compose.yaml` interpolates. `.env` stays out of git. |
+| `compose.prod.yaml`, `.env.production.example` | The production stack and its variables; see [`deployment.md`](deployment.md). |
 | `backend/Dockerfile`, `web/Dockerfile` | Stages `base`, `deps`, `builder`, `prod-deps`, `dev` and `runner`. |
 | `backend/.dockerignore`, `web/.dockerignore` | Keep `.env*`, `node_modules` and build artifacts out of the build context. |
 
@@ -21,6 +22,7 @@ Requires Docker Engine with the Compose v2 plugin (`docker compose`).
 cp .env.example .env
 # POSTGRES_PASSWORD: openssl rand -hex 24   (hex: the password goes into the connection URL unescaped)
 # JWT_SECRET:        openssl rand -base64 48
+# HOST_UID, HOST_GID: id -u, id -g   (Linux, when they are not 1000)
 docker compose up --build
 ```
 
@@ -62,12 +64,13 @@ docker compose exec postgres psql --username=ex3 --dbname=ex3 \
 4. `web` (`pnpm dev`), once `web-deps` has finished and `backend` has started.
 
 The development services use the `dev` stage: an image with Node and pnpm, code
-mounted from the host, process running as `node`. Each package's `node_modules`
-lives in a volume, because the host's native binaries (`bcrypt`, Prisma, SWC)
-do not serve the container's Linux. The pnpm store is a volume shared by both
-packages, so that a reinstall does not download again what was already
-downloaded. The `build/` of `next dev` has its own volume and does not fight
-over the directory with a `pnpm build` run on the host.
+mounted from the host, process running as `node` with the host user's uid and
+gid. Each package's `node_modules` lives in a volume, because the host's native
+binaries (`bcrypt`, Prisma, SWC) do not serve the container's Linux. The pnpm
+store is a volume shared by both packages, so that a reinstall does not
+download again what was already downloaded. The `build/` of `next dev` has its
+own volume and does not fight over the directory with a `pnpm build` run on the
+host.
 
 `backend` has a health check on `GET /ready`, which answers for the database,
 which is why `web` waits for `service_healthy` rather than for a started
@@ -78,16 +81,33 @@ depending on `curl` being in the image, every 10s, with a 60s start period and
 three consecutive failures to become `unhealthy`. See
 [`observability.md`](observability.md).
 
-On Linux, the container's `node` user (uid 1000) writes into the mounted code
-(`dist/`, `next-env.d.ts`, `build/`). With a different uid on the host those
-writes fail. On Docker Desktop for macOS the ownership mapping is transparent.
+On Linux, the mounted code keeps the host's ownership, and the container's
+`node` user writes into it (`dist/`, `next-env.d.ts`, `build/`). The `dev`
+stage therefore recreates `node` with the `HOST_UID` and `HOST_GID` build args,
+which Compose takes from `.env` and defaults to 1000. When they differ from the
+host's ids, those writes fail: `next dev` reports `EACCES` on `next-env.d.ts`
+and leaves every request hanging, while its TCP health check still passes. On
+Docker Desktop for macOS the ownership mapping is transparent, and the defaults
+serve.
+
+Docker copies an image directory's ownership into a named volume only when the
+volume is created, so changing either id also requires recreating the volumes
+that hold the old ones. The development database is not among them:
+
+```sh
+docker compose down
+docker volume rm ex3_backend-node-modules ex3_web-node-modules ex3_web-dev-build ex3_pnpm-store
+docker compose up --build
+```
 
 ## Environment variables
 
 The root `.env` is read by Compose only. In the container, the backend receives
 `NODE_ENV`, `PORT`, `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`,
-`API_PROXY_SECRET` and `YAHOO_FINANCE_API_KEY` from `compose.yaml`, and the web
-receives `API_URL` and the same `API_PROXY_SECRET`. Because `dotenv` does not
+`API_PROXY_SECRET`, `YAHOO_FINANCE_API_KEY`, `BRAPI_API_KEY` and
+`TURNSTILE_SECRET_KEY` from
+`compose.yaml`, and the web receives `API_URL`, the same `API_PROXY_SECRET` and
+`TURNSTILE_SITE_KEY`. Because `dotenv` does not
 overwrite an already defined variable, these values win over a `backend/.env`
 present in the mounted code. The remaining keys (`BCRYPT_SALT`,
 `JWT_EXPIRATION`, `CORS_ALLOWED_ORIGINS`) follow `backend/.env`, if it exists,
@@ -102,7 +122,7 @@ The `check` profile's services repeat the CI gates:
 
 ```sh
 docker compose run --rm backend-check     # lint, typecheck, test:unit, test:integration, build
-docker compose run --rm web-check         # lint, typecheck, build
+docker compose run --rm web-check         # lint, typecheck, test, build
 docker compose run --rm backend-check pnpm test:unit   # a single command
 docker compose rm --stop --force postgres-test   # shut the test database down
 ```
@@ -148,7 +168,7 @@ The production target is the last stage, `runner`:
 
 - it starts from `node:24.15-alpine` without pnpm and runs as `node`, with
   `tini` as PID 1: Node does not handle SIGTERM when it is PID 1, and the
-  platform that runs the image offers no `--init`;
+  image does not rely on whoever runs it to pass `--init`;
 - it carries production dependencies only, installed in a clean stage
   (`prod-deps`), plus the `builder` artifact: `dist/` and `prisma/` in the
   backend; `build/` without `build/cache`, `public/`, `next.config.js` and
@@ -166,3 +186,6 @@ builder can build them.
 a container environment variable. It is read by the server at runtime, no
 longer inlined into the bundle by `next.config.js` — see `security.md`,
 §Secrets.
+
+`compose.prod.yaml` runs these images in production, read-only and with no
+capability or published port; [`deployment.md`](deployment.md) covers it.

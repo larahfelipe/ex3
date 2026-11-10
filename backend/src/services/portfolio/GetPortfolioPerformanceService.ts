@@ -2,12 +2,13 @@ import { AssetMessages, InstrumentMessages } from '@/config';
 import type { PriceRange } from '@/domain/MarketDataProvider';
 import type { Instrument, Portfolio } from '@/domain/models';
 import {
+  benchmarkRangeOf,
+  performanceRangeOf,
+  trackPortfolioPerformance,
   type DailyPrice,
   type PerformanceRange,
-  performanceRangeOf,
   type PortfolioPerformance,
-  type QuotedInstrument,
-  trackPortfolioPerformance
+  type QuotedInstrument
 } from '@/domain/PortfolioPerformance';
 import { startOfDayInUtc } from '@/domain/PriceHistory';
 import { NotFoundError } from '@/errors';
@@ -25,6 +26,8 @@ import type {
 import { requireOwnedPortfolio } from '../PortfolioAccess';
 
 type TradedInstrument = Pick<Instrument, 'id' | 'symbol' | 'currency'>;
+
+type BenchmarkInstrument = TradedInstrument & Pick<Instrument, 'name'>;
 
 export class GetPortfolioPerformanceService {
   private static INSTANCE: GetPortfolioPerformanceService;
@@ -82,7 +85,9 @@ export class GetPortfolioPerformanceService {
    * The whole ledger up to today is read, not only the window's, because the
    * positions held on the first day of the window are replayed from every
    * transaction that precedes it. `MAX` starts at the first of them. With a
-   * symbol, the ledger and so the whole series is that position's alone.
+   * symbol, the ledger and so the whole series is that position's alone. With
+   * a benchmark, its closes and every rate are read from a few days before the
+   * window, so a market closed on the window's first day still has a close.
    */
   async execute({
     userId,
@@ -104,21 +109,28 @@ export class GetPortfolioPerformanceService {
     const [firstEntry] = ledger;
     const window = performanceRangeOf(range, now, firstEntry?.executedAt);
 
-    const traded = await this.instrumentRepository.getByIds([
-      ...new Set(ledger.map(({ instrumentId }) => instrumentId))
+    const [traded, benchmarkInstrument] = await Promise.all([
+      this.instrumentRepository.getByIds([
+        ...new Set(ledger.map(({ instrumentId }) => instrumentId))
+      ]),
+      this.benchmarkOf(benchmark, userId)
     ]);
+    const ratesWindow = benchmarkInstrument ? benchmarkRangeOf(window) : window;
 
-    const [instruments, ratesByCurrency, benchmarkSeries] = await Promise.all([
+    const [instruments, ratesByCurrency, benchmarkCloses] = await Promise.all([
       this.quotedInstruments(traded, window),
       this.ratesOf(
         [
           ...ledger.map(({ currency }) => currency),
-          ...traded.flatMap(({ currency }) => currency ?? [])
+          ...traded.flatMap(({ currency }) => currency ?? []),
+          ...(benchmarkInstrument?.currency
+            ? [benchmarkInstrument.currency]
+            : [])
         ],
         baseCurrency,
-        window
+        ratesWindow
       ),
-      this.benchmarkOf(benchmark, userId, window)
+      benchmarkInstrument && this.closesOf(benchmarkInstrument.id, ratesWindow)
     ]);
 
     return trackPortfolioPerformance({
@@ -127,7 +139,15 @@ export class GetPortfolioPerformanceService {
       ledger,
       instruments,
       ratesByCurrency,
-      ...(benchmarkSeries && { benchmark: benchmarkSeries })
+      ...(benchmarkInstrument &&
+        benchmarkCloses && {
+          benchmark: {
+            symbol: benchmarkInstrument.symbol,
+            name: benchmarkInstrument.name,
+            currency: benchmarkInstrument.currency,
+            closes: benchmarkCloses
+          }
+        })
     });
   }
 
@@ -191,9 +211,8 @@ export class GetPortfolioPerformanceService {
 
   private async benchmarkOf(
     symbol: string | undefined,
-    userId: string,
-    range: PriceRange
-  ): Promise<QuotedInstrument | null> {
+    userId: string
+  ): Promise<BenchmarkInstrument | null> {
     if (symbol === undefined) return null;
 
     const instrument = await this.instrumentRepository.getVisibleBySymbol({
@@ -203,11 +222,7 @@ export class GetPortfolioPerformanceService {
 
     if (!instrument) throw new NotFoundError(InstrumentMessages.NOT_FOUND);
 
-    return {
-      symbol: instrument.symbol,
-      currency: instrument.currency,
-      closes: await this.closesOf(instrument.id, range)
-    };
+    return instrument;
   }
 
   private closesOf(

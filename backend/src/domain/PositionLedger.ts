@@ -31,14 +31,18 @@ export type PositionRebuild =
 export type ProfitLossRealization =
   { outcome: 'realized'; realizedProfitLoss: string } | LedgerRefusal;
 
-type LedgerReplay =
+/** The refusal with the entry the replay stopped at, null when the ledger as a whole is refused. */
+export type LocatedLedgerRefusal<Entry extends LedgerEntry = LedgerEntry> =
+  LedgerRefusal & Record<'entry', Entry | null>;
+
+type LedgerReplay<Entry extends LedgerEntry> =
   | {
       outcome: 'replayed';
       quantity: Prisma.Decimal;
       averageCost: Prisma.Decimal;
       realizedProfitLoss: Prisma.Decimal;
     }
-  | LedgerRefusal;
+  | LocatedLedgerRefusal<Entry>;
 
 /**
  * No operation of a replay rounds at this precision. Every position it passes
@@ -89,9 +93,11 @@ const truncateToColumnScale = (value: Prisma.Decimal) =>
  * it is added to the others. A ledger passing through a position that does not
  * fit the columns is refused.
  */
-const replayLedger = (ledger: ReadonlyArray<LedgerEntry>): LedgerReplay => {
+const replayLedger = <Entry extends LedgerEntry>(
+  ledger: ReadonlyArray<Entry>
+): LedgerReplay<Entry> => {
   if (new Set(ledger.map(({ currency }) => currency)).size > 1)
-    return { outcome: 'currency-mismatch' };
+    return { outcome: 'currency-mismatch', entry: null };
 
   let quantity = ZERO;
   let averageCost = ZERO;
@@ -117,7 +123,8 @@ const replayLedger = (ledger: ReadonlyArray<LedgerEntry>): LedgerReplay => {
         .div(COLUMN_SCALE_FACTOR);
       quantity = heldQuantity;
     } else if (entry.type === TransactionTypes.SELL) {
-      if (entryQuantity.gt(quantity)) return { outcome: 'negative-amount' };
+      if (entryQuantity.gt(quantity))
+        return { outcome: 'negative-amount', entry };
 
       realizedProfitLoss = realizedProfitLoss.add(
         truncateToColumnScale(
@@ -135,7 +142,7 @@ const replayLedger = (ledger: ReadonlyArray<LedgerEntry>): LedgerReplay => {
     }
 
     if ([quantity, averageCost, quantity.mul(averageCost)].some(exceedsColumn))
-      return { outcome: 'out-of-range' };
+      return { outcome: 'out-of-range', entry };
   }
 
   return { outcome: 'replayed', quantity, averageCost, realizedProfitLoss };
@@ -147,7 +154,7 @@ export const rebuildPosition = (
 ): PositionRebuild => {
   const replay = replayLedger(ledger);
 
-  if (replay.outcome !== 'replayed') return replay;
+  if (replay.outcome !== 'replayed') return { outcome: replay.outcome };
 
   const { quantity, averageCost } = replay;
 
@@ -171,5 +178,18 @@ export const realizeProfitLoss = (
         outcome: 'realized',
         realizedProfitLoss: replay.realizedProfitLoss.toFixed()
       }
-    : replay;
+    : { outcome: replay.outcome };
+};
+
+/**
+ * Where a replay of the ledger is refused: the entry, of those given, that
+ * a SELL exceeding the holding or a position past the columns stops at, in
+ * replay order. Null when the ledger replays.
+ */
+export const locateLedgerRefusal = <Entry extends LedgerEntry>(
+  ledger: ReadonlyArray<Entry>
+): LocatedLedgerRefusal<Entry> | null => {
+  const replay = replayLedger(ledger);
+
+  return replay.outcome === 'replayed' ? null : replay;
 };

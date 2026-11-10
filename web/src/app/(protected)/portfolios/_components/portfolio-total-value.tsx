@@ -1,5 +1,7 @@
 import type { FC } from 'react';
 
+import { useTranslations } from 'use-intl';
+
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { Metric, Money } from '@/components/financial';
 import { Button, Skeleton } from '@/components/ui';
@@ -17,22 +19,24 @@ export const PortfolioTotalValue: FC<PortfolioTotalValueProps> = ({
   portfolio
 }) => {
   const { data: overview, isError, refetch } = usePortfolioOverview(portfolio);
+  const t = useTranslations('portfolios.totalValue');
+  const tCommon = useTranslations('common');
 
   const renderValue = () => {
     if (overview === undefined && isError)
       return (
         <span className="flex items-center justify-end gap-2">
           <span className="text-sm font-normal text-negative">
-            Could not load
+            {t('loadFailed')}
           </span>
 
           <Button
             variant="outline"
             size="xxs"
-            aria-label={`Retry loading the value of ${portfolio.name}`}
+            aria-label={t('retry', { name: portfolio.name })}
             onClick={() => void refetch()}
           >
-            Retry
+            {tCommon('actions.retry')}
           </Button>
         </span>
       );
@@ -42,15 +46,15 @@ export const PortfolioTotalValue: FC<PortfolioTotalValueProps> = ({
         <>
           <Skeleton aria-hidden="true" className="h-6 w-28" />
 
-          <span className="sr-only">Loading</span>
+          <span className="sr-only">{tCommon('states.loading')}</span>
         </>
       );
 
     if (overview.heldPositionCount === 0)
-      return <span className={STATUS_CLASS}>No holdings</span>;
+      return <span className={STATUS_CLASS}>{t('noHoldings')}</span>;
 
     if (overview.totalValue === undefined)
-      return <span className={STATUS_CLASS}>Market data unavailable</span>;
+      return <span className={STATUS_CLASS}>{t('marketDataUnavailable')}</span>;
 
     return (
       <Money value={overview.totalValue} currency={overview.baseCurrency} />
@@ -60,7 +64,7 @@ export const PortfolioTotalValue: FC<PortfolioTotalValueProps> = ({
   return (
     <dl className="shrink-0 text-right">
       <Metric
-        label="Total value"
+        label={t('label')}
         className="space-y-0.5"
         valueClassName="flex min-h-6 items-center justify-end tabular-nums"
       >

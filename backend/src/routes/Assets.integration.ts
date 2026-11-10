@@ -18,12 +18,12 @@ import {
 } from '@/test/ApiClient';
 import { FakeMarketDataProvider } from '@/test/FakeMarketDataProvider';
 import {
-  FIXTURE_ASSET_SYMBOL,
-  MISSING_UUID,
   createAsset,
   createInstrument,
   createPortfolio,
   createTransaction,
+  FIXTURE_ASSET_SYMBOL,
+  MISSING_UUID,
   seedPortfolio
 } from '@/test/Fixtures';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';

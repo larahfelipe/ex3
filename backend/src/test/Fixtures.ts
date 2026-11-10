@@ -1,4 +1,4 @@
-import { InstrumentTypes, TransactionTypes, envs } from '@/config';
+import { envs, InstrumentTypes, TransactionTypes } from '@/config';
 import type {
   Instrument,
   Portfolio,
@@ -51,6 +51,8 @@ export const createUser = async (
   prismaClient.user.create({
     data: {
       name: 'Fixture Holder',
+      firstName: 'Fixture',
+      lastName: 'Holder',
       email: FIXTURE_USER_EMAIL,
       password: await passwordDigest(),
       ...overrides
@@ -129,6 +131,8 @@ export const createTransaction = async (
       | 'type'
       | 'quantity'
       | 'unitPrice'
+      | 'fees'
+      | 'taxes'
       | 'currency'
       | 'executedAt'
       | 'broker'

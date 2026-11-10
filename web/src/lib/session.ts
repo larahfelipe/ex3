@@ -41,6 +41,6 @@ export const setSessionCookies = async (accessToken: string) => {
 export const clearSessionCookies = async () => {
   const cookieStore = await cookies();
 
-  cookieStore.delete(APP_STORAGE_KEYS.Token);
-  cookieStore.delete(APP_STORAGE_KEYS.Session);
+  cookieStore.delete({ ...COOKIE_OPTIONS, name: APP_STORAGE_KEYS.Token });
+  cookieStore.delete({ ...COOKIE_OPTIONS, name: APP_STORAGE_KEYS.Session });
 };

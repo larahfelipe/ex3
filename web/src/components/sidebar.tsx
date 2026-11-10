@@ -9,27 +9,37 @@ import {
   ChartCandlestick,
   ChevronLeft,
   CircleUserRound,
+  Languages,
   LayoutDashboard,
   Loader2,
   LogOut,
   ReceiptText,
   Wallet
 } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import {
   APP_ROUTES,
   APP_STORAGE_KEYS,
-  NAVIGATION_STATES
+  APP_TITLE,
+  NAVIGATION_STATES,
+  PREFERENCE_MAX_AGE_SECONDS
 } from '@/common/constants';
+import { LanguageSelect } from '@/components/language-select';
 import { useFinanceAlerts } from '@/hooks/use-finances';
 import { useCurrentUser, useSignOut } from '@/hooks/use-user';
+import { LOCALE_SHORT_NAMES } from '@/i18n/config';
 import { cn } from '@/lib/utils';
 
 type NavigationState =
   (typeof NAVIGATION_STATES)[keyof typeof NAVIGATION_STATES];
 
-type NavigationSection = Record<'name' | 'path', string> &
+type NavigationSection = Record<'path', string> &
+  Record<'name', SectionName> &
   Record<'icon', ReactNode>;
+
+type SectionName =
+  'overview' | 'assets' | 'portfolios' | 'finances' | 'account';
 
 type NavigationLinkProps = NavigationSection &
   Record<'isActive', boolean> &
@@ -40,17 +50,17 @@ type SidebarProps = Record<'initialState', NavigationState>;
 
 const PORTFOLIO_SECTIONS: Array<NavigationSection> = [
   {
-    name: 'Overview',
+    name: 'overview',
     path: APP_ROUTES.Protected.Overview,
     icon: <LayoutDashboard size={18} />
   },
   {
-    name: 'Assets',
+    name: 'assets',
     path: APP_ROUTES.Protected.Assets,
     icon: <ChartCandlestick size={18} />
   },
   {
-    name: 'Portfolios',
+    name: 'portfolios',
     path: APP_ROUTES.Protected.Portfolios,
     icon: <Wallet size={18} />
   }
@@ -58,7 +68,7 @@ const PORTFOLIO_SECTIONS: Array<NavigationSection> = [
 
 /** Cash flow, kept apart from the investment sections it never mixes with. */
 const FINANCE_SECTION: NavigationSection = {
-  name: 'Finances',
+  name: 'finances',
   path: APP_ROUTES.Protected.Finances,
   icon: <ReceiptText size={18} />
 };
@@ -67,12 +77,10 @@ const FINANCE_SECTION: NavigationSection = {
 const ALERT_BADGE_MAX = 99;
 
 const ACCOUNT_SECTION: NavigationSection = {
-  name: 'Account',
+  name: 'account',
   path: APP_ROUTES.Protected.Account,
   icon: <CircleUserRound size={18} />
 };
-
-const NAVIGATION_STATE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 /** WCAG 2.5.5 asks for a 44px target, above the default button height. */
 const NAVIGATION_ITEM_CLASS =
@@ -88,6 +96,14 @@ const NAVIGATION_ICON_CLASS =
 const NAVIGATION_TOGGLE_CLASS =
   'absolute top-3.5 right-0 z-10 hidden size-6 translate-x-1/2 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-surface ring-offset-background transition-colors before:absolute before:-inset-2.5 hover:border-input hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-90 lg:flex';
 
+/**
+ * The brand leads to the overview. It is drawn 32 px tall, centred on the
+ * toggle's line, with a 44 px target (WCAG 2.5.5) from the pseudo-element
+ * around it; once expanded, its text lines up with the items' icons.
+ */
+const BRAND_LINK_CLASS =
+  'relative -my-0.5 flex h-8 items-center rounded-md px-2 font-display text-lg font-bold outline-hidden ring-offset-background transition-colors before:absolute before:-inset-x-1 before:-inset-y-1.5 hover:bg-accent focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-95';
+
 const isCurrentPath = (pathname: string, path: string) =>
   pathname === path || pathname.startsWith(`${path}/`);
 
@@ -98,49 +114,60 @@ const NavigationLink: FC<NavigationLinkProps> = ({
   detail,
   alertCount,
   isActive
-}) => (
-  <Link
-    href={path}
-    aria-current={isActive ? 'page' : undefined}
-    className={NAVIGATION_ITEM_CLASS}
-  >
-    {isActive && (
+}) => {
+  const t = useTranslations('navigation');
+
+  return (
+    <Link
+      href={path}
+      aria-current={isActive ? 'page' : undefined}
+      className={NAVIGATION_ITEM_CLASS}
+    >
+      {isActive && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-2 left-0 hidden w-1 rounded-full bg-primary navigation-expanded:block"
+        />
+      )}
+
       <span
         aria-hidden="true"
-        className="absolute inset-y-2 left-0 hidden w-1 rounded-full bg-primary navigation-expanded:block"
-      />
-    )}
-
-    <span aria-hidden="true" className={cn(NAVIGATION_ICON_CLASS, 'relative')}>
-      {icon}
-
-      {alertCount !== undefined && alertCount > 0 && (
-        <span className="absolute -top-1 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-negative px-1 text-[0.625rem] leading-none font-semibold text-negative-foreground navigation-expanded:-top-2 navigation-expanded:-right-2.5">
-          {alertCount > ALERT_BADGE_MAX ? `${ALERT_BADGE_MAX}+` : alertCount}
-        </span>
-      )}
-    </span>
-
-    <span className="flex max-w-full min-w-0 flex-col items-center navigation-expanded:items-start">
-      <span className="max-w-full truncate">
-        {name}
+        className={cn(NAVIGATION_ICON_CLASS, 'relative')}
+      >
+        {icon}
 
         {alertCount !== undefined && alertCount > 0 && (
-          <span className="sr-only">{`, ${alertCount} overdue`}</span>
+          <span className="absolute -top-1 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-negative px-1 text-[0.625rem] leading-none font-semibold text-negative-foreground navigation-expanded:-top-2 navigation-expanded:-right-2.5">
+            {alertCount > ALERT_BADGE_MAX ? `${ALERT_BADGE_MAX}+` : alertCount}
+          </span>
         )}
       </span>
 
-      {detail !== undefined && (
-        <span className="hidden max-w-full truncate text-xs font-normal text-muted-foreground navigation-expanded:block">
-          {detail}
+      <span className="flex max-w-full min-w-0 flex-col items-center navigation-expanded:items-start">
+        <span className="max-w-full truncate">
+          {t(name)}
+
+          {alertCount !== undefined && alertCount > 0 && (
+            <span className="sr-only">
+              {t('overdueCount', { count: alertCount })}
+            </span>
+          )}
         </span>
-      )}
-    </span>
-  </Link>
-);
+
+        {detail !== undefined && (
+          <span className="hidden max-w-full truncate text-xs font-normal text-muted-foreground navigation-expanded:block">
+            {detail}
+          </span>
+        )}
+      </span>
+    </Link>
+  );
+};
 
 export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
   const pathname = usePathname();
+  const t = useTranslations('navigation');
+  const tLanguage = useTranslations('common.language');
 
   const [navigationState, setNavigationState] = useState(initialState);
 
@@ -150,7 +177,7 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
   const { data: financeAlerts } = useFinanceAlerts();
 
   const isExpanded = navigationState === NAVIGATION_STATES.Expanded;
-  const toggleLabel = isExpanded ? 'Collapse navigation' : 'Expand navigation';
+  const toggleLabel = isExpanded ? t('collapse') : t('expand');
 
   const toggleNavigation = () => {
     const nextState = isExpanded
@@ -158,14 +185,14 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
       : NAVIGATION_STATES.Expanded;
 
     setNavigationState(nextState);
-    document.cookie = `${APP_STORAGE_KEYS.Navigation}=${nextState}; path=/; max-age=${NAVIGATION_STATE_MAX_AGE_SECONDS}; samesite=lax`;
+    document.cookie = `${APP_STORAGE_KEYS.Navigation}=${nextState}; path=/; max-age=${PREFERENCE_MAX_AGE_SECONDS}; samesite=lax`;
   };
 
   return (
     <nav
-      aria-label="Main"
+      aria-label={t('main')}
       data-navigation-state={navigationState}
-      className="fixed inset-x-0 bottom-0 z-40 flex h-(--navigation-bar) border-t bg-background px-1 sm:sticky sm:inset-auto sm:top-0 sm:h-dvh sm:w-(--navigation-rail) sm:shrink-0 sm:self-start sm:border-t-0 sm:border-r sm:px-0 sm:transition-[width,border-color] lg:has-[>button:hover]:border-input navigation-expanded:w-(--navigation-sidebar)"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-(--navigation-bar) border-t bg-background px-1 sm:sticky sm:inset-auto sm:top-0 sm:h-dvh sm:w-(--navigation-rail) sm:shrink-0 sm:self-start sm:border-t-0 sm:border-r sm:px-0 sm:transition-colors lg:has-[>button:hover]:border-input navigation-expanded:w-(--navigation-sidebar)"
     >
       <button
         type="button"
@@ -185,8 +212,15 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
       </button>
 
       <div className="contents sm:flex sm:min-h-0 sm:flex-1 sm:flex-col sm:overflow-y-auto sm:px-2 sm:py-3 navigation-expanded:px-3">
-        <div className="hidden sm:flex sm:justify-center navigation-expanded:justify-start navigation-expanded:pl-3">
-          <p className="font-display text-lg font-bold">EX3</p>
+        <div className="hidden sm:flex sm:justify-center navigation-expanded:justify-start navigation-expanded:pl-1">
+          <Link
+            href={APP_ROUTES.Protected.Overview}
+            aria-label={t('brand', { title: APP_TITLE })}
+            title={t('overview')}
+            className={BRAND_LINK_CLASS}
+          >
+            {APP_TITLE}
+          </Link>
         </div>
 
         <ul className="flex flex-3 sm:mt-6 sm:flex-none sm:flex-col sm:gap-1">
@@ -220,6 +254,53 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
           </li>
 
           <li className="flex flex-1 max-sm:hidden">
+            <LanguageSelect
+              side="right"
+              align="end"
+              renderTrigger={({ locale, isPending }) => (
+                <button
+                  type="button"
+                  aria-label={tLanguage('label')}
+                  className={cn(
+                    NAVIGATION_ITEM_CLASS,
+                    'data-[state=open]:text-foreground navigation-expanded:data-[state=open]:bg-accent'
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      NAVIGATION_ICON_CLASS,
+                      'group-data-[state=open]/item:bg-accent navigation-expanded:group-data-[state=open]/item:bg-transparent'
+                    )}
+                  >
+                    {isPending ? (
+                      <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                      <Languages size={18} />
+                    )}
+                  </span>
+
+                  <span className="flex max-w-full min-w-0 flex-col items-center navigation-expanded:items-start">
+                    <span aria-hidden="true" className="max-w-full truncate">
+                      {tLanguage('label')}
+                    </span>
+
+                    {/* The control's value: read out on the rail, shown once expanded. */}
+                    <span
+                      lang={locale}
+                      className="sr-only max-w-full text-xs font-normal text-muted-foreground navigation-expanded:not-sr-only"
+                    >
+                      <span className="block truncate">
+                        {LOCALE_SHORT_NAMES[locale]}
+                      </span>
+                    </span>
+                  </span>
+                </button>
+              )}
+            />
+          </li>
+
+          <li className="flex flex-1 max-sm:hidden">
             <button
               type="button"
               aria-disabled={isSigningOut}
@@ -245,7 +326,7 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
                 )}
               </span>
 
-              <span className="max-w-full truncate">Sign out</span>
+              <span className="max-w-full truncate">{t('signOut')}</span>
             </button>
           </li>
         </ul>

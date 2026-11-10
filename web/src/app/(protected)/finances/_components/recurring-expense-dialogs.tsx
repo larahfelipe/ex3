@@ -2,21 +2,15 @@ import { useId, useState, type FC } from 'react';
 
 import Link from 'next/link';
 
+import { useTranslations } from 'use-intl';
+
 import type { Expense, RecurringExpenseDetail } from '@/app/api/v1/finances';
-import {
-  billDetailRoute,
-  EXPENSE_CATEGORY_LABELS,
-  PAYMENT_METHOD_LABELS,
-  RECURRENCE_FREQUENCY_LABELS,
-  RECURRENCE_FREQUENCY_UNITS
-} from '@/common/constants';
-import { formatMoney } from '@/common/utils';
+import { billDetailRoute } from '@/common/constants';
 import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
 import {
   EmptyState,
   ErrorState,
   LoadingState,
-  STALE_DATA_MESSAGE,
   StaleState
 } from '@/components/data-state';
 import {
@@ -54,7 +48,9 @@ import {
   useReferenceDay,
   useUpdateRecurringExpense
 } from '@/hooks/use-finances';
-import { formatCalendarDay, shiftCalendarDay } from '@/lib/dates';
+import { useFormat } from '@/i18n/format';
+import { srOnly } from '@/i18n/rich-text';
+import { shiftCalendarDay } from '@/lib/dates';
 import { isNonzeroDecimal } from '@/lib/decimal';
 import { FIRST_PAGE } from '@/lib/pagination';
 import { cn } from '@/lib/utils';
@@ -84,16 +80,6 @@ type OccurrenceView = (typeof OCCURRENCE_VIEWS)[number];
 
 const OCCURRENCE_VIEWS = ['upcoming', 'earlier'] as const;
 
-const OCCURRENCE_VIEW_LABELS: Record<OccurrenceView, string> = {
-  upcoming: 'Upcoming',
-  earlier: 'Earlier'
-};
-
-const OCCURRENCE_VIEW_EMPTY_MESSAGES: Record<OccurrenceView, string> = {
-  upcoming: 'No upcoming bills',
-  earlier: 'No earlier bills'
-};
-
 const OCCURRENCES_PAGE_SIZE = 10;
 
 const COLUMN_VISIBILITY = { status: 'max-sm:hidden' } as const;
@@ -112,6 +98,9 @@ const OccurrenceRow: FC<
     Record<'today', string> &
     Record<'onPay', VoidFunction>
 > = ({ occurrence, today, onPay }) => {
+  const t = useTranslations('recurring.occurrences');
+  const tFinances = useTranslations('finances');
+  const { formatCalendarDay, formatMoney } = useFormat();
   const {
     id,
     dueDate,
@@ -123,8 +112,8 @@ const OccurrenceRow: FC<
     isCustomized
   } = occurrence;
   const isOpen = isOpenExpense(occurrence);
-  const dueDistance = isOpen ? dueDistanceOf(dueDate, today) : null;
-  const dueText = formatCalendarDay(dueDate) ?? dueDate;
+  const dueDistance = isOpen ? dueDistanceOf(dueDate, today, tFinances) : null;
+  const day = formatCalendarDay(dueDate) ?? dueDate;
 
   return (
     <TableRow>
@@ -147,7 +136,7 @@ const OccurrenceRow: FC<
 
           {isCustomized && (
             <span className="text-xs text-muted-foreground">
-              Edited on its own
+              {t('customized')}
             </span>
           )}
 
@@ -161,7 +150,9 @@ const OccurrenceRow: FC<
 
           {isOpen && isNonzeroDecimal(settledAmount) && (
             <span className="text-xs text-muted-foreground">
-              {`${formatMoney(outstandingAmount, currency)} left`}
+              {t('outstanding', {
+                amount: formatMoney(outstandingAmount, currency)
+              })}
             </span>
           )}
         </div>
@@ -175,15 +166,13 @@ const OccurrenceRow: FC<
         <div className="flex justify-end gap-1">
           {isOpen && (
             <Button variant="outline" size="xs" onClick={onPay}>
-              Pay
-              <span className="sr-only">{` the bill due ${dueText}`}</span>
+              {t.rich('pay', { day, hidden: srOnly })}
             </Button>
           )}
 
           <Button variant="ghost" size="xs" asChild>
             <Link href={billDetailRoute(id)}>
-              Bill
-              <span className="sr-only">{` due ${dueText}`}</span>
+              {t.rich('bill', { day, hidden: srOnly })}
             </Link>
           </Button>
         </div>
@@ -196,6 +185,7 @@ const SeriesOccurrences: FC<
   Record<'series', RecurringExpenseDetail> &
     Record<'onPay', (occurrence: Expense) => void>
 > = ({ series, onPay }) => {
+  const t = useTranslations('recurring.occurrences');
   const today = useReferenceDay();
   const headingId = useId();
   const viewInputName = useId();
@@ -223,11 +213,11 @@ const SeriesOccurrences: FC<
     <section aria-labelledby={headingId} className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 id={headingId} className="text-sm font-semibold">
-          Bills
+          {t('title')}
         </h3>
 
         <fieldset>
-          <legend className="sr-only">Show bills</legend>
+          <legend className="sr-only">{t('view')}</legend>
 
           <SegmentedControl>
             {OCCURRENCE_VIEWS.map((option) => (
@@ -241,7 +231,7 @@ const SeriesOccurrences: FC<
                   setPage(FIRST_PAGE);
                 }}
               >
-                {OCCURRENCE_VIEW_LABELS[option]}
+                {t(`views.${option}`)}
               </SegmentedControlItem>
             ))}
           </SegmentedControl>
@@ -249,32 +239,21 @@ const SeriesOccurrences: FC<
       </div>
 
       <div aria-busy={isLoading || isPlaceholderData} className="space-y-3">
-        {isLoading && (
-          <LoadingState label="Loading the bills" className="h-40" />
-        )}
+        {isLoading && <LoadingState label={t('loading')} className="h-40" />}
 
         {data === undefined && isError && (
-          <ErrorState
-            message="The bills could not be loaded"
-            onRetry={refetch}
-          />
+          <ErrorState message={t('loadFailed')} onRetry={refetch} />
         )}
 
         {isRefetchError && (
-          <StaleState
-            message={STALE_DATA_MESSAGE}
-            isRetrying={isFetching}
-            onRetry={refetch}
-          />
+          <StaleState isRetrying={isFetching} onRetry={refetch} />
         )}
 
-        {data?.total === 0 && (
-          <EmptyState message={OCCURRENCE_VIEW_EMPTY_MESSAGES[view]} />
-        )}
+        {data?.total === 0 && <EmptyState message={t(`empty.${view}`)} />}
 
         {data !== undefined && data.items.length > 0 && (
           <Table
-            label={`${OCCURRENCE_VIEW_LABELS[view]} bills`}
+            label={t('table', { view })}
             className={cn(
               'transition-opacity',
               isPlaceholderData && 'opacity-60'
@@ -282,18 +261,20 @@ const SeriesOccurrences: FC<
           >
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>Due</TableHead>
+                <TableHead>{t('columns.due')}</TableHead>
 
-                <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="text-right">
+                  {t('columns.amount')}
+                </TableHead>
 
                 <TableHead
                   className={cn('text-right', COLUMN_VISIBILITY.status)}
                 >
-                  Status
+                  {t('columns.status')}
                 </TableHead>
 
                 <TableHead className="text-right">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t('columns.actions')}</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -314,10 +295,10 @@ const SeriesOccurrences: FC<
         {data !== undefined && data.totalPages > 1 && (
           <div className="flex justify-end">
             <PageNavigation
-              label={`${OCCURRENCE_VIEW_LABELS[view]} bill pages`}
+              label={t('pages', { view })}
               page={data.page}
               totalPages={data.totalPages}
-              detail={`${data.total} ${data.total === 1 ? 'bill' : 'bills'}`}
+              detail={t('count', { count: data.total })}
               onPageChange={setPage}
             />
           </div>
@@ -328,6 +309,9 @@ const SeriesOccurrences: FC<
 };
 
 const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
+  const t = useTranslations('recurring.details');
+  const tFinances = useTranslations('finances');
+  const tActions = useTranslations('common.actions');
   const today = useReferenceDay();
   const historyId = useId();
   const {
@@ -349,39 +333,44 @@ const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
     history
   } = series;
 
-  const unit = RECURRENCE_FREQUENCY_UNITS[frequency];
+  const period = tFinances(`perPeriod.${frequency}`);
   const nextDistance =
-    nextDueDate === null ? null : dueDistanceOf(nextDueDate, today);
+    nextDueDate === null ? null : dueDistanceOf(nextDueDate, today, tFinances);
 
   return (
     <>
       <DialogHeader className="text-left">
-        <DialogTitle className="pr-6 wrap-anywhere">{description}</DialogTitle>
+        <DialogTitle className="wrap-anywhere">{description}</DialogTitle>
 
         <DialogDescription asChild>
           <div className="flex flex-wrap items-center gap-2">
             <SeriesStatusBadge status={status} />
 
-            <span>{`${RECURRENCE_FREQUENCY_LABELS[frequency]} in ${currency}`}</span>
+            <span>
+              {t('summary', {
+                frequency: tFinances(`frequencies.${frequency}`),
+                currency
+              })}
+            </span>
           </div>
         </DialogDescription>
       </DialogHeader>
 
       <dl className="grid gap-4 sm:grid-cols-3">
         <Metric
-          label={isVariable ? `Estimate per ${unit}` : `Amount per ${unit}`}
+          label={t(isVariable ? 'estimate' : 'amount', { period })}
           valueClassName={PROMINENT_VALUE_CLASS}
         >
           <Money value={amount} currency={currency} />
         </Metric>
 
         {frequency !== 'MONTHLY' && (
-          <Metric label="About a month" valueClassName={PROMINENT_VALUE_CLASS}>
+          <Metric label={t('monthly')} valueClassName={PROMINENT_VALUE_CLASS}>
             <Money value={monthlyEquivalent} currency={currency} />
           </Metric>
         )}
 
-        <Metric label="Next bill">
+        <Metric label={t('nextBill')}>
           {nextDueDate === null ? (
             <UnavailableValue />
           ) : (
@@ -397,43 +386,40 @@ const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
           )}
         </Metric>
 
-        <Metric label="Schedule">
-          {'From '}
-
-          <CalendarDayText day={startDate} />
-
-          {endDate === null ? (
-            ', no end date'
-          ) : (
-            <>
-              {' to '}
-
-              <CalendarDayText day={endDate} />
-            </>
-          )}
+        <Metric label={t('schedule')}>
+          {endDate === null
+            ? t.rich('scheduleOpen', {
+                start: () => <CalendarDayText day={startDate} />
+              })
+            : t.rich('scheduleRange', {
+                start: () => <CalendarDayText day={startDate} />,
+                end: () => <CalendarDayText day={endDate} />
+              })}
         </Metric>
 
-        <Metric label="Category">
-          {EXPENSE_CATEGORY_LABELS[category]}
+        <Metric label={t('category')}>
+          {tFinances(`categories.${category}`)}
 
           {subcategory !== null && (
-            <span className="text-muted-foreground">{` · ${subcategory}`}</span>
+            <span className="text-muted-foreground">
+              {' · '}
+
+              {subcategory}
+            </span>
           )}
         </Metric>
 
-        <Metric label="Payment method">
+        <Metric label={t('paymentMethod')}>
           {paymentMethod === null ? (
             <UnavailableValue />
           ) : (
-            PAYMENT_METHOD_LABELS[paymentMethod]
+            tFinances(`paymentMethods.${paymentMethod}`)
           )}
         </Metric>
 
-        <Metric label="Account or card">
-          {account ?? <UnavailableValue />}
-        </Metric>
+        <Metric label={t('account')}>{account ?? <UnavailableValue />}</Metric>
 
-        <Metric label="Notes" className="sm:col-span-2">
+        <Metric label={t('notes')} className="sm:col-span-2">
           {notes ?? <UnavailableValue />}
         </Metric>
       </dl>
@@ -445,7 +431,7 @@ const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
 
       <section aria-labelledby={historyId} className="space-y-3">
         <h3 id={historyId} className="text-sm font-semibold">
-          History
+          {t('history')}
         </h3>
 
         <FinanceHistory events={history} currency={currency} />
@@ -453,25 +439,27 @@ const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
 
       <DialogFooter className="gap-2 sm:flex-wrap">
         <Button
-          variant="outline"
-          className="text-destructive hover:text-destructive sm:mr-auto"
+          variant="destructive-subtle"
+          className="sm:mr-auto"
           onClick={() => onAction({ kind: 'delete' })}
         >
-          Delete
+          {tActions('delete')}
         </Button>
 
         {status === 'ACTIVE' && (
           <Button variant="outline" onClick={() => onAction({ kind: 'stop' })}>
-            Stop series
+            {t('stop')}
           </Button>
         )}
 
         <DialogClose asChild>
-          <Button variant="secondary">Close</Button>
+          <Button variant="secondary">{tActions('close')}</Button>
         </DialogClose>
 
         {status !== 'CANCELLED' && (
-          <Button onClick={() => onAction({ kind: 'edit' })}>Edit</Button>
+          <Button onClick={() => onAction({ kind: 'edit' })}>
+            {tActions('edit')}
+          </Button>
         )}
       </DialogFooter>
     </>
@@ -487,6 +475,7 @@ export const RecurringExpenseDialogs: FC<SeriesDialogsProps> = ({
   seriesId,
   onClose
 }) => {
+  const t = useTranslations('recurring');
   const [action, setAction] = useState<SeriesAction>({ kind: 'details' });
   const seriesQuery = useRecurringExpense(seriesId);
 
@@ -513,15 +502,15 @@ export const RecurringExpenseDialogs: FC<SeriesDialogsProps> = ({
           {series === undefined && seriesQuery.isError && (
             <>
               <DialogHeader>
-                <DialogTitle>Recurring expense</DialogTitle>
+                <DialogTitle>{t('details.title')}</DialogTitle>
 
                 <DialogDescription className="sr-only">
-                  The recurring expense could not be loaded
+                  {t('details.loadFailed')}
                 </DialogDescription>
               </DialogHeader>
 
               <ErrorState
-                message="This recurring expense could not be loaded"
+                message={t('details.loadFailed')}
                 onRetry={() => void seriesQuery.refetch()}
               />
             </>
@@ -530,17 +519,14 @@ export const RecurringExpenseDialogs: FC<SeriesDialogsProps> = ({
           {series === undefined && !seriesQuery.isError && (
             <>
               <DialogHeader>
-                <DialogTitle>Recurring expense</DialogTitle>
+                <DialogTitle>{t('details.title')}</DialogTitle>
 
                 <DialogDescription className="sr-only">
-                  Loading the recurring expense
+                  {t('details.loading')}
                 </DialogDescription>
               </DialogHeader>
 
-              <LoadingState
-                label="Loading the recurring expense"
-                className="h-72"
-              />
+              <LoadingState label={t('details.loading')} className="h-72" />
             </>
           )}
 
@@ -588,10 +574,12 @@ export const RecurringExpenseDialogs: FC<SeriesDialogsProps> = ({
 
       {series !== undefined && action.kind === 'delete' && (
         <ConfirmDeletionDialog
-          title="Delete this recurring expense?"
-          description={`${series.description}. The series and its bills are removed with their history, and this cannot be undone. A series with payments cannot be deleted: stop it instead to keep a record.`}
-          confirmLabel="Delete series"
-          failureMessage="The recurring expense could not be deleted"
+          title={t('deletion.title')}
+          description={t('deletion.description', {
+            description: series.description
+          })}
+          confirmLabel={t('deletion.confirm')}
+          failureMessage={t('deletion.failed')}
           onCancel={backToDetails}
           onConfirm={async () => {
             await deleteSeries({ id: series.id });

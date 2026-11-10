@@ -8,8 +8,8 @@ import type {
   ListingLookup,
   ListingSearch,
   MarketDataProvider,
-  PriceHistoryLookup,
   PricedInstrument,
+  PriceHistoryLookup,
   PriceInterval,
   PriceRange,
   Quote,
@@ -62,15 +62,26 @@ export class FakeMarketDataProvider implements MarketDataProvider {
     this.isAvailable = isAvailable;
   }
 
-  async findListings(symbol: string): Promise<ListingSearch> {
-    if (!this.isAvailable) return { outcome: 'unavailable' };
-
-    return {
-      outcome: 'searched',
-      listings: this.listings
-        .filter((listing) => listing.symbol === symbol)
-        .map(({ sector: _sector, ...listing }) => listing)
-    };
+  async findListings(
+    currencyBySymbol: ReadonlyMap<string, string | null>
+  ): Promise<ReadonlyMap<string, ListingSearch>> {
+    return new Map(
+      [...currencyBySymbol].map(([symbol, currency]) => [
+        symbol,
+        this.isAvailable
+          ? {
+              outcome: 'searched',
+              listings: this.listings
+                .filter(
+                  (listing) =>
+                    listing.symbol === symbol &&
+                    (currency === null || listing.currency === currency)
+                )
+                .map(({ sector: _sector, ...listing }) => listing)
+            }
+          : { outcome: 'unavailable' }
+      ])
+    );
   }
 
   async describeListing({

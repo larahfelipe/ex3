@@ -8,11 +8,12 @@ import {
 } from 'react';
 
 import { ArrowDownUp, Search } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import type { CreateAssetRequestPayload } from '@/app/api/v1/assets';
 import type {
-  SearchInstrumentsResponseData,
-  MarketSearchStatus
+  MarketSearchStatus,
+  SearchInstrumentsResponseData
 } from '@/app/api/v1/instruments';
 import { ErrorState } from '@/components/data-state';
 import { SubmitButton } from '@/components/submit-button';
@@ -28,11 +29,9 @@ import {
   Label
 } from '@/components/ui';
 import { useInstrumentSearch } from '@/hooks/use-instruments';
-import {
-  ApiProxyError,
-  isConflictError,
-  UNEXPECTED_ERROR_MESSAGE
-} from '@/lib/axios';
+import type { Translator } from '@/i18n/translator';
+import { apiErrorMessageOf } from '@/lib/api-error-message';
+import { ApiProxyError, isConflictError } from '@/lib/axios';
 import type { Maybe } from '@/types';
 
 type AssetAddition = Omit<CreateAssetRequestPayload, 'portfolioId'>;
@@ -45,6 +44,8 @@ type AddAssetDialogProps = {
 type InstrumentChoice = Record<'key' | 'symbol' | 'name', string> &
   Record<'venue' | 'badge', Maybe<string>> &
   Record<'addition', AssetAddition>;
+
+type AddAssetTranslator = Translator<'investments.assets.add'>;
 
 const SEARCH_MAX_LENGTH = 120;
 
@@ -77,37 +78,22 @@ const isComposing = (event: Event) =>
 
 const CATALOG_SEARCH_PATTERN = /^[\p{L}\p{N} .&'-]+$/u;
 
-const SEARCH_PATTERN_MESSAGE =
-  "Search accepts only letters, digits, spaces and . & ' -";
-
-const CHOICE_REQUIRED_MESSAGE = 'Choose one of the instruments found';
-
-const MARKET_UNAVAILABLE_MESSAGE =
-  'The market could not be searched right now, so instruments you do not track yet are missing.';
-
-const NEW_LISTING_NOTE =
-  'New instruments are added with the name, class and sector the market lists, and only you see them.';
-
-const PRIVATE_BADGE = 'Private';
-
-const NEW_BADGE = 'New';
-
 const venueOf = ({
   market,
   currency
 }: Record<'market' | 'currency', Maybe<string>>) =>
   market !== null && currency !== null ? `${market} · ${currency}` : null;
 
-const choicesOf = ({
-  instruments,
-  listings
-}: SearchInstrumentsResponseData): Array<InstrumentChoice> => [
+const choicesOf = (
+  { instruments, listings }: SearchInstrumentsResponseData,
+  t: AddAssetTranslator
+): Array<InstrumentChoice> => [
   ...instruments.map((instrument) => ({
     key: `instrument:${instrument.id}`,
     symbol: instrument.symbol,
     name: instrument.name,
     venue: venueOf(instrument),
-    badge: instrument.scope === 'PRIVATE' ? PRIVATE_BADGE : null,
+    badge: instrument.scope === 'PRIVATE' ? t('privateBadge') : null,
     addition: { symbol: instrument.symbol }
   })),
   ...listings.map(({ symbol, name, market, currency }) => ({
@@ -115,29 +101,38 @@ const choicesOf = ({
     symbol,
     name,
     venue: venueOf({ market, currency }),
-    badge: NEW_BADGE,
+    badge: t('newBadge'),
     addition: { symbol, listing: { market, currency } }
   }))
 ];
 
-const noMatchMessageOf = (search: string, marketSearch: MarketSearchStatus) =>
-  marketSearch === 'SEARCHED'
-    ? `Nothing is listed under “${search}”. Check the ticker, as in PETR4, AAPL or BTC.`
-    : `No instrument you track matches “${search}”. To add a new one, search by its ticker, as in PETR4.`;
-
-const foundInstrumentsLabel = (count: number) =>
-  count === 1 ? '1 instrument found' : `${count} instruments found`;
+/** A ticker the market could not be searched for is not told to search by ticker: the outage notice beside it says what is missing. */
+export const noMatchMessageOf = (
+  search: string,
+  marketSearch: MarketSearchStatus,
+  t: AddAssetTranslator
+) => {
+  switch (marketSearch) {
+    case 'SEARCHED':
+      return t('noListing', { search });
+    case 'SKIPPED':
+      return t('noTracked', { search });
+    case 'UNAVAILABLE':
+      return t('found', { count: 0 });
+  }
+};
 
 const submitFailureMessageOf = (
   error: unknown,
-  { symbol, addition }: InstrumentChoice
-) => {
-  if (!(error instanceof ApiProxyError)) return UNEXPECTED_ERROR_MESSAGE;
-
-  return isConflictError(error) && addition.listing === undefined
-    ? `${symbol} is already in this portfolio`
-    : error.message;
-};
+  { symbol, addition }: InstrumentChoice,
+  t: AddAssetTranslator,
+  tErrors: Translator<'errors'>
+) =>
+  error instanceof ApiProxyError &&
+  isConflictError(error) &&
+  addition.listing === undefined
+    ? t('alreadyHeld', { symbol })
+    : apiErrorMessageOf(error, tErrors, t('failed'));
 
 /**
  * Only a term the user typed is searched. A single result is chosen for them
@@ -148,6 +143,9 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
   onCancel,
   onConfirm
 }) => {
+  const t = useTranslations('investments.assets.add');
+  const tErrors = useTranslations('errors');
+  const tActions = useTranslations('common.actions');
   const formId = useId();
   const searchId = useId();
   const searchIssueId = useId();
@@ -179,7 +177,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
     isPlaceholderData ||
     (search !== null && isPending);
 
-  const choices = search !== null && results ? choicesOf(results) : [];
+  const choices = search !== null && results ? choicesOf(results, t) : [];
 
   const selectedChoice =
     choices.find(({ key }) => key === chosenKey) ??
@@ -213,12 +211,12 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
 
   const searchStatus = (() => {
     if (search === null) return '';
-    if (isAwaitingResults) return 'Searching…';
+    if (isAwaitingResults) return t('searching');
     if (results === undefined) return '';
     if (choices.length === 0)
-      return noMatchMessageOf(search, results.marketSearch);
+      return noMatchMessageOf(search, results.marketSearch, t);
 
-    return foundInstrumentsLabel(choices.length);
+    return t('found', { count: choices.length });
   })();
 
   const chooseInstrument = (key: string) => {
@@ -237,7 +235,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
 
     if (selectedChoice === null) {
       if (!isAwaitingResults && choices.length > 0)
-        setSubmitIssue(CHOICE_REQUIRED_MESSAGE);
+        setSubmitIssue(t('choiceRequired'));
 
       return;
     }
@@ -247,7 +245,9 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
     try {
       await onConfirm(selectedChoice.addition);
     } catch (failure) {
-      setSubmitIssue(submitFailureMessageOf(failure, selectedChoice));
+      setSubmitIssue(
+        submitFailureMessageOf(failure, selectedChoice, t, tErrors)
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -265,13 +265,10 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
           <DialogTitle className="flex gap-2 max-sm:justify-center">
             <ArrowDownUp aria-hidden="true" />
 
-            <span>Add asset</span>
+            <span>{t('title')}</span>
           </DialogTitle>
 
-          <DialogDescription>
-            Search by ticker to add any listed instrument, or by name among the
-            ones you already track.
-          </DialogDescription>
+          <DialogDescription>{t('description')}</DialogDescription>
         </DialogHeader>
 
         <form
@@ -280,8 +277,8 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
           className="min-w-0 space-y-3"
           onSubmit={submitChoice}
         >
-          <div className="space-y-1.5">
-            <Label htmlFor={searchId}>Ticker or name</Label>
+          <div className="space-y-2">
+            <Label htmlFor={searchId}>{t('search')}</Label>
 
             <Input
               ref={searchInputRef}
@@ -290,7 +287,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
               autoComplete="off"
               autoCapitalize="characters"
               spellCheck={false}
-              placeholder="PETR4, AAPL, BTC…"
+              placeholder={t('searchPlaceholder')}
               maxLength={SEARCH_MAX_LENGTH}
               value={searchInput}
               aria-invalid={!isSearchAccepted}
@@ -320,7 +317,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
 
             {!isSearchAccepted && (
               <p id={searchIssueId} className="text-sm text-negative">
-                {SEARCH_PATTERN_MESSAGE}
+                {t('searchPattern')}
               </p>
             )}
           </div>
@@ -337,22 +334,24 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
             !isAwaitingResults &&
             results?.marketSearch === 'UNAVAILABLE' && (
               <p className="text-sm text-muted-foreground">
-                {`${MARKET_UNAVAILABLE_MESSAGE} `}
-
-                <Button
-                  type="button"
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => refetch()}
-                >
-                  Try again
-                </Button>
+                {t.rich('marketUnavailable', {
+                  retry: (chunks) => (
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto p-0"
+                      onClick={() => refetch()}
+                    >
+                      {chunks}
+                    </Button>
+                  )
+                })}
               </p>
             )}
 
           {choices.length > 0 && (
             <fieldset aria-busy={isAwaitingResults} className="min-w-0">
-              <legend className="sr-only">Instruments found</legend>
+              <legend className="sr-only">{t('results')}</legend>
 
               <ul className="max-h-64 divide-y overflow-y-auto rounded-md border">
                 {choices.map((choice) => (
@@ -392,7 +391,9 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
           )}
 
           {hasListingChoice && (
-            <p className="text-xs text-muted-foreground">{NEW_LISTING_NOTE}</p>
+            <p className="text-xs text-muted-foreground">
+              {t('newListingNote')}
+            </p>
           )}
 
           {submitIssue !== null && (
@@ -403,16 +404,19 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
         </form>
 
         {search !== null && error !== null && results === undefined && (
-          <ErrorState message={error.message} onRetry={refetch} />
+          <ErrorState
+            message={apiErrorMessageOf(error, tErrors, t('searchFailed'))}
+            onRetry={refetch}
+          />
         )}
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
-            Cancel
+            {tActions('cancel')}
           </Button>
 
           <SubmitButton form={formId} isPending={isSubmitting}>
-            Add
+            {t('submit')}
           </SubmitButton>
         </DialogFooter>
       </DialogContent>

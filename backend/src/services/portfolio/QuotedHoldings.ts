@@ -7,7 +7,7 @@ import {
 } from '@/domain/PortfolioValuation';
 import type { AssetRepository, PortfolioRepository } from '@/infra/database';
 
-import { type PortfolioScope, requireOwnedPortfolio } from '../PortfolioAccess';
+import { requireOwnedPortfolio, type PortfolioScope } from '../PortfolioAccess';
 
 type PricedPosition = Awaited<
   ReturnType<AssetRepository['getPricedPositions']>

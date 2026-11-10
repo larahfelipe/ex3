@@ -4,6 +4,12 @@ import { before, describe, it } from 'node:test';
 import request from 'supertest';
 
 import { UserRepository } from '@/infra/database';
+import { PrismaClient } from '@/infra/database/PrismaClient';
+import { RateLimitStore } from '@/infra/database/RateLimitStore';
+import {
+  accountRateLimitKey,
+  addressRateLimitKey
+} from '@/middleware/RateLimitMiddleware';
 import { registerIntegrationHooks } from '@/test/IntegrationHooks';
 
 import { Errors, ProxyHeaders, RateLimits, RequestLimits } from './Constants';
@@ -13,6 +19,8 @@ const [ALLOWED_ORIGIN] = envs.corsAllowedOrigins;
 const FORBIDDEN_ORIGIN = 'https://attacker.example';
 /** Any route reaches the middleware chain; liveness needs neither auth nor database. */
 const PROBE_ROUTE = '/health';
+/** Behind the general limiter, which counts a request before the route turns away an unknown session. */
+const COUNTED_ROUTE = '/v1/user';
 const REQUEST_ID_HEADER = 'x-request-id';
 const THROTTLED_ACCOUNT = 'throttled@ex3.app';
 const OTHER_ACCOUNT = 'other@ex3.app';
@@ -24,6 +32,8 @@ const DISTRIBUTED_NETWORK = '198.51.100';
 const MS_PER_SECOND = 1000;
 const FORGED_PROXY_SECRET = 'forged-proxy-secret-that-the-api-does-not-share';
 const OTHER_SESSION = 'other-session-token';
+const CONCURRENT_EXCESS = 5;
+const STORE_FAILURE = 'connection terminated unexpectedly';
 
 /** `RateLimit: "<name>"; r=<remaining>; t=<seconds>`, the draft-8 budget line. */
 const REMAINING_BUDGET = /r=(?<remaining>\d+)/;
@@ -93,9 +103,23 @@ describe('HTTP hardening', () => {
       const res = await request(app).get(PROBE_ROUTE);
 
       assert.equal(res.headers['x-content-type-options'], 'nosniff');
-      assert.equal(res.headers['x-frame-options'], 'SAMEORIGIN');
-      assert.ok(res.headers['content-security-policy']);
+      assert.equal(res.headers['x-frame-options'], 'DENY');
+      assert.equal(
+        res.headers['content-security-policy'],
+        "default-src 'none';frame-ancestors 'none'"
+      );
       assert.ok(res.headers['strict-transport-security']);
+    });
+
+    it('lets no cache keep an answer, whether it succeeded or failed', async () => {
+      const answers = await Promise.all([
+        request(app).get(PROBE_ROUTE),
+        request(app).get(COUNTED_ROUTE),
+        request(app).get('/v1/unknown-route')
+      ]);
+
+      for (const res of answers)
+        assert.equal(res.headers['cache-control'], 'no-store');
     });
 
     it('does not advertise the server framework', async () => {
@@ -376,9 +400,124 @@ describe('HTTP hardening', () => {
         assert.equal(throttled.status, Errors.THROTTLED.status);
       });
 
+    it('admits exactly the budget of concurrent failed sign-ins', async () => {
+      const { limit } = RateLimits.SIGN_IN_PER_ACCOUNT_AND_ADDRESS;
+
+      const responses = await Promise.all(
+        Array.from({ length: limit + CONCURRENT_EXCESS }, () =>
+          signInAs(THROTTLED_ACCOUNT)
+        )
+      );
+      const countOf = (status: number) =>
+        responses.filter((res) => res.status === status).length;
+
+      assert.equal(countOf(Errors.AUTHENTICATION.status), limit);
+      assert.equal(countOf(Errors.THROTTLED.status), CONCURRENT_EXCESS);
+    });
+
+    it('enforces the failed sign-ins another API process counted', async () => {
+      const { limit, windowMs } = RateLimits.SIGN_IN_PER_ACCOUNT;
+      const otherProcess = new RateLimitStore({
+        prefix: 'SIGN_IN_PER_ACCOUNT'
+      });
+
+      otherProcess.init({ windowMs });
+      await Promise.all(
+        Array.from({ length: limit }, () =>
+          otherProcess.increment(accountRateLimitKey(THROTTLED_ACCOUNT))
+        )
+      );
+
+      const throttled = await signInAs(THROTTLED_ACCOUNT);
+      const otherAccount = await signInAs(OTHER_ACCOUNT);
+
+      assert.equal(throttled.status, Errors.THROTTLED.status);
+      assert.equal(otherAccount.status, Errors.AUTHENTICATION.status);
+    });
+
+    it('escalates an address that spent its daily sign-in budget', async () => {
+      const { limit, windowMs } = RateLimits.SIGN_IN_PER_ADDRESS_DAILY;
+      const otherProcess = new RateLimitStore({
+        prefix: 'SIGN_IN_PER_ADDRESS_DAILY'
+      });
+
+      otherProcess.init({ windowMs });
+      await Promise.all(
+        Array.from({ length: limit }, () =>
+          otherProcess.increment(addressRateLimitKey(ATTACKER_ADDRESS))
+        )
+      );
+
+      const attacker = await signInAs(OTHER_ACCOUNT, ATTACKER_ADDRESS);
+      const owner = await signInAs(OTHER_ACCOUNT, OWNER_ADDRESS);
+
+      assert.equal(attacker.status, Errors.THROTTLED.status);
+      assert.equal(owner.status, Errors.AUTHENTICATION.status);
+    });
+
+    it('keeps counting sign-ups against the day once the hourly window closes', async () => {
+      const signUpFrom = (address: string) =>
+        request(app).post('/v1/user/create').set(vouchedFor(address)).send({});
+      const spendHourlyBudget = async () => {
+        for (
+          let attempt = 0;
+          attempt < RateLimits.SIGN_UP_PER_ADDRESS.limit;
+          attempt += 1
+        )
+          assert.equal(
+            (await signUpFrom(ATTACKER_ADDRESS)).status,
+            Errors.VALIDATION.status
+          );
+      };
+
+      await spendHourlyBudget();
+      await PrismaClient.getInstance().rateLimitCounter.updateMany({
+        where: { key: { startsWith: 'SIGN_UP_PER_ADDRESS:' } },
+        data: { resetAt: new Date(Date.now() - 1) }
+      });
+      await spendHourlyBudget();
+
+      const attacker = await signUpFrom(ATTACKER_ADDRESS);
+      const other = await signUpFrom(OWNER_ADDRESS);
+
+      assert.equal(
+        RateLimits.SIGN_UP_PER_ADDRESS_DAILY.limit,
+        2 * RateLimits.SIGN_UP_PER_ADDRESS.limit
+      );
+      assert.equal(attacker.status, Errors.THROTTLED.status);
+      assert.equal(other.status, Errors.VALIDATION.status);
+    });
+
+    it('refuses requests it cannot count instead of letting them through', async (t) => {
+      t.mock.method(PrismaClient.prototype, '$queryRaw', () =>
+        Promise.reject(new Error(STORE_FAILURE))
+      );
+
+      const api = await request(app).get(COUNTED_ROUTE);
+      const signIn = await signInAs(THROTTLED_ACCOUNT);
+
+      for (const res of [api, signIn]) {
+        assert.equal(res.status, Errors.UNAVAILABLE.status);
+        assert.deepEqual(res.body, {
+          code: Errors.UNAVAILABLE.code,
+          message: Errors.UNAVAILABLE.message,
+          details: []
+        });
+      }
+    });
+
+    it('leaves the probes out of the budget', async () => {
+      const res = await request(app).get(PROBE_ROUTE);
+
+      assert.equal(res.status, 200);
+      assert.equal(res.headers['ratelimit'], undefined);
+    });
+
     it('counts API requests against the session, not across sessions', async () => {
       const probeAs = (session: string) =>
-        request(app).get(PROBE_ROUTE).set('Authorization', `Bearer ${session}`);
+        request(app)
+          .get(COUNTED_ROUTE)
+          .set('Authorization', `Bearer ${session}`);
 
       await probeAs(PROBE_SESSION);
       const repeated = await probeAs(PROBE_SESSION);

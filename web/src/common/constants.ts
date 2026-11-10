@@ -1,12 +1,10 @@
 import { type ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies';
-import { Inter, Raleway } from 'next/font/google';
 
 import type {
   ExpenseCategory,
   ExpenseKind,
   ExpenseStatus,
   ExpenseStatusFilter,
-  FinanceEventType,
   InstallmentPlanStatus,
   PaymentMethod,
   RecurrenceFrequency,
@@ -15,30 +13,87 @@ import type {
 import type { InstrumentType } from '@/app/api/v1/portfolio';
 import type { TransactionType } from '@/app/api/v1/transactions';
 
-export const inter = Inter({
-  weight: ['400', '500', '700'],
-  subsets: ['latin'],
-  variable: '--font-inter'
-});
+const isProduction = process.env.NODE_ENV === 'production';
 
-export const raleway = Raleway({
-  weight: ['400', '500', '700'],
-  subsets: ['latin'],
-  variable: '--font-raleway'
-});
-
+/**
+ * A cookie is deleted only by a `Set-Cookie` that repeats these attributes:
+ * browsers drop a `__Host-` cookie sent without `Secure`, the deletion too.
+ */
 export const COOKIE_OPTIONS: Partial<ResponseCookie> = {
   httpOnly: true,
   sameSite: 'strict',
-  secure: process.env.NODE_ENV === 'production'
+  secure: isProduction,
+  path: '/'
 };
 
+/**
+ * A browser keeps a `__Host-` cookie only when this host set it over HTTPS for
+ * every path, so no sibling subdomain or plain-HTTP response can plant or
+ * overwrite the session. Development is served over plain HTTP, where neither
+ * `Secure` nor the prefix can be set.
+ */
+const SESSION_COOKIE_PREFIX = isProduction ? '__Host-' : '';
+
 export const APP_STORAGE_KEYS = {
-  Token: 'ex3:token',
-  Session: 'ex3:session',
+  Token: `${SESSION_COOKIE_PREFIX}ex3:token`,
+  Session: `${SESSION_COOKIE_PREFIX}ex3:session`,
   ActivePortfolio: 'ex3:active-portfolio',
-  Navigation: 'ex3:navigation'
+  Navigation: 'ex3:navigation',
+  Locale: 'ex3:locale',
+  GettingStartedDismissed: 'ex3:getting-started-dismissed'
 };
+
+/**
+ * Sent by the app with every request to its own API routes. Another origin can
+ * add a custom header only after a CORS preflight, which these routes never
+ * grant, so a write without it did not come from the app, even in a browser too
+ * old to send `Sec-Fetch-Site`.
+ */
+export const CSRF_HEADER = { Name: 'x-ex3-csrf', Value: '1' } as const;
+
+/** The request header the proxy hands the response's CSP nonce to the layout in. */
+export const NONCE_HEADER = 'x-nonce';
+
+/**
+ * Mirror of the API's `BotChallenge`: the header a Turnstile token travels in,
+ * Cloudflare's bound on a token's length, and the action each form solves.
+ */
+export const BOT_CHALLENGE = {
+  Header: 'x-bot-challenge',
+  TokenMaxLength: 2048,
+  Actions: { SignIn: 'sign-in', SignUp: 'sign-up' }
+} as const;
+
+export type BotChallengeAction =
+  (typeof BOT_CHALLENGE.Actions)[keyof typeof BOT_CHALLENGE.Actions];
+
+/**
+ * Mirror of the API's `RequestLimits`, in bytes as its parser counts them: the
+ * proxy reads no more of a body than the API would take.
+ */
+export const REQUEST_LIMITS = {
+  JsonBodyBytes: 100 * 1024,
+  UploadBodyBytes: 4 * 1024 * 1024
+} as const;
+
+/**
+ * Mirror of the API's `ImportLimits`: the largest file one import reads and
+ * the most rows a selection names. A preview reads the file and may ask the
+ * quote provider about dozens of new symbols, a few at a time, so it is given
+ * longer than other requests; assumed, not measured. Re-planning waits for a
+ * pause in the person's picks, so a burst of them is one request.
+ */
+export const TRANSACTION_IMPORT = {
+  FileMaxBytes: 2 * 1024 * 1024,
+  SelectedRowsMax: 5000,
+  Extensions: ['.xlsx', '.csv'],
+  RequestTimeoutMs: 90_000,
+  ReplanDelayMs: 700,
+  RowsPageSize: 50
+} as const;
+
+/** How long a preference kept in a cookie, such as the navigation's state or the language, lasts: a year. */
+export const PREFERENCE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 export const NAVIGATION_STATES = {
   Expanded: 'expanded',
@@ -70,15 +125,6 @@ export const TRANSACTION_TYPES: Array<TransactionType> = [
   'BONUS'
 ];
 
-export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
-  BUY: 'Buy',
-  SELL: 'Sell',
-  DIVIDEND: 'Dividend',
-  JCP: 'JCP',
-  INTEREST: 'Interest',
-  BONUS: 'Bonus'
-};
-
 export const TRANSACTION_TYPE_TONES: Record<TransactionType, string> = {
   BUY: 'text-positive',
   SELL: 'text-negative',
@@ -86,27 +132,6 @@ export const TRANSACTION_TYPE_TONES: Record<TransactionType, string> = {
   JCP: 'text-info',
   INTEREST: 'text-info',
   BONUS: 'text-primary'
-};
-
-export const TRANSACTION_UNIT_PRICE_LABELS: Record<TransactionType, string> = {
-  BUY: 'Unit price',
-  SELL: 'Unit price',
-  DIVIDEND: 'Amount per unit',
-  JCP: 'Amount per unit',
-  INTEREST: 'Amount per unit',
-  BONUS: 'Attributed cost per unit'
-};
-
-export const INSTRUMENT_TYPE_LABELS: Record<InstrumentType, string> = {
-  STOCK: 'Stocks',
-  ETF: 'ETFs',
-  FUND: 'Funds',
-  REIT: 'REITs',
-  CRYPTO: 'Crypto',
-  BOND: 'Bonds',
-  TREASURY: 'Treasuries',
-  CASH: 'Cash',
-  OTHER: 'Other'
 };
 
 /**
@@ -140,6 +165,7 @@ export const APP_ROUTES = {
   Protected: {
     Account: '/account',
     Assets: '/assets',
+    AssetImport: '/assets/import',
     Overview: '/',
     Portfolios: '/portfolios',
     Finances: '/finances',
@@ -199,23 +225,6 @@ export const EXPENSE_CATEGORIES: Array<ExpenseCategory> = [
   'OTHER'
 ];
 
-export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
-  HOUSING: 'Housing',
-  UTILITIES: 'Utilities',
-  FOOD: 'Food',
-  TRANSPORTATION: 'Transportation',
-  HEALTH: 'Health',
-  EDUCATION: 'Education',
-  LEISURE: 'Leisure',
-  SUBSCRIPTIONS: 'Subscriptions',
-  INSURANCE: 'Insurance',
-  TAXES: 'Taxes',
-  DEBT: 'Debt',
-  SHOPPING: 'Shopping',
-  PERSONAL_CARE: 'Personal care',
-  OTHER: 'Other'
-};
-
 export const PAYMENT_METHODS: Array<PaymentMethod> = [
   'PIX',
   'BOLETO',
@@ -227,35 +236,11 @@ export const PAYMENT_METHODS: Array<PaymentMethod> = [
   'OTHER'
 ];
 
-export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  CASH: 'Cash',
-  DEBIT_CARD: 'Debit card',
-  CREDIT_CARD: 'Credit card',
-  BANK_TRANSFER: 'Bank transfer',
-  PIX: 'Pix',
-  BOLETO: 'Boleto',
-  DIRECT_DEBIT: 'Direct debit',
-  OTHER: 'Other'
-};
-
 export const RECURRENCE_FREQUENCIES: Array<RecurrenceFrequency> = [
   'MONTHLY',
   'WEEKLY',
   'YEARLY'
 ];
-
-export const RECURRENCE_FREQUENCY_LABELS: Record<RecurrenceFrequency, string> =
-  {
-    WEEKLY: 'Weekly',
-    MONTHLY: 'Monthly',
-    YEARLY: 'Yearly'
-  };
-
-export const RECURRENCE_FREQUENCY_UNITS: Record<RecurrenceFrequency, string> = {
-  WEEKLY: 'week',
-  MONTHLY: 'month',
-  YEARLY: 'year'
-};
 
 export const EXPENSE_STATUSES: Array<ExpenseStatus> = [
   'OVERDUE',
@@ -264,20 +249,10 @@ export const EXPENSE_STATUSES: Array<ExpenseStatus> = [
   'CANCELLED'
 ];
 
-export const EXPENSE_STATUS_LABELS: Record<ExpenseStatus, string> = {
-  PENDING: 'Pending',
-  OVERDUE: 'Overdue',
-  PAID: 'Paid',
-  CANCELLED: 'Cancelled'
-};
-
 export const EXPENSE_STATUS_FILTERS: Array<ExpenseStatusFilter> = [
   'OPEN',
   ...EXPENSE_STATUSES
 ];
-
-export const EXPENSE_STATUS_FILTER_LABELS: Record<ExpenseStatusFilter, string> =
-  { OPEN: 'Unpaid', ...EXPENSE_STATUS_LABELS };
 
 /** A status is never told by its color alone: each tone sits beside the status's name. */
 export const EXPENSE_STATUS_TONES: Record<ExpenseStatus, string> = {
@@ -293,26 +268,11 @@ export const EXPENSE_KINDS: Array<ExpenseKind> = [
   'RECURRING'
 ];
 
-export const EXPENSE_KIND_LABELS: Record<ExpenseKind, string> = {
-  ONE_TIME: 'One-time',
-  INSTALLMENT: 'Installment',
-  RECURRING: 'Recurring'
-};
-
 export const INSTALLMENT_PLAN_STATUSES: Array<InstallmentPlanStatus> = [
   'ACTIVE',
   'COMPLETED',
   'CANCELLED'
 ];
-
-export const INSTALLMENT_PLAN_STATUS_LABELS: Record<
-  InstallmentPlanStatus,
-  string
-> = {
-  ACTIVE: 'Active',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled'
-};
 
 export const INSTALLMENT_PLAN_STATUS_TONES: Record<
   InstallmentPlanStatus,
@@ -329,15 +289,6 @@ export const RECURRING_EXPENSE_STATUSES: Array<RecurringExpenseStatus> = [
   'CANCELLED'
 ];
 
-export const RECURRING_EXPENSE_STATUS_LABELS: Record<
-  RecurringExpenseStatus,
-  string
-> = {
-  ACTIVE: 'Active',
-  ENDED: 'Ended',
-  CANCELLED: 'Stopped'
-};
-
 export const RECURRING_EXPENSE_STATUS_TONES: Record<
   RecurringExpenseStatus,
   string
@@ -345,17 +296,6 @@ export const RECURRING_EXPENSE_STATUS_TONES: Record<
   ACTIVE: 'border-primary/40 bg-primary/10 text-primary',
   ENDED: 'border-border bg-muted text-muted-foreground',
   CANCELLED: 'border-border bg-muted text-muted-foreground'
-};
-
-export const FINANCE_EVENT_LABELS: Record<FinanceEventType, string> = {
-  CREATED: 'Created',
-  UPDATED: 'Edited',
-  CANCELLED: 'Cancelled',
-  RESTORED: 'Restored',
-  PAYMENT_RECORDED: 'Payment recorded',
-  PAYMENT_CORRECTED: 'Payment corrected',
-  PAYMENT_VOIDED: 'Payment voided',
-  RESCHEDULED: 'Rescheduled'
 };
 
 /** The query parameter that opens a bill's details on the bills page. */

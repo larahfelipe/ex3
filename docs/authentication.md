@@ -48,12 +48,13 @@ exposes a counter, not usable tokens; forging a token requires `JWT_SECRET`.
 | **Refresh** | **There is no refresh token.** Once the session expires, the user authenticates again. A second long-lived token would widen the attack surface without solving a problem the product has today | — |
 | **Logout** | `POST /v1/user/sign-out` increments `users.sessionVersion`; the proxy calls that endpoint and only then clears the cookie | `routes/UserRoutes.ts`, `web/src/app/api/v1/sign-out/route.ts` |
 | **Concurrent sessions** | **Not supported, by decision.** One version per user holds: signing in on a second device drops the first. Supporting N sessions requires a sessions table, a model change that does not belong to this phase | `infra/database/UserRepository.ts` |
-| **Sign-up** | The body requires `baseCurrency`, an ISO 4217 code, and accepts an optional `portfolioName`, with the name limits of `CreatePortfolioSchema` (trimmed, 1 to 60 characters, blank refused with `400`); the user's first portfolio takes that name, or `Main` without it, in that currency. The web's form asks for the name, prefilled with `Main`, and offers BRL, USD and EUR. User and portfolio are a single Prisma nested write, executed in one transaction: no failure leaves a user without a portfolio. The unique index on `email` is the only authority on whether the address is free, with no prior query subject to a race; the violation (`P2002`) answers `400 User already exists`, and of concurrent sign-ups for the same email exactly one creates the account. Any other database failure propagates as an internal error | `validation/schema/user/CreateUserSchema.ts`, `infra/database/UserRepository.ts`, `services/user/CreateUserService.ts` |
+| **Sign-up** | The body takes the person's `firstName` and optional `lastName` (see [User](domain-model.md#user)), requires `baseCurrency`, an ISO 4217 code, and accepts an optional `portfolioName`, with the name limits of `CreatePortfolioSchema` (trimmed, 1 to 60 characters, blank refused with `400`); the user's first portfolio takes that name, or `Main` without it, in that currency. The web's form asks for the name, prefilled with `Main`, and offers BRL, USD and EUR. User and portfolio are a single Prisma nested write, executed in one transaction: no failure leaves a user without a portfolio. The unique index on `email` is the only authority on whether the address is free, with no prior query subject to a race; the violation (`P2002`) answers `409 User already exists`, and of concurrent sign-ups for the same email exactly one creates the account. Any other database failure propagates as an internal error | `validation/schema/user/CreateUserSchema.ts`, `infra/database/UserRepository.ts`, `services/user/CreateUserService.ts` |
 | **Invalid token** | `401 AuthenticationError`, with a message distinguishing an invalid token, an expired token and a revoked session | `middleware/AuthMiddleware.ts` |
-| **Invalid credentials** | `POST /v1/user` answers `401 Invalid email or password` for both a wrong password and a non-existent email. For a non-existent email, bcrypt checks the password against a dummy hash of the same cost, so not even the response time tells the cases apart | `services/user/GetUserService.ts` |
+| **Invalid credentials** | `POST /v1/user` answers `401 Invalid email or password` for both a wrong password and a non-existent email. For a non-existent email, bcrypt checks the password against a digest of the configured cost, computed as the service is built, so both cases do the same work; see `security.md`, §Timing | `services/user/GetUserService.ts` |
 | **Password change** | `PATCH /v1/user` only accepts `newPassword` accompanied by the correct `oldPassword`. The new password and the version increment go in the same `UPDATE`, which revokes the current session. The `PATCH /api/v1/user` proxy clears the cookie in that same response, and the web goes back to sign-in for entry with the new password | `validation/schema/user/UpdateUserSchema.ts`, `infra/database/UserRepository.ts`, `web/src/app/api/v1/user/route.ts` |
 | **Account deletion** | `DELETE /v1/user` requires the current password and removes the user, all of their portfolios, assets and transactions in a single serializable transaction, dependents first: neither a failure nor a concurrent write leaves data without an owner, and the account's token stops authenticating by condition 5. Before, an account with assets answered 500 | `infra/database/UserRepository.ts` |
-| **Throttling** | Sign-in counts failures only, in three layers: 50 per address and 10 per account and address every 15 min, 50 per account every hour. Sign-up counts every attempt, 10 per address every hour. `PATCH` and `DELETE /v1/user` check the password and count 10 failures per session every 15 min: a stolen session cannot become a password-guessing oracle. The address is the client's, which the web attests with `API_PROXY_SECRET`; `429` carries only the generic envelope and `Retry-After`. Details in `security.md`, §Rate limiting | `routes/UserRoutes.ts`, `middleware/RateLimitMiddleware.ts` |
+| **Throttling** | Sign-in counts failures only: 150 per address per day, 50 per address and 10 per account and address every 15 min, 50 per account every hour. Sign-up counts every attempt, 20 per address per day and 10 every hour. `PATCH` and `DELETE /v1/user` check the password and count 10 failures per session every 15 min: a stolen session cannot become a password-guessing oracle. The address is the client's, which the web attests with `API_PROXY_SECRET`; `429` carries only the generic envelope and `Retry-After`. The counters are in Postgres, shared by every API process, and a request that cannot be counted is refused with `503`. Details in `security.md`, §Rate limiting | `routes/UserRoutes.ts`, `middleware/RateLimitMiddleware.ts`, `infra/database/RateLimitStore.ts` |
+| **Bot challenge** | Sign-in and sign-up need a Cloudflare Turnstile token, which the API confirms with Cloudflare before touching an account: `403` when refused, `503` while Cloudflare gives no verdict, and production does not boot without the secret. Details in `security.md`, §Bot challenge | `middleware/BotChallengeMiddleware.ts`, `infra/bot-challenge/TurnstileVerifier.ts`, `web/src/components/bot-challenge.tsx` |
 | **Data exposure** | `password` and `sessionVersion` never leave in responses: the repository omits them in the query itself (Prisma's `omit`), including in `GET /v1/users`, which is admin-only. `GET /v1/user` returns only the caller's own profile and also omits `isAdmin`; an account that has ceased to exist answers `401` | `infra/database/UserRepository.ts`, `services/user/GetCurrentUserService.ts` |
 
 ## Password policy
@@ -99,7 +100,9 @@ first API call.
 
 In addition, the session cookie receives an `expires` derived from the token's
 own `exp` (`web/src/lib/session.ts`), so that the browser discards the
-credential at the same instant the API stops accepting it.
+credential at the same instant the API stops accepting it. In production the
+cookies are `__Host-ex3:token` and `__Host-ex3:session`; see `security.md`,
+§Session cookie.
 
 **Expiry and sign-out are told apart by a marker.** With the cookie discarded by
 the browser on expiry, the proxy had no way to tell an expired session from one
@@ -229,9 +232,9 @@ deployment. The same goes for a value above `30d`, which has to be lowered.
    ceiling.
 2. **Email enumeration on sign-up.** `POST /v1/user/create` answers
    `User already exists` for an already registered email. Eliminating that
-   requires email confirmation, a flow the product does not have. Throughput is
-   10 probes per hour per address, the sign-up budget, which counts every
-   attempt.
+   requires email confirmation, a flow the product does not have, and instant
+   sign-in was kept by decision. Each probe must solve the bot challenge and
+   counts against 10 attempts per hour and 20 per day from an address.
 3. **The common-password list is not a breach corpus.** NIST SP 800-63B-4 asks
    for new passwords to be compared against compromised ones; the curated list
    covers only the most frequent, and a leaked password outside it is accepted.
@@ -240,13 +243,16 @@ deployment. The same goes for a value above `30d`, which has to be lowered.
    compositions (a pre-composed `é` vs. `e` + a combining accent) does not
    match. Normalizing changes the verified value of existing accounts; evaluate
    it together with item 3.
-5. **Counters in process memory.** With more than one backend instance, each one
-   applies the whole budget, and the effective limit is the budget times the
-   number of instances. A shared store solves it; it is in TD-006. The keys are
-   in `security.md`, §Rate limiting.
-6. **A residual timing difference if `BCRYPT_SALT` changes.** Old hashes keep
-   the old cost, while the dummy hash uses the current one.
-7. **`style-src 'unsafe-inline'` in the CSP.** Components use `style`
-   attributes, which a nonce does not authorize. Where there is markup
-   injection, injected CSS can change the interface, but it neither executes
-   script nor loads a resource from another origin.
+5. **Attempts spread over many addresses.** The per-address budgets do not bound
+   them; one account stays at 50 failures per hour, which also blocks its owner
+   meanwhile. It is in TD-077. The keys are in `security.md`, §Rate limiting.
+6. **A residual timing difference after `BCRYPT_SALT` changes.** A digest keeps
+   its old cost until a valid sign-in rehashes it, while an unknown email pays
+   the current one, so the gap closes as accounts sign in.
+7. **`style-src-attr 'unsafe-inline'` in the CSP.** Components use `style`
+   attributes, which a nonce does not authorize. `<style>` elements are closed
+   by nonce and hash in production. Where there is markup injection, an injected
+   attribute can change its element, but it neither executes script nor loads a
+   resource from another origin.
+8. **No second factor and no password recovery.** The evaluation is in
+   `security.md`, §Authentication and sessions.

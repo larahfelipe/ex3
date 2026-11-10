@@ -5,17 +5,18 @@ import { financeRouter } from './FinanceRoutes';
 import { healthRouter } from './HealthRoutes';
 import { instrumentRouter } from './InstrumentRoutes';
 import { portfolioRouter } from './PortfolioRoutes';
+import { transactionImportRouter } from './TransactionImportRoutes';
 import { transactionRouter } from './TransactionRoutes';
 import { userRouter } from './UserRoutes';
 
 const router = Router();
 
-router.use(healthRouter);
 router.use(assetRouter);
 router.use(financeRouter);
 router.use(instrumentRouter);
 router.use(portfolioRouter);
+router.use(transactionImportRouter);
 router.use(transactionRouter);
 router.use(userRouter);
 
-export { router };
+export { healthRouter, router };

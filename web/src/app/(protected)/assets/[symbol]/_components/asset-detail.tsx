@@ -5,6 +5,7 @@ import { useId, useMemo, useState, type FC } from 'react';
 import Link from 'next/link';
 
 import { ArrowLeft, Plus } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import type {
   InstrumentType,
@@ -14,7 +15,7 @@ import type {
   PriceIndicators,
   ReturnIndicators
 } from '@/app/api/v1/portfolio';
-import { APP_ROUTES, INSTRUMENT_TYPE_LABELS } from '@/common/constants';
+import { APP_ROUTES } from '@/common/constants';
 import { signOf, type ValueSign } from '@/common/utils';
 import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
 import {
@@ -23,8 +24,8 @@ import {
   Money,
   Percentage,
   Price,
-  PROMINENT_VALUE_CLASS,
   ProfitLoss,
+  PROMINENT_VALUE_CLASS,
   Quantity,
   Trend
 } from '@/components/financial';
@@ -36,18 +37,14 @@ import { SeriesChart, type SeriesTone } from '@/components/series-chart';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import { Button, Card, CardContent, Skeleton } from '@/components/ui';
 import {
+  useActivePortfolio,
   usePosition,
   usePositionFundamentals,
-  usePositionIndicators,
-  useActivePortfolio
+  usePositionIndicators
 } from '@/hooks/use-portfolio';
 import { useCreateTransaction } from '@/hooks/use-transactions';
+import { useFormat } from '@/i18n/format';
 import { isNotFoundError } from '@/lib/axios';
-import {
-  formatExecutionDay,
-  formatQuoteTime,
-  formatSeriesDay
-} from '@/lib/dates';
 import { APPEAR_CLASS } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import type { Children, Maybe } from '@/types';
@@ -81,23 +78,25 @@ type ReturnsSectionProps = Pick<PositionDetail, 'type'> & IndicatorsQueryProps;
 type PositionReturnsProps = Pick<PositionDetail, 'type'> &
   Record<'returns', ReturnIndicators>;
 
+type IncomeKind = 'income' | 'interest';
+
 /**
  * What a class pays its holders. A class mapped to `null` pays nothing, so its
- * income shows only once its ledger records some, under the recorded name.
+ * income shows only once its ledger records some, under the recorded kind.
  */
-const INCOME_NAMES: Record<InstrumentType, Maybe<string>> = {
-  STOCK: 'Income',
-  ETF: 'Income',
-  FUND: 'Income',
-  REIT: 'Income',
-  BOND: 'Interest',
-  TREASURY: 'Interest',
+const INCOME_KINDS: Record<InstrumentType, Maybe<IncomeKind>> = {
+  STOCK: 'income',
+  ETF: 'income',
+  FUND: 'income',
+  REIT: 'income',
+  BOND: 'interest',
+  TREASURY: 'interest',
   CRYPTO: null,
   CASH: null,
   OTHER: null
 };
 
-const RECORDED_INCOME_NAME = 'Income';
+const RECORDED_INCOME_KIND: IncomeKind = 'income';
 
 const WHOLE_BAR_PERCENT = 100;
 
@@ -138,12 +137,13 @@ const closePlacementOf = ({ close, yearLow, yearHigh }: PriceIndicators) => {
 };
 
 const YearRange: FC<PriceIndicatorsProps> = ({ prices }) => {
+  const t = useTranslations('investments.asset.market');
   const { currency, yearLow, yearHigh } = prices;
   const closeOffset = `${closePlacementOf(prices) * WHOLE_BAR_PERCENT}%`;
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm text-muted-foreground">52-week range</h3>
+      <h3 className="text-sm text-muted-foreground">{t('yearRange')}</h3>
 
       <div aria-hidden="true" className="relative h-1.5 rounded-full bg-muted">
         <span
@@ -158,11 +158,11 @@ const YearRange: FC<PriceIndicatorsProps> = ({ prices }) => {
       </div>
 
       <dl className="flex justify-between gap-4">
-        <Metric label="Low">
+        <Metric label={t('yearLow')}>
           <Price value={yearLow} currency={currency} />
         </Metric>
 
-        <Metric label="High" className="text-right">
+        <Metric label={t('yearHigh')} className="text-right">
           <Price value={yearHigh} currency={currency} />
         </Metric>
       </dl>
@@ -194,6 +194,8 @@ const PriceChart: FC<PriceChartProps> = ({
   tone,
   className
 }) => {
+  const t = useTranslations('investments.asset.market');
+  const { formatSeriesDay, formatUnitAmount } = useFormat();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const values = useMemo(() => closes.map(({ close }) => close), [closes]);
 
@@ -210,6 +212,13 @@ const PriceChart: FC<PriceChartProps> = ({
         tone={tone}
         baseline={first.close}
         className="h-36"
+        label={t('chartLabel')}
+        describePoint={(index) =>
+          t('closeOn', {
+            price: formatUnitAmount(closes[index].close, currency),
+            day: formatSeriesDay(closes[index].closedOn)
+          })
+        }
         tooltip={
           <>
             <p className="font-medium">{formatSeriesDay(active.closedOn)}</p>
@@ -223,24 +232,21 @@ const PriceChart: FC<PriceChartProps> = ({
 
       <figcaption className="flex justify-between gap-4 text-xs text-muted-foreground">
         <span className="sr-only">
-          {'Daily closes from '}
-
-          <Price value={first.close} currency={currency} />
-
-          {' on '}
+          {t('closesBetween', {
+            firstPrice: formatUnitAmount(first.close, currency),
+            firstDay: formatSeriesDay(first.closedOn),
+            lastPrice: formatUnitAmount(last.close, currency),
+            lastDay: formatSeriesDay(last.closedOn)
+          })}
         </span>
 
-        <time dateTime={first.closedOn}>{formatSeriesDay(first.closedOn)}</time>
+        <time aria-hidden="true" dateTime={first.closedOn}>
+          {formatSeriesDay(first.closedOn)}
+        </time>
 
-        <span className="sr-only">
-          {' to '}
-
-          <Price value={last.close} currency={currency} />
-
-          {' on '}
-        </span>
-
-        <time dateTime={last.closedOn}>{formatSeriesDay(last.closedOn)}</time>
+        <time aria-hidden="true" dateTime={last.closedOn}>
+          {formatSeriesDay(last.closedOn)}
+        </time>
       </figcaption>
     </figure>
   );
@@ -252,6 +258,8 @@ const PriceChart: FC<PriceChartProps> = ({
  * every close the history has.
  */
 const PriceMovement: FC<PriceIndicatorsProps> = ({ prices }) => {
+  const t = useTranslations('investments');
+  const { formatSeriesDay } = useFormat();
   const { currency, close, closedOn, changes, closes } = prices;
   const rangeInputName = useId();
   const [selectedRange, setSelectedRange] = useState(
@@ -274,7 +282,7 @@ const PriceMovement: FC<PriceIndicatorsProps> = ({ prices }) => {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <fieldset className="min-w-0 lg:col-start-1 lg:row-start-1">
           <legend className="mb-3 text-sm text-muted-foreground">
-            Price change
+            {t('asset.market.priceChange')}
           </legend>
 
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
@@ -294,7 +302,7 @@ const PriceMovement: FC<PriceIndicatorsProps> = ({ prices }) => {
                 />
 
                 <span className="block text-sm text-muted-foreground">
-                  {range}
+                  {t(`performance.ranges.${range}`)}
                 </span>
 
                 <span className="block font-semibold">
@@ -325,13 +333,11 @@ const PriceMovement: FC<PriceIndicatorsProps> = ({ prices }) => {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        {'Changes to the last close, '}
-
-        <Price value={close} currency={currency} />
-
-        {' on '}
-
-        <time dateTime={closedOn}>{formatSeriesDay(closedOn)}</time>
+        {t.rich('asset.market.changesSince', {
+          day: formatSeriesDay(closedOn),
+          price: () => <Price value={close} currency={currency} />,
+          closed: (chunks) => <time dateTime={closedOn}>{chunks}</time>
+        })}
       </p>
     </div>
   );
@@ -340,16 +346,15 @@ const PriceMovement: FC<PriceIndicatorsProps> = ({ prices }) => {
 const PriceHistory: FC<IndicatorsQueryProps> = ({
   query: { data, isError, refetch }
 }) => {
+  const t = useTranslations('investments.asset.market');
+
   if (data === undefined)
     return (
       <div className="border-t pt-5">
         {isError ? (
-          <ErrorState
-            message="The price history could not be loaded"
-            onRetry={refetch}
-          />
+          <ErrorState message={t('historyLoadFailed')} onRetry={refetch} />
         ) : (
-          <LoadingState label="Loading the price history">
+          <LoadingState label={t('historyLoading')}>
             <div className="space-y-4">
               <Skeleton aria-hidden="true" className="h-16 w-full" />
 
@@ -368,53 +373,74 @@ const PriceHistory: FC<IndicatorsQueryProps> = ({
 const MarketSection: FC<MarketSectionProps> = ({
   position: { type, market, currency, sector, quote },
   query
-}) => (
-  <DetailSection title="Market">
-    <div className="space-y-3">
-      <dl className="flex flex-wrap items-end gap-x-10 gap-y-4">
-        <Metric label="Price" valueClassName={HEADLINE_VALUE_CLASS}>
-          <Price value={quote?.price} currency={quote?.currency} />
+}) => {
+  const t = useTranslations('investments');
+  const { formatQuoteTime } = useFormat();
+
+  return (
+    <DetailSection title={t('asset.market.title')}>
+      <div className="space-y-3">
+        <dl className="flex flex-wrap items-end gap-x-10 gap-y-4">
+          <Metric
+            label={t('asset.market.price')}
+            valueClassName={HEADLINE_VALUE_CLASS}
+          >
+            <Price value={quote?.price} currency={quote?.currency} />
+          </Metric>
+
+          <Metric
+            label={t('asset.market.dayChange')}
+            valueClassName={PROMINENT_VALUE_CLASS}
+          >
+            <ProfitLoss
+              value={quote?.dayChange}
+              percent={quote?.dayChangePercent}
+              currency={quote?.currency}
+            />
+          </Metric>
+
+          <Metric
+            label={t('asset.market.previousClose')}
+            valueClassName={PROMINENT_VALUE_CLASS}
+          >
+            <Price value={quote?.previousClose} currency={quote?.currency} />
+          </Metric>
+        </dl>
+
+        {quote !== undefined && (
+          <p className="text-sm text-muted-foreground">
+            {t.rich('asset.market.priceAsOf', {
+              time: formatQuoteTime(quote.timestamp),
+              quoted: (chunks) => (
+                <time dateTime={quote.timestamp}>{chunks}</time>
+              )
+            })}
+          </p>
+        )}
+      </div>
+
+      <PriceHistory query={query} />
+
+      <dl className="grid grid-cols-2 gap-4 border-t pt-5 sm:grid-cols-4">
+        <Metric label={t('asset.market.type')}>
+          {t(`instrumentTypes.${type}`)}
         </Metric>
 
-        <Metric label="Day change" valueClassName={PROMINENT_VALUE_CLASS}>
-          <ProfitLoss
-            value={quote?.dayChange}
-            percent={quote?.dayChangePercent}
-            currency={quote?.currency}
-          />
-        </Metric>
+        {typeof market === 'string' && (
+          <Metric label={t('asset.market.market')}>{market}</Metric>
+        )}
 
-        <Metric label="Previous close" valueClassName={PROMINENT_VALUE_CLASS}>
-          <Price value={quote?.previousClose} currency={quote?.currency} />
-        </Metric>
+        {typeof currency === 'string' && (
+          <Metric label={t('asset.market.currency')}>{currency}</Metric>
+        )}
+
+        {typeof sector === 'string' && (
+          <Metric label={t('asset.market.sector')}>{sector}</Metric>
+        )}
       </dl>
-
-      {quote !== undefined && (
-        <p className="text-sm text-muted-foreground">
-          {'Price as of '}
-
-          <time dateTime={quote.timestamp}>
-            {formatQuoteTime(quote.timestamp)}
-          </time>
-        </p>
-      )}
-    </div>
-
-    <PriceHistory query={query} />
-
-    <dl className="grid grid-cols-2 gap-4 border-t pt-5 sm:grid-cols-4">
-      <Metric label="Class">{INSTRUMENT_TYPE_LABELS[type]}</Metric>
-
-      {typeof market === 'string' && <Metric label="Market">{market}</Metric>}
-
-      {typeof currency === 'string' && (
-        <Metric label="Currency">{currency}</Metric>
-      )}
-
-      {typeof sector === 'string' && <Metric label="Sector">{sector}</Metric>}
-    </dl>
-  </DetailSection>
-);
+    </DetailSection>
+  );
+};
 
 const PositionSection: FC<PositionSectionProps> = ({
   position: {
@@ -427,44 +453,48 @@ const PositionSection: FC<PositionSectionProps> = ({
     profitLoss,
     profitLossPercent
   }
-}) => (
-  <DetailSection title="Position">
-    <dl className="flex flex-wrap items-end gap-x-10 gap-y-4">
-      <Metric label="Market value" valueClassName={HEADLINE_VALUE_CLASS}>
-        <Money value={marketValue} currency={baseCurrency} />
-      </Metric>
+}) => {
+  const t = useTranslations('investments.asset.position');
 
-      <Metric
-        label="Unrealized profit/loss"
-        valueClassName={PROMINENT_VALUE_CLASS}
-      >
-        <ProfitLoss
-          value={profitLoss}
-          percent={profitLossPercent}
-          currency={baseCurrency}
-        />
-      </Metric>
-    </dl>
+  return (
+    <DetailSection title={t('title')}>
+      <dl className="flex flex-wrap items-end gap-x-10 gap-y-4">
+        <Metric label={t('marketValue')} valueClassName={HEADLINE_VALUE_CLASS}>
+          <Money value={marketValue} currency={baseCurrency} />
+        </Metric>
 
-    <dl className="grid grid-cols-2 gap-4 border-t pt-5">
-      <Metric label="Quantity">
-        <Quantity value={quantity} />
-      </Metric>
+        <Metric
+          label={t('unrealizedProfitLoss')}
+          valueClassName={PROMINENT_VALUE_CLASS}
+        >
+          <ProfitLoss
+            value={profitLoss}
+            percent={profitLossPercent}
+            currency={baseCurrency}
+          />
+        </Metric>
+      </dl>
 
-      <Metric label="Average cost">
-        <Price value={averageCost} currency={baseCurrency} />
-      </Metric>
+      <dl className="grid grid-cols-2 gap-4 border-t pt-5">
+        <Metric label={t('quantity')}>
+          <Quantity value={quantity} />
+        </Metric>
 
-      <Metric label="Market price">
-        <Price value={marketPrice} currency={baseCurrency} />
-      </Metric>
+        <Metric label={t('averageCost')}>
+          <Price value={averageCost} currency={baseCurrency} />
+        </Metric>
 
-      <Metric label="Allocation">
-        <Percentage value={allocation} />
-      </Metric>
-    </dl>
-  </DetailSection>
-);
+        <Metric label={t('marketPrice')}>
+          <Price value={marketPrice} currency={baseCurrency} />
+        </Metric>
+
+        <Metric label={t('allocation')}>
+          <Percentage value={allocation} />
+        </Metric>
+      </dl>
+    </DetailSection>
+  );
+};
 
 const PositionReturns: FC<PositionReturnsProps> = ({
   type,
@@ -477,22 +507,24 @@ const PositionReturns: FC<PositionReturnsProps> = ({
     yieldOnCost
   }
 }) => {
-  const incomeName =
-    INCOME_NAMES[type] ?? (income === '0' ? null : RECORDED_INCOME_NAME);
+  const t = useTranslations('investments.asset.returns');
+  const { formatExecutionDay } = useFormat();
+  const incomeKind =
+    INCOME_KINDS[type] ?? (income === '0' ? null : RECORDED_INCOME_KIND);
 
   return (
     <div className="space-y-5">
       <dl className="flex flex-wrap items-end gap-x-10 gap-y-4">
         <Metric
-          label="Realized profit/loss"
+          label={t('realizedProfitLoss')}
           valueClassName={HEADLINE_VALUE_CLASS}
         >
           <ProfitLoss value={realizedProfitLoss} currency={currency} />
         </Metric>
 
-        {incomeName !== null && (
+        {incomeKind !== null && (
           <Metric
-            label={`${incomeName} received`}
+            label={t('incomeReceived', { kind: incomeKind })}
             valueClassName={PROMINENT_VALUE_CLASS}
           >
             <Money value={income} currency={currency} />
@@ -501,22 +533,19 @@ const PositionReturns: FC<PositionReturnsProps> = ({
       </dl>
 
       <dl className="grid grid-cols-2 gap-4 border-t pt-5">
-        {incomeName !== null && (
+        {incomeKind !== null && (
           <>
-            <Metric label={`${incomeName} (12M)`}>
+            <Metric label={t('trailingIncome', { kind: incomeKind })}>
               <Money value={trailingIncome} currency={currency} />
             </Metric>
 
-            <Metric
-              label="Yield on cost (12M)"
-              info="Income received in the last 12 months divided by what the position cost."
-            >
+            <Metric label={t('yieldOnCost')} info={t('yieldOnCostExplanation')}>
               <Percentage value={yieldOnCost} />
             </Metric>
           </>
         )}
 
-        <Metric label="First transaction">
+        <Metric label={t('since')}>
           <time dateTime={since}>{formatExecutionDay(since)}</time>
         </Metric>
       </dl>
@@ -524,22 +553,29 @@ const PositionReturns: FC<PositionReturnsProps> = ({
   );
 };
 
-const ReturnsSection: FC<ReturnsSectionProps> = ({ type, query }) => (
-  <QuerySection
-    title="Returns"
-    query={query}
-    errorMessage="The returns could not be loaded"
-    loading={<LoadingState label="Loading the returns" className="h-32" />}
-    isEmpty={({ returns }) => returns === undefined}
-    empty={<EmptyState message="Returns start with the first transaction" />}
-  >
-    {({ returns }) =>
-      returns !== undefined && <PositionReturns type={type} returns={returns} />
-    }
-  </QuerySection>
-);
+const ReturnsSection: FC<ReturnsSectionProps> = ({ type, query }) => {
+  const t = useTranslations('investments.asset.returns');
+
+  return (
+    <QuerySection
+      title={t('title')}
+      query={query}
+      errorMessage={t('loadFailed')}
+      loading={<LoadingState label={t('loading')} className="h-32" />}
+      isEmpty={({ returns }) => returns === undefined}
+      empty={<EmptyState message={t('empty')} />}
+    >
+      {({ returns }) =>
+        returns !== undefined && (
+          <PositionReturns type={type} returns={returns} />
+        )
+      }
+    </QuerySection>
+  );
+};
 
 export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
+  const t = useTranslations('investments');
   const {
     data: portfolio,
     isPending,
@@ -575,7 +611,8 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
               onClick={() => setIsAddingTransaction(true)}
             >
               <Plus size={16} aria-hidden="true" />
-              Add transaction
+
+              {t('asset.addTransaction')}
             </Button>
           )
         }
@@ -588,35 +625,33 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
           >
             <Link href={APP_ROUTES.Protected.Assets}>
               <ArrowLeft aria-hidden="true" className="size-4" />
-              Back to assets
+
+              {t('asset.back')}
             </Link>
           </Button>
         }
       />
 
       {isPending && (
-        <LoadingState label="Loading your portfolio" className="h-64" />
+        <LoadingState label={t('overview.loading')} className="h-64" />
       )}
 
       {isError && !portfolio && (
-        <ErrorState
-          message="Your portfolio could not be loaded"
-          onRetry={refetch}
-        />
+        <ErrorState message={t('overview.loadFailed')} onRetry={refetch} />
       )}
 
       {isSuccess && !portfolio && (
         <EmptyState
-          message="No portfolio found for this account"
+          message={t('overview.noPortfolio')}
           action={{
-            label: 'Create a portfolio',
+            label: t('overview.createPortfolio'),
             href: APP_ROUTES.Protected.Portfolios
           }}
         />
       )}
 
       {isPositionPending && (
-        <LoadingState label="Loading this asset">
+        <LoadingState label={t('asset.loading')}>
           <div className="space-y-6">
             <Skeleton aria-hidden="true" className="h-72 w-full rounded-2xl" />
 
@@ -637,9 +672,9 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
 
       {isAssetMissing && (
         <EmptyState
-          message={`${symbol.toUpperCase()} is not in your portfolio`}
+          message={t('asset.notHeld', { symbol: symbol.toUpperCase() })}
           action={{
-            label: 'View your assets',
+            label: t('asset.viewAssets'),
             href: APP_ROUTES.Protected.Assets
           }}
         />
@@ -647,7 +682,7 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
 
       {positionError !== null && !isAssetMissing && position === undefined && (
         <ErrorState
-          message="This asset could not be loaded"
+          message={t('asset.loadFailed')}
           onRetry={positionQuery.refetch}
         />
       )}

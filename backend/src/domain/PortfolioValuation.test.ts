@@ -5,20 +5,22 @@ import { SortOrderTypes } from '@/config/Constants';
 
 import type { QuoteLookup } from './MarketDataProvider';
 import {
-  type AllocatedPosition,
   allocatePortfolio,
+  describeMarketData,
   describePosition,
   foreignCurrenciesOf,
-  type ListedPosition,
   matchesPositionFilter,
+  PositionStatuses,
+  sortPositionsBy,
+  STALE_QUOTE_AFTER_DAYS,
+  summarizePortfolio,
+  valuePositionsInBaseCurrency,
+  type AllocatedPosition,
+  type ListedPosition,
   type PortfolioHoldings,
   type PortfolioPosition,
   type PositionDetail,
-  type PositionFilter,
-  PositionStatuses,
-  sortPositionsBy,
-  summarizePortfolio,
-  valuePositionsInBaseCurrency
+  type PositionFilter
 } from './PortfolioValuation';
 
 const BASE_CURRENCY = 'BRL';
@@ -363,6 +365,130 @@ const AAPL_POSITION = {
   profitLoss: '-250',
   profitLossPercent: '-0.2'
 };
+
+describe('describeMarketData', () => {
+  const describeAt = (
+    positions: Holding[],
+    quotes: Record<string, QuoteLookup>,
+    exchangeRates: Record<string, QuoteLookup> = {},
+    now = OBSERVED_AT
+  ) => {
+    const holdings = {
+      baseCurrency: BASE_CURRENCY,
+      positions,
+      quotes: new Map(Object.entries(quotes)),
+      exchangeRates: new Map(Object.entries(exchangeRates))
+    };
+
+    return describeMarketData(
+      holdings,
+      summarizePortfolio(holdings).quotedAt,
+      now
+    );
+  };
+
+  it('counts every position with units as valued when each has a quote and a rate', () => {
+    assert.deepEqual(
+      describeAt(
+        [PETR4, holding('AAPL', '2', '400', 'USD'), holding('KO', '0', '0')],
+        { PETR4: PETR4_QUOTE, AAPL: quoted('229.5', 'USD') },
+        { USD: quoted('5', 'BRL') }
+      ),
+      {
+        valuedPositionCount: 2,
+        missingQuotes: [],
+        missingRates: [],
+        isFallback: false,
+        isStale: false
+      }
+    );
+  });
+
+  it('names the quotes and rates that keep the valuation incomplete, with why', () => {
+    assert.deepEqual(
+      describeAt(
+        [
+          PETR4,
+          holding('VALE3', '10', '600'),
+          holding('ITUB4', '5', '150'),
+          holding('AAPL', '2', '400', 'USD'),
+          holding('BTC', '1', '100', 'EUR')
+        ],
+        {
+          PETR4: PETR4_QUOTE,
+          VALE3: { outcome: 'unavailable' },
+          ITUB4: { outcome: 'not-found' },
+          AAPL: quoted('229.5', 'USD'),
+          BTC: quoted('300000', 'BRL')
+        },
+        { USD: { outcome: 'unavailable' } }
+      ),
+      {
+        valuedPositionCount: 2,
+        missingQuotes: [
+          { symbol: 'VALE3', reason: 'unavailable' },
+          { symbol: 'ITUB4', reason: 'not-found' }
+        ],
+        missingRates: [
+          { currency: 'USD', reason: 'unavailable' },
+          { currency: 'EUR', reason: 'not-found' }
+        ],
+        isFallback: false,
+        isStale: false
+      }
+    );
+  });
+
+  it('tells a quote or a rate answered in place of a failed one', () => {
+    const asFallback = (lookup: QuoteLookup): QuoteLookup =>
+      lookup.outcome === 'quoted' ? { ...lookup, isFallback: true } : lookup;
+    const AAPL = holding('AAPL', '2', '400', 'USD');
+    const AAPL_QUOTE = quoted('229.5', 'USD');
+
+    assert.equal(
+      describeAt([PETR4], {
+        PETR4: asFallback(PETR4_QUOTE)
+      }).isFallback,
+      true
+    );
+    assert.equal(
+      describeAt(
+        [AAPL],
+        { AAPL: AAPL_QUOTE },
+        { USD: asFallback(quoted('5', 'BRL')) }
+      ).isFallback,
+      true
+    );
+  });
+
+  it('calls the valuation stale once its oldest quote is older than a long weekend', () => {
+    const DAY_MS = 86_400_000;
+    const staleAfter = OBSERVED_AT.getTime() + STALE_QUOTE_AFTER_DAYS * DAY_MS;
+
+    assert.equal(
+      describeAt([PETR4], { PETR4: PETR4_QUOTE }, {}, new Date(staleAfter))
+        .isStale,
+      false
+    );
+    assert.equal(
+      describeAt([PETR4], { PETR4: PETR4_QUOTE }, {}, new Date(staleAfter + 1))
+        .isStale,
+      true
+    );
+  });
+
+  it('does not call an incomplete valuation stale, since it has no date', () => {
+    assert.equal(
+      describeAt(
+        [PETR4],
+        { PETR4: { outcome: 'unavailable' } },
+        {},
+        new Date('2027-01-01T00:00:00.000Z')
+      ).isStale,
+      false
+    );
+  });
+});
 
 describe('valuePositionsInBaseCurrency', () => {
   it('values each position in the base currency with its share of the portfolio', () => {
@@ -939,7 +1065,7 @@ describe('allocatePortfolio', () => {
     });
 
     const unit = 10n ** BigInt(COLUMN_SCALE);
-    const whole = toScaled(allocation.totalValue!);
+    const whole = toScaled(allocation.totalValue);
     const positionCount = BigInt(allocation.byAsset.length);
     const breakdowns: ReadonlyArray<
       ReadonlyArray<Partial<Record<'marketValue' | 'allocation', string>>>

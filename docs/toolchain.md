@@ -9,22 +9,26 @@ Record of the pinned versions and of the decisions that cannot be deduced from
 | --- | --- | --- |
 | Node | 24.15 (`.nvmrc`, `.node-version`, `engines`, the Dockerfiles' base image) | same |
 | pnpm | 11.18.0 (`packageManager`) | same |
-| TypeScript | 5.9.3 | 5.9.3 |
-| Prettier | 3.9.6 | 3.9.6 |
-| ESLint | 10.10.0 | 10.10.0 |
-| `typescript-eslint` | 8.70.0 | 8.70.0 |
+| TypeScript | 6.0.3 (`~6.0.3`) | same |
+| Prettier | 3.9.10 | 3.9.10 |
+| ESLint | 10.13.0 | 10.13.0 |
+| `typescript-eslint` | 8.72.1 | 8.72.1 |
 | `eslint-config-prettier` | 10.1.8 | 10.1.8 |
-| `eslint-plugin-prettier` | 5.5.6 | 5.5.6 |
-| `eslint-plugin-import-helpers` | 2.0.2 | 2.0.2 |
-| `@next/eslint-plugin-next` | — | 16.3.4 |
+| `eslint-plugin-prettier` | 5.5.7 | 5.5.7 |
+| `eslint-plugin-perfectionist` | 5.13.0 | 5.13.0 |
+| `@next/eslint-plugin-next` | — | 16.4.3 |
 | `eslint-plugin-react` | — | 7.37.5 |
 | `eslint-plugin-react-hooks` | — | 7.1.1 |
 | `eslint-plugin-jsx-a11y` | — | 6.10.2 |
 
 Everything above is on the latest stable, with one deliberate exception:
-`typescript`.
+`typescript`, held on the 6.0 line by a tilde range.
 
-## Why TypeScript 5.9 and not 7.0
+The web's i18n library, `use-intl` 4.14.9, and `intl-messageformat` 11.2.15,
+the version it bundles, which the catalog test parses with, are pinned exactly
+so that the two stay the same; [`i18n.md`](i18n.md#library) explains both.
+
+## Why TypeScript 6.0 and not 7.0
 
 `typescript@7.0.2` is the native compiler distribution and **no longer
 publishes the compiler's JavaScript API**: the package's `exports` exposes only
@@ -48,10 +52,12 @@ The repository's whole toolchain at the time depended on that API:
   code 2.
 
 Both packages therefore stay on the latest stable line that keeps the JS API:
-**5.9.3**.
+**6.0.3**, which still ships `lib/typescript.js`. It needed no change to either
+`tsconfig.json`. The range is `~6.0.3`, not a caret, because
+`typescript-eslint@8.72.1` declares `typescript >=4.8.4 <6.1.0` as a peer: a
+6.1 release would satisfy `^6.0.3` and fall outside what the linter supports.
 
-Migrating to 7.x remains blocked after TASK 2.2: `typescript-eslint@8.70.0`
-declares `typescript >=4.8.4 <6.1.0` as a peer. Re-evaluate once
+Migrating to 7.x remains blocked for the same reason. Re-evaluate once
 `typescript-eslint` and Next.js declare support for the native package. Nothing
 in the source depends on 7.x-specific syntax — the switch is one of
 dependencies, not of code.
@@ -107,6 +113,41 @@ version is 10.
 * **Configuration files at the root** (`next.config.js`, `postcss.config.js`,
   `tailwind.config.ts`, `eslint.config.mjs`) got a block of their own with Node
   globals and `@typescript-eslint/no-require-imports` turned off.
+
+### Type-checked rules and import order (2026-10-29)
+
+Both packages lint with `typescript-eslint`'s `recommendedTypeChecked` over
+the project's `tsconfig.json` (`projectService`), plus
+`no-floating-promises` — with the `node:test` calls, which the runner awaits,
+as safe — `no-misused-promises` and `switch-exhaustiveness-check`, which takes
+a `default` as covering a union. The web also takes `eslint-plugin-react-hooks`'
+`recommended-latest` set, the React Compiler's rules included, in place of the
+two rules it listed by hand. In the backend the type-aware set raised about 740
+findings, fixed in the code rather than silenced:
+
+* **`ControllerRequest`** in `interfaces/Controller.ts` types a request's body
+  as `unknown`, since nothing a request carries is trusted before a schema
+  parses it. Every controller takes it; `fieldsOf` in `validation/Validator.ts`
+  spreads a body into the object a schema validates together with the route's
+  parameters.
+* **`ApplicationError` extends `Error`**, so a rejection carries a stack and
+  `instanceof Error` holds; the error middleware still picks `code`, `message`
+  and `details` explicitly, and the response is unchanged.
+* **`require-await` is off** in the backend: an `async` method that satisfies a
+  promise-returning contract turns a throw into a rejection, and its callers
+  rely on that.
+* **The tests' `no-unsafe-*` rules are off** in `*.test.ts`,
+  `*.integration.ts` and `src/test/**`: `supertest` hands a response body over
+  as `any`, and the assertions are what check its shape. Source files keep
+  them.
+
+`eslint-plugin-perfectionist` replaced `eslint-plugin-import-helpers` in both
+packages. It sorts the imports in groups — Node built-ins and packages
+together, then `@/`, then relative paths, a blank line between groups — and
+the named imports and exports and the export statements alphabetically,
+values before types. It applies with `--fix`, and nothing else in the plugin is
+turned on: sorting object keys
+or JSX props would reorder code whose order carries meaning.
 
 ### Violations fixed
 
@@ -240,6 +281,26 @@ number is not recorded.
 query params it had received: pagination and filters never reached the API. The
 request now forwards `req.nextUrl.searchParams`.
 
+## Dependency update — 2026-10-29
+
+Both packages were taken to the latest stable within the ranges above; both
+`pnpm audit`s report no known vulnerability and both lockfiles install with
+`--frozen-lockfile`. The major releases, none of which needed a code change
+beyond what the lint asked for:
+
+| Dependency | From | To |
+| --- | --- | --- |
+| `typescript` (both) | 5.9.3 | 6.0.3 |
+| `dotenv` (backend) | 17.4.2 | 18.0.9 |
+| `@hookform/resolvers` (web) | 5.9.1 | 6.0.2 |
+| `framer-motion` (web) | 13.4.2 | 14.7.1 |
+
+`@hookform/resolvers@6` brings `ajv@8`, whose `fast-uri` sat on a release
+with a published advisory (fixed in 3.1.9). The web now pins it through
+`overrides: fast-uri: ^3.1.9` in its `pnpm-workspace.yaml`, as the backend
+does for its own transitive advisories below. Neither package needs a
+`minimumReleaseAgeExclude` entry any more.
+
 ## Dependency audit — TASK 20.3
 
 `pnpm audit` answers **"No known vulnerabilities found"** in both packages.
@@ -313,7 +374,7 @@ for `import` does not reach: `@types/*` (ambient types), `tsc-alias` (the
 
 `pnpm peers check` reports `eslint-plugin-jsx-a11y@6.10.2` and
 `eslint-plugin-react@7.37.5` declaring `eslint` up to 9, with 10.10.0
-installed. The rules load and `pnpm lint` passes with `--max-warnings=0` in both
+installed (10.13.0 since the 2026-10-29 update). The rules load and `pnpm lint` passes with `--max-warnings=0` in both
 packages; it is a lag in the plugins' declarations, not an observed
 incompatibility.
 
@@ -324,7 +385,7 @@ A new dependency, required to animate the tabs: the slide of the
 animation between elements and an exit animation for an unmounted element,
 which CSS and `tw-animate-css` do not do. Pinned to an exact version, `13.4.2`,
 the most recent one outside pnpm's `minimumReleaseAge` window on the day it was
-installed.
+installed; `14.7.1` since the 2026-10-29 update.
 
 The `motion` package, the library's current name, did not get in:
 `motion/react` re-exports the whole of `framer-motion` through `import * as`,

@@ -18,6 +18,7 @@ import {
   ArrowUpDown,
   ArrowUpNarrowWide,
   ArrowUpRight,
+  ChartCandlestick,
   Ellipsis,
   Plus,
   Search,
@@ -25,6 +26,7 @@ import {
   X,
   type LucideIcon
 } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 
 import type {
   PositionListingParams,
@@ -33,18 +35,13 @@ import type {
   SortOrder
 } from '@/app/api/v1/portfolio';
 import type { Portfolio } from '@/app/api/v1/portfolios';
-import {
-  assetDetailRoute,
-  INSTRUMENT_TYPE_LABELS,
-  INSTRUMENT_TYPES
-} from '@/common/constants';
+import { assetDetailRoute, INSTRUMENT_TYPES } from '@/common/constants';
 import { updateUrlQuery } from '@/common/utils';
 import {
   EmptyState,
   ErrorState,
   LoadingState,
   NoResultsState,
-  STALE_DATA_MESSAGE,
   StaleState
 } from '@/components/data-state';
 import {
@@ -96,8 +93,10 @@ type PositionListing = Required<
 > &
   Pick<PositionListingParams, 'search' | 'type' | 'status'>;
 
-type PositionColumn = Record<'field', PositionSortField> &
-  Record<'label' | 'className', string>;
+type PositionColumnField = Exclude<PositionSortField, 'profitLossPercent'>;
+
+type PositionColumn = Record<'field', PositionColumnField> &
+  Record<'className', string>;
 
 const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZES = [DEFAULT_PAGE_SIZE, 25, 50];
@@ -122,11 +121,6 @@ const ALL_OPTION = 'all';
 
 const POSITION_STATUSES: Array<PositionStatus> = ['open', 'closed'];
 
-const POSITION_STATUS_LABELS: Record<PositionStatus, string> = {
-  open: 'Open positions',
-  closed: 'Closed positions'
-};
-
 const POSITION_SORT_FIELDS: Array<PositionSortField> = [
   'symbol',
   'quantity',
@@ -137,17 +131,6 @@ const POSITION_SORT_FIELDS: Array<PositionSortField> = [
   'profitLoss',
   'profitLossPercent'
 ];
-
-const SORT_FIELD_LABELS: Record<PositionSortField, string> = {
-  symbol: 'Symbol',
-  quantity: 'Quantity',
-  averageCost: 'Average cost',
-  marketPrice: 'Price',
-  marketValue: 'Value',
-  allocation: 'Allocation',
-  profitLoss: 'Profit/Loss',
-  profitLossPercent: 'Profit/Loss %'
-};
 
 /**
  * Columns leave from the widest breakpoint down, so a phone keeps the asset,
@@ -164,25 +147,13 @@ const COLUMN_VISIBILITY = {
 } as const;
 
 const POSITION_COLUMNS: Array<PositionColumn> = [
-  { field: 'symbol', label: 'Asset', className: '' },
-  { field: 'quantity', label: 'Qty', className: COLUMN_VISIBILITY.quantity },
-  {
-    field: 'averageCost',
-    label: 'Avg. cost',
-    className: COLUMN_VISIBILITY.averageCost
-  },
-  { field: 'marketPrice', label: 'Price', className: COLUMN_VISIBILITY.price },
-  { field: 'marketValue', label: 'Value', className: '' },
-  {
-    field: 'allocation',
-    label: 'Allocation',
-    className: COLUMN_VISIBILITY.allocation
-  },
-  {
-    field: 'profitLoss',
-    label: 'Profit/Loss',
-    className: COLUMN_VISIBILITY.profitLoss
-  }
+  { field: 'symbol', className: '' },
+  { field: 'quantity', className: COLUMN_VISIBILITY.quantity },
+  { field: 'averageCost', className: COLUMN_VISIBILITY.averageCost },
+  { field: 'marketPrice', className: COLUMN_VISIBILITY.price },
+  { field: 'marketValue', className: '' },
+  { field: 'allocation', className: COLUMN_VISIBILITY.allocation },
+  { field: 'profitLoss', className: COLUMN_VISIBILITY.profitLoss }
 ];
 
 const SKELETON_ROWS = Array.from(
@@ -294,6 +265,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
   onAddTransaction,
   onDeleteAsset
 }) => {
+  const t = useTranslations('investments');
   const searchParams = useSearchParams();
   const listing = useMemo(() => listingFrom(searchParams), [searchParams]);
 
@@ -373,7 +345,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
   const tableHeader = (
     <TableHeader>
       <TableRow className="hover:bg-transparent">
-        {POSITION_COLUMNS.map(({ field, label, className }) => {
+        {POSITION_COLUMNS.map(({ field, className }) => {
           const isSorted = field === listing.sortBy;
           const SortIcon = isSorted
             ? SORT_ICONS[listing.sortOrder]
@@ -397,7 +369,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                   isSorted && 'text-foreground'
                 )}
               >
-                {label}
+                {t(`positions.columns.${field}`)}
 
                 <SortIcon
                   aria-hidden="true"
@@ -413,7 +385,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
         })}
 
         <TableHead className="w-10">
-          <span className="sr-only">Actions</span>
+          <span className="sr-only">{t('positions.actions')}</span>
         </TableHead>
       </TableRow>
     </TableHeader>
@@ -424,7 +396,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
       <Card>
         <SectionHeader
           id={headingId}
-          title="Positions"
+          title={t('positions.title')}
           action={
             <RefreshPortfolioButton
               portfolio={portfolio}
@@ -437,18 +409,18 @@ export const PositionsTable: FC<PositionsTableProps> = ({
           <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div
               role="search"
-              aria-label="Filter positions"
+              aria-label={t('positions.filter')}
               className="flex flex-col gap-2 sm:flex-row sm:items-center"
             >
               <Label htmlFor={searchId} className="sr-only">
-                Search
+                {t('positions.search')}
               </Label>
 
               <Input
                 ref={searchInputRef}
                 id={searchId}
                 type="search"
-                placeholder="Search symbol or name"
+                placeholder={t('positions.searchPlaceholder')}
                 maxLength={SEARCH_MAX_LENGTH}
                 value={searchInput}
                 onChange={({ target }) => setSearchInput(target.value)}
@@ -464,7 +436,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
 
               <div className="flex flex-wrap items-center gap-2">
                 <Label htmlFor={typeId} className="sr-only">
-                  Class
+                  {t('positions.type')}
                 </Label>
 
                 <Select
@@ -486,18 +458,20 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                   </SelectTrigger>
 
                   <SelectContent>
-                    <SelectItem value={ALL_OPTION}>All classes</SelectItem>
+                    <SelectItem value={ALL_OPTION}>
+                      {t('positions.allTypes')}
+                    </SelectItem>
 
                     {INSTRUMENT_TYPES.map((type) => (
                       <SelectItem key={type} value={type}>
-                        {INSTRUMENT_TYPE_LABELS[type]}
+                        {t(`instrumentTypes.${type}`)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
                 <Label htmlFor={statusId} className="sr-only">
-                  Status
+                  {t('positions.status')}
                 </Label>
 
                 <Select
@@ -521,11 +495,13 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                   </SelectTrigger>
 
                   <SelectContent>
-                    <SelectItem value={ALL_OPTION}>All positions</SelectItem>
+                    <SelectItem value={ALL_OPTION}>
+                      {t('positions.allStatuses')}
+                    </SelectItem>
 
                     {POSITION_STATUSES.map((status) => (
                       <SelectItem key={status} value={status}>
-                        {POSITION_STATUS_LABELS[status]}
+                        {t(`positions.statuses.${status}`)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -539,7 +515,8 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                     onClick={clearRefinements}
                   >
                     <X aria-hidden="true" className="size-4" />
-                    Clear
+
+                    {t('positions.clear')}
                   </Button>
                 )}
               </div>
@@ -547,11 +524,11 @@ export const PositionsTable: FC<PositionsTableProps> = ({
 
             <div
               role="group"
-              aria-label="Sort positions"
+              aria-label={t('positions.sort')}
               className="flex items-center gap-2"
             >
               <Label htmlFor={sortId} className="sr-only">
-                Sort by
+                {t('positions.sortBy')}
               </Label>
 
               <Select
@@ -570,7 +547,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                   className="h-9 w-auto gap-1.5 max-sm:flex-1"
                 >
                   <span aria-hidden="true" className="text-muted-foreground">
-                    Sort by
+                    {t('positions.sortBy')}
                   </span>
 
                   <SelectValue />
@@ -579,7 +556,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                 <SelectContent>
                   {POSITION_SORT_FIELDS.map((field) => (
                     <SelectItem key={field} value={field}>
-                      {SORT_FIELD_LABELS[field]}
+                      {t(`positions.sortFields.${field}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -589,9 +566,9 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                 variant="outline"
                 size="icon"
                 className="size-9 shrink-0"
-                aria-label="Descending order"
+                aria-label={t('positions.descending')}
                 aria-pressed={listing.sortOrder === 'desc'}
-                title="Descending order"
+                title={t('positions.descending')}
                 onClick={() =>
                   refine({ sortOrder: REVERSED_ORDER[listing.sortOrder] })
                 }
@@ -603,7 +580,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
 
           <div aria-busy={isLoading || isPlaceholderData} className="space-y-4">
             {isLoading && (
-              <LoadingState label="Loading positions">
+              <LoadingState label={t('positions.loading')}>
                 <div aria-hidden="true" className="divide-y border-b">
                   {SKELETON_ROWS.map((row) => (
                     <div
@@ -650,29 +627,30 @@ export const PositionsTable: FC<PositionsTableProps> = ({
 
             {data === undefined && isError && (
               <ErrorState
-                message="The positions could not be loaded"
+                message={t('positions.loadFailed')}
                 onRetry={refetch}
               />
             )}
 
             {isRefetchError && (
-              <StaleState
-                message={STALE_DATA_MESSAGE}
-                isRetrying={isFetching}
-                onRetry={refetch}
-              />
+              <StaleState isRetrying={isFetching} onRetry={refetch} />
             )}
 
             {data?.total === 0 && !hasRefinement && (
               <EmptyState
-                message="No positions yet"
-                action={{ label: 'Add asset', onSelect: onAddAsset }}
+                icon={ChartCandlestick}
+                title={t('positions.emptyTitle')}
+                message={t('positions.empty')}
+                action={{
+                  label: t('positions.addAsset'),
+                  onSelect: onAddAsset
+                }}
               />
             )}
 
             {data?.total === 0 && hasRefinement && (
               <NoResultsState
-                message="No positions match the search and filters"
+                message={t('positions.noResults')}
                 onClear={clearRefinements}
               />
             )}
@@ -681,9 +659,9 @@ export const PositionsTable: FC<PositionsTableProps> = ({
               data.total > 0 &&
               data.items.length === 0 && (
                 <EmptyState
-                  message={`No positions on page ${data.page}`}
+                  message={t('positions.emptyPage', { page: data.page })}
                   action={{
-                    label: `Go to page ${data.totalPages}`,
+                    label: t('positions.goToPage', { page: data.totalPages }),
                     onSelect: () => refine({ page: data.totalPages })
                   }}
                 />
@@ -691,14 +669,18 @@ export const PositionsTable: FC<PositionsTableProps> = ({
 
             {data !== undefined && data.items.length > 0 && (
               <Table
-                label="Positions table"
+                label={t('positions.table')}
                 className={cn(
                   'transition-opacity',
                   isPlaceholderData && 'opacity-60'
                 )}
               >
                 <TableCaption className="sr-only">
-                  {`Positions valued in ${portfolio.baseCurrency}, sorted by ${SORT_FIELD_LABELS[listing.sortBy]}, ${ARIA_SORT[listing.sortOrder]}`}
+                  {t('positions.caption', {
+                    currency: portfolio.baseCurrency,
+                    field: t(`positions.sortFields.${listing.sortBy}`),
+                    order: listing.sortOrder
+                  })}
                 </TableCaption>
 
                 {tableHeader}
@@ -763,12 +745,14 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                           />
 
                           <span className="text-xs text-muted-foreground xl:hidden">
-                            {'Avg. cost '}
-
-                            <Price
-                              value={position.averageCost}
-                              currency={position.baseCurrency}
-                            />
+                            {t.rich('positions.averageCostOf', {
+                              price: () => (
+                                <Price
+                                  value={position.averageCost}
+                                  currency={position.baseCurrency}
+                                />
+                              )
+                            })}
                           </span>
                         </div>
                       </TableCell>
@@ -783,9 +767,11 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                           </span>
 
                           <span className="text-xs text-muted-foreground xl:hidden">
-                            <Quantity value={position.quantity} />
-
-                            {' held'}
+                            {t.rich('positions.held', {
+                              quantity: () => (
+                                <Quantity value={position.quantity} />
+                              )
+                            })}
                           </span>
                         </div>
                       </TableCell>
@@ -819,7 +805,9 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                               variant="ghost"
                               size="icon"
                               className="size-8"
-                              aria-label={`Actions for ${position.symbol}`}
+                              aria-label={t('positions.actionsFor', {
+                                symbol: position.symbol
+                              })}
                             >
                               <Ellipsis aria-hidden="true" className="size-4" />
                             </Button>
@@ -832,7 +820,8 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                                   aria-hidden="true"
                                   className="size-4 text-muted-foreground"
                                 />
-                                View details
+
+                                {t('positions.viewDetails')}
                               </Link>
                             </DropdownMenuItem>
 
@@ -844,17 +833,19 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                                 aria-hidden="true"
                                 className="size-4 text-muted-foreground"
                               />
-                              New transaction
+
+                              {t('positions.newTransaction')}
                             </DropdownMenuItem>
 
                             <DropdownMenuSeparator />
 
                             <DropdownMenuItem
-                              className="gap-2 text-destructive focus:text-destructive"
+                              className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
                               onSelect={() => onDeleteAsset(position.symbol)}
                             >
                               <Trash2 aria-hidden="true" className="size-4" />
-                              Delete
+
+                              {t('positions.delete')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -872,7 +863,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                     htmlFor={pageSizeId}
                     className="text-sm font-normal text-muted-foreground"
                   >
-                    Rows per page
+                    {t('positions.rowsPerPage')}
                   </Label>
 
                   <Select
@@ -900,10 +891,10 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                 </div>
 
                 <PageNavigation
-                  label="Positions pages"
+                  label={t('positions.pages')}
                   page={data.page}
                   totalPages={data.totalPages}
-                  detail={`${data.total} ${data.total === 1 ? 'position' : 'positions'}`}
+                  detail={t('positions.count', { count: data.total })}
                   onPageChange={(page) => refine({ page })}
                 />
               </div>

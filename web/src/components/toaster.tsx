@@ -1,9 +1,10 @@
 'use client';
 
-import { type CSSProperties, useEffect, useRef } from 'react';
+import { useEffect, useRef, type CSSProperties } from 'react';
 
 import { CircleAlert, CircleCheck, Info, TriangleAlert } from 'lucide-react';
 import { Toaster as Sonner } from 'sonner';
+import { useTranslations } from 'use-intl';
 
 import { APP_THEME } from '@/common/constants';
 import { TOAST_LIFETIME_MS, toastLifetimeOf } from '@/lib/toast-lifetime';
@@ -16,8 +17,20 @@ import { TOAST_LIFETIME_MS, toastLifetimeOf } from '@/lib/toast-lifetime';
 const FOCUS_RING_CLASSES =
   'focus-visible:outline-hidden! focus-visible:ring-2! focus-visible:ring-focus!';
 
+/**
+ * The action sits under the message, aligned with its text, as the secondary
+ * button at the `xs` size: the next step stays at hand without outweighing
+ * what the toast says, and the message keeps the toast's full width.
+ */
+const ACTION_BUTTON_CLASSES =
+  'col-start-2! m-0! h-8! justify-self-start! rounded-md! bg-secondary! px-2.5! text-sm! font-medium! text-secondary-foreground! hover:bg-secondary/80!';
+
+/** sonner draws it at 20 px, under the 24 px a pointer target needs (WCAG 2.5.8). */
+const CLOSE_BUTTON_CLASSES = 'size-6!';
+
 export function Toaster() {
   const toasterRef = useRef<HTMLElement>(null);
+  const t = useTranslations('common.toasts');
 
   /**
    * sonner holds its timers while the document is hidden, and the countdown
@@ -51,6 +64,7 @@ export function Toaster() {
       position="bottom-right"
       theme={APP_THEME}
       closeButton
+      containerAriaLabel={t('region')}
       icons={{
         error: (
           <CircleAlert aria-hidden="true" size={22} className="text-negative" />
@@ -81,13 +95,15 @@ export function Toaster() {
       }
       toastOptions={{
         ...toastLifetimeOf(TOAST_LIFETIME_MS),
+        closeButtonAriaLabel: t('close'),
         classNames: {
-          toast: 'items-start! gap-3! shadow-elevated!',
+          toast:
+            'grid! grid-cols-[auto_minmax(0,1fr)]! items-start! gap-3! rounded-xl! shadow-elevated!',
           icon: 'size-[22px]!',
           title: 'text-sm font-medium',
           description: 'text-sm text-surface-elevated-foreground/80!',
-          actionButton: FOCUS_RING_CLASSES,
-          closeButton: FOCUS_RING_CLASSES
+          actionButton: `${ACTION_BUTTON_CLASSES} ${FOCUS_RING_CLASSES}`,
+          closeButton: `${CLOSE_BUTTON_CLASSES} ${FOCUS_RING_CLASSES}`
         }
       }}
     />
