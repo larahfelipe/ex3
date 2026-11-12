@@ -17,37 +17,58 @@
 }
 
 /*
- * The authentication pages' backdrop: a warm glow that cools towards indigo,
- * from the `--brand-glow-*` tokens, so it follows the theme without an image.
- * Each glow eases out over two stops rather than one, so they blend into one
- * wash instead of reading as separate spots.
+ * The light of the authentication pages, from the `--brand-glow-*` tokens: one
+ * warm source just below the bottom edge, its amber core cooling to orange and
+ * then rose, over a violet haze that sinks into the deep indigo base, and a
+ * faint violet light in the far corner for depth. Each layer fades along a
+ * smoothstep, flat at its core and at its rim, so none shows an edge. Flipped
+ * vertically, it falls from the top edge instead.
  */
 @utility bg-brand-glow {
   background-color: hsl(var(--brand-glow-base));
   background-image:
     radial-gradient(
-      55% 35% at 18% 6%,
-      hsl(var(--brand-glow-highlight) / 0.45),
+      66% 36% at 68% 113%,
+      hsl(var(--brand-glow-highlight) / 0.95),
+      hsl(var(--brand-glow-warm) / 0.8) 25%,
+      hsl(var(--brand-glow-warm) / 0.48) 50%,
+      hsl(var(--brand-glow-rose) / 0.15) 75%,
       transparent
     ),
     radial-gradient(
-      120% 70% at 5% 0%,
-      hsl(var(--brand-glow-warm) / 0.85),
-      hsl(var(--brand-glow-warm) / 0.35) 45%,
+      110% 56% at 62% 110%,
+      hsl(var(--brand-glow-rose) / 0.32),
+      hsl(var(--brand-glow-rose) / 0.27) 25%,
+      hsl(var(--brand-glow-rose) / 0.16) 50%,
+      hsl(var(--brand-glow-rose) / 0.05) 75%,
       transparent
     ),
     radial-gradient(
-      100% 75% at 100% 50%,
-      hsl(var(--brand-glow-rose) / 0.45),
-      hsl(var(--brand-glow-rose) / 0.15) 50%,
-      transparent
-    ),
-    radial-gradient(
-      110% 70% at 10% 105%,
+      170% 100% at 42% 106%,
       hsl(var(--brand-glow-cool) / 0.4),
-      hsl(var(--brand-glow-cool) / 0.12) 50%,
+      hsl(var(--brand-glow-cool) / 0.34) 25%,
+      hsl(var(--brand-glow-cool) / 0.2) 50%,
+      hsl(var(--brand-glow-cool) / 0.06) 75%,
+      transparent
+    ),
+    radial-gradient(
+      85% 50% at 6% -8%,
+      hsl(var(--brand-glow-cool) / 0.12),
+      hsl(var(--brand-glow-cool) / 0.1) 25%,
+      hsl(var(--brand-glow-cool) / 0.06) 50%,
+      hsl(var(--brand-glow-cool) / 0.02) 75%,
       transparent
     );
+}
+
+/*
+ * Fine grain over the glow: a dark gradient shows its 8-bit steps as bands,
+ * and noise breaks them up so the gradient reads as smooth. The tile is a
+ * fixed size, so the grain stays as fine on a wide panel as on a narrow one.
+ */
+@utility bg-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 180px;
 }
 
 @theme {
@@ -225,7 +246,7 @@
     --chart-8: 234 89% 74%;
     --chart-9: 82 85% 67%;
     --chart-10: 292 91% 73%;
-    --brand-glow-base: 240 30% 8%;
+    --brand-glow-base: 246 40% 6%;
     --brand-glow-highlight: 32 100% 62%;
     --brand-glow-warm: 21 100% 50%;
     --brand-glow-rose: 347 85% 60%;
