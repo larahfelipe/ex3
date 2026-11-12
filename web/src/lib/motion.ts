@@ -20,6 +20,15 @@ export const TAB_SPRING = {
 } as const satisfies Transition;
 
 /**
+ * `TAB_SPRING` for a CSS transition: the time it takes to settle and the
+ * `linear()` easing that traces it, as framer-motion's `spring().toString()`
+ * gives them. Written out, so that what slides by CSS alone does not load the
+ * library; `motion.test.ts` keeps it in step with `TAB_SPRING`.
+ */
+export const TAB_SPRING_CSS =
+  '550ms linear(0, 0.1195, 0.3552, 0.5913, 0.7781, 0.9047, 0.9789, 1.0152, 1.0275, 1.0271, 1.0212, 1.0142, 1.0083, 1.004, 1.0013, 0.9999, 1, 1)';
+
+/**
  * How far a tab's panel travels: enough to read as a direction, short enough
  * that the leaving and the arriving panel cross-fade instead of travelling.
  */
