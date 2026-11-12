@@ -17,6 +17,7 @@ import {
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,
@@ -234,150 +235,159 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
         </DialogDescription>
       </DialogHeader>
 
-      <InstallmentProgress paid={paidInstallments} count={installmentCount} />
+      <DialogBody>
+        <InstallmentProgress paid={paidInstallments} count={installmentCount} />
 
-      <dl className="grid gap-4 sm:grid-cols-3">
-        <Metric label={t('total')} valueClassName={PROMINENT_VALUE_CLASS}>
-          <Money value={totalAmount} currency={currency} />
-        </Metric>
+        <dl className="grid gap-4 sm:grid-cols-3">
+          <Metric label={t('total')} valueClassName={PROMINENT_VALUE_CLASS}>
+            <Money value={totalAmount} currency={currency} />
+          </Metric>
 
-        <Metric label={t('outstanding')} valueClassName={PROMINENT_VALUE_CLASS}>
-          <Money value={outstandingAmount} currency={currency} />
-        </Metric>
+          <Metric
+            label={t('outstanding')}
+            valueClassName={PROMINENT_VALUE_CLASS}
+          >
+            <Money value={outstandingAmount} currency={currency} />
+          </Metric>
 
-        <Metric label={t('settled')} valueClassName={PROMINENT_VALUE_CLASS}>
-          <Money value={settledAmount} currency={currency} />
-        </Metric>
+          <Metric label={t('settled')} valueClassName={PROMINENT_VALUE_CLASS}>
+            <Money value={settledAmount} currency={currency} />
+          </Metric>
 
-        <Metric label={t('nextInstallment')}>
-          {nextDueDate === null || nextInstallmentNumber === null ? (
-            <UnavailableValue />
-          ) : (
-            <>
-              {t.rich('next', {
-                number: nextInstallmentNumber,
-                count: installmentCount,
-                day: () => <CalendarDayText day={nextDueDate} />
-              })}
+          <Metric label={t('nextInstallment')}>
+            {nextDueDate === null || nextInstallmentNumber === null ? (
+              <UnavailableValue />
+            ) : (
+              <>
+                {t.rich('next', {
+                  number: nextInstallmentNumber,
+                  count: installmentCount,
+                  day: () => <CalendarDayText day={nextDueDate} />
+                })}
 
-              {nextDistance !== null && (
-                <span
-                  className={cn(
-                    'block text-sm font-normal',
-                    nextDueDate < today
-                      ? 'text-negative'
-                      : 'text-muted-foreground'
-                  )}
+                {nextDistance !== null && (
+                  <span
+                    className={cn(
+                      'block text-sm font-normal',
+                      nextDueDate < today
+                        ? 'text-negative'
+                        : 'text-muted-foreground'
+                    )}
+                  >
+                    {nextDistance}
+                  </span>
+                )}
+              </>
+            )}
+          </Metric>
+
+          <Metric label={t('cashPrice')}>
+            {principalAmount === null ? (
+              <UnavailableValue />
+            ) : (
+              <Money value={principalAmount} currency={currency} />
+            )}
+          </Metric>
+
+          <Metric label={t('overCashPrice')}>
+            {financingCost === null ? (
+              <UnavailableValue />
+            ) : (
+              <FinancingCost cost={financingCost} currency={currency} />
+            )}
+          </Metric>
+
+          <Metric label={t('schedule')}>
+            {firstDueDate === null || lastDueDate === null ? (
+              <UnavailableValue />
+            ) : (
+              t.rich('scheduleRange', {
+                first: () => <CalendarDayText day={firstDueDate} />,
+                last: () => <CalendarDayText day={lastDueDate} />
+              })
+            )}
+          </Metric>
+
+          <Metric label={t('category')}>
+            {tFinances(`categories.${category}`)}
+
+            {subcategory !== null && (
+              <span className="text-muted-foreground">
+                {' · '}
+
+                {subcategory}
+              </span>
+            )}
+          </Metric>
+
+          <Metric label={t('paymentMethod')}>
+            {paymentMethod === null ? (
+              <UnavailableValue />
+            ) : (
+              tFinances(`paymentMethods.${paymentMethod}`)
+            )}
+          </Metric>
+
+          <Metric label={t('account')}>
+            {account ?? <UnavailableValue />}
+          </Metric>
+
+          <Metric label={t('notes')} className="sm:col-span-2">
+            {notes ?? <UnavailableValue />}
+          </Metric>
+        </dl>
+
+        <section aria-labelledby="plan-installments" className="space-y-1">
+          <h3 id="plan-installments" className="text-sm font-semibold">
+            {t('installments')}
+          </h3>
+
+          <Table label={t('table')}>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>{t('columns.installment')}</TableHead>
+
+                <TableHead className={COLUMN_VISIBILITY.due}>
+                  {t('columns.due')}
+                </TableHead>
+
+                <TableHead className="text-right">
+                  {t('columns.amount')}
+                </TableHead>
+
+                <TableHead
+                  className={cn('text-right', COLUMN_VISIBILITY.status)}
                 >
-                  {nextDistance}
-                </span>
-              )}
-            </>
-          )}
-        </Metric>
+                  {t('columns.status')}
+                </TableHead>
 
-        <Metric label={t('cashPrice')}>
-          {principalAmount === null ? (
-            <UnavailableValue />
-          ) : (
-            <Money value={principalAmount} currency={currency} />
-          )}
-        </Metric>
+                <TableHead className="text-right">
+                  <span className="sr-only">{t('columns.actions')}</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
 
-        <Metric label={t('overCashPrice')}>
-          {financingCost === null ? (
-            <UnavailableValue />
-          ) : (
-            <FinancingCost cost={financingCost} currency={currency} />
-          )}
-        </Metric>
+            <TableBody>
+              {installments.map((installment) => (
+                <InstallmentRow
+                  key={installment.id}
+                  installment={installment}
+                  today={today}
+                  onPay={() => onAction({ kind: 'pay', installment })}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </section>
 
-        <Metric label={t('schedule')}>
-          {firstDueDate === null || lastDueDate === null ? (
-            <UnavailableValue />
-          ) : (
-            t.rich('scheduleRange', {
-              first: () => <CalendarDayText day={firstDueDate} />,
-              last: () => <CalendarDayText day={lastDueDate} />
-            })
-          )}
-        </Metric>
+        <section aria-labelledby="plan-history" className="space-y-3">
+          <h3 id="plan-history" className="text-sm font-semibold">
+            {t('history')}
+          </h3>
 
-        <Metric label={t('category')}>
-          {tFinances(`categories.${category}`)}
-
-          {subcategory !== null && (
-            <span className="text-muted-foreground">
-              {' · '}
-
-              {subcategory}
-            </span>
-          )}
-        </Metric>
-
-        <Metric label={t('paymentMethod')}>
-          {paymentMethod === null ? (
-            <UnavailableValue />
-          ) : (
-            tFinances(`paymentMethods.${paymentMethod}`)
-          )}
-        </Metric>
-
-        <Metric label={t('account')}>{account ?? <UnavailableValue />}</Metric>
-
-        <Metric label={t('notes')} className="sm:col-span-2">
-          {notes ?? <UnavailableValue />}
-        </Metric>
-      </dl>
-
-      <section aria-labelledby="plan-installments" className="space-y-1">
-        <h3 id="plan-installments" className="text-sm font-semibold">
-          {t('installments')}
-        </h3>
-
-        <Table label={t('table')}>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead>{t('columns.installment')}</TableHead>
-
-              <TableHead className={COLUMN_VISIBILITY.due}>
-                {t('columns.due')}
-              </TableHead>
-
-              <TableHead className="text-right">
-                {t('columns.amount')}
-              </TableHead>
-
-              <TableHead className={cn('text-right', COLUMN_VISIBILITY.status)}>
-                {t('columns.status')}
-              </TableHead>
-
-              <TableHead className="text-right">
-                <span className="sr-only">{t('columns.actions')}</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {installments.map((installment) => (
-              <InstallmentRow
-                key={installment.id}
-                installment={installment}
-                today={today}
-                onPay={() => onAction({ kind: 'pay', installment })}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      </section>
-
-      <section aria-labelledby="plan-history" className="space-y-3">
-        <h3 id="plan-history" className="text-sm font-semibold">
-          {t('history')}
-        </h3>
-
-        <FinanceHistory events={history} currency={currency} />
-      </section>
+          <FinanceHistory events={history} currency={currency} />
+        </section>
+      </DialogBody>
 
       <DialogFooter className="gap-2 sm:flex-wrap">
         {!isNonzeroDecimal(settledAmount) && (
@@ -463,10 +473,12 @@ export const InstallmentPlanDialogs: FC<PlanDialogsProps> = ({
                 </DialogDescription>
               </DialogHeader>
 
-              <ErrorState
-                message={t('details.loadFailed')}
-                onRetry={() => void planQuery.refetch()}
-              />
+              <DialogBody>
+                <ErrorState
+                  message={t('details.loadFailed')}
+                  onRetry={() => void planQuery.refetch()}
+                />
+              </DialogBody>
             </>
           )}
 
@@ -480,7 +492,9 @@ export const InstallmentPlanDialogs: FC<PlanDialogsProps> = ({
                 </DialogDescription>
               </DialogHeader>
 
-              <LoadingState label={t('details.loading')} className="h-72" />
+              <DialogBody>
+                <LoadingState label={t('details.loading')} className="h-72" />
+              </DialogBody>
             </>
           )}
 

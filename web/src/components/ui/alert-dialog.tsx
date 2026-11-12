@@ -40,7 +40,11 @@ const AlertDialogContent = ({
 
       <AlertDialogPrimitive.Content
         {...focusReturn}
-        className={cn(DIALOG_CONTENT_CLASS, className)}
+        className={cn(
+          DIALOG_CONTENT_CLASS,
+          'gap-4 overflow-y-auto overscroll-contain p-6',
+          className
+        )}
         {...props}
       />
     </AlertDialogPortal>

@@ -2,12 +2,10 @@ import {
   useEffect,
   useId,
   useMemo,
-  useRef,
   useState,
   type FC,
   type ReactNode
 } from 'react';
-import { flushSync } from 'react-dom';
 import {
   useController,
   useForm,
@@ -30,13 +28,23 @@ import { TRANSACTION_TYPES, UNIT_PRICE_DECIMALS } from '@/common/constants';
 import { currencyFractionDigits } from '@/common/utils';
 import { LoadingState } from '@/components/data-state';
 import { DatePicker } from '@/components/date-picker';
-import { ChoiceField, FormField } from '@/components/form-field';
+import {
+  ChoiceField,
+  FormField,
+  OptionalFields
+} from '@/components/form-field';
 import { CurrencyAmountInput } from '@/components/money-input';
 import { NumberInput } from '@/components/number-input';
+import {
+  OptionalDetailButtons,
+  RemoveDetailButton,
+  useOptionalDetails
+} from '@/components/optional-details';
 import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -458,14 +466,6 @@ const TransactionForm: FC<TransactionFormProps> = ({
         }
       : toTransactionFormValues(target.transaction, format);
 
-  const [shownDetails, setShownDetails] = useState(() =>
-    shownDetailsOf(target)
-  );
-
-  const addDetailButtons = useRef<
-    Partial<Record<TransactionDetail, HTMLButtonElement | null>>
-  >({});
-
   const {
     control: formControl,
     register,
@@ -483,6 +483,14 @@ const TransactionForm: FC<TransactionFormProps> = ({
   });
 
   useRevalidateOnLocaleChange(errors, trigger);
+
+  const details = useOptionalDetails({
+    details: TRANSACTION_DETAILS,
+    initiallyShown: () => shownDetailsOf(target),
+    focus: setFocus,
+    clear: (detail) =>
+      setValue(detail, '', { shouldDirty: true, shouldValidate: true })
+  });
 
   useEffect(() => {
     onDirtyChange(isDirty);
@@ -545,10 +553,7 @@ const TransactionForm: FC<TransactionFormProps> = ({
     const type = getValues('type');
     const currentUnitPrice = getValues('unitPrice');
 
-    if (hasWithheldTax(type))
-      setShownDetails((shown) =>
-        shown.has('taxes') ? shown : new Set(shown).add('taxes')
-      );
+    if (hasWithheldTax(type)) details.reveal('taxes');
 
     if (
       marketUnitPrice === null ||
@@ -574,38 +579,12 @@ const TransactionForm: FC<TransactionFormProps> = ({
     });
   };
 
-  const showDetail = (detail: TransactionDetail) => {
-    flushSync(() => setShownDetails((shown) => new Set(shown).add(detail)));
-    setFocus(detail);
-  };
-
-  const removeDetail = (detail: TransactionDetail) => {
-    setValue(detail, '', { shouldDirty: true, shouldValidate: true });
-    flushSync(() =>
-      setShownDetails(
-        (shown) =>
-          new Set([...shown].filter((shownDetail) => shownDetail !== detail))
-      )
-    );
-    addDetailButtons.current[detail]?.focus();
-  };
-
   const removeDetailButton = (detail: TransactionDetail) => (
-    <Button
-      type="button"
-      variant="ghost"
-      size="xxs"
-      className="text-muted-foreground"
-      onClick={() => removeDetail(detail)}
-    >
+    <RemoveDetailButton onClick={() => details.remove(detail)}>
       {tForm.rich(`removeDetail.${detail}`, {
         hidden: (chunks) => <span className="sr-only">{chunks}</span>
       })}
-    </Button>
-  );
-
-  const hiddenDetails = TRANSACTION_DETAILS.filter(
-    (detail) => !shownDetails.has(detail)
+    </RemoveDetailButton>
   );
 
   const submitDraft = async (draft: TransactionDraft) => {
@@ -631,253 +610,238 @@ const TransactionForm: FC<TransactionFormProps> = ({
 
   return (
     <>
-      <form id={formId} noValidate onSubmit={handleSubmit(submitDraft)}>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <ChoiceField
-            legend={t('fields.type')}
-            hint={tForm(`typeHints.${selectedType}`)}
-            error={errors.type?.message}
-            className="sm:col-span-2"
-          >
-            <SegmentedControl className="grid grid-cols-3 sm:flex sm:w-fit">
-              {TRANSACTION_TYPES.map((type) => (
-                <SegmentedControlItem
-                  key={type}
-                  value={type}
-                  {...register('type', { onChange: followSelectedType })}
-                >
-                  {t(`types.${type}`)}
-                </SegmentedControlItem>
-              ))}
-            </SegmentedControl>
-          </ChoiceField>
-
-          <FormField
-            label={t('fields.date')}
-            error={errors.executionDay?.message}
-            className="sm:col-span-2"
-          >
-            {(control) => (
-              <DatePicker
-                id={control.id}
-                ref={executionDayField.ref}
-                name={executionDayField.name}
-                value={executionDayField.value}
-                aria-invalid={control['aria-invalid']}
-                aria-describedby={control['aria-describedby']}
-                onValueChange={executionDayField.onChange}
-                onBlur={executionDayField.onBlur}
-              />
-            )}
-          </FormField>
-
-          <FormField
-            label={t('fields.quantity')}
-            error={errors.quantity?.message}
-            className={PAIRED_FIELD_CLASS}
-            action={
-              heldQuantity !== null && isQuantityOfHeldUnits(selectedType) ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xxs"
-                  className="text-muted-foreground"
-                  onClick={() => {
-                    stepQuantityTo(heldQuantity);
-                    setFocus('quantity');
-                  }}
-                >
-                  {tForm('useHeld', {
-                    quantity: formatQuantity(heldQuantity)
-                  })}
-                </Button>
-              ) : undefined
-            }
-          >
-            {(control) => (
-              <div className="flex gap-2">
-                <div className="min-w-0 flex-1">
-                  <NumberInput
-                    {...control}
-                    allowsDecimals
-                    ref={quantityInput.ref}
-                    className="tabular-nums"
-                    name={quantityInput.name}
-                    value={quantityInput.value}
-                    onChange={({ target }) =>
-                      quantityInput.onChange(target.value)
-                    }
-                    onBlur={quantityInput.onBlur}
-                  />
-                </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label={tForm('decrease', { step: QUANTITY_STEP })}
-                  aria-controls={control.id}
-                  aria-disabled={decreasedQuantity === null}
-                  className="shrink-0"
-                  onClick={() => stepQuantityTo(decreasedQuantity)}
-                >
-                  <Minus size={16} aria-hidden="true" />
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label={tForm('increase', { step: QUANTITY_STEP })}
-                  aria-controls={control.id}
-                  aria-disabled={increasedQuantity === null}
-                  className="shrink-0"
-                  onClick={() => stepQuantityTo(increasedQuantity)}
-                >
-                  <Plus size={16} aria-hidden="true" />
-                </Button>
-              </div>
-            )}
-          </FormField>
-
-          <AmountField
-            name="unitPrice"
-            label={t(`unitPrice.${selectedType}`)}
-            currency={currency}
-            decimals={unitPriceDecimals}
-            hint={unitPriceHint}
-            className={PAIRED_FIELD_CLASS}
-            control={formControl}
-          />
-
-          {shownDetails.has('fees') && (
-            <AmountField
-              isOptional
-              name="fees"
-              label={t('fields.fees')}
-              currency={currency}
-              decimals={amountDecimals}
-              action={removeDetailButton('fees')}
-              control={formControl}
-            />
-          )}
-
-          {shownDetails.has('taxes') && (
-            <AmountField
-              isOptional
-              name="taxes"
-              label={t('fields.taxes')}
-              currency={currency}
-              decimals={amountDecimals}
-              action={removeDetailButton('taxes')}
-              control={formControl}
-            />
-          )}
-
-          {shownDetails.has('broker') && (
-            <FormField
-              isOptional
-              label={t('fields.broker')}
-              error={errors.broker?.message}
-              action={removeDetailButton('broker')}
+      <DialogBody>
+        <form id={formId} noValidate onSubmit={handleSubmit(submitDraft)}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ChoiceField
+              legend={t('fields.type')}
+              hint={tForm(`typeHints.${selectedType}`)}
+              error={errors.type?.message}
+              className="sm:col-span-2"
             >
-              {(control) => (
-                <Input
-                  {...control}
-                  type="text"
-                  maxLength={BROKER_MAX_LENGTH}
-                  {...register('broker')}
-                />
-              )}
-            </FormField>
-          )}
+              <SegmentedControl className="grid grid-cols-3 sm:flex sm:w-fit">
+                {TRANSACTION_TYPES.map((type) => (
+                  <SegmentedControlItem
+                    key={type}
+                    value={type}
+                    {...register('type', { onChange: followSelectedType })}
+                  >
+                    {t(`types.${type}`)}
+                  </SegmentedControlItem>
+                ))}
+              </SegmentedControl>
+            </ChoiceField>
 
-          {shownDetails.has('notes') && (
             <FormField
-              isOptional
-              label={t('fields.notes')}
-              error={errors.notes?.message}
-              action={removeDetailButton('notes')}
+              label={t('fields.date')}
+              error={errors.executionDay?.message}
               className="sm:col-span-2"
             >
               {(control) => (
-                <textarea
-                  {...control}
-                  rows={3}
-                  maxLength={NOTES_MAX_LENGTH}
-                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-negative md:text-sm"
-                  {...register('notes')}
+                <DatePicker
+                  id={control.id}
+                  ref={executionDayField.ref}
+                  name={executionDayField.name}
+                  value={executionDayField.value}
+                  aria-invalid={control['aria-invalid']}
+                  aria-describedby={control['aria-describedby']}
+                  onValueChange={executionDayField.onChange}
+                  onBlur={executionDayField.onBlur}
                 />
               )}
             </FormField>
-          )}
 
-          {effect !== null && (
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg bg-muted/50 px-3 py-2.5 text-sm sm:col-span-2">
-              <span className="text-muted-foreground">
-                {tForm(`effect.${selectedType}`)}
-              </span>
-
-              <span className="font-semibold tabular-nums">
-                {formatMoney(effect.net, currency)}
-              </span>
-
-              <span className="w-full text-xs text-muted-foreground tabular-nums">
-                {tForm(
-                  !isNonzeroDecimal(effect.charges)
-                    ? 'effectOf.units'
-                    : isCostOf(selectedType)
-                      ? 'effectOf.unitsPlusCharges'
-                      : 'effectOf.unitsLessCharges',
-                  {
-                    quantity: formatQuantity(effect.quantity),
-                    unitPrice: formatPrice(effect.unitPrice, currency),
-                    charges: formatMoney(effect.charges, currency)
-                  }
-                )}
-              </span>
-            </div>
-          )}
-
-          {hiddenDetails.length > 0 && (
-            <div
-              role="group"
-              aria-label={tForm('optionalDetails')}
-              className="flex flex-wrap gap-2 sm:col-span-2"
-            >
-              {hiddenDetails.map((detail) => (
-                <Button
-                  key={detail}
-                  ref={(button) => {
-                    addDetailButtons.current[detail] = button;
-                  }}
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  className="gap-1.5"
-                  onClick={() => showDetail(detail)}
-                >
-                  <Plus size={14} aria-hidden="true" />
-
-                  <span>
-                    {tForm.rich(`addDetail.${detail}`, {
-                      hidden: (chunks) => (
-                        <span className="sr-only">{chunks}</span>
-                      )
+            <FormField
+              label={t('fields.quantity')}
+              error={errors.quantity?.message}
+              className={PAIRED_FIELD_CLASS}
+              action={
+                heldQuantity !== null && isQuantityOfHeldUnits(selectedType) ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xxs"
+                    className="text-muted-foreground"
+                    onClick={() => {
+                      stepQuantityTo(heldQuantity);
+                      setFocus('quantity');
+                    }}
+                  >
+                    {tForm('useHeld', {
+                      quantity: formatQuantity(heldQuantity)
                     })}
-                  </span>
-                </Button>
-              ))}
-            </div>
-          )}
+                  </Button>
+                ) : undefined
+              }
+            >
+              {(control) => (
+                <div className="flex gap-2">
+                  <div className="min-w-0 flex-1">
+                    <NumberInput
+                      {...control}
+                      allowsDecimals
+                      ref={quantityInput.ref}
+                      className="tabular-nums"
+                      name={quantityInput.name}
+                      value={quantityInput.value}
+                      onChange={({ target }) =>
+                        quantityInput.onChange(target.value)
+                      }
+                      onBlur={quantityInput.onBlur}
+                    />
+                  </div>
 
-          {errors.root?.server?.message !== undefined && (
-            <p role="alert" className="text-sm text-negative sm:col-span-2">
-              {errors.root.server.message}
-            </p>
-          )}
-        </div>
-      </form>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label={tForm('decrease', { step: QUANTITY_STEP })}
+                    aria-controls={control.id}
+                    aria-disabled={decreasedQuantity === null}
+                    className="shrink-0"
+                    onClick={() => stepQuantityTo(decreasedQuantity)}
+                  >
+                    <Minus size={16} aria-hidden="true" />
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label={tForm('increase', { step: QUANTITY_STEP })}
+                    aria-controls={control.id}
+                    aria-disabled={increasedQuantity === null}
+                    className="shrink-0"
+                    onClick={() => stepQuantityTo(increasedQuantity)}
+                  >
+                    <Plus size={16} aria-hidden="true" />
+                  </Button>
+                </div>
+              )}
+            </FormField>
+
+            <AmountField
+              name="unitPrice"
+              label={t(`unitPrice.${selectedType}`)}
+              currency={currency}
+              decimals={unitPriceDecimals}
+              hint={unitPriceHint}
+              className={PAIRED_FIELD_CLASS}
+              control={formControl}
+            />
+
+            <OptionalFields>
+              {details.isShown('fees') && (
+                <AmountField
+                  isOptional
+                  name="fees"
+                  label={t('fields.fees')}
+                  currency={currency}
+                  decimals={amountDecimals}
+                  action={removeDetailButton('fees')}
+                  control={formControl}
+                />
+              )}
+
+              {details.isShown('taxes') && (
+                <AmountField
+                  isOptional
+                  name="taxes"
+                  label={t('fields.taxes')}
+                  currency={currency}
+                  decimals={amountDecimals}
+                  action={removeDetailButton('taxes')}
+                  control={formControl}
+                />
+              )}
+
+              {details.isShown('broker') && (
+                <FormField
+                  isOptional
+                  label={t('fields.broker')}
+                  error={errors.broker?.message}
+                  action={removeDetailButton('broker')}
+                >
+                  {(control) => (
+                    <Input
+                      {...control}
+                      type="text"
+                      maxLength={BROKER_MAX_LENGTH}
+                      {...register('broker')}
+                    />
+                  )}
+                </FormField>
+              )}
+
+              {details.isShown('notes') && (
+                <FormField
+                  isOptional
+                  label={t('fields.notes')}
+                  error={errors.notes?.message}
+                  action={removeDetailButton('notes')}
+                  className="sm:col-span-2"
+                >
+                  {(control) => (
+                    <textarea
+                      {...control}
+                      rows={3}
+                      maxLength={NOTES_MAX_LENGTH}
+                      className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-negative md:text-sm"
+                      {...register('notes')}
+                    />
+                  )}
+                </FormField>
+              )}
+            </OptionalFields>
+
+            {effect !== null && (
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg bg-muted/50 px-3 py-2.5 text-sm sm:col-span-2">
+                <span className="text-muted-foreground">
+                  {tForm(`effect.${selectedType}`)}
+                </span>
+
+                <span className="font-semibold tabular-nums">
+                  {formatMoney(effect.net, currency)}
+                </span>
+
+                <span className="w-full text-xs text-muted-foreground tabular-nums">
+                  {tForm(
+                    !isNonzeroDecimal(effect.charges)
+                      ? 'effectOf.units'
+                      : isCostOf(selectedType)
+                        ? 'effectOf.unitsPlusCharges'
+                        : 'effectOf.unitsLessCharges',
+                    {
+                      quantity: formatQuantity(effect.quantity),
+                      unitPrice: formatPrice(effect.unitPrice, currency),
+                      charges: formatMoney(effect.charges, currency)
+                    }
+                  )}
+                </span>
+              </div>
+            )}
+
+            <OptionalDetailButtons
+              label={tForm('optionalDetails')}
+              details={details.hidden}
+              labelOf={(detail) =>
+                tForm.rich(`addDetail.${detail}`, {
+                  hidden: (chunks) => <span className="sr-only">{chunks}</span>
+                })
+              }
+              onShow={details.show}
+              buttonRefOf={details.addButtonRef}
+              className="sm:col-span-2"
+            />
+
+            {errors.root?.server?.message !== undefined && (
+              <p role="alert" className="text-sm text-negative sm:col-span-2">
+                {errors.root.server.message}
+              </p>
+            )}
+          </div>
+        </form>
+      </DialogBody>
 
       <DialogFooter>
         <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
@@ -953,7 +917,9 @@ export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
 
         {positionQuery.isPending ? (
           <>
-            <LoadingState label={t('loading', { symbol })} className="h-72" />
+            <DialogBody>
+              <LoadingState label={t('loading', { symbol })} className="h-72" />
+            </DialogBody>
 
             <DialogFooter>
               <Button variant="outline" onClick={onCancel}>

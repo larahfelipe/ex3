@@ -14,6 +14,19 @@ export default {
     FINANCIAL: 'Financial',
     OTHER: 'Other'
   },
+  categoryExamples: {
+    HOUSING: 'Rent, condo fees, property tax, repairs',
+    UTILITIES: 'Electricity, water, gas, internet, phone',
+    SUBSCRIPTIONS: 'Streaming, apps, software, subscription boxes',
+    FOOD: 'Groceries, restaurants, delivery',
+    TRANSPORTATION: 'Fuel, vehicle tax, car insurance, parking, public transit',
+    HEALTH: 'Health plan, pharmacy, appointments, gym, personal care',
+    EDUCATION: 'School, college, courses, books, supplies',
+    LEISURE: 'Travel, outings, events, hobbies',
+    SHOPPING: 'Clothing, electronics, home goods, gifts',
+    FINANCIAL: 'Loans, credit card bill, taxes, insurance, bank fees',
+    OTHER: 'Anything that fits nowhere else'
+  },
   retiredCategories: {
     INSURANCE: 'Insurance',
     TAXES: 'Taxes',
@@ -146,12 +159,13 @@ export default {
     reports: 'Reports'
   },
   form: {
-    descriptionSection: 'Description',
     description: 'Description',
+    descriptionPlaceholder: 'E.g. electricity bill',
     category: 'Category',
+    moreDetailsSection: 'More details',
+    addMoreDetails: 'More details',
+    moreDetailsHint: 'Subcategory, payment method, account and notes',
     subcategory: 'Subcategory',
-    paymentSection: 'Payment',
-    addPaymentDetails: 'Add payment method, account or notes',
     paymentMethod: 'Payment method',
     noPaymentMethod: 'Not specified',
     account: 'Bank account or card',

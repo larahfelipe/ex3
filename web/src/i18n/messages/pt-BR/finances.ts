@@ -12,6 +12,21 @@ export default {
     FINANCIAL: 'Financeiro',
     OTHER: 'Outros'
   },
+  categoryExamples: {
+    HOUSING: 'Aluguel, condomínio, IPTU, reformas e reparos',
+    UTILITIES: 'Luz, água, gás, internet, celular',
+    SUBSCRIPTIONS: 'Streaming, aplicativos, software, clubes de assinatura',
+    FOOD: 'Mercado, restaurantes, delivery',
+    TRANSPORTATION:
+      'Combustível, IPVA, seguro do carro, estacionamento, transporte público',
+    HEALTH: 'Plano de saúde, farmácia, consultas, academia, cuidados pessoais',
+    EDUCATION: 'Escola, faculdade, cursos, livros, material escolar',
+    LEISURE: 'Viagens, passeios, eventos, hobbies',
+    SHOPPING: 'Roupas, eletrônicos, itens para a casa, presentes',
+    FINANCIAL:
+      'Empréstimos, fatura do cartão, impostos, seguros, tarifas bancárias',
+    OTHER: 'O que não se encaixa nas demais'
+  },
   retiredCategories: {
     INSURANCE: 'Seguros',
     TAXES: 'Impostos',
@@ -143,12 +158,13 @@ export default {
     reports: 'Relatórios'
   },
   form: {
-    descriptionSection: 'Descrição',
     description: 'Descrição',
+    descriptionPlaceholder: 'Ex.: conta de luz',
     category: 'Categoria',
+    moreDetailsSection: 'Mais detalhes',
+    addMoreDetails: 'Mais detalhes',
+    moreDetailsHint: 'Subcategoria, forma de pagamento, conta e observações',
     subcategory: 'Subcategoria',
-    paymentSection: 'Pagamento',
-    addPaymentDetails: 'Adicionar forma de pagamento, conta ou observações',
     paymentMethod: 'Forma de pagamento',
     noPaymentMethod: 'Não informada',
     account: 'Conta bancária ou cartão',

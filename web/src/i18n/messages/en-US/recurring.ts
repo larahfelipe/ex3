@@ -92,7 +92,7 @@ export default {
       '{frequency} from {day}, in {currency}. To change the frequency or the start, stop this recurrence and add a new one.',
     editNote:
       "Changes apply to the bills due from the date below that have no payments and weren't edited individually. Earlier bills keep their amounts.",
-    scheduleSection: 'Amount and schedule',
+    recurrenceSection: 'Recurrence',
     amount: 'Amount',
     amountKind: 'Amount type',
     amountKinds: { fixed: 'Fixed', variable: 'Variable' },

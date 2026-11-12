@@ -81,9 +81,11 @@ export default {
     editTitle: 'Editar conta',
     addDescription: 'Uma conta fica em aberto até você registrar o pagamento.',
     editDescription: 'Valores em {currency}.',
-    amountSection: 'Valor e vencimento',
     amount: 'Valor',
     dueDate: 'Vencimento',
+    repeats: 'Repetir esta conta',
+    repeatsHint:
+      'Cria uma despesa recorrente, com uma conta a cada semana, mês ou ano a partir deste vencimento',
     submitAdd: 'Adicionar conta',
     failed: 'Não foi possível salvar a conta',
     originHints: {
@@ -98,16 +100,29 @@ export default {
     correctTitle: 'Corrigir pagamento de {description}',
     description:
       '{outstanding} em aberto de {amount}. Um pagamento parcial deixa o restante em aberto.',
-    section: 'Pagamento',
     amount: 'Valor pago',
     paidOn: 'Data do pagamento',
     paidOnHint: 'O dia em que o dinheiro saiu, no máximo hoje',
+    paidToday: 'Hoje',
+    paidOnDueDate: 'Vencimento ({day})',
+    paidOnShortcuts: 'Datas rápidas',
     discount: 'Desconto',
     discountHint: 'Quita parte da conta sem ser pago',
     fees: 'Juros e multas',
     feesHint: 'Pagos à parte: nunca quitam a conta',
-    detailsSection: 'Detalhes',
-    addDetails: 'Adicionar forma de pagamento ou observações',
+    optionalDetails: 'Detalhes opcionais',
+    addDetail: {
+      discount: '<hidden>Adicionar </hidden>Desconto',
+      fees: '<hidden>Adicionar </hidden>Juros e multas',
+      method: '<hidden>Adicionar </hidden>Forma de pagamento',
+      notes: '<hidden>Adicionar </hidden>Observações'
+    },
+    removeDetail: {
+      discount: 'Remover<hidden> desconto</hidden>',
+      fees: 'Remover<hidden> juros e multas</hidden>',
+      method: 'Remover<hidden> forma de pagamento</hidden>',
+      notes: 'Remover<hidden> observações</hidden>'
+    },
     method: 'Forma de pagamento',
     notes: 'Observações',
     settlesInFull: 'Quita a conta inteira',

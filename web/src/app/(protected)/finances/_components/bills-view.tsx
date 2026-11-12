@@ -79,7 +79,6 @@ import {
   TableRowHeader
 } from '@/components/ui';
 import {
-  useCreateExpense,
   useExpenses,
   useFinanceAlerts,
   useRecordPayment,
@@ -104,7 +103,7 @@ import { cn } from '@/lib/utils';
 import type { DecimalString } from '@/types';
 
 import { BillDialogs } from './bill-dialogs';
-import { ExpenseFormDialog } from './expense-form-dialog';
+import { AddBillDialog } from './expense-form-dialog';
 import {
   CalendarDayText,
   dueDistanceOf,
@@ -1028,7 +1027,6 @@ export const BillsView: FC = () => {
   const headingId = useId();
   const searchId = useId();
 
-  const { mutateAsync: createExpense } = useCreateExpense();
   const { mutateAsync: recordPayment } = useRecordPayment();
 
   const dueRange = orderedRange(
@@ -1335,16 +1333,7 @@ export const BillsView: FC = () => {
         />
       )}
 
-      {isAdding && (
-        <ExpenseFormDialog
-          target={{ kind: 'create' }}
-          onCancel={() => setIsAdding(false)}
-          onSubmit={async (draft) => {
-            await createExpense(draft);
-            setIsAdding(false);
-          }}
-        />
-      )}
+      {isAdding && <AddBillDialog onClose={() => setIsAdding(false)} />}
     </div>
   );
 };

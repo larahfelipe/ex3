@@ -19,7 +19,6 @@ import { DatePicker } from '@/components/date-picker';
 import {
   DeferredSection,
   FormField,
-  FormSection,
   type FieldControlProps
 } from '@/components/form-field';
 import { CurrencyAmountInput, CurrencySelect } from '@/components/money-input';
@@ -58,12 +57,16 @@ type MoneyFieldProps = Record<'name' | 'label' | 'currency', string> &
   Partial<Record<'isOptional', boolean>> &
   Partial<Record<'hint', ReactNode>> &
   Partial<Record<'className', string>> &
-  Partial<Record<'action', ReactNode>>;
+  Partial<Record<'action', ReactNode>> &
+  /** Fields whose checks read this one, revalidated as it changes. */
+  Partial<Record<'deps', ReadonlyArray<string>>>;
 
 type DayFieldProps = Record<'name' | 'label', string> &
   Partial<Record<'hint', ReactNode>> &
   Partial<Record<'className', string>> &
-  Partial<Record<'isOptional', boolean>>;
+  Partial<Record<'isOptional', boolean>> &
+  /** Quick picks shown under the picker, above its hint. */
+  Partial<Record<'shortcuts', ReactNode>>;
 
 /** A Radix select item cannot carry an empty value, so "not specified" has its own. */
 export const NO_PAYMENT_METHOD = 'NONE';
@@ -254,7 +257,8 @@ export const MoneyField: FC<MoneyFieldProps> = ({
   isOptional = false,
   hint,
   className,
-  action
+  action,
+  deps
 }) => {
   const tForm = useTranslations('common.form');
   const tValidation = useTranslations('validation');
@@ -263,7 +267,11 @@ export const MoneyField: FC<MoneyFieldProps> = ({
   const {
     field: { ref, value, onChange, onBlur },
     fieldState: { error }
-  } = useController({ name, control });
+  } = useController({
+    name,
+    control,
+    rules: deps === undefined ? undefined : { deps: [...deps] }
+  });
   const { errors } = useFormState({ control, name: currencyName ?? name });
   const currencyError =
     currencyName === undefined ? undefined : errors[currencyName]?.message;
@@ -339,7 +347,8 @@ export const DayField: FC<DayFieldProps> = ({
   label,
   hint,
   className,
-  isOptional
+  isOptional,
+  shortcuts
 }) => {
   const { control } = useFormContext<Record<string, string>>();
   const {
@@ -356,24 +365,29 @@ export const DayField: FC<DayFieldProps> = ({
       isOptional={isOptional}
     >
       {(fieldControl) => (
-        <DatePicker
-          id={fieldControl.id}
-          ref={field.ref}
-          name={field.name}
-          value={field.value}
-          aria-invalid={fieldControl['aria-invalid']}
-          aria-describedby={fieldControl['aria-describedby']}
-          onValueChange={field.onChange}
-          onBlur={field.onBlur}
-        />
+        <>
+          <DatePicker
+            id={fieldControl.id}
+            ref={field.ref}
+            name={field.name}
+            value={field.value}
+            aria-invalid={fieldControl['aria-invalid']}
+            aria-describedby={fieldControl['aria-describedby']}
+            onValueChange={field.onChange}
+            onBlur={field.onBlur}
+          />
+
+          {shortcuts}
+        </>
       )}
     </FormField>
   );
 };
 
 /**
- * What every bill, plan and series is: its description and category. The form
- * that renders it provides its methods through `FormProvider`.
+ * What every bill, plan and series is: its description and its category, two
+ * cells of the grid the form lays its essential fields in. The form that
+ * renders it provides its methods through `FormProvider`.
  */
 export const DescriptionFields: FC = () => {
   const t = useTranslations('finances');
@@ -385,42 +399,82 @@ export const DescriptionFields: FC = () => {
   });
   const categoryOptions = EXPENSE_CATEGORIES.map((category) => ({
     value: category,
-    label: t(`categories.${category}`)
+    label: t(`categories.${category}`),
+    description: t(`categoryExamples.${category}`)
   }));
 
   return (
-    <FormSection title={t('form.descriptionSection')}>
+    <>
+      <FormField
+        label={t('form.description')}
+        error={errors.description?.message}
+      >
+        {(fieldControl) => (
+          <Input
+            {...fieldControl}
+            type="text"
+            autoComplete="off"
+            placeholder={t('form.descriptionPlaceholder')}
+            maxLength={FINANCE_LIMITS.DescriptionMaxLength}
+            {...register('description')}
+          />
+        )}
+      </FormField>
+
+      <FormField label={t('form.category')} error={errors.category?.message}>
+        {(fieldControl) => (
+          <SearchableSelect
+            {...triggerPropsOf(fieldControl)}
+            ref={categoryField.ref}
+            name={categoryField.name}
+            value={categoryField.value}
+            options={categoryOptions}
+            onValueChange={categoryField.onChange}
+            onBlur={categoryField.onBlur}
+          />
+        )}
+      </FormField>
+    </>
+  );
+};
+
+const MORE_DETAILS = [
+  'subcategory',
+  'paymentMethod',
+  'account',
+  'notes'
+] as const satisfies ReadonlyArray<keyof DescriptionFormInput>;
+
+/**
+ * What a bill, plan or series can say beyond what it is: a subcategory, how it
+ * is paid and any notes, all optional and out of the way until asked for.
+ */
+export const MoreDetailsFields: FC = () => {
+  const t = useTranslations('finances');
+  const { control, register, getValues, setFocus } =
+    useFormContext<DescriptionFormInput>();
+  const { errors } = useFormState({ control });
+  const { field: methodField } = useController({
+    name: 'paymentMethod',
+    control
+  });
+  const { subcategory, paymentMethod, account, notes } = getValues();
+
+  return (
+    <DeferredSection
+      title={t('form.moreDetailsSection')}
+      revealLabel={t('form.addMoreDetails')}
+      revealHint={t('form.moreDetailsHint')}
+      isInitiallyRevealed={
+        subcategory !== '' ||
+        paymentMethod !== NO_PAYMENT_METHOD ||
+        account !== '' ||
+        notes !== ''
+      }
+      hasError={MORE_DETAILS.some((name) => errors[name] !== undefined)}
+      onReveal={() => setFocus('subcategory')}
+    >
       <div className="grid gap-4 sm:grid-cols-2">
-        <FormField
-          label={t('form.description')}
-          error={errors.description?.message}
-          className="sm:col-span-2"
-        >
-          {(fieldControl) => (
-            <Input
-              {...fieldControl}
-              type="text"
-              autoComplete="off"
-              maxLength={FINANCE_LIMITS.DescriptionMaxLength}
-              {...register('description')}
-            />
-          )}
-        </FormField>
-
-        <FormField label={t('form.category')} error={errors.category?.message}>
-          {(fieldControl) => (
-            <SearchableSelect
-              {...triggerPropsOf(fieldControl)}
-              ref={categoryField.ref}
-              name={categoryField.name}
-              value={categoryField.value}
-              options={categoryOptions}
-              onValueChange={categoryField.onChange}
-              onBlur={categoryField.onBlur}
-            />
-          )}
-        </FormField>
-
         <FormField
           isOptional
           label={t('form.subcategory')}
@@ -436,40 +490,7 @@ export const DescriptionFields: FC = () => {
             />
           )}
         </FormField>
-      </div>
-    </FormSection>
-  );
-};
 
-const PAYMENT_DETAILS = [
-  'paymentMethod',
-  'account',
-  'notes'
-] as const satisfies ReadonlyArray<keyof DescriptionFormInput>;
-
-/** How a bill, plan or series is paid, and any notes on it: all optional. */
-export const PaymentDetailsFields: FC = () => {
-  const t = useTranslations('finances');
-  const { control, register, getValues, setFocus } =
-    useFormContext<DescriptionFormInput>();
-  const { errors } = useFormState({ control });
-  const { field: methodField } = useController({
-    name: 'paymentMethod',
-    control
-  });
-  const { paymentMethod, account, notes } = getValues();
-
-  return (
-    <DeferredSection
-      title={t('form.paymentSection')}
-      revealLabel={t('form.addPaymentDetails')}
-      isInitiallyRevealed={
-        paymentMethod !== NO_PAYMENT_METHOD || account !== '' || notes !== ''
-      }
-      hasError={PAYMENT_DETAILS.some((name) => errors[name] !== undefined)}
-      onReveal={() => setFocus('paymentMethod')}
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
         <FormField
           isOptional
           label={t('form.paymentMethod')}
@@ -508,6 +529,7 @@ export const PaymentDetailsFields: FC = () => {
           isOptional
           label={t('form.account')}
           error={errors.account?.message}
+          className="sm:col-span-2"
         >
           {(fieldControl) => (
             <Input

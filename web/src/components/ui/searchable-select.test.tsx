@@ -22,6 +22,27 @@ describe('searchable select', () => {
     assert.deepEqual(valuesMatching('transporte'), []);
   });
 
+  it('finds an option by what its description lists, too', () => {
+    const described = [
+      {
+        value: 'UTILITIES',
+        label: 'Contas da casa',
+        description: 'Luz, água, internet'
+      },
+      {
+        value: 'FINANCIAL',
+        label: 'Financeiro',
+        description: 'Impostos, seguros'
+      }
+    ];
+    const valuesDescribedAs = (query: string) =>
+      optionsMatching(described, query).map(({ value }) => value);
+
+    assert.deepEqual(valuesDescribedAs('agua'), ['UTILITIES']);
+    assert.deepEqual(valuesDescribedAs('Seguro'), ['FINANCIAL']);
+    assert.deepEqual(valuesDescribedAs('financ'), ['FINANCIAL']);
+  });
+
   it('lists every option until something is typed', () => {
     assert.deepEqual(valuesMatching(''), ['HOUSING', 'HEALTH', 'EDUCATION']);
     assert.deepEqual(valuesMatching('   '), ['HOUSING', 'HEALTH', 'EDUCATION']);

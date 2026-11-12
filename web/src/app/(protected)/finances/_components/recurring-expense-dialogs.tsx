@@ -23,6 +23,7 @@ import { PageNavigation } from '@/components/page-navigation';
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,
@@ -356,86 +357,90 @@ const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
         </DialogDescription>
       </DialogHeader>
 
-      <dl className="grid gap-4 sm:grid-cols-3">
-        <Metric
-          label={t(isVariable ? 'estimate' : 'amount', { period })}
-          valueClassName={PROMINENT_VALUE_CLASS}
-        >
-          <Money value={amount} currency={currency} />
-        </Metric>
-
-        {frequency !== 'MONTHLY' && (
-          <Metric label={t('monthly')} valueClassName={PROMINENT_VALUE_CLASS}>
-            <Money value={monthlyEquivalent} currency={currency} />
+      <DialogBody>
+        <dl className="grid gap-4 sm:grid-cols-3">
+          <Metric
+            label={t(isVariable ? 'estimate' : 'amount', { period })}
+            valueClassName={PROMINENT_VALUE_CLASS}
+          >
+            <Money value={amount} currency={currency} />
           </Metric>
-        )}
 
-        <Metric label={t('nextBill')}>
-          {nextDueDate === null ? (
-            <UnavailableValue />
-          ) : (
-            <>
-              <CalendarDayText day={nextDueDate} />
-
-              {nextDistance !== null && (
-                <span className="block text-sm font-normal text-muted-foreground">
-                  {nextDistance}
-                </span>
-              )}
-            </>
+          {frequency !== 'MONTHLY' && (
+            <Metric label={t('monthly')} valueClassName={PROMINENT_VALUE_CLASS}>
+              <Money value={monthlyEquivalent} currency={currency} />
+            </Metric>
           )}
-        </Metric>
 
-        <Metric label={t('schedule')}>
-          {endDate === null
-            ? t.rich('scheduleOpen', {
-                start: () => <CalendarDayText day={startDate} />
-              })
-            : t.rich('scheduleRange', {
-                start: () => <CalendarDayText day={startDate} />,
-                end: () => <CalendarDayText day={endDate} />
-              })}
-        </Metric>
+          <Metric label={t('nextBill')}>
+            {nextDueDate === null ? (
+              <UnavailableValue />
+            ) : (
+              <>
+                <CalendarDayText day={nextDueDate} />
 
-        <Metric label={t('category')}>
-          {tFinances(`categories.${category}`)}
+                {nextDistance !== null && (
+                  <span className="block text-sm font-normal text-muted-foreground">
+                    {nextDistance}
+                  </span>
+                )}
+              </>
+            )}
+          </Metric>
 
-          {subcategory !== null && (
-            <span className="text-muted-foreground">
-              {' · '}
+          <Metric label={t('schedule')}>
+            {endDate === null
+              ? t.rich('scheduleOpen', {
+                  start: () => <CalendarDayText day={startDate} />
+                })
+              : t.rich('scheduleRange', {
+                  start: () => <CalendarDayText day={startDate} />,
+                  end: () => <CalendarDayText day={endDate} />
+                })}
+          </Metric>
 
-              {subcategory}
-            </span>
-          )}
-        </Metric>
+          <Metric label={t('category')}>
+            {tFinances(`categories.${category}`)}
 
-        <Metric label={t('paymentMethod')}>
-          {paymentMethod === null ? (
-            <UnavailableValue />
-          ) : (
-            tFinances(`paymentMethods.${paymentMethod}`)
-          )}
-        </Metric>
+            {subcategory !== null && (
+              <span className="text-muted-foreground">
+                {' · '}
 
-        <Metric label={t('account')}>{account ?? <UnavailableValue />}</Metric>
+                {subcategory}
+              </span>
+            )}
+          </Metric>
 
-        <Metric label={t('notes')} className="sm:col-span-2">
-          {notes ?? <UnavailableValue />}
-        </Metric>
-      </dl>
+          <Metric label={t('paymentMethod')}>
+            {paymentMethod === null ? (
+              <UnavailableValue />
+            ) : (
+              tFinances(`paymentMethods.${paymentMethod}`)
+            )}
+          </Metric>
 
-      <SeriesOccurrences
-        series={series}
-        onPay={(occurrence) => onAction({ kind: 'pay', occurrence })}
-      />
+          <Metric label={t('account')}>
+            {account ?? <UnavailableValue />}
+          </Metric>
 
-      <section aria-labelledby={historyId} className="space-y-3">
-        <h3 id={historyId} className="text-sm font-semibold">
-          {t('history')}
-        </h3>
+          <Metric label={t('notes')} className="sm:col-span-2">
+            {notes ?? <UnavailableValue />}
+          </Metric>
+        </dl>
 
-        <FinanceHistory events={history} currency={currency} />
-      </section>
+        <SeriesOccurrences
+          series={series}
+          onPay={(occurrence) => onAction({ kind: 'pay', occurrence })}
+        />
+
+        <section aria-labelledby={historyId} className="space-y-3">
+          <h3 id={historyId} className="text-sm font-semibold">
+            {t('history')}
+          </h3>
+
+          <FinanceHistory events={history} currency={currency} />
+        </section>
+      </DialogBody>
 
       <DialogFooter className="gap-2 sm:flex-wrap">
         <Button
@@ -509,10 +514,12 @@ export const RecurringExpenseDialogs: FC<SeriesDialogsProps> = ({
                 </DialogDescription>
               </DialogHeader>
 
-              <ErrorState
-                message={t('details.loadFailed')}
-                onRetry={() => void seriesQuery.refetch()}
-              />
+              <DialogBody>
+                <ErrorState
+                  message={t('details.loadFailed')}
+                  onRetry={() => void seriesQuery.refetch()}
+                />
+              </DialogBody>
             </>
           )}
 
@@ -526,7 +533,9 @@ export const RecurringExpenseDialogs: FC<SeriesDialogsProps> = ({
                 </DialogDescription>
               </DialogHeader>
 
-              <LoadingState label={t('details.loading')} className="h-72" />
+              <DialogBody>
+                <LoadingState label={t('details.loading')} className="h-72" />
+              </DialogBody>
             </>
           )}
 

@@ -19,7 +19,6 @@ import { PageHeader } from '@/components/page-header';
 import { SectionHeader } from '@/components/section-header';
 import { Button, Card, CardContent } from '@/components/ui';
 import {
-  useCreateExpense,
   useFinanceSettings,
   useFinanceSummary,
   useUpdateFinanceSettings
@@ -28,7 +27,7 @@ import { useFormat } from '@/i18n/format';
 import { daySpanOfCalendarMonth, shiftCalendarDay } from '@/lib/dates';
 import { isNonzeroDecimal } from '@/lib/decimal';
 
-import { ExpenseFormDialog } from './expense-form-dialog';
+import { AddBillDialog } from './expense-form-dialog';
 import {
   CategoryBars,
   FINANCE_SERIES_COLORS,
@@ -621,7 +620,6 @@ export const OverviewView: FC = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [isEditingReminders, setIsEditingReminders] = useState(false);
 
-  const { mutateAsync: createExpense } = useCreateExpense();
   const { mutateAsync: updateSettings } = useUpdateFinanceSettings();
 
   const summary = summaryQuery.data;
@@ -698,16 +696,7 @@ export const OverviewView: FC = () => {
         />
       )}
 
-      {isAdding && (
-        <ExpenseFormDialog
-          target={{ kind: 'create' }}
-          onCancel={() => setIsAdding(false)}
-          onSubmit={async (draft) => {
-            await createExpense(draft);
-            setIsAdding(false);
-          }}
-        />
-      )}
+      {isAdding && <AddBillDialog onClose={() => setIsAdding(false)} />}
 
       {isEditingReminders && settings !== undefined && (
         <ReminderSettingsDialog

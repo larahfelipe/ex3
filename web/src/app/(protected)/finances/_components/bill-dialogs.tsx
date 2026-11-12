@@ -20,6 +20,7 @@ import {
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,
@@ -63,7 +64,8 @@ type BillAction =
 type BillDetailsProps = Record<'expense', ExpenseDetail> &
   Record<'onAction', (action: BillAction) => void> &
   Record<'onRestore', () => Promise<unknown>> &
-  Record<'isRestoring', boolean>;
+  Record<'isRestoring', boolean> &
+  Record<'restoreError', string | null>;
 
 const isActivePayment = ({ voidedAt }: Pick<ExpensePayment, 'voidedAt'>) =>
   voidedAt === null;
@@ -146,7 +148,8 @@ const BillDetails: FC<BillDetailsProps> = ({
   expense,
   onAction,
   onRestore,
-  isRestoring
+  isRestoring,
+  restoreError
 }) => {
   const t = useTranslations('bills.details');
   const tFinances = useTranslations('finances');
@@ -207,98 +210,113 @@ const BillDetails: FC<BillDetailsProps> = ({
         </DialogDescription>
       </DialogHeader>
 
-      <dl className="grid gap-4 sm:grid-cols-3">
-        <Metric label={t('amount')} valueClassName={PROMINENT_VALUE_CLASS}>
-          <Money value={amount} currency={currency} />
-        </Metric>
+      <DialogBody>
+        <dl className="grid gap-4 sm:grid-cols-3">
+          <Metric label={t('amount')} valueClassName={PROMINENT_VALUE_CLASS}>
+            <Money value={amount} currency={currency} />
+          </Metric>
 
-        <Metric label={t('outstanding')} valueClassName={PROMINENT_VALUE_CLASS}>
-          <Money value={outstandingAmount} currency={currency} />
-        </Metric>
+          <Metric
+            label={t('outstanding')}
+            valueClassName={PROMINENT_VALUE_CLASS}
+          >
+            <Money value={outstandingAmount} currency={currency} />
+          </Metric>
 
-        <Metric label={t('settled')} valueClassName={PROMINENT_VALUE_CLASS}>
-          <Money value={settledAmount} currency={currency} />
-        </Metric>
+          <Metric label={t('settled')} valueClassName={PROMINENT_VALUE_CLASS}>
+            <Money value={settledAmount} currency={currency} />
+          </Metric>
 
-        <Metric label={t('dueDate')}>
-          <CalendarDayText day={dueDate} />
+          <Metric label={t('dueDate')}>
+            <CalendarDayText day={dueDate} />
 
-          {dueDistance !== null && (
-            <span
-              className={cn(
-                'block text-sm font-normal',
-                status === 'OVERDUE' ? 'text-negative' : 'text-muted-foreground'
-              )}
-            >
-              {dueDistance}
-            </span>
-          )}
-        </Metric>
+            {dueDistance !== null && (
+              <span
+                className={cn(
+                  'block text-sm font-normal',
+                  status === 'OVERDUE'
+                    ? 'text-negative'
+                    : 'text-muted-foreground'
+                )}
+              >
+                {dueDistance}
+              </span>
+            )}
+          </Metric>
 
-        <Metric label={t('paidInFullOn')}>
-          {settledOn === null ? (
-            <UnavailableValue />
+          <Metric label={t('paidInFullOn')}>
+            {settledOn === null ? (
+              <UnavailableValue />
+            ) : (
+              <CalendarDayText day={settledOn} />
+            )}
+          </Metric>
+
+          <Metric label={t('category')}>
+            {tFinances(`categories.${category}`)}
+
+            {subcategory !== null && (
+              <span className="text-muted-foreground">
+                {' · '}
+
+                {subcategory}
+              </span>
+            )}
+          </Metric>
+
+          <Metric label={t('paymentMethod')}>
+            {paymentMethod === null ? (
+              <UnavailableValue />
+            ) : (
+              tFinances(`paymentMethods.${paymentMethod}`)
+            )}
+          </Metric>
+
+          <Metric label={t('account')}>
+            {account ?? <UnavailableValue />}
+          </Metric>
+
+          <Metric label={t('notes')} className="sm:col-span-3">
+            {notes ?? <UnavailableValue />}
+          </Metric>
+        </dl>
+
+        <section aria-labelledby="bill-payments" className="space-y-1">
+          <h3 id="bill-payments" className="text-sm font-semibold">
+            {t('payments')}
+          </h3>
+
+          {payments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('noPayments')}</p>
           ) : (
-            <CalendarDayText day={settledOn} />
+            <ul className="divide-y">
+              {payments.map((payment) => (
+                <PaymentRow
+                  key={payment.id}
+                  payment={payment}
+                  currency={currency}
+                  canChange={!isCancelled}
+                  onAction={onAction}
+                />
+              ))}
+            </ul>
           )}
-        </Metric>
+        </section>
 
-        <Metric label={t('category')}>
-          {tFinances(`categories.${category}`)}
+        <section aria-labelledby="bill-history" className="space-y-3">
+          <h3 id="bill-history" className="text-sm font-semibold">
+            {t('history')}
+          </h3>
 
-          {subcategory !== null && (
-            <span className="text-muted-foreground">
-              {' · '}
+          <FinanceHistory events={history} currency={currency} />
+        </section>
+      </DialogBody>
 
-              {subcategory}
-            </span>
-          )}
-        </Metric>
-
-        <Metric label={t('paymentMethod')}>
-          {paymentMethod === null ? (
-            <UnavailableValue />
-          ) : (
-            tFinances(`paymentMethods.${paymentMethod}`)
-          )}
-        </Metric>
-
-        <Metric label={t('account')}>{account ?? <UnavailableValue />}</Metric>
-
-        <Metric label={t('notes')} className="sm:col-span-3">
-          {notes ?? <UnavailableValue />}
-        </Metric>
-      </dl>
-
-      <section aria-labelledby="bill-payments" className="space-y-1">
-        <h3 id="bill-payments" className="text-sm font-semibold">
-          {t('payments')}
-        </h3>
-
-        {payments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('noPayments')}</p>
-        ) : (
-          <ul className="divide-y">
-            {payments.map((payment) => (
-              <PaymentRow
-                key={payment.id}
-                payment={payment}
-                currency={currency}
-                canChange={!isCancelled}
-                onAction={onAction}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section aria-labelledby="bill-history" className="space-y-3">
-        <h3 id="bill-history" className="text-sm font-semibold">
-          {t('history')}
-        </h3>
-
-        <FinanceHistory events={history} currency={currency} />
-      </section>
+      {restoreError !== null && (
+        <p role="alert" className="shrink-0 px-6 pb-4 text-sm text-negative">
+          {restoreError}
+        </p>
+      )}
 
       <DialogFooter className="gap-2 sm:flex-wrap">
         {kind === 'ONE_TIME' && !hasActivePayments && (
@@ -412,10 +430,12 @@ export const BillDialogs: FC<BillDialogsProps> = ({ expenseId, onClose }) => {
                 </DialogDescription>
               </DialogHeader>
 
-              <ErrorState
-                message={t('details.loadFailed')}
-                onRetry={() => void expenseQuery.refetch()}
-              />
+              <DialogBody>
+                <ErrorState
+                  message={t('details.loadFailed')}
+                  onRetry={() => void expenseQuery.refetch()}
+                />
+              </DialogBody>
             </>
           )}
 
@@ -429,28 +449,23 @@ export const BillDialogs: FC<BillDialogsProps> = ({ expenseId, onClose }) => {
                 </DialogDescription>
               </DialogHeader>
 
-              <LoadingState label={t('details.loading')} className="h-72" />
+              <DialogBody>
+                <LoadingState label={t('details.loading')} className="h-72" />
+              </DialogBody>
             </>
           )}
 
           {expense !== undefined && (
-            <>
-              <BillDetails
-                expense={expense}
-                isRestoring={isUpdating}
-                onRestore={restore}
-                onAction={(nextAction) => {
-                  setRestoreError(null);
-                  setAction(nextAction);
-                }}
-              />
-
-              {restoreError !== null && (
-                <p role="alert" className="text-sm text-negative">
-                  {restoreError}
-                </p>
-              )}
-            </>
+            <BillDetails
+              expense={expense}
+              isRestoring={isUpdating}
+              restoreError={restoreError}
+              onRestore={restore}
+              onAction={(nextAction) => {
+                setRestoreError(null);
+                setAction(nextAction);
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>

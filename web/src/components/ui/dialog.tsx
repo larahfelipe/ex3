@@ -12,9 +12,14 @@ import { cn } from '@/lib/utils';
 export const DIALOG_OVERLAY_CLASS =
   'fixed inset-0 z-50 bg-scrim/60 backdrop-blur-sm duration-200 ease-out data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-150 data-[state=closed]:ease-in reduced-transparency:bg-scrim/80 reduced-transparency:backdrop-blur-none';
 
-/** Scales and fades in place: the enter and exit keyframes animate `transform`, which composes with the `translate` that centers the content, so any slide would move it off its axis. */
+/**
+ * Below `sm` it is a sheet along the bottom edge that slides up, so the thumb
+ * reaches its actions; from `sm` it is centred and fades and scales in place.
+ * The keyframes animate `transform`, which adds to the `translate` that centres
+ * it, so a slide there would bring it in off its axis.
+ */
 export const DIALOG_CONTENT_CLASS =
-  'fixed left-1/2 top-1/2 z-50 grid max-h-dvh w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto border bg-surface-elevated p-6 text-surface-elevated-foreground shadow-elevated outline-hidden duration-200 ease-out data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=closed]:duration-150 data-[state=closed]:ease-in sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl';
+  'fixed inset-x-0 bottom-0 z-50 flex max-h-[calc(100dvh-1rem)] w-full flex-col rounded-t-2xl border border-b-0 bg-surface-elevated text-surface-elevated-foreground shadow-elevated outline-hidden duration-200 ease-out data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom data-[state=closed]:duration-150 data-[state=closed]:ease-in sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border-b sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-bottom-0 sm:data-[state=closed]:zoom-out-95';
 
 const Dialog = DialogPrimitive.Root;
 
@@ -38,6 +43,10 @@ type DialogContentProps = React.ComponentProps<typeof DialogPrimitive.Content> &
   Partial<Record<'hasUnsavedChanges', boolean>>;
 
 /**
+ * Lays out a pinned `DialogHeader`, a `DialogBody` that scrolls when the
+ * content is taller than the screen, and a pinned `DialogFooter`, so the title
+ * and the actions stay in view on a short screen or above the keyboard.
+ *
  * With `hasUnsavedChanges`, a press outside leaves the dialog open, so a stray
  * click on the backdrop cannot throw away what was typed. Escape, the close
  * button and the form's own cancel still close it: those are deliberate.
@@ -58,7 +67,7 @@ const DialogContent = ({
 
       <DialogPrimitive.Content
         {...focusReturn}
-        className={cn(DIALOG_CONTENT_CLASS, className)}
+        className={cn(DIALOG_CONTENT_CLASS, 'overflow-hidden', className)}
         onPointerDownOutside={(event) => {
           if (hasUnsavedChanges) event.preventDefault();
 
@@ -68,7 +77,7 @@ const DialogContent = ({
       >
         {children}
 
-        <DialogPrimitive.Close className="absolute right-2 top-2 inline-flex size-8 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:pointer-events-none">
+        <DialogPrimitive.Close className="absolute right-1 top-3.5 inline-flex size-11 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:pointer-events-none sm:right-2 sm:top-2 sm:size-8">
           <X className="size-4" />
 
           <span className="sr-only">{t('close')}</span>
@@ -81,18 +90,28 @@ const DialogContent = ({
 const DialogHeader = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
     className={cn(
-      'flex flex-col space-y-1.5 text-center sm:text-left',
+      'flex shrink-0 flex-col space-y-1.5 px-6 pt-6 text-center sm:text-left',
       className
     )}
     {...props}
   />
 );
 
-/** A direct child of `DialogContent`: its divider spans the content's `p-6` edge to edge, and its `pt-4` mirrors the content's `gap-4` above it. */
+/** Spaces its children as the content did before it scrolled: `gap-4` between them, and `py-4` from the header and the footer's divider. */
+const DialogBody = ({ className, ...props }: React.ComponentProps<'div'>) => (
+  <div
+    className={cn(
+      'grid min-h-0 flex-1 content-start gap-4 overflow-y-auto overscroll-contain px-6 py-4',
+      className
+    )}
+    {...props}
+  />
+);
+
 const DialogFooter = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
     className={cn(
-      '-mx-6 flex flex-col-reverse gap-2 border-t px-6 pt-4 sm:flex-row sm:justify-end',
+      'flex shrink-0 flex-col-reverse gap-2 border-t px-6 pb-6 pt-4 sm:flex-row sm:justify-end',
       className
     )}
     {...props}
@@ -125,6 +144,7 @@ const DialogDescription = ({
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,
