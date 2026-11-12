@@ -161,7 +161,8 @@ const SKELETON_ROWS = Array.from(
   (_, row) => row
 );
 
-const ACTIVE_FILTER_CLASS = 'border-primary/50 bg-primary/5 text-foreground';
+const ACTIVE_FILTER_CLASS =
+  'border-primary/50 bg-primary/5 text-foreground hover:border-primary/70';
 
 const REVERSED_ORDER: Record<SortOrder, SortOrder> = {
   asc: 'desc',

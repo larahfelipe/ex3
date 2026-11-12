@@ -108,7 +108,7 @@ export const ImportConfirmBar: FC<ImportConfirmBarProps> = ({
   return (
     <div className="sticky bottom-4 z-10">
       <Card className="border-primary/30 shadow-lg">
-        <CardContent className="flex flex-col gap-3 pt-5 sm:flex-row sm:items-center sm:justify-between sm:pt-6">
+        <CardContent className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between sm:pt-5">
           <div className="min-w-0 space-y-1">
             <InfoNote>{t('confirm.note')}</InfoNote>
 

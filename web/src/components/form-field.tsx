@@ -117,7 +117,7 @@ export const FormField: FC<FormFieldProps> = ({
   );
 
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('space-y-1.5', className)}>
       {action === undefined ? (
         fieldLabel
       ) : (
@@ -155,14 +155,14 @@ export const ChoiceField: FC<ChoiceFieldProps> = ({
       data-invalid={error !== undefined || undefined}
       className={className}
     >
-      <legend className="mb-2 text-sm font-medium leading-none">
+      <legend className="mb-1.5 text-sm font-medium leading-none">
         {legend}
       </legend>
 
       {children}
 
       {describedBy !== undefined && (
-        <div className="mt-2 space-y-1.5">{description}</div>
+        <div className="mt-1.5 space-y-1.5">{description}</div>
       )}
     </fieldset>
   );

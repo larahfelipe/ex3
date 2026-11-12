@@ -52,7 +52,8 @@ import {
   DialogTitle,
   Input,
   SegmentedControl,
-  SegmentedControlItem
+  SegmentedControlItem,
+  TEXTAREA_CLASS
 } from '@/components/ui';
 import { usePosition } from '@/hooks/use-portfolio';
 import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
@@ -786,7 +787,7 @@ const TransactionForm: FC<TransactionFormProps> = ({
                       {...control}
                       rows={3}
                       maxLength={NOTES_MAX_LENGTH}
-                      className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-negative md:text-sm"
+                      className={TEXTAREA_CLASS}
                       {...register('notes')}
                     />
                   )}

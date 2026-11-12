@@ -91,7 +91,7 @@ export const SignInForm: FC<SignInFormProps> = ({
       noValidate
       onSubmit={(event) => void handleSubmit(handleSignIn)(event)}
     >
-      <div className="space-y-5">
+      <div className="space-y-4">
         <FormField label={t('fields.email')} error={errors.email?.message}>
           {(control) => (
             <Input
@@ -130,7 +130,7 @@ export const SignInForm: FC<SignInFormProps> = ({
         action={BOT_CHALLENGE.Actions.SignIn}
       />
 
-      <SubmitButton isPending={isSubmitting} size="lg" className="mt-8 w-full">
+      <SubmitButton isPending={isSubmitting} size="lg" className="mt-6 w-full">
         {t('signIn.submit')}
       </SubmitButton>
     </form>

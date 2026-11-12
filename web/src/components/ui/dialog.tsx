@@ -77,7 +77,7 @@ const DialogContent = ({
       >
         {children}
 
-        <DialogPrimitive.Close className="absolute right-1 top-3.5 inline-flex size-11 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:pointer-events-none sm:right-2 sm:top-2 sm:size-8">
+        <DialogPrimitive.Close className="absolute right-1 top-2.5 inline-flex size-11 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:pointer-events-none sm:right-2 sm:top-2 sm:size-8">
           <X className="size-4" />
 
           <span className="sr-only">{t('close')}</span>
@@ -90,7 +90,7 @@ const DialogContent = ({
 const DialogHeader = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
     className={cn(
-      'flex shrink-0 flex-col space-y-1.5 px-6 pt-6 text-center sm:text-left',
+      'flex shrink-0 flex-col space-y-1.5 px-5 pt-5 text-center sm:text-left',
       className
     )}
     {...props}
@@ -101,7 +101,7 @@ const DialogHeader = ({ className, ...props }: React.ComponentProps<'div'>) => (
 const DialogBody = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
     className={cn(
-      'grid min-h-0 flex-1 content-start gap-4 overflow-y-auto overscroll-contain px-6 py-4',
+      'grid min-h-0 flex-1 content-start gap-4 overflow-y-auto overscroll-contain px-5 py-4',
       className
     )}
     {...props}
@@ -111,7 +111,7 @@ const DialogBody = ({ className, ...props }: React.ComponentProps<'div'>) => (
 const DialogFooter = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
     className={cn(
-      'flex shrink-0 flex-col-reverse gap-2 border-t px-6 pb-6 pt-4 sm:flex-row sm:justify-end',
+      'flex shrink-0 flex-col-reverse gap-2 border-t px-5 pb-5 pt-4 sm:flex-row sm:justify-end',
       className
     )}
     {...props}
@@ -125,7 +125,7 @@ const DialogTitle = ({
 }: React.ComponentProps<typeof DialogPrimitive.Title>) => (
   <DialogPrimitive.Title
     className={cn(
-      'pr-6 text-lg font-semibold leading-tight tracking-tight max-sm:in-[.text-center]:pl-6',
+      'pr-7 text-lg font-semibold leading-tight tracking-tight max-sm:in-[.text-center]:pl-7',
       className
     )}
     {...props}

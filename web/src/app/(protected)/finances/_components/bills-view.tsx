@@ -142,7 +142,8 @@ const PAGE_SIZE = 20;
 const DEFAULT_SORT_FIELD: ExpenseSortField = 'dueDate';
 const SEARCH_DEBOUNCE_MS = 300;
 const ALL_OPTION = 'all';
-const ACTIVE_FILTER_CLASS = 'border-primary/50 bg-primary/5 text-foreground';
+const ACTIVE_FILTER_CLASS =
+  'border-primary/50 bg-primary/5 text-foreground hover:border-primary/70';
 
 const LISTING_PARAMS = {
   Page: 'page',

@@ -29,7 +29,8 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
+  SelectValue,
+  TEXTAREA_CLASS
 } from '@/components/ui';
 import { useFormat } from '@/i18n/format';
 import { srOnly } from '@/i18n/rich-text';
@@ -70,9 +71,6 @@ type DayFieldProps = Record<'name' | 'label', string> &
 
 /** A Radix select item cannot carry an empty value, so "not specified" has its own. */
 export const NO_PAYMENT_METHOD = 'NONE';
-
-export const TEXTAREA_CLASS =
-  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-base ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-negative md:text-sm';
 
 /** A button takes no `required`: a select's trigger keeps only what names and describes it. */
 export const triggerPropsOf = ({

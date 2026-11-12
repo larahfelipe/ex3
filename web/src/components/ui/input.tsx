@@ -6,6 +6,7 @@ import { useTranslations } from 'use-intl';
 import { cn } from '@/lib/utils';
 
 import { Button } from '.';
+import { FIELD_CLASS } from './field';
 
 export type InputProps = React.ComponentProps<'input'> &
   Partial<Record<'leftElement', React.JSX.Element>>;
@@ -36,7 +37,8 @@ const Input = ({
       <input
         type={isPasswordType ? passwordState : type}
         className={cn(
-          'flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base ring-offset-background transition-colors placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-negative md:text-sm',
+          FIELD_CLASS,
+          'flex h-9 w-full px-3 py-1 text-base md:text-sm',
           leftElement && 'pl-8',
           isPasswordType && 'pr-10',
           className

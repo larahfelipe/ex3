@@ -14,18 +14,18 @@ const Card = ({ className, ...props }: React.ComponentProps<'div'>) => (
 
 const CardHeader = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
-    className={cn('flex flex-col space-y-1.5 p-5 sm:p-6', className)}
+    className={cn('flex flex-col space-y-1.5 p-4 sm:p-5', className)}
     {...props}
   />
 );
 
 const CardContent = ({ className, ...props }: React.ComponentProps<'div'>) => (
-  <div className={cn('px-5 pb-5 sm:px-6 sm:pb-6', className)} {...props} />
+  <div className={cn('px-4 pb-4 sm:px-5 sm:pb-5', className)} {...props} />
 );
 
 const CardFooter = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
-    className={cn('flex items-center px-5 pb-5 sm:px-6 sm:pb-6', className)}
+    className={cn('flex items-center px-4 pb-4 sm:px-5 sm:pb-5', className)}
     {...props}
   />
 );

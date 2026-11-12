@@ -53,6 +53,7 @@
 @theme {
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
+  --color-input-hover: hsl(var(--input-hover));
   --color-focus: hsl(var(--focus));
   --color-scrim: hsl(var(--scrim));
   --color-background: hsl(var(--background));
@@ -157,8 +158,9 @@
     --warning-foreground: 0 0% 98%;
     --info: 201 96% 32%;
     --info-foreground: 0 0% 98%;
-    --border: 220 13% 91%;
-    --input: 220 9% 50%;
+    --border: 220 13% 89%;
+    --input: 220 9% 46%;
+    --input-hover: 220 9% 36%;
     --focus: 224 71.4% 4.1%;
     --scrim: 224 71.4% 4.1%;
     --radius: 0.75rem;
@@ -208,8 +210,9 @@
     --warning-foreground: 0 0% 9%;
     --info: 198 93% 60%;
     --info-foreground: 0 0% 9%;
-    --border: 0 0% 18.1%;
-    --input: 0 0% 46%;
+    --border: 0 0% 20%;
+    --input: 0 0% 32%;
+    --input-hover: 0 0% 42%;
     --focus: 21 100% 50%;
     --scrim: 0 0% 0%;
     --chart-1: 21 100% 45%;
@@ -249,7 +252,10 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+  }
+  ::selection {
+    background-color: hsl(var(--primary) / 0.35);
   }
   input[type='number']::-webkit-inner-spin-button,
   input[type='number']::-webkit-outer-spin-button {

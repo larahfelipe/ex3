@@ -313,7 +313,7 @@ const BillDetails: FC<BillDetailsProps> = ({
       </DialogBody>
 
       {restoreError !== null && (
-        <p role="alert" className="shrink-0 px-6 pb-4 text-sm text-negative">
+        <p role="alert" className="shrink-0 px-5 pb-4 text-sm text-negative">
           {restoreError}
         </p>
       )}

@@ -624,7 +624,7 @@ export const CalendarView: FC = () => {
 
         {selectedDay === null ? (
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="pt-4 sm:pt-5">
               <p className="text-sm text-muted-foreground">{t('chooseDay')}</p>
             </CardContent>
           </Card>

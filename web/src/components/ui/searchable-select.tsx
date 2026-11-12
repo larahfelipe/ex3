@@ -225,7 +225,7 @@ export const SearchableSelect = ({
             spellCheck={false}
             placeholder={t('search')}
             value={query}
-            className="h-10 w-full min-w-0 bg-transparent text-base outline-hidden placeholder:text-muted-foreground md:text-sm"
+            className="h-9 w-full min-w-0 bg-transparent text-base outline-hidden placeholder:text-muted-foreground md:text-sm"
             onChange={({ target }) => search(target.value)}
             onKeyDown={navigate}
           />

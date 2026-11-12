@@ -42,7 +42,7 @@ const AlertDialogContent = ({
         {...focusReturn}
         className={cn(
           DIALOG_CONTENT_CLASS,
-          'gap-4 overflow-y-auto overscroll-contain p-6',
+          'gap-4 overflow-y-auto overscroll-contain p-5',
           className
         )}
         {...props}

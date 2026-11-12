@@ -163,7 +163,7 @@ const SegmentedControl = ({
     <div
       ref={groupRef}
       className={cn(
-        'group/segmented relative flex rounded-md border border-input p-0.5 in-data-invalid:border-negative',
+        'group/segmented relative flex rounded-md border border-input bg-background/60 p-0.5 in-data-invalid:border-negative',
         className
       )}
       {...props}

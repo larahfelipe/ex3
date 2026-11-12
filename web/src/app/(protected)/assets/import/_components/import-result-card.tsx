@@ -53,7 +53,7 @@ export const ImportResultCard: FC<ImportResultCardProps> = ({
       className={cn('min-w-0', APPEAR_CLASS)}
     >
       <Card className="border-positive/30">
-        <CardContent className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-start sm:pt-6">
+        <CardContent className="flex flex-col gap-4 pt-4 sm:flex-row sm:items-start sm:pt-5">
           <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-positive/10 text-positive ring-1 ring-positive/20 ring-inset">
             <CircleCheck aria-hidden="true" className="size-5" />
           </span>

@@ -153,7 +153,7 @@ export const AmountKindChoice: FC = () => {
       legend={t('amountKind')}
       hint={t(`amountKindHints.${amountKind}`)}
     >
-      <SegmentedControl className="grid h-10 grid-cols-2">
+      <SegmentedControl className="grid h-9 grid-cols-2">
         {AMOUNT_KINDS.map((kind) => (
           <SegmentedControlItem
             key={kind}
@@ -176,7 +176,7 @@ export const EndChoice: FC = () => {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <ChoiceField legend={t('ends')}>
-        <SegmentedControl className="grid h-10 grid-cols-2">
+        <SegmentedControl className="grid h-9 grid-cols-2">
           {END_MODES.map((mode) => (
             <SegmentedControlItem
               key={mode}
@@ -203,7 +203,7 @@ const FrequencyChoice: FC = () => {
 
   return (
     <ChoiceField legend={t('frequency')} hint={t('frequencyHint')}>
-      <SegmentedControl className="grid h-10 grid-cols-3">
+      <SegmentedControl className="grid h-9 grid-cols-3">
         {RECURRENCE_FREQUENCIES.map((frequency) => (
           <SegmentedControlItem
             key={frequency}

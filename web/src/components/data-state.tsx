@@ -99,7 +99,7 @@ export const EmptyState: FC<EmptyStateProps> = ({
   ) : (
     <div
       className={cn(
-        'flex flex-col items-center gap-4 rounded-xl border border-dashed bg-muted/20 px-6 py-10 text-center sm:py-12',
+        'flex flex-col items-center gap-4 rounded-xl border border-dashed bg-muted/20 px-6 py-8 text-center sm:py-10',
         APPEAR_CLASS
       )}
     >

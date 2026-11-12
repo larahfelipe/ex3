@@ -80,7 +80,7 @@ const CalendarDropdown = ({
     >
       <SelectTrigger
         aria-label={label}
-        className="h-8 w-auto gap-1 border-transparent px-2 font-medium hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&>svg]:transition-opacity hover:[&>svg]:opacity-100 data-[state=open]:[&>svg]:opacity-100"
+        className="h-8 w-auto gap-1 border-transparent bg-transparent px-2 font-medium hover:border-transparent hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&>svg]:transition-opacity hover:[&>svg]:opacity-100 data-[state=open]:[&>svg]:opacity-100 disabled:border-transparent"
       >
         <SelectValue />
       </SelectTrigger>

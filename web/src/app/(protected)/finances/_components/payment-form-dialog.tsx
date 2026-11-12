@@ -37,7 +37,8 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
+  SelectValue,
+  TEXTAREA_CLASS
 } from '@/components/ui';
 import { useReferenceDay } from '@/hooks/use-finances';
 import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
@@ -64,7 +65,6 @@ import {
   optionalTextFieldFor,
   requiredDayFieldFor,
   requireMinorUnitsOf,
-  TEXTAREA_CLASS,
   triggerPropsOf,
   type ValidationTranslator
 } from './finance-form';
