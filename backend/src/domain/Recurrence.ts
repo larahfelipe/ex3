@@ -1,4 +1,10 @@
-import { addDays, addMonths, differenceInDays } from './CalendarDay';
+import {
+  addDays,
+  addMonths,
+  differenceInDays,
+  maxDay,
+  minDay
+} from './CalendarDay';
 import type { RecurrenceFrequency, RecurringExpenseStatus } from './models';
 
 const DAYS_PER_WEEK = 7;
@@ -77,6 +83,28 @@ export const nextOccurrence = (rule: RecurrenceRule, day: Date) => {
       return null;
     if (occurrence.getTime() >= day.getTime()) return occurrence;
   }
+};
+
+/**
+ * The day of the series' next bill on or after `today`. A bill it already
+ * created keeps the day an edit moved it to, so the earliest of them still
+ * due, `earliestCreated`, counts as it stands, and the rule gives the day only
+ * past the created ones.
+ */
+export const nextBillDay = (
+  rule: RecurrenceRule & Record<'generatedThrough', Date>,
+  today: Date,
+  earliestCreated: Date | null
+) => {
+  const scheduled = nextOccurrence(
+    rule,
+    maxDay(today, addDays(rule.generatedThrough, 1))
+  );
+
+  if (earliestCreated === null || scheduled === null)
+    return earliestCreated ?? scheduled;
+
+  return minDay(earliestCreated, scheduled);
 };
 
 /** A series past its end date has ended; one with an end date still ahead is active until then. */

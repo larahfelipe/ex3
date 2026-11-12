@@ -18,7 +18,7 @@ import type {
   RecurringExpenseStatus
 } from '@/domain/models';
 import {
-  nextOccurrence,
+  nextBillDay,
   occurrencesBetween,
   recurringExpenseStatusOf
 } from '@/domain/Recurrence';
@@ -65,10 +65,14 @@ const statusWhere = (
 
 const toRecurringExpense = (
   row: RecurringExpenseRow,
-  today: Date
+  today: Date,
+  earliestBills: ReadonlyMap<string, Date>
 ): RecurringExpense => {
   const status = recurringExpenseStatusOf(row, today);
-  const next = status === 'ACTIVE' ? nextOccurrence(row, today) : null;
+  const next =
+    status === 'ACTIVE'
+      ? nextBillDay(row, today, earliestBills.get(row.id) ?? null)
+      : null;
 
   return {
     id: row.id,
@@ -131,6 +135,36 @@ const generateOccurrences = async (
   });
 
   return last;
+};
+
+/**
+ * The day each series' earliest bill not cancelled is due, from `today` on,
+ * as edits left it rather than as the series scheduled it.
+ */
+const earliestBillsOf = async (
+  client: Prisma.TransactionClient,
+  seriesIds: Array<string>,
+  today: Date
+) => {
+  if (seriesIds.length === 0) return new Map<string, Date>();
+
+  const groups = await client.expense.groupBy({
+    by: ['recurringExpenseId'],
+    where: {
+      recurringExpenseId: { in: seriesIds },
+      cancelledAt: null,
+      dueDate: { gte: today }
+    },
+    _min: { dueDate: true }
+  });
+
+  return new Map(
+    groups.flatMap(({ recurringExpenseId, _min }) =>
+      recurringExpenseId === null || _min.dueDate === null
+        ? []
+        : [[recurringExpenseId, _min.dueDate] as const]
+    )
+  );
 };
 
 /**
@@ -226,8 +260,14 @@ export class RecurringExpenseRepository {
       })
     ]);
 
+    const earliestBills = await earliestBillsOf(
+      this.prismaClient,
+      rows.map(({ id }) => id),
+      today
+    );
+
     return {
-      items: rows.map((row) => toRecurringExpense(row, today)),
+      items: rows.map((row) => toRecurringExpense(row, today, earliestBills)),
       page,
       pageSize,
       total,
@@ -246,7 +286,13 @@ export class RecurringExpenseRepository {
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }]
     });
 
-    return rows.map((row) => toRecurringExpense(row, today));
+    const earliestBills = await earliestBillsOf(
+      this.prismaClient,
+      rows.map(({ id }) => id),
+      today
+    );
+
+    return rows.map((row) => toRecurringExpense(row, today, earliestBills));
   }
 
   async getById(
@@ -260,13 +306,16 @@ export class RecurringExpenseRepository {
 
     if (!row) return null;
 
-    const history = await historyOf(this.prismaClient, {
-      userId,
-      recordType: 'RECURRING_EXPENSE',
-      recordId: id
-    });
+    const [history, earliestBills] = await Promise.all([
+      historyOf(this.prismaClient, {
+        userId,
+        recordType: 'RECURRING_EXPENSE',
+        recordId: id
+      }),
+      earliestBillsOf(this.prismaClient, [id], today)
+    ]);
 
-    return { ...toRecurringExpense(row, today), history };
+    return { ...toRecurringExpense(row, today, earliestBills), history };
   }
 
   /** The occurrences owe their whole amount: creating a series records no payment. */

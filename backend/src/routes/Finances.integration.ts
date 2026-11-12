@@ -325,6 +325,27 @@ describe('finances', () => {
       });
     });
 
+    it('moves a bill to a new due date, which its status and history follow', async () => {
+      const session = await signIn();
+      const id = await createExpense(session, { dueDate: dayFrom(-5) });
+      const overdue = await readExpense(session, id);
+
+      const res = await session.patch(expenseRoute(id), {
+        ...EXPENSE,
+        dueDate: dayFrom(3)
+      });
+      const moved = await readExpense(session, id);
+
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.equal(overdue.status, 'OVERDUE');
+      assert.equal(moved.dueDate, dayFrom(3));
+      assert.equal(moved.status, 'PENDING');
+      assert.equal(moved.isCustomized, false);
+      assert.deepEqual(moved.history[0].changes, {
+        dueDate: { from: dayFrom(-5), to: dayFrom(3) }
+      });
+    });
+
     it('cancels and restores an expense without payments, and deletes it', async () => {
       const session = await signIn();
       const id = await createExpense(session);
@@ -787,6 +808,35 @@ describe('finances', () => {
       assert.equal(plan.history[0].type, 'UPDATED');
     });
 
+    it('moves an installment to a new due date, which the plan follows and its later edits leave', async () => {
+      const session = await signIn();
+      const id = await createPlan(session);
+      const [first, second] = (await readPlan(session, id)).installments;
+
+      const res = await session.patch(expenseRoute(first.id), {
+        dueDate: planDay('02-10')
+      });
+      await session.patch(planRoute(id), { description: 'Notebook' });
+      const plan = await readPlan(session, id);
+
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.deepEqual(
+        plan.installments.map(
+          ({ dueDate, description }: Record<string, string>) => [
+            dueDate,
+            description
+          ]
+        ),
+        [
+          [planDay('02-10'), 'Laptop'],
+          [second.dueDate, 'Notebook'],
+          [planDay('03-31'), 'Notebook']
+        ]
+      );
+      assert.equal(plan.nextDueDate, planDay('02-10'));
+      assert.equal(plan.firstDueDate, planDay('02-10'));
+    });
+
     it('reschedules what is left after the last paid installment, keeping the paid one and the history', async () => {
       const session = await signIn();
       const id = await createPlan(session);
@@ -1108,6 +1158,71 @@ describe('finances', () => {
         from: '100',
         to: '120'
       });
+    });
+
+    it('moves an occurrence to its new due date for good, and leaves the series and its other occurrences as they were', async () => {
+      const session = await signIn();
+      const id = await createSeries(session);
+      const [, second, third] = await occurrencesOf(session, id);
+      const moved = dayFrom(40);
+
+      const res = await session.patch(expenseRoute(second.id), {
+        dueDate: moved
+      });
+      const read = await session.get(expenseRoute(second.id), {
+        today: dayFrom(0)
+      });
+      await session.patch(seriesRoute(id), { amount: '120' });
+      const occurrences = await occurrencesOf(session, id);
+      const series = await session.get(seriesRoute(id));
+
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.equal(read.body.dueDate, moved);
+      assert.equal(read.body.occurrenceDate, second.occurrenceDate);
+      assert.equal(read.body.isCustomized, true);
+      assert.equal(occurrences.length, 13);
+      assert.deepEqual(
+        occurrences
+          .filter((occurrence) => occurrence.id === second.id)
+          .map(({ dueDate, amount }) => [dueDate, amount]),
+        [[moved, '100']]
+      );
+      assert.equal(
+        occurrences.find((occurrence) => occurrence.id === third.id)?.dueDate,
+        third.dueDate
+      );
+      assert.equal(series.body.startDate, SERIES.startDate);
+    });
+
+    it('tells the next bill by the day its bills are due, past a moved or cancelled one', async () => {
+      const session = await signIn();
+      const id = await createSeries(session);
+      const [first, second] = await occurrencesOf(session, id);
+      const nextDueDateOf = async () => {
+        const [detail, listing] = await Promise.all([
+          session.get(seriesRoute(id)),
+          session.get(SERIES_ROUTE)
+        ]);
+        const listed = (
+          listing.body.items as Array<Record<'id' | 'nextDueDate', string>>
+        ).find((series) => series.id === id);
+
+        assert.equal(listed?.nextDueDate, detail.body.nextDueDate);
+
+        return detail.body.nextDueDate as string | null;
+      };
+
+      await session.patch(expenseRoute(first.id), { dueDate: dayFrom(5) });
+      const moved = await nextDueDateOf();
+      await session.patch(expenseRoute(first.id), { dueDate: dayFrom(-3) });
+      const movedBack = await nextDueDateOf();
+      await session.patch(expenseRoute(first.id), { dueDate: dayFrom(0) });
+      await session.patch(expenseRoute(first.id), { cancelled: true });
+      const cancelled = await nextDueDateOf();
+
+      assert.equal(moved, dayFrom(5));
+      assert.equal(movedBack, second.dueDate);
+      assert.equal(cancelled, second.dueDate);
     });
 
     it('applies an edit from the current day by default', async () => {
