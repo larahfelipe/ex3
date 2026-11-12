@@ -25,7 +25,8 @@ import {
   EXPENSE_STATUS_TONES,
   INSTALLMENT_PLAN_STATUS_TONES,
   PAYMENT_METHODS,
-  RECURRING_EXPENSE_STATUS_TONES
+  RECURRING_EXPENSE_STATUS_TONES,
+  RETIRED_EXPENSE_CATEGORIES
 } from '@/common/constants';
 import { useFormat, type Format } from '@/i18n/format';
 import type { Translator } from '@/i18n/translator';
@@ -243,6 +244,11 @@ const isPaymentMethod = (value: string): value is PaymentMethod =>
 const isExpenseCategory = (value: string): value is ExpenseCategory =>
   EXPENSE_CATEGORIES.some((category) => category === value);
 
+const isRetiredCategory = (
+  value: string
+): value is (typeof RETIRED_EXPENSE_CATEGORIES)[number] =>
+  RETIRED_EXPENSE_CATEGORIES.some((category) => category === value);
+
 const isChangedField = (field: string): field is ChangedField =>
   CHANGED_FIELDS.some((known) => known === field);
 
@@ -267,6 +273,8 @@ const recordedTextOf = (
     return t(`paymentMethods.${value}`);
   if (field === 'category' && isExpenseCategory(value))
     return t(`categories.${value}`);
+  if (field === 'category' && isRetiredCategory(value))
+    return t(`retiredCategories.${value}`);
 
   return value;
 };

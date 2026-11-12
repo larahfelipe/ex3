@@ -208,22 +208,28 @@ export const signInRouteFor = ({
 export const assetDetailRoute = (symbol: string) =>
   `${APP_ROUTES.Protected.Assets}/${encodeURIComponent(symbol)}`;
 
+/** In the order they are offered: the bills most households have first, `OTHER` last. */
 export const EXPENSE_CATEGORIES: Array<ExpenseCategory> = [
   'HOUSING',
   'UTILITIES',
+  'SUBSCRIPTIONS',
   'FOOD',
   'TRANSPORTATION',
   'HEALTH',
   'EDUCATION',
   'LEISURE',
-  'SUBSCRIPTIONS',
+  'SHOPPING',
+  'FINANCIAL',
+  'OTHER'
+];
+
+/** Categories no bill has any more, which only the history of a change still names. */
+export const RETIRED_EXPENSE_CATEGORIES = [
   'INSURANCE',
   'TAXES',
   'DEBT',
-  'SHOPPING',
-  'PERSONAL_CARE',
-  'OTHER'
-];
+  'PERSONAL_CARE'
+] as const;
 
 export const PAYMENT_METHODS: Array<PaymentMethod> = [
   'PIX',

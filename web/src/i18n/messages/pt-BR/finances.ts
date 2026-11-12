@@ -2,18 +2,21 @@ export default {
   categories: {
     HOUSING: 'Moradia',
     UTILITIES: 'Contas de consumo',
+    SUBSCRIPTIONS: 'Assinaturas',
     FOOD: 'Alimentação',
     TRANSPORTATION: 'Transporte',
-    HEALTH: 'Saúde',
+    HEALTH: 'Saúde e bem-estar',
     EDUCATION: 'Educação',
     LEISURE: 'Lazer',
-    SUBSCRIPTIONS: 'Assinaturas',
+    SHOPPING: 'Compras',
+    FINANCIAL: 'Financeiro',
+    OTHER: 'Outros'
+  },
+  retiredCategories: {
     INSURANCE: 'Seguros',
     TAXES: 'Impostos',
     DEBT: 'Dívidas',
-    SHOPPING: 'Compras',
-    PERSONAL_CARE: 'Cuidados pessoais',
-    OTHER: 'Outros'
+    PERSONAL_CARE: 'Cuidados pessoais'
   },
   paymentMethods: {
     CASH: 'Dinheiro',

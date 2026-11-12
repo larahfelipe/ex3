@@ -169,6 +169,7 @@ describe('finances', () => {
         [{ amount: '-5' }, 'amount'],
         [{ dueDate: '2026-02-30' }, 'dueDate'],
         [{ category: 'PETS' }, 'category'],
+        [{ category: 'INSURANCE' }, 'category'],
         [{ currency: 'REAL' }, 'currency']
       ];
 

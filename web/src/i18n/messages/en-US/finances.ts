@@ -4,18 +4,21 @@ export default {
   categories: {
     HOUSING: 'Housing',
     UTILITIES: 'Utilities',
+    SUBSCRIPTIONS: 'Subscriptions',
     FOOD: 'Food',
     TRANSPORTATION: 'Transportation',
-    HEALTH: 'Health',
+    HEALTH: 'Health & wellness',
     EDUCATION: 'Education',
     LEISURE: 'Leisure',
-    SUBSCRIPTIONS: 'Subscriptions',
+    SHOPPING: 'Shopping',
+    FINANCIAL: 'Financial',
+    OTHER: 'Other'
+  },
+  retiredCategories: {
     INSURANCE: 'Insurance',
     TAXES: 'Taxes',
     DEBT: 'Debt',
-    SHOPPING: 'Shopping',
-    PERSONAL_CARE: 'Personal care',
-    OTHER: 'Other'
+    PERSONAL_CARE: 'Personal care'
   },
   paymentMethods: {
     CASH: 'Cash',
