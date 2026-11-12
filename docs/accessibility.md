@@ -38,7 +38,7 @@ Automation covers part of the set; no item below counts as met merely because
 | K3 | `Esc` closes a dialog, a dropdown and a select without losing what was already typed | 2.1.2 · Radix's default behaviour, not overridden |
 | K4 | `Arrow` navigates within a menu, a select and a radio group; `Tab` leaves the group | 2.1.1 · `dropdown-menu`, `select` and the chart's period `fieldset` |
 | K5 | No keyboard trap outside a modal dialog | 2.1.2 · full walkthrough with `Tab` and `Shift+Tab` |
-| K6 | Minimum touch target of 24×24 px; 44×44 px in the main navigation | 2.5.8 (AA) and 2.5.5 as an internal rule · `NAVIGATION_ITEM_CLASS` in `sidebar.tsx` |
+| K6 | Minimum touch target of 24×24 px; 44×44 px in the main navigation, and 44 px tall for fields, buttons and segmented controls below `sm` | 2.5.8 (AA) and 2.5.5 as an internal rule · `NAVIGATION_ITEM_CLASS` in `sidebar.tsx`; `--field-height` and `--control-height` in `globals.css` |
 | K7 | Authentication accepts pasting into a password field and requires no transcription of a secret | 3.3.8 · `sign-in` and `sign-up` with no `paste` blocking |
 | K8 | A series chart is a `slider` over its points: `Arrow`, `Home`, `End`, `Page Up` and `Page Down` move the reading, `Esc` and leaving it let go, and each point is announced through `aria-valuetext` | 2.1.1, 4.1.2 · `SeriesChart` in `series-chart.tsx`, named and described by `PerformanceChart` and the price chart |
 | K9 | A long option list is a `combobox` that filters as one types: typing on the closed field, or `Arrow`, opens it with focus in the search box; `Arrow` moves through the matches, `Page Up` and `Page Down` jump to the first and the last, `Enter` picks, `Esc` and `Tab` close it and give focus back to the field. The active option is named through `aria-activedescendant`, and the number of matches is announced politely | 2.1.1, 4.1.2, 4.1.3 · `SearchableSelect` in `searchable-select.tsx`: the category and portfolio pickers |
@@ -71,9 +71,9 @@ Automation covers part of the set; no item below counts as met merely because
 | # | Rule | Verification |
 | --- | --- | --- |
 | C1 | Normal text ≥ 4.5:1 and large text ≥ 3:1 against its own background | 1.4.3 · measured per token/surface pair |
-| C2 | A border, a state and the focus indicator ≥ 3:1 against what is adjacent | 1.4.11 · `--border`, `--focus`, `--input` |
+| C2 | A border, a state and the focus indicator ≥ 3:1 against what is adjacent; a field's border at rest is the one accepted exception, in the dark palette (§Palette revision — 2026-11-12) | 1.4.11 · `--border`, `--focus`, `--input`, `--input-hover` |
 | C3 | Colour is the only vector of no information: a sign, a label or an icon accompanies the tone | 1.4.1 · `signedValueTone`, `Trend`, `ProfitLoss`; the benchmark line is dashed and named in a legend, and the market-data warning carries an icon and text |
-| C4 | No literal colour in the code: everything comes from the tokens in `globals.css` | 1.4.3 · sweep for `#`, `rgb(` and `hsl(` outside `globals.css`; the single exception, `APP_THEME_COLOR`, the theme's `--background` in hex for `theme-color`, which the browser reads without resolving a token |
+| C4 | No literal colour in the code: everything comes from the tokens in `globals.css` | 1.4.3 · sweep for `#`, `rgb(` and `hsl(` outside `globals.css`; the single exception, `APP_THEME_COLOR`, the theme's `--background` in hex for `theme-color`, which the browser reads without resolving a token. The icons in `app/` (`icon.svg`, `favicon.ico`, `apple-icon.png`) are images, outside the sweep: the browser draws them with no stylesheet, so they carry the dark tokens' values |
 | C5 | Text resizable to 200% and reflow at 320 px with no loss of content | 1.4.4, 1.4.10 · relative units; verified alongside PHASE 15 |
 
 The semantic tokens' light palette has no runtime consumer — see TD-048; C1 and
@@ -94,7 +94,7 @@ browser's default. The measured ratios are in §Measured contrast.
 | P5 | An identity or credential field has `autocomplete` | 1.3.5 · `sign-in`, `sign-up`, `account` |
 | P6 | The submit result — success and failure — is announced without stealing focus | 4.1.3 · `role="alert"` in the form and a `sonner` toast |
 | P7 | Data already provided in the flow is not asked for again without need | 3.3.7 · the chained asset and transaction dialogs |
-| P8 | An optional group of fields waits behind a button that names what it adds; revealing it focuses its first field, and it opens on its own when it already holds a value or when one of its fields reports an error, so the focus moved to the first invalid field always lands on something visible | 2.4.3, 3.3.1 · `DeferredSection` in `form-field.tsx`: the payment details of a bill, plan or series and of a payment |
+| P8 | An optional group of fields waits behind a button that names what it adds; revealing it focuses its first field, and it opens on its own when it already holds a value or when one of its fields reports an error, so the focus moved to the first invalid field always lands on something visible | 2.4.3, 3.3.1 · `DeferredSection` in `form-field.tsx`: the "More details" of a bill, plan or series, with a hint linked to its button that lists what it holds; `useOptionalDetails` in `optional-details.tsx`, one button per field, whose "Remove" clears the value and gives focus back to that button: the transaction's fees, taxes, broker and notes, a payment's discount, interest and late fees, method and notes, and a plan's cash price. A field shown this way leaves its "(optional)" to that "Remove", read right after its label ("Remover forma de pagamento"), and is not `required` |
 | P9 | A numeric field accepts only what it can parse: an amount fills from the right as digits are typed, and a count or quantity drops any other character, with the caret kept in place | 3.3.1 · `MoneyInput` in `money-input.tsx` and `NumberInput` in `number-input.tsx`; the currency picked beside an amount is named for the AT, not only by its symbol |
 
 ## 6. Dialogs
@@ -116,7 +116,7 @@ browser's default. The measured ratios are in §Measured contrast.
 | N3 | Count, pagination and total change inside `aria-live="polite"` | 4.1.3 · `PageNavigation`, in `page-navigation.tsx`, in the four paginated listings |
 | N4 | A toast is never the only channel of an error that blocks the task | 4.1.3 · the state also appears in the affected region |
 | N5 | Stale data displayed during a refetch is marked with `aria-busy` on the container | 4.1.3 · `isPlaceholderData` in `positions-table.tsx` and `performance-chart.tsx` |
-| N6 | Under `prefers-reduced-motion`, non-essential animation and transition are neutralized in `globals.css`; the busy indicator keeps spinning, more slowly. framer-motion follows the same preference: `MotionScope` (`MotionConfig reducedMotion="user"`) turns off the slide of the panels and of the `SegmentedControl`'s indicator, which merely change place, and keeps the fade; the panel's height, which is not a transform, changes with no transition through `useReducedMotion`, and otherwise animates only on a switch of panel, never while a panel grows on its own. Under `prefers-reduced-transparency`, the dialogs' overlay loses the blur and becomes more opaque | 2.3.3 · the `@media (prefers-reduced-motion: reduce)` block; touch transform under `motion-safe:`; `MotionScope` and `SlideTransition` |
+| N6 | Under `prefers-reduced-motion`, non-essential animation and transition are neutralized in `globals.css`; the busy indicator keeps spinning, more slowly. framer-motion follows the same preference: `MotionScope` (`MotionConfig reducedMotion="user"`) turns off the slide of the panels, which merely change place, and keeps the fade; the `SegmentedControl`'s indicator slides by a CSS transition, which that block cuts to 0.01 ms, so it lands at once and its `transitionend` still ends the slide; the panel's height, which is not a transform, changes with no transition through `useReducedMotion`, and otherwise animates only on a switch of panel, never while a panel grows on its own. Under `prefers-reduced-transparency`, the dialogs' overlay loses the blur and becomes more opaque | 2.3.3 · the `@media (prefers-reduced-motion: reduce)` block; touch transform under `motion-safe:`; `MotionScope` and `SlideTransition` |
 | N7 | No automatic content update outside the user's control | 2.2.2 · a refetch is fired by an action or by a mutation's invalidation |
 
 ## Known gaps at capture
@@ -154,7 +154,9 @@ are the tokens themselves.
 
 The 78 pairs measured in each palette pass the threshold of the rule they
 exercise, as of the palette revision of 2026-09-24 (below), and the pairs over
-a token changed in the revision of 2026-10-29 were measured again: text of each tone
+a token changed in the revisions of 2026-10-29 and 2026-11-12 were measured
+again, with one exception since the latter, a field's border at rest in the
+dark palette: text of each tone
 over background, surface and elevated surface, a solid button's label including
 on hover, text over the tone at 10%, field border, focus ring and each chart
 colour over the card. The script lives outside the repository; the inputs are
@@ -169,18 +171,20 @@ current ones, with the pre-TD-053 ones in parentheses:
 | `--primary` over `bg-primary/10` | the number of the getting-started guide's current step, over the card | 5.01:1 | 5.15:1 | 4.5:1 |
 | `--secondary-foreground` over `--secondary` | a toast's action, inside the toast's `--surface-elevated`; `/0.8` on hover | 16.12:1, 16.43:1 on hover | 12.97:1, 13.52:1 on hover | 4.5:1 |
 | `--primary-foreground` over `--primary` | the label of every primary button; `/0.9` on hover | 5.57:1, 4.66:1 on hover (16.95:1, with the navy `--primary`) | 5.71:1, 4.78:1 on hover (3.49:1) | 4.5:1 |
-| `--border`/`--input` over `--background` | field border, the control's only visual cue | `--input` 4.20:1 (1.24:1) | `--input` 4.19:1, 3.93:1 over `--surface`, 3.62:1 over `--surface-elevated` (1.33:1) | 3:1 |
+| `--border`/`--input` over `--background` | field border at rest; `--input-hover` under the pointer | `--input` 4.83:1, `--input-hover` 7.02:1 (1.24:1) | `--input` 2.47:1, 2.32:1 over `--surface`, 2.13:1 over `--surface-elevated`, below the threshold by decision; `--input-hover` 3.62:1, 3.40:1 and 3.13:1 (1.33:1) | 3:1 |
 | `--destructive-foreground` over `--destructive` | solid deletion button; `/0.9` on hover | 5.50:1, 4.84:1 on hover (3.60:1) | 6.53:1, 5.44:1 on hover (9.59:1) | 4.5:1 |
 | `--muted-foreground` over `--muted` | secondary text on a highlight surface | 4.91:1 (4.39:1) | 5.37:1 (6.00:1) | 4.5:1 |
 | `--warning` over `bg-warning/10` | alert chip | 5.00:1 (4.40:1) | 9.63:1 (10.28:1) | 4.5:1 |
 
-`--border` remains below 3:1 in both palettes (1.24:1 light, 1.42:1 dark) by
+`--border` remains below 3:1 in both palettes (1.30:1 light, 1.53:1 dark) by
 decision: since the correction it is a decorative separator only, and every
 interactive control — input, select, segmented control — uses `--input` for the
-border, which passes. In the dark palette, `--input` sits at 46% lightness,
-3.62:1 over `--surface-elevated`, the lightest background under a field, the one
-every dialog has: a margin over 1.4.11's floor that gives a field its outline,
-while staying far below the text, so the border never outweighs the label. `AlertDialog`/`Dialog` uses `bg-scrim` instead of `bg-black` for the
+border. In the light palette `--input` passes with room to spare. In the dark
+palette it sits at 32% lightness since 2026-11-12, 2.13:1 over
+`--surface-elevated`, the lightest background under a field, the one every
+dialog has: below 1.4.11's floor, by the decision recorded in that revision.
+Under the pointer the border turns `--input-hover`, 42%, 3.13:1 over the same
+surface, and focus and the invalid state pass by a wide margin. `AlertDialog`/`Dialog` uses `bg-scrim` instead of `bg-black` for the
 overlay — at 60% with blur, or at 80% without blur under
 `prefers-reduced-transparency` — and `Input`/`SelectTrigger`/the notes textarea
 gained `aria-invalid:border-negative`, so the invalid state is also visible
@@ -236,6 +240,22 @@ toast and the notices already use, without the `success` and `error` aliases,
 which would have no consumer of their own; and the disabled state at
 `opacity-50`, outside 1.4.3. The revision is by calculation and by reading the
 code: no browser rendered the new palette.
+
+### Palette revision — 2026-11-12
+
+Fields with a darker border, at the owner's request, and the
+wordmark in one colour.
+
+| Change | Reason |
+| --- | --- |
+| Dark: `--input` 46% → 32%, and a new `--input-hover`, 42%, that a field's border turns under the pointer (`FIELD_CLASS`), where it used to stay as it was | the borders read as near white against the dark surfaces, and the owner asked for them darker and more defined. At 32% the resting border measures 2.47:1 over the page, 2.32:1 over a card and 2.13:1 over a dialog, and 2.36:1 against the field's own fill (`bg-background/60`) in a dialog, so it fails 1.4.11 (AA), and C2 records it as an accepted exception: the owner chose it over 42%, the darkest value that passes on every surface. Under the pointer `--input-hover` passes on each surface, 3.62:1, 3.40:1 and 3.13:1; the focus ring, `--focus`, 5.30:1 over a dialog, and the invalid border, `--negative`, 6.07:1, are unchanged. A field is also identified by its visible label above it and, when empty, by its placeholder |
+| Light: `--input` 50% → 46%, `--input-hover` 36% | the same firmer border on white, 4.83:1 and 7.02:1 instead of 4.20:1; unreachable while TD-048 stands |
+| `--border` 18.1% → 20% dark and 91% → 89% light | a card's and a divider's edge a step firmer next to the darker fields, 1.53:1 and 1.30:1; still a decorative separator, outside C2 |
+| `::selection` at `--primary` / 0.35 | selected text in the identity colour instead of the browser's blue: the foreground over it measures 11.01:1 dark and 11.46:1 light, and `--muted-foreground` 4.56:1 dark |
+| The wordmark in the text colour: `--foreground` in the sidebar, at 40% on the authentication pages, with no colour of its own | a logotype is exempt from 1.4.3, which is what allows it: at 40% over the glow it measures no less than 2.5:1 on the panel and 2.6:1 above the form below `lg`, centred under the warm light, from mock-ups of the gradient, before the grain, below the 3:1 that large text would need. The owner chose 40% for a recessive mark; the brand is still named in full to assistive technology, and the screen's `<h1>` and the form carry its purpose. It is plain text, so a screen reader reads one word and `forced-colors` gives it `CanvasText` |
+
+The resting border was compared in mock-ups of the fields at 42%, 32% and 28%
+over a card and a dialog, drawn from the tokens; no browser rendered it.
 
 ## Automated audit — TASK 20.6
 
@@ -471,3 +491,16 @@ guard is checked by type and by reading Radix's `onPointerDownOutside`
 contract, the target sizes in the compiled CSS. No automated checker (axe or
 Lighthouse) ran, and no screen reader was used; both remain to be done in a
 browser.
+
+## Forms and dialogs on small screens — 2026-11-11
+
+| Change | Accessibility |
+| --- | --- |
+| Below `sm`, a dialog is a bottom sheet with the header and the footer pinned and only the body scrolling | the primary action and the close button stay reachable without scrolling (2.4.3, 2.5.8); the sheet slides up in 200 ms, as the centred dialog scales, and the global `prefers-reduced-motion` rule in `globals.css` cuts both to near zero |
+| The dialog's close button is a 44 px target below `sm` | K6's 44 px rule now covers it on a coarse pointer, with the icon unchanged |
+| A payment's day offers "Today" and, once past, "Due date (date)" under the picker | buttons in a group named "Quick dates", the one matching the chosen day `aria-pressed`, so the state is announced as well as drawn; the picker keeps the date in text |
+| "Repeat this bill" is a native checkbox with its hint as `aria-describedby` | the recurrence fields it reveals follow it in the reading and tab order, inside a titled group |
+| Category options show their examples on a second line | the examples are part of the option's text, so a screen reader reads them, and typing them finds the option |
+
+Not verified in a browser either: no browser runs on this machine, and the
+tests render static markup.

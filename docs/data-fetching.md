@@ -62,8 +62,12 @@ the server's. A detail query uses `skipToken` until its id is in the URL. The
 listings, the summary, the calendar and the report keep the previous data
 while a new filter, page, month or span loads. Every finance write invalidates
 the `['finances']` prefix, and only that: each finance figure derives from the
-same records, and no finance write touches a portfolio. The rules behind the
-figures are in [`financial-management.md`](financial-management.md).
+same records, and no finance write touches a portfolio. The write's toast waits
+for the queries on screen to reload (`refreshFinancesThenAnnounce`), and the
+mutation waits for that, so the form stays pending until the page shows the
+change; a reload that fails still lets the toast say the write was saved, and
+leaves its query to show the error. The rules behind the figures are in
+[`financial-management.md`](financial-management.md).
 
 Every portfolio-scoped query uses `skipToken` until the portfolio has arrived:
 none of them fires with an undefined `portfolioId`.

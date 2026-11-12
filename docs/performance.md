@@ -472,3 +472,98 @@ None of this was verified in a browser in that session.
 
 The bundle was not measured against the previous build for this change, and,
 as in the sections above, nothing here was verified in a browser.
+
+## Tab indicator by CSS — 2026-11-11
+
+The `SegmentedControl` indicator was a framer-motion `layoutId`, measured on
+the page; it is now one element per control, measured within the control and
+slid by a CSS transition ([`component-inventory.md`](component-inventory.md)).
+With nothing left that animates its layout or drags, `MotionScope` loads
+`domAnimation` instead of `domMax`.
+
+* **A smaller feature chunk.** `domMax`, 94,097 raw bytes and 31,562 with gzip
+  in the previous build, gives way to `domAnimation`, 45,952 and 17,516. It
+  still arrives through `import()` when the first `MotionScope` mounts, which
+  only `SlideTransition` does now: the overview's allocation and sign-up.
+* **No framer-motion where only the control animates.** Its spring is written
+  out as CSS (`TAB_SPRING_CSS`, checked against framer's `spring()` by a test),
+  since computing it with `spring()` on load put a 29,006-byte chunk of the
+  library on every route with a control.
+* **Width and height move only the indicator.** It is absolutely positioned
+  and empty, so its size steps move nothing else in the control or on the page;
+  a `scale` would stretch its rounded corners, which framer corrected on every
+  frame.
+
+The same measure as "App code with no side effects", in the production build,
+against a build of the same tree before the change:
+
+| Route | Before | After | Difference |
+| --- | --- | --- | --- |
+| `/sign-in` | 963,264 | 963,405 | +141 |
+| `/sign-up` | 1,022,193 | 1,021,266 | −927 |
+| `/account` | 1,073,814 | 1,073,980 | +166 |
+| `/portfolios` | 1,148,175 | 1,105,218 | −42,957 |
+| `/` | 1,299,971 | 1,299,204 | −767 |
+| `/assets` | 1,278,092 | 1,235,137 | −42,955 |
+| `/assets/[symbol]` | 1,271,481 | 1,228,661 | −42,820 |
+| `/assets/import` | 1,019,302 | 976,482 | −42,820 |
+| `/finances/bills` | 1,283,161 | 1,240,069 | −43,092 |
+
+The 141 bytes on sign-in, and 141 of the 166 on account, are the
+`TAB_SPRING_CSS` string, in the `lib/motion.ts` those pages load for
+`APPEAR_CLASS`; the other 25 on account were not traced, and the root chunks
+are unchanged.
+
+As in the sections above, nothing here was measured in a browser.
+
+## Authentication panel — 2026-11-11
+
+The panel of 2026-10-29 keeps its gradients and its wordmark: the glow was
+redrawn as three radial gradients rising from the bottom edge
+([`component-inventory.md`](component-inventory.md)), with a grain from a data
+URI over it.
+
+* **No request and no JavaScript.** The chunks each route loads at the outset,
+  measured as in "App code with no side effects" against a build of the same
+  tree before the change, are byte for byte the same on the nine routes in the
+  tables above (sign-in 963,405, sign-up 1,021,266). The shared stylesheet grew
+  by 1,090 bytes, 342 with gzip, most of it the grain's data URI, which
+  `img-src` already allows.
+* **Painted once.** Nothing on the panel animates or blurs, so it is painted
+  when it first appears and on a resize, not while the form is in use.
+* **The LCP candidate may change from `lg` up.** The grain is a CSS background
+  image over half the viewport and may now be reported as the LCP element
+  instead of a heading. Its image is a data URI in the stylesheet, decoded with
+  no request, so it should paint with the first frame. Below `lg` the panel is
+  not shown and the candidate is text, as before.
+
+As in the sections above, nothing here was measured in a browser.
+
+## Fonts, wordmark and icons — 2026-11-12
+
+* **Both fonts load as variable fonts.** `common/fonts.ts` lists no weights,
+  so each subset is one file under one `@font-face` covering 100 to 900.
+  Inter listed 400, 500 and 700 before, which left `font-semibold`, in 39
+  class lists, with no face of its own: it rendered at 700. Against a build
+  with those weights, the preloaded Latin Inter grows from 38,368 to 48,432
+  bytes (+10,064), Raleway's stays at 43,120, the file Google serves for any
+  weights asked of it, and the font files of all subsets together drop from
+  496,640 to 341,140 bytes. Listing Inter's four weights in use, 400 to 700,
+  serves the same 48,432-byte file under four faces, so it would gain nothing.
+* **The wordmark costs no request and no script.** It is text in the
+  already-loaded Raleway, in the text colour, with no utility or token of its
+  own. `Wordmark` has no state or effect;
+  the sidebar, a client component, takes it into its bundle as a few lines of
+  JSX, which the route totals above were not measured again for.
+* **Icons as file conventions.** `app/favicon.ico` (8,406 bytes: 16, 32 and
+  48 px), `app/icon.svg` (3,447) and `app/apple-icon.png` (7,046) are built as
+  static routes, in place of `public/favicon.png` (7,894 bytes, linked
+  relatively, so it missed on nested routes); a browser that takes SVG icons
+  can skip the ICO. The tile's gradient is what weighs: the touch icon is a
+  dithered 256-colour palette, which shows no banding, where full colour took
+  26,214 bytes; the ICO's frames stay in full colour, since a palette frays
+  their transparent corners. Next serves them with `cache-control: public, max-age=0,
+  must-revalidate`.
+
+Measured on the production build's files; as in the sections above, nothing
+here was measured in a browser.

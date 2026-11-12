@@ -70,6 +70,36 @@ row.
 One bills table serves all three kinds. Listing, filtering, the calendar and
 every aggregate read one table, and a payment always targets a bill.
 
+### Categories
+
+`ExpenseCategory` lists eleven categories, ordered by what a bill is for, with
+the details in a free-text subcategory:
+
+| Category | Covers |
+| --- | --- |
+| `HOUSING` | Rent, condominium fees, property tax, repairs |
+| `UTILITIES` | Electricity, water, gas, internet, phone |
+| `SUBSCRIPTIONS` | Streaming, apps, software, subscription clubs |
+| `FOOD` | Groceries, restaurants, delivery |
+| `TRANSPORTATION` | Fuel, vehicle tax and insurance, parking, public transport |
+| `HEALTH` | Health plan, pharmacy, appointments, gym, personal care |
+| `EDUCATION` | School, university, courses, books |
+| `LEISURE` | Travel, outings, events, hobbies |
+| `SHOPPING` | Clothes, electronics, household items, gifts |
+| `FINANCIAL` | Loans, card statements, taxes, insurance, bank fees |
+| `OTHER` | Anything else |
+
+Migration `20261111000000_streamlined_expense_categories` replaced the enum and
+moved the existing rows in `expenses`, `installment_plans` and
+`recurring_expenses`: `INSURANCE`, `TAXES` and `DEBT` became `FINANCIAL`, and
+`PERSONAL_CARE` became `HEALTH`. It cannot be undone, since the old value is not
+kept on the row. The history in `finance_events` keeps the value recorded at the
+time, and the web names a retired one by its old label (`retiredCategories`).
+The forms show each category's examples under its name and find a category by
+them, so "IPVA" finds *Transportation* and "seguro" finds both places insurance
+can go. The reasoning, against other apps, is in
+[`competitive-benchmarking.md`](competitive-benchmarking.md#expense-categories).
+
 **Integrity in the database**, besides Prisma's relations:
 
 * Uniqueness:
@@ -175,7 +205,10 @@ not go stale overnight. Creating a bill never records a payment.
 * Installments and occurrences are deleted through their plan or series. On
   their own they can only be cancelled (`422`).
 * Editing an installment or occurrence marks it `isCustomized`, so later edits
-  to the whole plan or series leave it as it is.
+  to the whole plan or series leave it as it is. A new due date stays where the
+  edit put it: an occurrence keeps its `occurrenceDate`, the day the rule
+  created it for, so generation never creates that day again, and the series
+  itself does not change.
 
 ### Installment plans
 
@@ -243,7 +276,12 @@ not go stale overnight. Creating a bill never records a payment.
 * **Delete**: only with no active payment (`409` otherwise). It removes the
   series, its occurrences and their history.
 * Status: `CANCELLED` when stopped, otherwise `ENDED` once `endDate` is
-  before *today*, otherwise `ACTIVE`. `nextDueDate` is set only while active.
+  before *today*, otherwise `ACTIVE`. `nextDueDate` is set only while active:
+  the earliest due date from *today* among the series' bills that are not
+  cancelled, paid or not, where an edit moved them, or the rule's next day past
+  the bills generated, whichever comes first. It used to come from the rule
+  alone, so a bill moved or cancelled still showed its old day as the next
+  bill.
 
 ### History
 
@@ -349,9 +387,23 @@ payment goes through `POST /api/v1/finances/expenses/[id]/payments/create`.
   or series — that code is the currency selector (BRL, USD, EUR). The
   currency is stored as its code with the record, and changing it never
   converts the amount typed.
+* Every form opens on what it requires — a bill's description, category,
+  amount and due date; a payment's amount and day — and keeps the rest out of
+  the way: "More details" holds the subcategory, payment method, account and
+  notes, and the plan's cash price and a payment's discount, interest and late
+  fees, method and notes each wait behind their own button. A detail that
+  holds a value, as on edit, or reports an error is shown from the start, and
+  removing one clears it.
+* *Add bill*, on the overview and the bills page, can repeat the bill: turned
+  on, it shows the frequency, whether the amount is fixed or variable, the end
+  and the first due dates in place, and saves a recurring expense whose first
+  bill is due on the bill's due date. Turned off, it saves a one-time bill and
+  keeps what was chosen for the recurrence in case it is turned on again. The
+  *Recurring* page still creates series on its own.
 * The plan form shows, as the fields change, the installments, the total
   payable, the first and last due dates and the difference from the cash
-  price. The payment form says what the payment leaves owed.
+  price. The payment form dates the payment today, offers the due date in one
+  tap once it has passed, and says what the payment leaves owed.
 * The bills list keeps search, status and sort in view, folds the rarer
   filters into a panel, shows each filter in force as a removable chip, and
   offers *Pay* on each open bill.
@@ -382,7 +434,10 @@ The alerts endpoint already computes what such a job would send.
 
 ## Running and validating
 
-1. Apply the migration: `cd backend && pnpm exec prisma migrate deploy`.
+1. Apply the migrations: `cd backend && pnpm exec prisma migrate deploy`.
+   `20261111000000_streamlined_expense_categories` rewrites the category of
+   existing rows (see [Categories](#categories)); take a backup first where
+   the data matters.
    Compose's `migrate` service does this.
 2. Start the API and the web as in the [README](../README.md#setup). Sign in.
    *Finances* is in the navigation.
@@ -401,6 +456,13 @@ A manual check that covers each rule:
 5. Add a monthly series, edit it from a later date, then stop it. Earlier
    bills stay, and later unpaid ones disappear.
 6. Open Reports for the span, and confirm the totals against the bills list.
+7. From the overview's *Add bill*, turn on "Repeat this bill", choose a
+   frequency and an end, turn it off and on again: the choices are still
+   there. Save it, and a recurring expense appears under *Recurring* with its
+   first bill on the due date.
+8. Pay an overdue bill with "Due date", and add interest and late
+   fees through their button. The payment is dated on the due date and the
+   fees do not reduce what is owed.
 
 ## Tests
 
