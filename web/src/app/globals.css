@@ -261,6 +261,18 @@
     --navigation-rail: 5rem;
     --navigation-sidebar: 13rem;
     --navigation-bar: 3.75rem;
+    /*
+     * Below `sm`, where navigation is the bottom bar, every field and control
+     * is a 44 px touch target. From `sm` on, fields stand a step taller than
+     * the buttons, and a toolbar sets its fields to the buttons' height.
+     */
+    --field-height: 2.75rem;
+    --control-height: 2.75rem;
+
+    @media (width >= --theme(--breakpoint-sm)) {
+      --field-height: 2.5rem;
+      --control-height: 2.25rem;
+    }
   }
 }
 

@@ -100,7 +100,7 @@ export const CurrencyPicker: FC<CurrencyPickerProps> = ({
       </Label>
 
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger id={pickerId} className="h-9 w-24">
+        <SelectTrigger id={pickerId} className="h-(--control-height) w-24">
           <SelectValue />
         </SelectTrigger>
 

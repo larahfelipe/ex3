@@ -512,7 +512,6 @@ export const CalendarView: FC = () => {
       <Button
         variant="outline"
         size="icon"
-        className="size-9"
         onClick={() => showMonth(shiftCalendarMonth(month, -1))}
       >
         <ChevronLeft aria-hidden="true" className="size-4" />
@@ -523,7 +522,6 @@ export const CalendarView: FC = () => {
       <Button
         variant="outline"
         size="icon"
-        className="size-9"
         onClick={() => showMonth(shiftCalendarMonth(month, 1))}
       >
         <ChevronRight aria-hidden="true" className="size-4" />

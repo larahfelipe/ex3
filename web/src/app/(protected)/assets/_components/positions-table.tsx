@@ -425,7 +425,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                 maxLength={SEARCH_MAX_LENGTH}
                 value={searchInput}
                 onChange={({ target }) => setSearchInput(target.value)}
-                className="h-9 sm:w-64"
+                className="h-(--control-height) sm:w-64"
                 leftElement={
                   <Search
                     aria-hidden="true"
@@ -451,7 +451,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                   <SelectTrigger
                     id={typeId}
                     className={cn(
-                      'h-9 w-auto gap-2',
+                      'h-(--control-height) w-auto gap-2',
                       listing.type !== undefined && ACTIVE_FILTER_CLASS
                     )}
                   >
@@ -488,7 +488,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                   <SelectTrigger
                     id={statusId}
                     className={cn(
-                      'h-9 w-auto gap-2',
+                      'h-(--control-height) w-auto gap-2',
                       listing.status !== undefined && ACTIVE_FILTER_CLASS
                     )}
                   >
@@ -512,7 +512,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-9 gap-1.5 text-muted-foreground"
+                    className="gap-1.5 text-muted-foreground"
                     onClick={clearRefinements}
                   >
                     <X aria-hidden="true" className="size-4" />
@@ -545,7 +545,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
               >
                 <SelectTrigger
                   id={sortId}
-                  className="h-9 w-auto gap-1.5 max-sm:flex-1"
+                  className="h-(--control-height) w-auto gap-1.5 max-sm:flex-1"
                 >
                   <span aria-hidden="true" className="text-muted-foreground">
                     {t('positions.sortBy')}
@@ -566,7 +566,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
               <Button
                 variant="outline"
                 size="icon"
-                className="size-9 shrink-0"
+                className="shrink-0"
                 aria-label={t('positions.descending')}
                 aria-pressed={listing.sortOrder === 'desc'}
                 title={t('positions.descending')}
@@ -805,7 +805,7 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="size-8"
+                              className="size-10 sm:size-8"
                               aria-label={t('positions.actionsFor', {
                                 symbol: position.symbol
                               })}
@@ -877,7 +877,10 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                       })
                     }
                   >
-                    <SelectTrigger id={pageSizeId} className="h-9 w-20">
+                    <SelectTrigger
+                      id={pageSizeId}
+                      className="h-(--control-height) w-20"
+                    >
                       <SelectValue />
                     </SelectTrigger>
 

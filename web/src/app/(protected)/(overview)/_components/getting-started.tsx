@@ -389,7 +389,7 @@ const GettingStartedSteps: FC<GettingStartedStepsProps> = ({
         description={t('recordTransaction.description')}
         action={
           isComplete ? (
-            <p className="flex h-9 items-center gap-1.5 text-sm font-medium text-positive">
+            <p className="flex h-(--control-height) items-center gap-1.5 text-sm font-medium text-positive">
               <Check size={16} aria-hidden="true" />
 
               {t('recordTransaction.recorded')}

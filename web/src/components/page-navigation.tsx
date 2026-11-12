@@ -30,7 +30,6 @@ const PageStepButton: FC<PageStepButtonProps> = ({
   <Button
     variant="outline"
     size="icon"
-    className="size-9"
     aria-label={label}
     title={label}
     aria-disabled={isUnavailable}

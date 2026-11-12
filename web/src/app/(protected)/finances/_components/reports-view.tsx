@@ -210,7 +210,10 @@ const MonthPicker: FC<
       </Label>
 
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger id={pickerId} className="h-9 w-32 max-sm:flex-1">
+        <SelectTrigger
+          id={pickerId}
+          className="h-(--control-height) w-32 max-sm:flex-1"
+        >
           <SelectValue />
         </SelectTrigger>
 

@@ -620,7 +620,7 @@ const TransactionForm: FC<TransactionFormProps> = ({
               error={errors.type?.message}
               className="sm:col-span-2"
             >
-              <SegmentedControl className="grid grid-cols-3 sm:flex sm:w-fit">
+              <SegmentedControl className="grid min-h-(--field-height) grid-cols-3 sm:flex sm:w-fit">
                 {TRANSACTION_TYPES.map((type) => (
                   <SegmentedControlItem
                     key={type}
@@ -699,7 +699,7 @@ const TransactionForm: FC<TransactionFormProps> = ({
                     aria-label={tForm('decrease', { step: QUANTITY_STEP })}
                     aria-controls={control.id}
                     aria-disabled={decreasedQuantity === null}
-                    className="shrink-0"
+                    className="size-(--field-height) shrink-0"
                     onClick={() => stepQuantityTo(decreasedQuantity)}
                   >
                     <Minus size={16} aria-hidden="true" />
@@ -712,7 +712,7 @@ const TransactionForm: FC<TransactionFormProps> = ({
                     aria-label={tForm('increase', { step: QUANTITY_STEP })}
                     aria-controls={control.id}
                     aria-disabled={increasedQuantity === null}
-                    className="shrink-0"
+                    className="size-(--field-height) shrink-0"
                     onClick={() => stepQuantityTo(increasedQuantity)}
                   >
                     <Plus size={16} aria-hidden="true" />

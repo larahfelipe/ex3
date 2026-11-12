@@ -24,12 +24,12 @@ const buttonVariants = cva(
         link: 'text-primary underline-offset-4 hover:underline'
       },
       size: {
-        default: 'h-9 px-4 py-2',
-        sm: 'h-9 rounded-md px-3',
-        xs: 'h-8 rounded-md px-2.5',
-        xxs: 'h-6 rounded-md px-2',
-        lg: 'h-10 rounded-md px-6',
-        icon: 'size-9'
+        default: 'h-(--control-height) px-4 py-2',
+        sm: 'h-(--control-height) rounded-md px-3',
+        xs: 'h-10 rounded-md px-2.5 sm:h-8',
+        xxs: 'h-8 rounded-md px-2 sm:h-6',
+        lg: 'h-(--field-height) rounded-md px-6',
+        icon: 'size-(--control-height)'
       }
     },
     defaultVariants: {

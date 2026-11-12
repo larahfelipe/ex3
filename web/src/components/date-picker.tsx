@@ -72,7 +72,7 @@ export const DatePicker: FC<DatePickerProps> = ({
           aria-describedby={[valueId, describedBy].filter(Boolean).join(' ')}
           className={cn(
             FIELD_CLASS,
-            'w-full justify-start gap-2 px-3 font-normal hover:bg-background/60 motion-safe:active:scale-100',
+            'h-(--field-height) w-full justify-start gap-2 px-3 font-normal hover:bg-background/60 motion-safe:active:scale-100',
             shownDay === null && 'text-muted-foreground'
           )}
           onBlur={onBlur}

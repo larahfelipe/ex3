@@ -11,5 +11,5 @@ export const FIELD_CLASS =
 
 export const TEXTAREA_CLASS = cn(
   FIELD_CLASS,
-  'flex w-full px-3 py-2 text-base md:text-sm'
+  'flex w-full px-3 py-2.5 text-base md:text-sm'
 );

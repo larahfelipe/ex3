@@ -382,7 +382,7 @@ export const SignUpForm: FC<SignUpFormProps> = ({ challengeSiteKey }) => {
                   hint={t('signUp.baseCurrencyHint')}
                   error={errors.baseCurrency?.message}
                 >
-                  <SegmentedControl className="grid grid-cols-3">
+                  <SegmentedControl className="grid min-h-(--field-height) grid-cols-3">
                     {OFFERED_CURRENCIES.map((currency) => (
                       <SegmentedControlItem
                         key={currency}

@@ -181,7 +181,7 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
                 hint={isEditing ? t('baseCurrencyLockedHint') : undefined}
                 error={errors.baseCurrency?.message}
               >
-                <SegmentedControl className="grid grid-cols-3 sm:flex sm:w-fit">
+                <SegmentedControl className="grid min-h-(--field-height) grid-cols-3 sm:flex sm:w-fit">
                   {currencyOptions.map((currency) => (
                     <SegmentedControlItem
                       key={currency}

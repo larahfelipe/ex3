@@ -76,7 +76,7 @@ export const PortfolioSwitcher: FC<PortfolioSwitcherProps> = ({
         id={selectId}
         value={portfolio.id}
         options={options}
-        className="h-9 w-auto max-w-64 min-w-0 gap-2 max-sm:flex-1"
+        className="h-(--control-height) w-auto max-w-64 min-w-0 gap-2 max-sm:flex-1"
         onValueChange={switchTo}
       />
 

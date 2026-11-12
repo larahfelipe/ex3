@@ -60,7 +60,7 @@ type CurrencySelectProps = Record<'value', string> &
  * one baseline.
  */
 const CURRENCY_ADDON_CLASS =
-  'relative -mr-px h-9 shrink-0 rounded-l-md rounded-r-none border border-input px-3 text-base font-medium md:text-sm focus-visible:z-10 group-data-invalid/amount:border-negative';
+  'relative -mr-px h-(--field-height) shrink-0 rounded-l-md rounded-r-none border border-input px-3 text-base font-medium md:text-sm focus-visible:z-10 group-data-invalid/amount:border-negative';
 
 const NON_DIGIT = /\D/g;
 

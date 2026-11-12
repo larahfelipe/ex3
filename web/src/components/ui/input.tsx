@@ -38,9 +38,9 @@ const Input = ({
         type={isPasswordType ? passwordState : type}
         className={cn(
           FIELD_CLASS,
-          'flex h-9 w-full px-3 py-1 text-base md:text-sm',
+          'flex h-(--field-height) w-full px-3 py-1 text-base md:text-sm',
           leftElement && 'pl-8',
-          isPasswordType && 'pr-10',
+          isPasswordType && 'pr-11 sm:pr-10',
           className
         )}
         disabled={disabled}
@@ -53,7 +53,7 @@ const Input = ({
           variant="ghost"
           size="icon"
           aria-label={showPassword ? t('hidePassword') : t('showPassword')}
-          className="absolute right-1 size-8 text-muted-foreground"
+          className="absolute right-1 size-9 text-muted-foreground sm:size-8"
           disabled={disabled}
           onClick={togglePasswordVisibility}
         >

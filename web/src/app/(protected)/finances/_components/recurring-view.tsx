@@ -234,7 +234,7 @@ export const RecurringView: FC = () => {
         <SelectTrigger
           id={statusId}
           className={cn(
-            'h-9 w-auto gap-1.5 max-sm:flex-1',
+            'h-(--control-height) w-auto gap-1.5 max-sm:flex-1',
             status !== undefined &&
               'border-primary/50 bg-primary/5 text-foreground'
           )}

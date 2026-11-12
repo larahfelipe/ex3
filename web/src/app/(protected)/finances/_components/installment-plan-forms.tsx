@@ -781,7 +781,7 @@ export const CreatePlanDialog: FC<
                     legend={t('frequency')}
                     error={errors.frequency?.message}
                   >
-                    <SegmentedControl className="grid h-9 grid-cols-3">
+                    <SegmentedControl className="grid min-h-(--field-height) grid-cols-3">
                       {RECURRENCE_FREQUENCIES.map((option) => (
                         <SegmentedControlItem
                           key={option}
