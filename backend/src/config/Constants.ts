@@ -432,11 +432,8 @@ export const ExpenseCategories: Record<ExpenseCategory, ExpenseCategory> = {
   EDUCATION: 'EDUCATION',
   LEISURE: 'LEISURE',
   SUBSCRIPTIONS: 'SUBSCRIPTIONS',
-  INSURANCE: 'INSURANCE',
-  TAXES: 'TAXES',
-  DEBT: 'DEBT',
+  FINANCIAL: 'FINANCIAL',
   SHOPPING: 'SHOPPING',
-  PERSONAL_CARE: 'PERSONAL_CARE',
   OTHER: 'OTHER'
 } as const;
 

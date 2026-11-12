@@ -12,6 +12,7 @@ import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -160,45 +161,47 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
           <DialogDescription>{t('description')}</DialogDescription>
         </DialogHeader>
 
-        <form id={formId} noValidate onSubmit={handleSubmit(submitDraft)}>
-          <div className="grid gap-4">
-            <FormField label={t('name')} error={errors.name?.message}>
-              {(control) => (
-                <Input
-                  {...control}
-                  type="text"
-                  autoComplete="off"
-                  maxLength={PORTFOLIO_NAME_MAX_LENGTH}
-                  {...register('name')}
-                />
+        <DialogBody>
+          <form id={formId} noValidate onSubmit={handleSubmit(submitDraft)}>
+            <div className="grid gap-4">
+              <FormField label={t('name')} error={errors.name?.message}>
+                {(control) => (
+                  <Input
+                    {...control}
+                    type="text"
+                    autoComplete="off"
+                    maxLength={PORTFOLIO_NAME_MAX_LENGTH}
+                    {...register('name')}
+                  />
+                )}
+              </FormField>
+
+              <ChoiceField
+                legend={t('baseCurrency')}
+                hint={isEditing ? t('baseCurrencyLockedHint') : undefined}
+                error={errors.baseCurrency?.message}
+              >
+                <SegmentedControl className="grid min-h-(--field-height) grid-cols-3 sm:flex sm:w-fit">
+                  {currencyOptions.map((currency) => (
+                    <SegmentedControlItem
+                      key={currency}
+                      value={currency}
+                      {...register('baseCurrency')}
+                    >
+                      {currency}
+                    </SegmentedControlItem>
+                  ))}
+                </SegmentedControl>
+              </ChoiceField>
+
+              {errors.root?.server?.message !== undefined && (
+                <p role="alert" className="text-sm text-negative">
+                  {errors.root.server.message}
+                </p>
               )}
-            </FormField>
-
-            <ChoiceField
-              legend={t('baseCurrency')}
-              hint={isEditing ? t('baseCurrencyLockedHint') : undefined}
-              error={errors.baseCurrency?.message}
-            >
-              <SegmentedControl className="grid grid-cols-3 sm:flex sm:w-fit">
-                {currencyOptions.map((currency) => (
-                  <SegmentedControlItem
-                    key={currency}
-                    value={currency}
-                    {...register('baseCurrency')}
-                  >
-                    {currency}
-                  </SegmentedControlItem>
-                ))}
-              </SegmentedControl>
-            </ChoiceField>
-
-            {errors.root?.server?.message !== undefined && (
-              <p role="alert" className="text-sm text-negative">
-                {errors.root.server.message}
-              </p>
-            )}
-          </div>
-        </form>
+            </div>
+          </form>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>

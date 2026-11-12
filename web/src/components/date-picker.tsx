@@ -7,6 +7,7 @@ import type { FieldControlProps } from '@/components/form-field';
 import {
   Button,
   Calendar,
+  FIELD_CLASS,
   Popover,
   PopoverContent,
   PopoverTrigger
@@ -70,12 +71,17 @@ export const DatePicker: FC<DatePickerProps> = ({
           aria-invalid={isInvalid}
           aria-describedby={[valueId, describedBy].filter(Boolean).join(' ')}
           className={cn(
-            'w-full justify-start gap-2 px-3 font-normal aria-invalid:border-negative',
+            FIELD_CLASS,
+            'h-(--field-height) w-full justify-start gap-2 px-3 font-normal hover:bg-background/60 motion-safe:active:scale-100',
             shownDay === null && 'text-muted-foreground'
           )}
           onBlur={onBlur}
         >
-          <CalendarDays size={16} aria-hidden="true" />
+          <CalendarDays
+            size={16}
+            aria-hidden="true"
+            className="shrink-0 opacity-50"
+          />
 
           <span id={valueId}>{shownDay ?? t('form.datePlaceholder')}</span>
         </Button>

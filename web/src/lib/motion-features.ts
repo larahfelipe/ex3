@@ -1,4 +1,7 @@
-import { domMax } from 'framer-motion';
+import { domAnimation } from 'framer-motion';
 
-/** `domMax` over `domAnimation` for the layout animation of shared elements. */
-export const motionFeatures = domMax;
+/**
+ * `domAnimation`: values, variants, exits and gestures. Nothing animates its
+ * layout or drags, so `domMax` would only add weight.
+ */
+export const motionFeatures = domAnimation;

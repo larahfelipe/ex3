@@ -1,8 +1,9 @@
-import { useId, useMemo, type FC } from 'react';
+import { useId, useMemo, type FC, type ReactNode } from 'react';
 import {
   FormProvider,
   useForm,
   useFormContext,
+  useFormState,
   useWatch
 } from 'react-hook-form';
 
@@ -23,13 +24,24 @@ import {
   RECURRENCE_FREQUENCIES
 } from '@/common/constants';
 import { currencyFractionDigits } from '@/common/utils';
-import { ChoiceField, FormField, FormSection } from '@/components/form-field';
+import {
+  ChoiceField,
+  FormField,
+  FormSection,
+  OptionalFields
+} from '@/components/form-field';
 import { InfoNote } from '@/components/info-note';
 import { NumberInput } from '@/components/number-input';
+import {
+  OptionalDetailButtons,
+  RemoveDetailButton,
+  useOptionalDetails
+} from '@/components/optional-details';
 import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -41,6 +53,7 @@ import {
 import { useReferenceDay } from '@/hooks/use-finances';
 import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
 import { useFormat, type Format } from '@/i18n/format';
+import { srOnly } from '@/i18n/rich-text';
 import type { Translator } from '@/i18n/translator';
 import {
   decimalOfUnits,
@@ -60,8 +73,8 @@ import {
   fieldOfPath,
   FormRootError,
   MoneyField,
+  MoreDetailsFields,
   optionalPositiveMoneyFieldFor,
-  PaymentDetailsFields,
   positiveMoneyFieldFor,
   requiredDayFieldFor,
   requireMinorUnitsOf,
@@ -69,7 +82,7 @@ import {
   useSubmitter,
   type ValidationTranslator
 } from './finance-form';
-import { occurrenceDayAt } from './recurring-expense-forms';
+import { occurrenceDayAt } from './recurrence-fields';
 
 type AmountMode = (typeof AMOUNT_MODES)[number];
 
@@ -704,101 +717,100 @@ export const CreatePlanDialog: FC<
           <DialogDescription>{t('addDescription')}</DialogDescription>
         </DialogHeader>
 
-        <FormProvider {...methods}>
-          <form
-            id={formId}
-            noValidate
-            className="grid gap-6"
-            onSubmit={handleSubmit(submit)}
-          >
-            <FormSection
-              title={t('scheduleSection')}
-              action={
-                <fieldset>
-                  <legend className="sr-only">{t('amountMode')}</legend>
-
-                  <SegmentedControl>
-                    {AMOUNT_MODES.map((mode) => (
-                      <SegmentedControlItem
-                        key={mode}
-                        value={mode}
-                        {...register('amountMode', {
-                          onChange: revalidateAmount
-                        })}
-                      >
-                        {t(`amountModes.${mode}`)}
-                      </SegmentedControlItem>
-                    ))}
-                  </SegmentedControl>
-                </fieldset>
-              }
+        <DialogBody>
+          <FormProvider {...methods}>
+            <form
+              id={formId}
+              noValidate
+              className="grid gap-6"
+              onSubmit={handleSubmit(submit)}
             >
               <div className="grid gap-4 sm:grid-cols-2">
-                <MoneyField
-                  name="amount"
-                  currencyName="currency"
-                  label={t(`amounts.${amountMode}`)}
-                  currency={currency}
-                  hint={t(`amountHints.${amountMode}`)}
-                />
+                <DescriptionFields />
+              </div>
 
-                <MoneyField
-                  isOptional
-                  name="principalAmount"
-                  label={t('cashPrice')}
+              <FormSection
+                title={t('scheduleSection')}
+                action={
+                  <fieldset>
+                    <legend className="sr-only">{t('amountMode')}</legend>
+
+                    <SegmentedControl>
+                      {AMOUNT_MODES.map((mode) => (
+                        <SegmentedControlItem
+                          key={mode}
+                          value={mode}
+                          {...register('amountMode', {
+                            onChange: revalidateAmount
+                          })}
+                        >
+                          {t(`amountModes.${mode}`)}
+                        </SegmentedControlItem>
+                      ))}
+                    </SegmentedControl>
+                  </fieldset>
+                }
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <MoneyField
+                    name="amount"
+                    currencyName="currency"
+                    label={t(`amounts.${amountMode}`)}
+                    currency={currency}
+                    hint={t(`amountHints.${amountMode}`)}
+                  />
+
+                  <FormField
+                    label={t('count')}
+                    hint={<InstallmentCountHint frequency={frequency} />}
+                    error={errors.installmentCount?.message}
+                  >
+                    {(fieldControl) => (
+                      <NumberInput
+                        {...fieldControl}
+                        maxLength={COUNT_MAX_LENGTH}
+                        className="tabular-nums"
+                        {...register('installmentCount', {
+                          onChange: revalidateAmount
+                        })}
+                      />
+                    )}
+                  </FormField>
+
+                  <ChoiceField
+                    legend={t('frequency')}
+                    error={errors.frequency?.message}
+                  >
+                    <SegmentedControl className="grid min-h-(--field-height) grid-cols-3">
+                      {RECURRENCE_FREQUENCIES.map((option) => (
+                        <SegmentedControlItem
+                          key={option}
+                          value={option}
+                          {...register('frequency')}
+                        >
+                          {tFinances(`frequencies.${option}`)}
+                        </SegmentedControlItem>
+                      ))}
+                    </SegmentedControl>
+                  </ChoiceField>
+
+                  <DayField name="firstDueDate" label={t('firstDueDate')} />
+                </div>
+
+                <CashPriceDetail
                   currency={currency}
                   hint={t('cashPriceHint')}
                 />
-              </div>
 
-              <div className="grid gap-4 sm:grid-cols-[8rem_auto_minmax(0,1fr)]">
-                <FormField
-                  label={t('count')}
-                  hint={<InstallmentCountHint frequency={frequency} />}
-                  error={errors.installmentCount?.message}
-                >
-                  {(fieldControl) => (
-                    <NumberInput
-                      {...fieldControl}
-                      maxLength={COUNT_MAX_LENGTH}
-                      className="tabular-nums"
-                      {...register('installmentCount', {
-                        onChange: revalidateAmount
-                      })}
-                    />
-                  )}
-                </FormField>
+                <PlanScheduleSummary />
+              </FormSection>
 
-                <ChoiceField
-                  legend={t('frequency')}
-                  error={errors.frequency?.message}
-                >
-                  <SegmentedControl className="grid h-10 grid-cols-3 sm:flex">
-                    {RECURRENCE_FREQUENCIES.map((option) => (
-                      <SegmentedControlItem
-                        key={option}
-                        value={option}
-                        {...register('frequency')}
-                      >
-                        {tFinances(`frequencies.${option}`)}
-                      </SegmentedControlItem>
-                    ))}
-                  </SegmentedControl>
-                </ChoiceField>
+              <MoreDetailsFields />
 
-                <DayField name="firstDueDate" label={t('firstDueDate')} />
-              </div>
-
-              <PlanScheduleSummary />
-            </FormSection>
-
-            <DescriptionFields />
-
-            <PaymentDetailsFields />
-
-            <FormRootError />
-          </form>
-        </FormProvider>
+              <FormRootError />
+            </form>
+          </FormProvider>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
@@ -814,18 +826,62 @@ export const CreatePlanDialog: FC<
   );
 };
 
-const PlanCashPriceField: FC<Record<'plan', InstallmentPlanDetail>> = ({
+type CashPriceInput = Record<'principalAmount', string>;
+
+const CASH_PRICE = ['principalAmount'] as const;
+
+/** A plan's cash price, optional and kept out of the way until it is asked for. */
+const CashPriceDetail: FC<
+  Record<'currency', string> & Record<'hint', ReactNode>
+> = ({ currency, hint }) => {
+  const t = useTranslations('installments.form');
+  const { control, getValues, setFocus, setValue } =
+    useFormContext<CashPriceInput>();
+  const { errors } = useFormState({ control, name: 'principalAmount' });
+  const details = useOptionalDetails({
+    details: CASH_PRICE,
+    initiallyShown: () =>
+      getValues('principalAmount') === '' ? [] : CASH_PRICE,
+    required: errors.principalAmount === undefined ? [] : CASH_PRICE,
+    focus: setFocus,
+    clear: (detail) =>
+      setValue(detail, '', { shouldDirty: true, shouldValidate: true })
+  });
+
+  return details.isShown('principalAmount') ? (
+    <OptionalFields>
+      <MoneyField
+        isOptional
+        name="principalAmount"
+        label={t('cashPrice')}
+        currency={currency}
+        hint={hint}
+        action={
+          <RemoveDetailButton onClick={() => details.remove('principalAmount')}>
+            {t.rich('removeCashPrice', { hidden: srOnly })}
+          </RemoveDetailButton>
+        }
+      />
+    </OptionalFields>
+  ) : (
+    <OptionalDetailButtons
+      label={t('optionalDetails')}
+      details={details.hidden}
+      labelOf={() => t.rich('addCashPrice', { hidden: srOnly })}
+      onShow={details.show}
+      buttonRefOf={details.addButtonRef}
+    />
+  );
+};
+
+const PlanCashPriceDetail: FC<Record<'plan', InstallmentPlanDetail>> = ({
   plan
 }) => {
-  const t = useTranslations('installments.form');
   const { control } = useFormContext<PlanEditInput>();
   const principalAmount = useWatch({ control, name: 'principalAmount' });
 
   return (
-    <MoneyField
-      isOptional
-      name="principalAmount"
-      label={t('cashPrice')}
+    <CashPriceDetail
       currency={plan.currency}
       hint={
         <CashPriceHint
@@ -896,24 +952,28 @@ export const EditPlanDialog: FC<
           </DialogDescription>
         </DialogHeader>
 
-        <FormProvider {...methods}>
-          <form
-            id={formId}
-            noValidate
-            className="grid gap-6"
-            onSubmit={handleSubmit(submit)}
-          >
-            <InfoNote>{t('editNote')}</InfoNote>
+        <DialogBody>
+          <FormProvider {...methods}>
+            <form
+              id={formId}
+              noValidate
+              className="grid gap-6"
+              onSubmit={handleSubmit(submit)}
+            >
+              <InfoNote>{t('editNote')}</InfoNote>
 
-            <PlanCashPriceField plan={plan} />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <DescriptionFields />
+              </div>
 
-            <DescriptionFields />
+              <PlanCashPriceDetail plan={plan} />
 
-            <PaymentDetailsFields />
+              <MoreDetailsFields />
 
-            <FormRootError />
-          </form>
-        </FormProvider>
+              <FormRootError />
+            </form>
+          </FormProvider>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
@@ -1038,52 +1098,54 @@ export const ReschedulePlanDialog: FC<
           </DialogDescription>
         </DialogHeader>
 
-        <FormProvider {...methods}>
-          <form
-            id={formId}
-            noValidate
-            className="grid gap-4"
-            onSubmit={handleSubmit(submit)}
-          >
-            <InfoNote>{keptTextOf(plan, t)}</InfoNote>
+        <DialogBody>
+          <FormProvider {...methods}>
+            <form
+              id={formId}
+              noValidate
+              className="grid gap-4"
+              onSubmit={handleSubmit(submit)}
+            >
+              <InfoNote>{keptTextOf(plan, t)}</InfoNote>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <MoneyField
-                name="remainingAmount"
-                label={t('amount')}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <MoneyField
+                  name="remainingAmount"
+                  label={t('amount')}
+                  currency={plan.currency}
+                  hint={t('amountHint')}
+                  className="sm:col-span-2"
+                />
+
+                <FormField
+                  label={t('count')}
+                  hint={<InstallmentCountHint frequency={plan.frequency} />}
+                  error={errors.remainingCount?.message}
+                >
+                  {(fieldControl) => (
+                    <NumberInput
+                      {...fieldControl}
+                      maxLength={COUNT_MAX_LENGTH}
+                      className="tabular-nums"
+                      {...register('remainingCount', {
+                        onChange: revalidateAmount
+                      })}
+                    />
+                  )}
+                </FormField>
+
+                <DayField name="nextDueDate" label={t('nextDueDate')} />
+              </div>
+
+              <RescheduleScheduleSummary
                 currency={plan.currency}
-                hint={t('amountHint')}
-                className="sm:col-span-2"
+                frequency={plan.frequency}
               />
 
-              <FormField
-                label={t('count')}
-                hint={<InstallmentCountHint frequency={plan.frequency} />}
-                error={errors.remainingCount?.message}
-              >
-                {(fieldControl) => (
-                  <NumberInput
-                    {...fieldControl}
-                    maxLength={COUNT_MAX_LENGTH}
-                    className="tabular-nums"
-                    {...register('remainingCount', {
-                      onChange: revalidateAmount
-                    })}
-                  />
-                )}
-              </FormField>
-
-              <DayField name="nextDueDate" label={t('nextDueDate')} />
-            </div>
-
-            <RescheduleScheduleSummary
-              currency={plan.currency}
-              frequency={plan.frequency}
-            />
-
-            <FormRootError />
-          </form>
-        </FormProvider>
+              <FormRootError />
+            </form>
+          </FormProvider>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>

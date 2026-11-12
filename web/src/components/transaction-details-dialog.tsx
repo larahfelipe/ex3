@@ -14,6 +14,7 @@ import {
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,
@@ -74,31 +75,33 @@ const TransactionDetails: FC<
         </DialogDescription>
       </DialogHeader>
 
-      <dl className="grid gap-4 sm:grid-cols-2">
-        <Metric label={t('fields.quantity')}>
-          <Quantity value={quantity} />
-        </Metric>
+      <DialogBody>
+        <dl className="grid gap-4 sm:grid-cols-2">
+          <Metric label={t('fields.quantity')}>
+            <Quantity value={quantity} />
+          </Metric>
 
-        <Metric label={t(`unitPrice.${type}`)}>
-          <Price exact value={unitPrice} currency={currency} />
-        </Metric>
+          <Metric label={t(`unitPrice.${type}`)}>
+            <Price exact value={unitPrice} currency={currency} />
+          </Metric>
 
-        <Metric label={t('fields.fees')}>
-          <Money value={fees} currency={currency} />
-        </Metric>
+          <Metric label={t('fields.fees')}>
+            <Money value={fees} currency={currency} />
+          </Metric>
 
-        <Metric label={t('fields.taxes')}>
-          <Money value={taxes} currency={currency} />
-        </Metric>
+          <Metric label={t('fields.taxes')}>
+            <Money value={taxes} currency={currency} />
+          </Metric>
 
-        <Metric label={t('fields.broker')}>
-          {broker ?? <UnavailableValue />}
-        </Metric>
+          <Metric label={t('fields.broker')}>
+            {broker ?? <UnavailableValue />}
+          </Metric>
 
-        <Metric label={t('fields.notes')} className="sm:col-span-2">
-          {notes ?? <UnavailableValue />}
-        </Metric>
-      </dl>
+          <Metric label={t('fields.notes')} className="sm:col-span-2">
+            {notes ?? <UnavailableValue />}
+          </Metric>
+        </dl>
+      </DialogBody>
 
       <DialogFooter>
         <Button

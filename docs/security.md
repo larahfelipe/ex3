@@ -537,7 +537,9 @@ controls in place. These are judgments, not measurements.
 * The database holds the rate limit counters; while it is down, the API answers
   `503`. In production it is Supabase, whose pooler accepts connections from the
   internet: the password, and TLS checked against Supabase's CA by both the API
-  and the migrations, protect it. Restricting it to the VPS's address would also
+  and the migrations, protect it. Its Data API is off, and RLS with no policy
+  keeps its API roles out of every table; the app connects as the tables'
+  owner, which RLS does not restrict. Restricting it to the VPS's address would also
   shut out GitHub's runners, which apply the migrations from changing
   addresses.
 * Production sets `JWT_SECRET`, `API_PROXY_SECRET`, `CORS_ALLOWED_ORIGINS` and

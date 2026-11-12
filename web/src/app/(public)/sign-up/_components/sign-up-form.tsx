@@ -277,9 +277,9 @@ export const SignUpForm: FC<SignUpFormProps> = ({ challengeSiteKey }) => {
         </div>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-6">
         <SlideTransition panelKey={step} direction={stepDirection}>
-          <div className="space-y-5">
+          <div className="space-y-4">
             {step === stepOf('firstName') && (
               <>
                 <PersonNameFields
@@ -382,7 +382,7 @@ export const SignUpForm: FC<SignUpFormProps> = ({ challengeSiteKey }) => {
                   hint={t('signUp.baseCurrencyHint')}
                   error={errors.baseCurrency?.message}
                 >
-                  <SegmentedControl className="grid grid-cols-3">
+                  <SegmentedControl className="grid min-h-(--field-height) grid-cols-3">
                     {OFFERED_CURRENCIES.map((currency) => (
                       <SegmentedControlItem
                         key={currency}
@@ -412,7 +412,7 @@ export const SignUpForm: FC<SignUpFormProps> = ({ challengeSiteKey }) => {
         action={BOT_CHALLENGE.Actions.SignUp}
       />
 
-      <div className="mt-8 flex gap-3">
+      <div className="mt-6 flex gap-3">
         {step > 0 && (
           <Button
             type="button"

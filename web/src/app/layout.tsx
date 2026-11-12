@@ -50,8 +50,6 @@ export default async function RootLayout({ children }: Children) {
     >
       <head>
         <meta name="theme-color" content={APP_THEME_COLOR} />
-
-        <link rel="shortcut icon" href="favicon.png" type="image/png" />
       </head>
 
       <body className="font-sans">

@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import { formatCalendarDay, parseCalendarDay } from './CalendarDay';
 import {
+  nextBillDay,
   nextOccurrence,
   occurrencesBetween,
   recurringExpenseStatusOf
@@ -121,6 +122,59 @@ describe('nextOccurrence', () => {
 
   it('is null once the series has ended', () => {
     assert.equal(nextOccurrence(rule, day('2026-07-01')), null);
+  });
+});
+
+describe('nextBillDay', () => {
+  const series = {
+    frequency: 'MONTHLY' as const,
+    startDate: day('2026-01-20'),
+    endDate: null,
+    generatedThrough: day('2026-12-31')
+  };
+  const today = day('2026-11-11');
+  const nextOf = (
+    rule: Parameters<typeof nextBillDay>[0],
+    earliestCreated: string | null
+  ) => {
+    const next = nextBillDay(
+      rule,
+      today,
+      earliestCreated === null ? null : day(earliestCreated)
+    );
+
+    return next === null ? null : formatCalendarDay(next);
+  };
+
+  it('is the day its earliest created bill is due, wherever an edit moved it', () => {
+    assert.equal(nextOf(series, '2026-11-20'), '2026-11-20');
+    assert.equal(nextOf(series, '2026-11-25'), '2026-11-25');
+    assert.equal(nextOf(series, '2026-12-20'), '2026-12-20');
+  });
+
+  it('comes from the rule past the created bills, unless a bill was moved later still', () => {
+    const generatedThroughNovember = {
+      ...series,
+      generatedThrough: day('2026-11-30')
+    };
+
+    assert.equal(nextOf(generatedThroughNovember, null), '2026-12-20');
+    assert.equal(nextOf(generatedThroughNovember, '2027-01-05'), '2026-12-20');
+    assert.equal(
+      nextOf({ ...series, generatedThrough: day('2026-11-01') }, null),
+      '2026-11-20'
+    );
+  });
+
+  it('is none once neither a bill nor the rule is ahead', () => {
+    const ending = {
+      ...series,
+      endDate: day('2026-12-31'),
+      generatedThrough: day('2026-12-31')
+    };
+
+    assert.equal(nextOf(ending, null), null);
+    assert.equal(nextOf(ending, '2027-01-10'), '2027-01-10');
   });
 });
 

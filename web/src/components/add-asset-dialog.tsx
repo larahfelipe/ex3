@@ -20,6 +20,7 @@ import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -271,144 +272,146 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
           <DialogDescription>{t('description')}</DialogDescription>
         </DialogHeader>
 
-        <form
-          id={formId}
-          noValidate
-          className="min-w-0 space-y-3"
-          onSubmit={submitChoice}
-        >
-          <div className="space-y-2">
-            <Label htmlFor={searchId}>{t('search')}</Label>
-
-            <Input
-              ref={searchInputRef}
-              id={searchId}
-              type="search"
-              autoComplete="off"
-              autoCapitalize="characters"
-              spellCheck={false}
-              placeholder={t('searchPlaceholder')}
-              maxLength={SEARCH_MAX_LENGTH}
-              value={searchInput}
-              aria-invalid={!isSearchAccepted}
-              aria-describedby={
-                isSearchAccepted
-                  ? searchStatusId
-                  : `${searchIssueId} ${searchStatusId}`
-              }
-              onChange={({ target, nativeEvent }) =>
-                setSearchInput(
-                  isComposing(nativeEvent)
-                    ? target.value
-                    : upperCaseInPlace(target)
-                )
-              }
-              onCompositionEnd={({ currentTarget }) =>
-                setSearchInput(upperCaseInPlace(currentTarget))
-              }
-              leftElement={
-                <Search
-                  aria-hidden="true"
-                  size={16}
-                  className="text-muted-foreground"
-                />
-              }
-            />
-
-            {!isSearchAccepted && (
-              <p id={searchIssueId} className="text-sm text-negative">
-                {t('searchPattern')}
-              </p>
-            )}
-          </div>
-
-          <p
-            id={searchStatusId}
-            role="status"
-            className="text-sm text-muted-foreground empty:hidden"
+        <DialogBody>
+          <form
+            id={formId}
+            noValidate
+            className="min-w-0 space-y-3"
+            onSubmit={submitChoice}
           >
-            {searchStatus}
-          </p>
+            <div className="space-y-2">
+              <Label htmlFor={searchId}>{t('search')}</Label>
 
-          {search !== null &&
-            !isAwaitingResults &&
-            results?.marketSearch === 'UNAVAILABLE' && (
-              <p className="text-sm text-muted-foreground">
-                {t.rich('marketUnavailable', {
-                  retry: (chunks) => (
-                    <Button
-                      type="button"
-                      variant="link"
-                      className="h-auto p-0"
-                      onClick={() => refetch()}
-                    >
-                      {chunks}
-                    </Button>
+              <Input
+                ref={searchInputRef}
+                id={searchId}
+                type="search"
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                placeholder={t('searchPlaceholder')}
+                maxLength={SEARCH_MAX_LENGTH}
+                value={searchInput}
+                aria-invalid={!isSearchAccepted}
+                aria-describedby={
+                  isSearchAccepted
+                    ? searchStatusId
+                    : `${searchIssueId} ${searchStatusId}`
+                }
+                onChange={({ target, nativeEvent }) =>
+                  setSearchInput(
+                    isComposing(nativeEvent)
+                      ? target.value
+                      : upperCaseInPlace(target)
                   )
-                })}
+                }
+                onCompositionEnd={({ currentTarget }) =>
+                  setSearchInput(upperCaseInPlace(currentTarget))
+                }
+                leftElement={
+                  <Search
+                    aria-hidden="true"
+                    size={16}
+                    className="text-muted-foreground"
+                  />
+                }
+              />
+
+              {!isSearchAccepted && (
+                <p id={searchIssueId} className="text-sm text-negative">
+                  {t('searchPattern')}
+                </p>
+              )}
+            </div>
+
+            <p
+              id={searchStatusId}
+              role="status"
+              className="text-sm text-muted-foreground empty:hidden"
+            >
+              {searchStatus}
+            </p>
+
+            {search !== null &&
+              !isAwaitingResults &&
+              results?.marketSearch === 'UNAVAILABLE' && (
+                <p className="text-sm text-muted-foreground">
+                  {t.rich('marketUnavailable', {
+                    retry: (chunks) => (
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="h-auto p-0"
+                        onClick={() => refetch()}
+                      >
+                        {chunks}
+                      </Button>
+                    )
+                  })}
+                </p>
+              )}
+
+            {choices.length > 0 && (
+              <fieldset aria-busy={isAwaitingResults} className="min-w-0">
+                <legend className="sr-only">{t('results')}</legend>
+
+                <ul className="max-h-64 divide-y overflow-y-auto rounded-md border">
+                  {choices.map((choice) => (
+                    <li key={choice.key}>
+                      <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/50 has-checked:bg-muted/70">
+                        <input
+                          type="radio"
+                          name={formId}
+                          value={choice.key}
+                          checked={selectedChoice?.key === choice.key}
+                          className="size-4 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                          onChange={() => chooseInstrument(choice.key)}
+                        />
+
+                        <span className="font-medium">{choice.symbol}</span>
+
+                        <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                          {choice.name}
+                        </span>
+
+                        {choice.badge !== null && (
+                          <span className="shrink-0 rounded-sm border px-1.5 text-xs text-muted-foreground">
+                            {choice.badge}
+                          </span>
+                        )}
+
+                        {choice.venue !== null && (
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {choice.venue}
+                          </span>
+                        )}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </fieldset>
+            )}
+
+            {hasListingChoice && (
+              <p className="text-xs text-muted-foreground">
+                {t('newListingNote')}
               </p>
             )}
 
-          {choices.length > 0 && (
-            <fieldset aria-busy={isAwaitingResults} className="min-w-0">
-              <legend className="sr-only">{t('results')}</legend>
+            {submitIssue !== null && (
+              <p role="alert" className="text-sm text-negative">
+                {submitIssue}
+              </p>
+            )}
+          </form>
 
-              <ul className="max-h-64 divide-y overflow-y-auto rounded-md border">
-                {choices.map((choice) => (
-                  <li key={choice.key}>
-                    <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/50 has-checked:bg-muted/70">
-                      <input
-                        type="radio"
-                        name={formId}
-                        value={choice.key}
-                        checked={selectedChoice?.key === choice.key}
-                        className="size-4 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-                        onChange={() => chooseInstrument(choice.key)}
-                      />
-
-                      <span className="font-medium">{choice.symbol}</span>
-
-                      <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                        {choice.name}
-                      </span>
-
-                      {choice.badge !== null && (
-                        <span className="shrink-0 rounded-sm border px-1.5 text-xs text-muted-foreground">
-                          {choice.badge}
-                        </span>
-                      )}
-
-                      {choice.venue !== null && (
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {choice.venue}
-                        </span>
-                      )}
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </fieldset>
+          {search !== null && error !== null && results === undefined && (
+            <ErrorState
+              message={apiErrorMessageOf(error, tErrors, t('searchFailed'))}
+              onRetry={refetch}
+            />
           )}
-
-          {hasListingChoice && (
-            <p className="text-xs text-muted-foreground">
-              {t('newListingNote')}
-            </p>
-          )}
-
-          {submitIssue !== null && (
-            <p role="alert" className="text-sm text-negative">
-              {submitIssue}
-            </p>
-          )}
-        </form>
-
-        {search !== null && error !== null && results === undefined && (
-          <ErrorState
-            message={apiErrorMessageOf(error, tErrors, t('searchFailed'))}
-            onRetry={refetch}
-          />
-        )}
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>

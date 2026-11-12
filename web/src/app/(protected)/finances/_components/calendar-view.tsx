@@ -512,7 +512,6 @@ export const CalendarView: FC = () => {
       <Button
         variant="outline"
         size="icon"
-        className="size-9"
         onClick={() => showMonth(shiftCalendarMonth(month, -1))}
       >
         <ChevronLeft aria-hidden="true" className="size-4" />
@@ -523,7 +522,6 @@ export const CalendarView: FC = () => {
       <Button
         variant="outline"
         size="icon"
-        className="size-9"
         onClick={() => showMonth(shiftCalendarMonth(month, 1))}
       >
         <ChevronRight aria-hidden="true" className="size-4" />
@@ -624,7 +622,7 @@ export const CalendarView: FC = () => {
 
         {selectedDay === null ? (
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="pt-4 sm:pt-5">
               <p className="text-sm text-muted-foreground">{t('chooseDay')}</p>
             </CardContent>
           </Card>

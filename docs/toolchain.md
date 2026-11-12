@@ -395,3 +395,8 @@ of 154 KB ([`performance.md`](performance.md), "Animated tabs"). The rest of the
 app keeps animating through CSS: dialogs, popovers, menus and the buttons'
 press already have entrance and exit through `tw-animate-css` over Radix's
 presence.
+
+Since 2026-11-11 the `SegmentedControl` indicator slides by a CSS transition,
+measured within the control, and no longer uses the library; framer-motion
+serves `SlideTransition` alone, with `domAnimation` in place of `domMax`
+([`performance.md`](performance.md), "Tab indicator by CSS").

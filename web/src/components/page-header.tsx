@@ -19,7 +19,9 @@ export const PageHeader: FC<PageHeaderProps> = ({
 
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0 space-y-1.5">
-        <h1 className="text-2xl font-bold wrap-anywhere">{title}</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight lining-nums wrap-anywhere">
+          {title}
+        </h1>
 
         {isPending && <Skeleton className="h-5 w-48 max-w-full" />}
 

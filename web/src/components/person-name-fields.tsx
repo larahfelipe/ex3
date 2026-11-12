@@ -24,7 +24,7 @@ export const PersonNameFields: FC<PersonNameFieldsProps> = ({
 
   return (
     <div className="@container">
-      <div className="grid gap-x-4 gap-y-5 @sm:grid-cols-2">
+      <div className="grid gap-4 @sm:grid-cols-2">
         <FormField label={t('firstName')} error={firstName.error}>
           {(control) => (
             <Input

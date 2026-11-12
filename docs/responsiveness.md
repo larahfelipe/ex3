@@ -35,7 +35,7 @@ already stacked, never the navigation.
 | --- | --- | --- |
 | R1 | No horizontal document scrolling at any width from 320 px up | 1.4.10 · content in relative units; overflow confined to its own container |
 | R2 | Overflow allowed only inside a declared region, named and keyboard reachable | 1.4.10, 2.1.1 · `components/ui/table.tsx`, a named and focusable region while it overflows |
-| R3 | Touch target of at least 44 px on a coarse pointer | 2.5.8 · `min-h-11` and `max-sm:min-w-11` in `sidebar.tsx` |
+| R3 | Touch target of at least 44 px on a coarse pointer | 2.5.8 · `min-h-11` and `max-sm:min-w-11` in `sidebar.tsx`; below `sm`, `--field-height` and `--control-height` (2.75 rem) in `globals.css` for every field, button and segmented control |
 | R4 | Text never truncated without an accessible alternative to the full value | 1.4.4 · `title`/`sr-only`, or a cell with the exact value |
 | R5 | The screen's primary action reachable without horizontal scrolling and without leaving the flow | 2.4.3 · `max-sm:w-full` on header and state buttons |
 | R6 | Live height measured in `dvh`, not `vh`, wherever the browser bar or the virtual keyboard moves | `dialog.tsx`, `alert-dialog.tsx`, `(public)/layout.tsx`, with `interactiveWidget: 'resizes-content'` in the root `viewport` |
@@ -55,10 +55,11 @@ already stacked, never the navigation.
 | Dashboard tables | Primary columns only: the positions summary shows asset, market value and result, with the quantity held as a secondary line under the name and the share of the portfolio under the value, so neither is lost below `sm`; transactions show date, type, asset and details, with unit price on the asset detail and in the details dialog. The recorded income's table keeps its three columns, type and two amounts, inside the table's named scrollable region should long amounts not fit |
 | Residual scrolling | Whatever still overflows stays inside the region in `components/ui/table.tsx`, which only then is named and takes `Tab` — never the document |
 | Asset detail | One column; the two `lg:grid-cols-2` grids stay stacked |
-| Forms | Fields in a single column; the transaction form's `sm:grid-cols-2` does not apply |
-| Dialogs | `w-full` with no side margin, square corners (`sm:rounded-lg` does not apply), 24 px of padding — 272 px of content is left at 320 px. The content is capped at `max-h-dvh` and scrolls inside: when it is taller than the screen, the dialog takes the full screen and the footer with the CTA sits at the end of the scroll |
+| Forms | Fields in a single column; the forms' `sm:grid-cols-2` does not apply. A form opens on its essential fields, and optional ones wait behind outline buttons that wrap onto as many rows as they need |
+| Dialogs | A sheet along the bottom edge: `w-full` with no side margin, rounded top corners, 20 px of padding — 280 px of content is left at 320 px — sliding up on open. It is at most `100dvh − 1rem` tall, so a strip of the page stays visible above it; the title and the footer with the CTA stay pinned and only the body between them scrolls, so the primary action is always in reach of the thumb. The close button is a 44 px target |
+| Controls | Fields, select triggers, buttons and segmented controls are 44 px tall, through `--field-height` and `--control-height`, with text at 16 px in fields and 14 px in buttons; the smaller button sizes, a menu's or a list's options and the calendar's days are 40 px, and `xxs`, the inline action in a table row, 32 px. From `sm` up the same tokens return to the compact sizes: fields 40 px, buttons and toolbar fields 36 px, options 32 px, days 36 px |
 | Virtual keyboard | `interactiveWidget: 'resizes-content'` shrinks the layout viewport, and every `dvh` with it: the dialog resizes above the keyboard and the focused field comes into the visible area |
-| Authentication | The form column only; the art column is `max-lg:hidden`. `main` has `min-h-dvh`, so it grows instead of clipping when the keyboard shrinks the screen |
+| Authentication | The form column only; the art column is `max-lg:hidden`, and the wordmark heads the form, centred at the top, over the glow falling from the top edge. `main` has `min-h-dvh`, so it grows instead of clipping when the keyboard shrinks the screen |
 
 ### 768 px — above `sm`, below `lg`
 
@@ -69,7 +70,7 @@ already stacked, never the navigation.
 | Dashboard | Still a single stack — the grid only splits at 1280 px |
 | Allocation | Container above 448 px: past `@md`, ring and legend side by side |
 | Positions | Filters in a row; the eight columns return and the table may overflow, inside the named scrollable region |
-| Dialogs | Width locked at `max-w-lg` (32 rem), centred, rounded corners, height capped at `calc(100dvh - 2rem)` to leave the frame |
+| Dialogs | Centred, rounded corners, `max-w-lg` (32 rem) unless the dialog widens it (`sm:max-w-xl`, `2xl` or `3xl` for the longer forms and details), height capped at `calc(100dvh - 2rem)` to leave the frame, with the same pinned header and footer around a scrolling body; the close button is a 32 px target |
 | Authentication | The form column only, centred: the art joins with the grid, at 1024 px |
 
 ### 1024 px — `lg`
@@ -102,3 +103,4 @@ Observed while writing this document, each addressed in the task indicated:
 | ~~Between 640 px and 1024 px the authentication art column appears stacked under the form~~ — solved in TASK 15.4: the art is `max-lg:hidden` and appears only with the grid | — | 15.4 |
 | ~~The public layout uses `h-screen`, not `dvh`~~ — solved in TASK 15.4 | R6 | 15.4 |
 | ~~No dialog takes the full screen below `sm`, and only the transaction one caps its height~~ — solved in TASK 15.4: the cap and the scrolling live in both primitives, and the root viewport shrinks with the keyboard | R5, R6 | 15.4 |
+| ~~A dialog taller than the screen scrolls its footer, and the CTA with it, out of view, and its close button is a 32 px target below `sm`~~ — solved: below `sm` a dialog is a bottom sheet whose header and footer stay pinned around a scrolling `DialogBody`, and the close button is 44 px there | R3, R5, R6 | — |

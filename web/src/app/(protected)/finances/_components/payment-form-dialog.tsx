@@ -17,15 +17,17 @@ import type {
   PaymentEntryPayload
 } from '@/app/api/v1/finances';
 import { FINANCE_LIMITS, PAYMENT_METHODS } from '@/common/constants';
+import { FormField, OptionalFields } from '@/components/form-field';
 import {
-  DeferredSection,
-  FormField,
-  FormSection
-} from '@/components/form-field';
+  OptionalDetailButtons,
+  RemoveDetailButton,
+  useOptionalDetails
+} from '@/components/optional-details';
 import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -35,11 +37,13 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
+  SelectValue,
+  TEXTAREA_CLASS
 } from '@/components/ui';
 import { useReferenceDay } from '@/hooks/use-finances';
 import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
 import { useFormat } from '@/i18n/format';
+import { srOnly } from '@/i18n/rich-text';
 import type { Translator } from '@/i18n/translator';
 import { daysBetween } from '@/lib/dates';
 import {
@@ -61,7 +65,6 @@ import {
   optionalTextFieldFor,
   requiredDayFieldFor,
   requireMinorUnitsOf,
-  TEXTAREA_CLASS,
   triggerPropsOf,
   type ValidationTranslator
 } from './finance-form';
@@ -100,6 +103,17 @@ const PAYMENT_FORM_FIELDS = [
 ] as const satisfies ReadonlyArray<keyof PaymentFormInput>;
 
 const paymentFieldOf = fieldOfPath(PAYMENT_FORM_FIELDS);
+
+const PAYMENT_DETAILS = ['discount', 'fees', 'method', 'notes'] as const;
+
+type PaymentDetail = (typeof PAYMENT_DETAILS)[number];
+
+const EMPTY_PAYMENT_DETAILS = {
+  discount: '',
+  fees: '',
+  method: NO_PAYMENT_METHOD,
+  notes: ''
+} as const satisfies Record<PaymentDetail, string>;
 
 /** Exact for any storable amount; anything else has already failed its own field. */
 const unitsOfAmount = (value: string) =>
@@ -194,6 +208,61 @@ const SettlementNote: FC<Record<'target', PaymentFormTarget>> = ({
   );
 };
 
+/**
+ * One-tap days for the payment, the one already chosen marked as pressed: today,
+ * and the due date while it has passed, since a payment cannot be dated ahead.
+ */
+export const PaidOnShortcuts: FC<Record<'dueDate' | 'today', string>> = ({
+  dueDate,
+  today
+}) => {
+  const t = useTranslations('bills.paymentForm');
+  const { formatCalendarDay } = useFormat();
+  const { control, setValue } = useFormContext<PaymentFormInput>();
+  const paidOn = useWatch({ control, name: 'paidOn' });
+  const shortcuts = [
+    { day: today, label: t('paidToday') },
+    ...(dueDate < today
+      ? [
+          {
+            day: dueDate,
+            label: t('paidOnDueDate', {
+              day: formatCalendarDay(dueDate) ?? dueDate
+            })
+          }
+        ]
+      : [])
+  ];
+
+  return (
+    <div
+      role="group"
+      aria-label={t('paidOnShortcuts')}
+      className="flex flex-wrap gap-2"
+    >
+      {shortcuts.map(({ day, label }) => (
+        <Button
+          key={day}
+          type="button"
+          variant="outline"
+          size="xs"
+          aria-pressed={paidOn === day}
+          className="aria-pressed:border-primary aria-pressed:bg-primary/10"
+          onClick={() =>
+            setValue('paidOn', day, {
+              shouldDirty: true,
+              shouldTouch: true,
+              shouldValidate: true
+            })
+          }
+        >
+          {label}
+        </Button>
+      ))}
+    </div>
+  );
+};
+
 const defaultValuesOf = (
   target: PaymentFormTarget,
   today: string
@@ -220,6 +289,10 @@ const defaultValuesOf = (
   };
 };
 
+/**
+ * A payment asks for what was paid and when; a discount, interest and fees, how
+ * it was paid and notes each wait behind their own button.
+ */
 export const PaymentFormDialog: FC<PaymentFormDialogProps> = ({
   target,
   onCancel,
@@ -237,14 +310,13 @@ export const PaymentFormDialog: FC<PaymentFormDialogProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const { expense } = target;
   const { currency } = expense;
-  const defaultValues = defaultValuesOf(target, today);
 
   const methods = useForm<PaymentFormInput, unknown, PaymentEntryPayload>({
     mode: 'onChange',
     resolver: zodResolver(
       paymentSchemaFor(target, today, tValidation, tIssues)
     ),
-    defaultValues
+    defaultValues: defaultValuesOf(target, today)
   });
 
   useRevalidateOnLocaleChange(methods.formState.errors, methods.trigger);
@@ -252,13 +324,36 @@ export const PaymentFormDialog: FC<PaymentFormDialogProps> = ({
   const {
     control,
     register,
+    getValues,
     handleSubmit,
     setError,
     setFocus,
+    setValue,
+    trigger,
     formState: { errors, isDirty, isSubmitting }
   } = methods;
 
   const { field: methodField } = useController({ name: 'method', control });
+
+  const details = useOptionalDetails({
+    details: PAYMENT_DETAILS,
+    initiallyShown: () =>
+      PAYMENT_DETAILS.filter(
+        (detail) => getValues(detail) !== EMPTY_PAYMENT_DETAILS[detail]
+      ),
+    required: PAYMENT_DETAILS.filter((detail) => errors[detail] !== undefined),
+    focus: setFocus,
+    clear: (detail) => {
+      setValue(detail, EMPTY_PAYMENT_DETAILS[detail], { shouldDirty: true });
+      void trigger(detail === 'discount' ? ['discount', 'amount'] : detail);
+    }
+  });
+
+  const removeDetailButton = (detail: PaymentDetail) => (
+    <RemoveDetailButton onClick={() => details.remove(detail)}>
+      {t.rich(`removeDetail.${detail}`, { hidden: srOnly })}
+    </RemoveDetailButton>
+  );
 
   const submitPayment = async (payment: PaymentEntryPayload) => {
     setIsSaving(true);
@@ -300,14 +395,14 @@ export const PaymentFormDialog: FC<PaymentFormDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <FormProvider {...methods}>
-          <form
-            id={formId}
-            noValidate
-            className="grid gap-6"
-            onSubmit={handleSubmit(submitPayment)}
-          >
-            <FormSection title={t('section')}>
+        <DialogBody>
+          <FormProvider {...methods}>
+            <form
+              id={formId}
+              noValidate
+              className="grid gap-6"
+              onSubmit={handleSubmit(submitPayment)}
+            >
               <div className="grid gap-4 sm:grid-cols-2">
                 <MoneyField
                   name="amount"
@@ -319,97 +414,111 @@ export const PaymentFormDialog: FC<PaymentFormDialogProps> = ({
                   name="paidOn"
                   label={t('paidOn')}
                   hint={t('paidOnHint')}
+                  shortcuts={
+                    <PaidOnShortcuts dueDate={expense.dueDate} today={today} />
+                  }
                 />
 
-                <MoneyField
-                  isOptional
-                  name="discount"
-                  label={t('discount')}
-                  currency={currency}
-                  hint={t('discountHint')}
-                />
+                <OptionalFields>
+                  {details.isShown('discount') && (
+                    <MoneyField
+                      isOptional
+                      name="discount"
+                      label={t('discount')}
+                      currency={currency}
+                      hint={t('discountHint')}
+                      action={removeDetailButton('discount')}
+                      deps={['amount']}
+                    />
+                  )}
 
-                <MoneyField
-                  isOptional
-                  name="fees"
-                  label={t('fees')}
-                  currency={currency}
-                  hint={t('feesHint')}
+                  {details.isShown('fees') && (
+                    <MoneyField
+                      isOptional
+                      name="fees"
+                      label={t('fees')}
+                      currency={currency}
+                      hint={t('feesHint')}
+                      action={removeDetailButton('fees')}
+                    />
+                  )}
+
+                  {details.isShown('method') && (
+                    <FormField
+                      isOptional
+                      label={t('method')}
+                      error={errors.method?.message}
+                      action={removeDetailButton('method')}
+                    >
+                      {(fieldControl) => (
+                        <Select
+                          name={methodField.name}
+                          value={methodField.value}
+                          onValueChange={methodField.onChange}
+                        >
+                          <SelectTrigger
+                            {...triggerPropsOf(fieldControl)}
+                            ref={methodField.ref}
+                            onBlur={methodField.onBlur}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            <SelectItem value={NO_PAYMENT_METHOD}>
+                              {tFinances('form.noPaymentMethod')}
+                            </SelectItem>
+
+                            {PAYMENT_METHODS.map((method) => (
+                              <SelectItem key={method} value={method}>
+                                {tFinances(`paymentMethods.${method}`)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </FormField>
+                  )}
+
+                  {details.isShown('notes') && (
+                    <FormField
+                      isOptional
+                      label={t('notes')}
+                      error={errors.notes?.message}
+                      action={removeDetailButton('notes')}
+                      className="sm:col-span-2"
+                    >
+                      {(fieldControl) => (
+                        <textarea
+                          {...fieldControl}
+                          rows={2}
+                          maxLength={FINANCE_LIMITS.NotesMaxLength}
+                          className={TEXTAREA_CLASS}
+                          {...register('notes')}
+                        />
+                      )}
+                    </FormField>
+                  )}
+                </OptionalFields>
+
+                <OptionalDetailButtons
+                  label={t('optionalDetails')}
+                  details={details.hidden}
+                  labelOf={(detail) =>
+                    t.rich(`addDetail.${detail}`, { hidden: srOnly })
+                  }
+                  onShow={details.show}
+                  buttonRefOf={details.addButtonRef}
+                  className="sm:col-span-2"
                 />
               </div>
 
               <SettlementNote target={target} />
-            </FormSection>
 
-            <DeferredSection
-              title={t('detailsSection')}
-              revealLabel={t('addDetails')}
-              isInitiallyRevealed={
-                defaultValues.method !== NO_PAYMENT_METHOD ||
-                defaultValues.notes !== ''
-              }
-              hasError={
-                errors.method !== undefined || errors.notes !== undefined
-              }
-              onReveal={() => setFocus('method')}
-            >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FormField
-                  isOptional
-                  label={t('method')}
-                  error={errors.method?.message}
-                >
-                  {(fieldControl) => (
-                    <Select
-                      name={methodField.name}
-                      value={methodField.value}
-                      onValueChange={methodField.onChange}
-                    >
-                      <SelectTrigger
-                        {...triggerPropsOf(fieldControl)}
-                        ref={methodField.ref}
-                        onBlur={methodField.onBlur}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-
-                      <SelectContent>
-                        <SelectItem value={NO_PAYMENT_METHOD}>
-                          {tFinances('form.noPaymentMethod')}
-                        </SelectItem>
-
-                        {PAYMENT_METHODS.map((method) => (
-                          <SelectItem key={method} value={method}>
-                            {tFinances(`paymentMethods.${method}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </FormField>
-
-                <FormField
-                  isOptional
-                  label={t('notes')}
-                  error={errors.notes?.message}
-                  className="sm:col-span-2"
-                >
-                  {(fieldControl) => (
-                    <textarea
-                      {...fieldControl}
-                      rows={2}
-                      maxLength={FINANCE_LIMITS.NotesMaxLength}
-                      className={TEXTAREA_CLASS}
-                      {...register('notes')}
-                    />
-                  )}
-                </FormField>
-              </div>
-            </DeferredSection>
-
-            <FormRootError />
-          </form>
-        </FormProvider>
+              <FormRootError />
+            </form>
+          </FormProvider>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>

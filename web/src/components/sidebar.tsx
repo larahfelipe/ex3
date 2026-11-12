@@ -26,6 +26,7 @@ import {
   PREFERENCE_MAX_AGE_SECONDS
 } from '@/common/constants';
 import { LanguageSelect } from '@/components/language-select';
+import { Wordmark } from '@/components/wordmark';
 import { useFinanceAlerts } from '@/hooks/use-finances';
 import { useCurrentUser, useSignOut } from '@/hooks/use-user';
 import { LOCALE_SHORT_NAMES } from '@/i18n/config';
@@ -102,7 +103,7 @@ const NAVIGATION_TOGGLE_CLASS =
  * around it; once expanded, its text lines up with the items' icons.
  */
 const BRAND_LINK_CLASS =
-  'relative -my-0.5 flex h-8 items-center rounded-md px-2 font-display text-lg font-bold outline-hidden ring-offset-background transition-colors before:absolute before:-inset-x-1 before:-inset-y-1.5 hover:bg-accent focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-95';
+  'relative -my-0.5 flex h-8 items-center rounded-md px-2 text-lg outline-hidden ring-offset-background transition-colors before:absolute before:-inset-x-1 before:-inset-y-1.5 hover:bg-accent focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-95';
 
 const isCurrentPath = (pathname: string, path: string) =>
   pathname === path || pathname.startsWith(`${path}/`);
@@ -219,7 +220,7 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
             title={t('overview')}
             className={BRAND_LINK_CLASS}
           >
-            {APP_TITLE}
+            <Wordmark />
           </Link>
         </div>
 

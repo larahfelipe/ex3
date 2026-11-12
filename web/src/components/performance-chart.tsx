@@ -578,7 +578,7 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
                   >
                     <SelectTrigger
                       id={benchmarkSelectId}
-                      className="h-9 w-auto gap-2"
+                      className="h-(--control-height) w-auto gap-2"
                     >
                       <SelectValue />
                     </SelectTrigger>

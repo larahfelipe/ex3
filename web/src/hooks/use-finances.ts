@@ -6,6 +6,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
   type QueryKey
 } from '@tanstack/react-query';
 import type { AxiosResponse } from 'axios';
@@ -94,21 +95,36 @@ const useFinanceQuery = <Data>({
     placeholderData: keepsPreviousData ? keepPreviousData : undefined
   });
 
-/** Every finance figure is derived from the same records, so a write refreshes the whole scope. */
+/**
+ * Every finance figure is derived from the same records, so a write refreshes
+ * the whole scope. It is announced once the queries on screen have reloaded,
+ * so the toast never runs ahead of what the page shows; a reload that fails
+ * leaves its query to say so, since the write itself went through.
+ */
+export const refreshFinancesThenAnnounce = async (
+  queryClient: QueryClient,
+  { title, description }: FinanceChangeAnnouncement
+) => {
+  await queryClient.invalidateQueries({ queryKey: queryKeys.finances() });
+
+  toast.success(title, { description });
+};
+
 const useAnnounceFinanceChange = () => {
   const queryClient = useQueryClient();
 
   return useCallback(
-    ({ title, description }: FinanceChangeAnnouncement) => {
-      toast.success(title, { description });
-
-      void queryClient.invalidateQueries({ queryKey: queryKeys.finances() });
-    },
+    (announcement: FinanceChangeAnnouncement) =>
+      refreshFinancesThenAnnounce(queryClient, announcement),
     [queryClient]
   );
 };
 
-/** The toast is written here, not taken from the response: the API answers in English. */
+/**
+ * The toast is written here, not taken from the response: the API answers in
+ * English. A mutation waits for its `onSuccess`, so the form that sent it stays
+ * pending until the page shows the change.
+ */
 const useFinanceMutation = <Variables, Data>(
   request: (variables: Variables) => Promise<AxiosResponse<Data>>,
   announcementOf: (

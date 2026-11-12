@@ -1,10 +1,5 @@
 import { useId, useMemo, type FC } from 'react';
-import {
-  FormProvider,
-  useForm,
-  useFormContext,
-  useWatch
-} from 'react-hook-form';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'use-intl';
@@ -13,7 +8,6 @@ import { z } from 'zod';
 import type {
   CancelRecurringExpenseRequestPayload,
   CreateRecurringExpenseRequestPayload,
-  RecurrenceFrequency,
   RecurringExpenseDetail,
   UpdateRecurringExpenseRequestPayload
 } from '@/app/api/v1/finances';
@@ -22,19 +16,18 @@ import {
   FINANCE_LIMITS,
   RECURRENCE_FREQUENCIES
 } from '@/common/constants';
-import { ChoiceField, FormSection } from '@/components/form-field';
+import { FormSection } from '@/components/form-field';
 import { InfoNote } from '@/components/info-note';
 import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  SegmentedControl,
-  SegmentedControlItem
+  DialogTitle
 } from '@/components/ui';
 import { useReferenceDay } from '@/hooks/use-finances';
 import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
@@ -51,7 +44,7 @@ import {
   fieldOfPath,
   FormRootError,
   MoneyField,
-  PaymentDetailsFields,
+  MoreDetailsFields,
   positiveMoneyFieldFor,
   requiredDayFieldFor,
   requireMinorUnitsOf,
@@ -59,14 +52,16 @@ import {
   useSubmitter,
   type ValidationTranslator
 } from './finance-form';
-
-type AmountKind = (typeof AMOUNT_KINDS)[number];
-
-type EndMode = (typeof END_MODES)[number];
-
-type SeriesTerms = Record<'amountKind', AmountKind> &
-  Record<'endMode', EndMode> &
-  Record<'endDate', string>;
+import {
+  AMOUNT_KINDS,
+  AmountKindChoice,
+  END_MODES,
+  EndChoice,
+  endDateOf,
+  RecurrenceFields,
+  requireEndOf,
+  requireRecentStartOf
+} from './recurrence-fields';
 
 type CreateSeriesInput = z.input<ReturnType<typeof createSeriesFieldsFor>>;
 
@@ -85,12 +80,6 @@ type FormDialogProps<Payload> = Record<'onCancel', VoidFunction> &
 
 type SeriesDialogProps<Payload> = FormDialogProps<Payload> &
   Record<'series', RecurringExpenseDetail>;
-
-const AMOUNT_KINDS = ['fixed', 'variable'] as const;
-
-const END_MODES = ['never', 'date'] as const;
-
-const PREVIEWED_OCCURRENCES = 3;
 
 const seriesTermsFieldsFor = (t: ValidationTranslator) =>
   descriptionFormFieldsFor(t).extend({
@@ -149,51 +138,14 @@ const stopSeriesFieldOf = fieldOfPath([
   'effectiveFrom'
 ] as const satisfies ReadonlyArray<keyof StopSeriesInput>);
 
-const requireEndOf = (
-  { endMode, endDate }: SeriesTerms,
-  startDate: string,
-  ctx: z.RefinementCtx,
-  t: ValidationTranslator
-) => {
-  if (endMode !== 'date') return;
-
-  if (endDate === '')
-    ctx.addIssue({
-      code: 'custom',
-      path: ['endDate'],
-      message: t('day.required')
-    });
-  else if (startDate !== '' && endDate < startDate)
-    ctx.addIssue({
-      code: 'custom',
-      path: ['endDate'],
-      message: t('recurring.endBeforeStart')
-    });
-};
-
 const createSeriesSchemaFor = (today: string, t: ValidationTranslator) => {
-  const earliestStart = shiftCalendarDayByMonths(
-    today,
-    -FINANCE_LIMITS.OccurrenceHorizonMonths
-  );
   const requireSeriesMinorUnits = requireMinorUnitsOf(['amount'], t);
+  const requireRecentStart = requireRecentStartOf(today, t);
 
   return createSeriesFieldsFor(t).superRefine((series, ctx) => {
     requireSeriesMinorUnits(series, ctx);
     requireEndOf(series, series.startDate, ctx, t);
-
-    if (
-      earliestStart !== null &&
-      series.startDate !== '' &&
-      series.startDate < earliestStart
-    )
-      ctx.addIssue({
-        code: 'custom',
-        path: ['startDate'],
-        message: t('recurring.startTooEarly', {
-          months: FINANCE_LIMITS.OccurrenceHorizonMonths
-        })
-      });
+    requireRecentStart(series.startDate, 'startDate', ctx);
   });
 };
 
@@ -257,9 +209,6 @@ const stopSeriesSchemaFor = (
   });
 };
 
-const endDateOf = ({ endMode, endDate }: SeriesTerms) =>
-  endMode === 'date' ? endDate : null;
-
 const createPayloadOf = ({
   amountKind,
   endMode,
@@ -268,7 +217,7 @@ const createPayloadOf = ({
 }: CreateSeriesDraft): CreateRecurringExpenseRequestPayload => ({
   ...series,
   isVariable: amountKind === 'variable',
-  endDate: endDateOf({ amountKind, endMode, endDate })
+  endDate: endDateOf({ endMode, endDate })
 });
 
 const editPayloadOf = ({
@@ -279,124 +228,13 @@ const editPayloadOf = ({
 }: EditSeriesDraft): UpdateRecurringExpenseRequestPayload => ({
   ...changes,
   isVariable: amountKind === 'variable',
-  endDate: endDateOf({ amountKind, endMode, endDate })
+  endDate: endDateOf({ endMode, endDate })
 });
-
-/** The `index`-th day of the series, counted from its start as the API does. */
-export const occurrenceDayAt = (
-  frequency: RecurrenceFrequency,
-  startDate: string,
-  index: number
-) =>
-  frequency === 'WEEKLY'
-    ? shiftCalendarDay(startDate, index * 7)
-    : shiftCalendarDayByMonths(
-        startDate,
-        frequency === 'MONTHLY' ? index : index * 12
-      );
-
-const SeriesPreview: FC = () => {
-  const t = useTranslations('recurring.preview');
-  const tFinances = useTranslations('finances');
-  const { formatCalendarDay, formatList } = useFormat();
-  const { control } = useFormContext<CreateSeriesInput>();
-  const [frequency, startDate, endMode, endDate] = useWatch({
-    control,
-    name: ['frequency', 'startDate', 'endMode', 'endDate']
-  });
-
-  const end = endMode === 'date' && endDate !== '' ? endDate : null;
-  const days = Array.from({ length: PREVIEWED_OCCURRENCES }, (_, index) =>
-    occurrenceDayAt(frequency, startDate, index)
-  ).filter(
-    (day): day is string => day !== null && (end === null || day <= end)
-  );
-  const shownDays = days.map((day) => formatCalendarDay(day) ?? day);
-  const period = tFinances(`perPeriod.${frequency}`);
-  const shownEnd = end === null ? null : (formatCalendarDay(end) ?? end);
-
-  return (
-    <div
-      aria-live="polite"
-      className="space-y-1 rounded-lg border bg-muted/40 p-4 text-sm"
-    >
-      {days.length === 0 ? (
-        <p className="text-muted-foreground">{t('empty')}</p>
-      ) : (
-        <>
-          <p className="font-medium">
-            {t('first', { count: days.length, days: formatList(shownDays) })}
-          </p>
-
-          <p className="text-muted-foreground">
-            {shownEnd === null
-              ? t('then', { period })
-              : t('thenUntil', { period, day: shownEnd })}
-          </p>
-        </>
-      )}
-    </div>
-  );
-};
-
-const AmountKindChoice: FC = () => {
-  const t = useTranslations('recurring.form');
-  const { control, register } = useFormContext<SeriesTerms>();
-  const amountKind = useWatch({ control, name: 'amountKind' });
-
-  return (
-    <ChoiceField
-      legend={t('amountKind')}
-      hint={t(`amountKindHints.${amountKind}`)}
-    >
-      <SegmentedControl className="grid h-10 grid-cols-2">
-        {AMOUNT_KINDS.map((kind) => (
-          <SegmentedControlItem
-            key={kind}
-            value={kind}
-            {...register('amountKind')}
-          >
-            {t(`amountKinds.${kind}`)}
-          </SegmentedControlItem>
-        ))}
-      </SegmentedControl>
-    </ChoiceField>
-  );
-};
-
-const EndChoice: FC = () => {
-  const t = useTranslations('recurring.form');
-  const { control, register } = useFormContext<SeriesTerms>();
-  const endMode = useWatch({ control, name: 'endMode' });
-
-  return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <ChoiceField legend={t('ends')}>
-        <SegmentedControl className="grid h-10 grid-cols-2">
-          {END_MODES.map((mode) => (
-            <SegmentedControlItem
-              key={mode}
-              value={mode}
-              {...register('endMode')}
-            >
-              {t(`endModes.${mode}`)}
-            </SegmentedControlItem>
-          ))}
-        </SegmentedControl>
-      </ChoiceField>
-
-      {endMode === 'date' && (
-        <DayField name="endDate" label={t('endDate')} hint={t('endDateHint')} />
-      )}
-    </div>
-  );
-};
 
 export const CreateSeriesDialog: FC<
   FormDialogProps<CreateRecurringExpenseRequestPayload>
 > = ({ onCancel, onSubmit }) => {
   const t = useTranslations('recurring.form');
-  const tFinances = useTranslations('finances');
   const tValidation = useTranslations('validation');
   const tErrors = useTranslations('errors');
   const tActions = useTranslations('common.actions');
@@ -426,7 +264,6 @@ export const CreateSeriesDialog: FC<
 
   const {
     control,
-    register,
     handleSubmit,
     setError,
     formState: { isDirty, isSubmitting }
@@ -464,37 +301,23 @@ export const CreateSeriesDialog: FC<
           </DialogDescription>
         </DialogHeader>
 
-        <FormProvider {...methods}>
-          <form
-            id={formId}
-            noValidate
-            className="grid gap-6"
-            onSubmit={handleSubmit(submit)}
-          >
-            <FormSection title={t('scheduleSection')}>
+        <DialogBody>
+          <FormProvider {...methods}>
+            <form
+              id={formId}
+              noValidate
+              className="grid gap-6"
+              onSubmit={handleSubmit(submit)}
+            >
               <div className="grid gap-4 sm:grid-cols-2">
+                <DescriptionFields />
+
                 <MoneyField
                   name="amount"
                   currencyName="currency"
                   label={t('amount')}
                   currency={currency}
                 />
-
-                <AmountKindChoice />
-
-                <ChoiceField legend={t('frequency')} hint={t('frequencyHint')}>
-                  <SegmentedControl className="grid h-10 grid-cols-3">
-                    {RECURRENCE_FREQUENCIES.map((frequency) => (
-                      <SegmentedControlItem
-                        key={frequency}
-                        value={frequency}
-                        {...register('frequency')}
-                      >
-                        {tFinances(`frequencies.${frequency}`)}
-                      </SegmentedControlItem>
-                    ))}
-                  </SegmentedControl>
-                </ChoiceField>
 
                 <DayField
                   name="startDate"
@@ -505,18 +328,16 @@ export const CreateSeriesDialog: FC<
                 />
               </div>
 
-              <EndChoice />
+              <FormSection title={t('recurrenceSection')}>
+                <RecurrenceFields startName="startDate" />
+              </FormSection>
 
-              <SeriesPreview />
-            </FormSection>
+              <MoreDetailsFields />
 
-            <DescriptionFields />
-
-            <PaymentDetailsFields />
-
-            <FormRootError />
-          </form>
-        </FormProvider>
+              <FormRootError />
+            </form>
+          </FormProvider>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
@@ -599,40 +420,42 @@ export const EditSeriesDialog: FC<
           </DialogDescription>
         </DialogHeader>
 
-        <FormProvider {...methods}>
-          <form
-            id={formId}
-            noValidate
-            className="grid gap-6"
-            onSubmit={handleSubmit(submit)}
-          >
-            <InfoNote>{t('editNote')}</InfoNote>
+        <DialogBody>
+          <FormProvider {...methods}>
+            <form
+              id={formId}
+              noValidate
+              className="grid gap-6"
+              onSubmit={handleSubmit(submit)}
+            >
+              <InfoNote>{t('editNote')}</InfoNote>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <DayField name="effectiveFrom" label={t('effectiveFrom')} />
-            </div>
-
-            <FormSection title={t('scheduleSection')}>
               <div className="grid gap-4 sm:grid-cols-2">
+                <DescriptionFields />
+
                 <MoneyField
                   name="amount"
                   label={t('amount')}
                   currency={series.currency}
                 />
 
-                <AmountKindChoice />
+                <DayField name="effectiveFrom" label={t('effectiveFrom')} />
               </div>
 
-              <EndChoice />
-            </FormSection>
+              <FormSection title={t('recurrenceSection')}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <AmountKindChoice />
+                </div>
 
-            <DescriptionFields />
+                <EndChoice />
+              </FormSection>
 
-            <PaymentDetailsFields />
+              <MoreDetailsFields />
 
-            <FormRootError />
-          </form>
-        </FormProvider>
+              <FormRootError />
+            </form>
+          </FormProvider>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>
@@ -704,18 +527,20 @@ export const StopSeriesDialog: FC<
           <DialogDescription>{t('description')}</DialogDescription>
         </DialogHeader>
 
-        <FormProvider {...methods}>
-          <form
-            id={formId}
-            noValidate
-            className="grid gap-4"
-            onSubmit={handleSubmit(submit)}
-          >
-            <DayField name="effectiveFrom" label={t('effectiveFrom')} />
+        <DialogBody>
+          <FormProvider {...methods}>
+            <form
+              id={formId}
+              noValidate
+              className="grid gap-4"
+              onSubmit={handleSubmit(submit)}
+            >
+              <DayField name="effectiveFrom" label={t('effectiveFrom')} />
 
-            <FormRootError />
-          </form>
-        </FormProvider>
+              <FormRootError />
+            </form>
+          </FormProvider>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>

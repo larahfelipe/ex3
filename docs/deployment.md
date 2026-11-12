@@ -90,7 +90,14 @@ alias ex3-prod='docker compose --file ~/apps/ex3-prod/compose.prod.yaml --env-fi
    GitHub's runners reportedly have none either, so both use the pooler.
    Session mode keeps a connection per client, as a long-running server
    expects.
-4. Decide on backups before real data goes in: the free plan has no automatic
+4. Project Settings › Data API: turn it off. The app reaches the database only
+   through the pooler, and the Data API would otherwise serve the `public`
+   tables, where Prisma creates them, to anyone holding the project's `anon`
+   key. RLS is also on in every table, with no policy: it keeps the API roles
+   out and does not restrict the app, which connects as the tables' owner. A
+   table a later migration adds starts without RLS, which the Security Advisor
+   reports; with the Data API off, that report is not an exposure.
+5. Decide on backups before real data goes in: the free plan has no automatic
    backups and pauses a project after a week without activity (see
    [Backups](#backups)).
 
@@ -220,8 +227,11 @@ the workflow on GitHub's runners and Dependabot reading `compose.prod.yaml`.
 
 None of these could be run before the stack faced the internet:
 
-- The production URL opens over HTTPS, and signing up shows and passes the
-  Turnstile challenge.
+- The production URL opens over HTTPS, and signing up succeeds. Turnstile runs
+  only on submit and appears only when Cloudflare wants an interaction, so a
+  successful sign-up, requests to `challenges.cloudflare.com` in the browser's
+  Network tab and a solve in the widget's analytics are the evidence, with no
+  `bot_challenge_unavailable` in the backend's log.
 - **The visitor's address reaches the rate limiter.** After a sign-in, Supabase's
   SQL editor should show your public IP, not Cloudflare's or Docker's, at the
   end of a key:

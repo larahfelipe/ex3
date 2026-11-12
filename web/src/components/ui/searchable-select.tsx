@@ -17,7 +17,9 @@ import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { SELECT_ITEM_CLASS, SELECT_TRIGGER_CLASS } from './select';
 
-export type SearchableOption = Record<'value' | 'label', string>;
+/** A `description` shows under the label, and typing finds the option by it too: what a category holds, say. */
+export type SearchableOption = Record<'value' | 'label', string> &
+  Partial<Record<'description', string>>;
 
 type SearchableSelectProps = Record<
   'options',
@@ -47,7 +49,11 @@ export const optionsMatching = (
 
   return searched === ''
     ? options
-    : options.filter(({ label }) => searchTextOf(label).includes(searched));
+    : options.filter(({ label, description = '' }) =>
+        [label, description].some((text) =>
+          searchTextOf(text).includes(searched)
+        )
+      );
 };
 
 const isTypedCharacter = ({ key, altKey, ctrlKey, metaKey }: KeyboardEvent) =>
@@ -219,7 +225,7 @@ export const SearchableSelect = ({
             spellCheck={false}
             placeholder={t('search')}
             value={query}
-            className="h-10 w-full min-w-0 bg-transparent text-base outline-hidden placeholder:text-muted-foreground md:text-sm"
+            className="h-(--control-height) w-full min-w-0 bg-transparent text-base outline-hidden placeholder:text-muted-foreground md:text-sm"
             onChange={({ target }) => search(target.value)}
             onKeyDown={navigate}
           />
@@ -252,7 +258,17 @@ export const SearchableSelect = ({
                 </span>
               )}
 
-              {option.label}
+              {option.description === undefined ? (
+                option.label
+              ) : (
+                <span className="grid gap-0.5 py-0.5">
+                  <span>{option.label}</span>
+
+                  <span className="text-xs text-muted-foreground">
+                    {option.description}
+                  </span>
+                </span>
+              )}
             </div>
           ))}
         </div>

@@ -80,7 +80,7 @@ const CalendarDropdown = ({
     >
       <SelectTrigger
         aria-label={label}
-        className="h-8 w-auto gap-1 border-transparent px-2 font-medium hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&>svg]:transition-opacity hover:[&>svg]:opacity-100 data-[state=open]:[&>svg]:opacity-100"
+        className="h-8 w-auto gap-1 border-transparent bg-transparent px-2 text-sm font-medium hover:border-transparent hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&>svg]:transition-opacity hover:[&>svg]:opacity-100 data-[state=open]:[&>svg]:opacity-100 disabled:border-transparent"
       >
         <SelectValue />
       </SelectTrigger>
@@ -148,28 +148,29 @@ const Calendar = ({
         month: 'flex w-full flex-col gap-3',
         // The nav spans the caption row, over the month and year triggers, so
         // only its arrows take the pointer.
-        nav: 'pointer-events-none absolute inset-x-0 top-0 flex h-9 items-center justify-between',
+        nav: 'pointer-events-none absolute inset-x-0 top-0 flex h-10 items-center justify-between sm:h-9',
         button_previous: cn(
           buttonVariants({ variant: 'ghost', size: 'icon' }),
-          'pointer-events-auto size-9 aria-disabled:opacity-50'
+          'pointer-events-auto size-10 aria-disabled:opacity-50 sm:size-9'
         ),
         button_next: cn(
           buttonVariants({ variant: 'ghost', size: 'icon' }),
-          'pointer-events-auto size-9 aria-disabled:opacity-50'
+          'pointer-events-auto size-10 aria-disabled:opacity-50 sm:size-9'
         ),
-        month_caption: 'flex h-9 items-center justify-center px-10',
+        month_caption:
+          'flex h-10 items-center justify-center px-11 sm:h-9 sm:px-10',
         caption_label:
           'flex h-8 items-center gap-1 rounded-md px-2 font-medium',
         dropdowns: 'flex items-center gap-1',
         month_grid: 'w-full border-collapse',
         weekdays: 'flex',
         weekday:
-          'w-9 text-center text-[0.8rem] font-normal text-muted-foreground',
+          'w-10 text-center text-[0.8rem] font-normal text-muted-foreground sm:w-9',
         week: 'mt-1 flex w-full',
-        day: 'size-9 p-0 text-center',
+        day: 'size-10 p-0 text-center sm:size-9',
         day_button: cn(
           buttonVariants({ variant: 'ghost', size: 'icon' }),
-          'size-9 font-normal tabular-nums'
+          'size-10 font-normal tabular-nums sm:size-9'
         ),
         selected:
           '[&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary [&>button]:hover:text-primary-foreground',

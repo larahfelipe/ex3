@@ -1,13 +1,15 @@
 import { Inter, Raleway } from 'next/font/google';
 
+/**
+ * Both load as variable fonts, one file per subset for every weight, so
+ * semibold renders true instead of falling back to bold.
+ */
 export const inter = Inter({
-  weight: ['400', '500', '700'],
   subsets: ['latin'],
   variable: '--font-inter'
 });
 
 export const raleway = Raleway({
-  weight: ['400', '500', '700'],
   subsets: ['latin'],
   variable: '--font-raleway'
 });

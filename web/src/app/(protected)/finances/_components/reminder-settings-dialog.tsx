@@ -13,6 +13,7 @@ import { SubmitButton } from '@/components/submit-button';
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -129,51 +130,55 @@ export const ReminderSettingsDialog: FC<ReminderSettingsDialogProps> = ({
           <DialogDescription>{t('settings.description')}</DialogDescription>
         </DialogHeader>
 
-        <FormProvider {...methods}>
-          <form
-            id={formId}
-            noValidate
-            className="grid gap-4"
-            onSubmit={handleSubmit(submitSettings)}
-          >
-            <ChoiceField legend={t('settings.remindOf')}>
-              <ul className="divide-y rounded-md border">
-                {REMINDER_SWITCHES.map((key) => (
-                  <li key={key}>
-                    <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/50">
-                      <input
-                        type="checkbox"
-                        className="size-4 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-                        {...register(key)}
-                      />
-
-                      {t(`settings.switches.${key}`)}
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </ChoiceField>
-
-            <FormField
-              label={t('settings.leadDays')}
-              hint={t('settings.leadDaysHint', {
-                max: FINANCE_LIMITS.ReminderMaxLeadDays
-              })}
-              error={errors.reminderLeadDays?.message}
+        <DialogBody>
+          <FormProvider {...methods}>
+            <form
+              id={formId}
+              noValidate
+              className="grid gap-4"
+              onSubmit={handleSubmit(submitSettings)}
             >
-              {(fieldControl) => (
-                <NumberInput
-                  {...fieldControl}
-                  maxLength={String(FINANCE_LIMITS.ReminderMaxLeadDays).length}
-                  className="w-32 tabular-nums"
-                  {...register('reminderLeadDays')}
-                />
-              )}
-            </FormField>
+              <ChoiceField legend={t('settings.remindOf')}>
+                <ul className="divide-y rounded-md border">
+                  {REMINDER_SWITCHES.map((key) => (
+                    <li key={key}>
+                      <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/50">
+                        <input
+                          type="checkbox"
+                          className="size-4 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                          {...register(key)}
+                        />
 
-            <FormRootError />
-          </form>
-        </FormProvider>
+                        {t(`settings.switches.${key}`)}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </ChoiceField>
+
+              <FormField
+                label={t('settings.leadDays')}
+                hint={t('settings.leadDaysHint', {
+                  max: FINANCE_LIMITS.ReminderMaxLeadDays
+                })}
+                error={errors.reminderLeadDays?.message}
+              >
+                {(fieldControl) => (
+                  <NumberInput
+                    {...fieldControl}
+                    maxLength={
+                      String(FINANCE_LIMITS.ReminderMaxLeadDays).length
+                    }
+                    className="w-32 tabular-nums"
+                    {...register('reminderLeadDays')}
+                  />
+                )}
+              </FormField>
+
+              <FormRootError />
+            </form>
+          </FormProvider>
+        </DialogBody>
 
         <DialogFooter>
           <Button variant="outline" disabled={isSubmitting} onClick={onCancel}>

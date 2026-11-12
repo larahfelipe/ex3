@@ -16,11 +16,8 @@ export type ExpenseCategory =
   | 'EDUCATION'
   | 'LEISURE'
   | 'SUBSCRIPTIONS'
-  | 'INSURANCE'
-  | 'TAXES'
-  | 'DEBT'
+  | 'FINANCIAL'
   | 'SHOPPING'
-  | 'PERSONAL_CARE'
   | 'OTHER';
 
 export type PaymentMethod =

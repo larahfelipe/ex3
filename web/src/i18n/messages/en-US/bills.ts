@@ -83,9 +83,11 @@ export default {
     editTitle: 'Edit bill',
     addDescription: 'A bill stays outstanding until you record its payment.',
     editDescription: 'Amounts in {currency}.',
-    amountSection: 'Amount and due date',
     amount: 'Amount',
     dueDate: 'Due date',
+    repeats: 'Repeat this bill',
+    repeatsHint:
+      'Creates a recurring expense, with one bill every week, month or year from this due date',
     submitAdd: 'Add bill',
     failed: "Couldn't save the bill",
     originHints: {
@@ -100,16 +102,29 @@ export default {
     correctTitle: 'Correct payment of {description}',
     description:
       '{outstanding} outstanding of {amount}. A partial payment leaves the rest outstanding.',
-    section: 'Payment',
     amount: 'Amount paid',
     paidOn: 'Payment date',
     paidOnHint: 'The day the money went out, today at the latest',
+    paidToday: 'Today',
+    paidOnDueDate: 'Due date ({day})',
+    paidOnShortcuts: 'Quick dates',
     discount: 'Discount',
     discountHint: 'Settles part of the bill without being paid',
     fees: 'Interest and late fees',
     feesHint: 'Paid on top: they never settle the bill',
-    detailsSection: 'Details',
-    addDetails: 'Add payment method or notes',
+    optionalDetails: 'Optional details',
+    addDetail: {
+      discount: '<hidden>Add </hidden>Discount',
+      fees: '<hidden>Add </hidden>Interest and late fees',
+      method: '<hidden>Add </hidden>Payment method',
+      notes: '<hidden>Add </hidden>Notes'
+    },
+    removeDetail: {
+      discount: 'Remove<hidden> discount</hidden>',
+      fees: 'Remove<hidden> interest and late fees</hidden>',
+      method: 'Remove<hidden> payment method</hidden>',
+      notes: 'Remove<hidden> notes</hidden>'
+    },
     method: 'Payment method',
     notes: 'Notes',
     settlesInFull: 'Settles the whole bill',

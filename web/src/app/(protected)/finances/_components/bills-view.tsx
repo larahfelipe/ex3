@@ -79,7 +79,6 @@ import {
   TableRowHeader
 } from '@/components/ui';
 import {
-  useCreateExpense,
   useExpenses,
   useFinanceAlerts,
   useRecordPayment,
@@ -104,7 +103,7 @@ import { cn } from '@/lib/utils';
 import type { DecimalString } from '@/types';
 
 import { BillDialogs } from './bill-dialogs';
-import { ExpenseFormDialog } from './expense-form-dialog';
+import { AddBillDialog } from './expense-form-dialog';
 import {
   CalendarDayText,
   dueDistanceOf,
@@ -143,7 +142,8 @@ const PAGE_SIZE = 20;
 const DEFAULT_SORT_FIELD: ExpenseSortField = 'dueDate';
 const SEARCH_DEBOUNCE_MS = 300;
 const ALL_OPTION = 'all';
-const ACTIVE_FILTER_CLASS = 'border-primary/50 bg-primary/5 text-foreground';
+const ACTIVE_FILTER_CLASS =
+  'border-primary/50 bg-primary/5 text-foreground hover:border-primary/70';
 
 const LISTING_PARAMS = {
   Page: 'page',
@@ -475,7 +475,10 @@ const AmountFilter: FC<AmountFilterProps> = ({
         placeholder={t('anyAmount')}
         aria-invalid={issue !== null}
         aria-describedby={issue === null ? undefined : errorId}
-        className={cn('h-9', value !== undefined && ACTIVE_FILTER_CLASS)}
+        className={cn(
+          'h-(--control-height)',
+          value !== undefined && ACTIVE_FILTER_CLASS
+        )}
         onValueChange={edit}
         onRejectedPaste={(reading) =>
           setIssue(pastedAmountIssueOf(reading, tValidation, format))
@@ -512,7 +515,7 @@ const DayFilter: FC<
       <div className="flex gap-1">
         <div
           className={cn(
-            'min-w-0 flex-1 [&_button]:h-9',
+            'min-w-0 flex-1 [&_button]:h-(--control-height)',
             value !== undefined && '[&_button]:border-primary/50'
           )}
         >
@@ -527,7 +530,7 @@ const DayFilter: FC<
           <Button
             variant="ghost"
             size="icon"
-            className="size-9 shrink-0"
+            className="shrink-0"
             aria-label={t('clearDay', { label })}
             onClick={() => onChange(undefined)}
           >
@@ -558,7 +561,10 @@ const FilterSelect: FC<
   className
 }) => {
   const triggerId = useId();
-  const triggerClass = cn('h-9', isActive && ACTIVE_FILTER_CLASS);
+  const triggerClass = cn(
+    'h-(--control-height)',
+    isActive && ACTIVE_FILTER_CLASS
+  );
 
   return (
     <div className={cn('min-w-0 space-y-1.5', className)}>
@@ -625,7 +631,10 @@ const BillSort: FC<
             refine({ sortBy: field, sortOrder: firstOrderOf(field) });
         }}
       >
-        <SelectTrigger id={sortId} className="h-9 w-auto gap-1.5 max-sm:flex-1">
+        <SelectTrigger
+          id={sortId}
+          className="h-(--control-height) w-auto gap-1.5 max-sm:flex-1"
+        >
           <span aria-hidden="true" className="text-muted-foreground">
             {t('by')}
           </span>
@@ -645,7 +654,7 @@ const BillSort: FC<
       <Button
         variant="outline"
         size="icon"
-        className="size-9 shrink-0"
+        className="shrink-0"
         aria-label={t('descending')}
         aria-pressed={listing.sortOrder === 'desc'}
         title={t('descending')}
@@ -1028,7 +1037,6 @@ export const BillsView: FC = () => {
   const headingId = useId();
   const searchId = useId();
 
-  const { mutateAsync: createExpense } = useCreateExpense();
   const { mutateAsync: recordPayment } = useRecordPayment();
 
   const dueRange = orderedRange(
@@ -1161,7 +1169,7 @@ export const BillsView: FC = () => {
                       maxLength={FINANCE_LIMITS.SearchMaxLength}
                       value={searchInput}
                       onChange={({ target }) => setSearchInput(target.value)}
-                      className="h-9"
+                      className="h-(--control-height)"
                       leftElement={
                         <Search
                           aria-hidden="true"
@@ -1335,16 +1343,7 @@ export const BillsView: FC = () => {
         />
       )}
 
-      {isAdding && (
-        <ExpenseFormDialog
-          target={{ kind: 'create' }}
-          onCancel={() => setIsAdding(false)}
-          onSubmit={async (draft) => {
-            await createExpense(draft);
-            setIsAdding(false);
-          }}
-        />
-      )}
+      {isAdding && <AddBillDialog onClose={() => setIsAdding(false)} />}
     </div>
   );
 };

@@ -91,7 +91,7 @@ export default {
       '{frequency} a partir de {day}, em {currency}. Para mudar a frequência ou o início, interrompa esta recorrência e adicione uma nova.',
     editNote:
       'As alterações valem para as contas com vencimento a partir da data abaixo que não têm pagamento e não foram editadas individualmente. As contas anteriores mantêm os valores.',
-    scheduleSection: 'Valor e cronograma',
+    recurrenceSection: 'Recorrência',
     amount: 'Valor',
     amountKind: 'Tipo de valor',
     amountKinds: { fixed: 'Fixo', variable: 'Variável' },

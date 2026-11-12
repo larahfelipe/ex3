@@ -50,7 +50,22 @@ describe('finance history', () => {
         t,
         format
       ),
-      `valor: ${nbsp('US$ 100,00')} → ${nbsp('US$ 120,50')}; categoria: Alimentação → Saúde; valor variável: não → sim; observações: nenhum → Plano anual`
+      `valor: ${nbsp('US$ 100,00')} → ${nbsp('US$ 120,50')}; categoria: Alimentação → Saúde e bem-estar; valor variável: não → sim; observações: nenhum → Plano anual`
+    );
+  });
+
+  it('names a category no longer offered as it was recorded', () => {
+    assert.equal(
+      describeEvent(
+        {
+          type: 'UPDATED',
+          changes: { category: { from: 'INSURANCE', to: 'FINANCIAL' } }
+        },
+        'BRL',
+        t,
+        format
+      ),
+      'categoria: Seguros → Financeiro'
     );
   });
 

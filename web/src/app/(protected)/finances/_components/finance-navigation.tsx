@@ -38,7 +38,7 @@ export const FinanceNavigation: FC = () => {
                 href={path}
                 aria-current={isCurrent ? 'page' : undefined}
                 className={cn(
-                  '-mb-px inline-flex h-10 items-center border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors ring-offset-background hover:text-foreground focus-visible:rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2',
+                  '-mb-px inline-flex h-11 items-center border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors ring-offset-background hover:text-foreground focus-visible:rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 sm:h-10',
                   isCurrent && 'border-primary text-foreground'
                 )}
               >

@@ -20,7 +20,7 @@ export const SectionHeader: FC<SectionHeaderProps> = ({
         ref={ref}
         id={id}
         tabIndex={-1}
-        className="rounded-sm text-lg font-semibold leading-none tracking-tight ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
+        className="rounded-sm text-base font-semibold leading-none tracking-tight ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
       >
         {title}
       </h2>
