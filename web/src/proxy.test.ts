@@ -129,7 +129,6 @@ describe('the proxy, on a page', () => {
   });
 });
 
-/** The CSS sonner adds as a `<style>` when it loads, read from the installed package. */
 const toasterStylesheet = () => {
   const source = readFileSync(
     createRequire(import.meta.url).resolve('sonner'),

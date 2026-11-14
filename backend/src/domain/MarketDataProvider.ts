@@ -35,7 +35,6 @@ export type PriceHistoryLookup =
   | { outcome: 'range-not-served' }
   | MarketDataFailure;
 
-/** An instrument as the provider lists it, in one of the known markets. */
 export type Listing = Pick<Instrument, 'symbol' | 'name' | 'type'> &
   Record<'market' | 'currency', string>;
 
@@ -53,33 +52,6 @@ export type FundamentalsLookup =
       Record<'source', string>)
   | MarketDataFailure;
 
-/**
- * Where the domain gets market prices without depending on a provider SDK. An
- * instrument is priced by its catalog symbol, market and quote currency, which
- * an implementation translates into the provider's own code; an instrument it
- * cannot translate is `not-found`. `getQuotes` answers the latest price of each
- * instrument, with one entry per symbol asked for and the previous close when
- * the provider has one; a quote answered in place of one the provider failed
- * to give, the last it gave, carries `isFallback`. `getExchangeRates` answers, with one entry per currency
- * asked for, the price of one unit of it in `baseCurrency`; a currency without a
- * pair to `baseCurrency`, itself included, is `not-found`. `getHistoricalPrices`
- * answers the closing price of every `interval` starting from `range.from`,
- * inclusive, to `range.to`, exclusive, timestamped at the start of the interval
- * and in ascending order, or `range-not-served` when the provider keeps no
- * prices that old at that interval. `getHistoricalExchangeRate` answers that
- * same series for a pair of currencies, the daily closing price of one unit of
- * `currency` in `baseCurrency`, on the terms `getExchangeRates` states for the
- * pair and `getHistoricalPrices` for the range. `findListings` answers, for
- * each symbol asked for, every instrument the provider lists under it in a
- * known market, whose quote currency is the market's or, where the pair names
- * it, one of the currencies crypto is looked up in; a symbol asked for with a
- * currency is looked up only where it would be quoted in that currency.
- * `describeListing` answers the one listed under the symbol, market and
- * currency given, with its sector when the provider has one.
- * `getFundamentals` answers what the provider reports of each metric asked
- * for, leaving out one it does not report. Everything the provider returns is
- * untrusted input, validated before it is answered.
- */
 export interface MarketDataProvider {
   getQuotes: (
     instruments: ReadonlyArray<PricedInstrument>
@@ -108,7 +80,6 @@ export interface MarketDataProvider {
   ) => Promise<FundamentalsLookup>;
 }
 
-/** What a provider lists, which a catalog answers in part in its place. */
 export type ListingSource = Pick<
   MarketDataProvider,
   'findListings' | 'describeListing'
@@ -118,12 +89,6 @@ export type ListingCatalogLookup =
   | { outcome: 'listed'; listings: ReadonlyMap<string, DescribedListing> }
   | { outcome: 'unavailable' };
 
-/**
- * Every instrument a source lists in a market, by symbol and with its sector,
- * read whole so that looking up many symbols costs no request per symbol. A
- * symbol the catalog does not hold may still be listed elsewhere. Everything
- * the source returns is untrusted input, validated before it is answered.
- */
 export interface ListingCatalog {
   getListings: () => Promise<ListingCatalogLookup>;
 }

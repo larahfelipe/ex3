@@ -27,16 +27,12 @@ const SIGN_OUT_ROUTE = '/v1/user/sign-out';
 const ACCOUNT_ROUTE = '/v1/user';
 const USERS_ROUTE = '/v1/users';
 
-/** Answers 200 to any caller holding a current session, so its status reflects authentication alone. */
 const AUTHENTICATED_ROUTE = '/v1/portfolios';
 
-/** Mirrors the name `CreateUserService` gives the portfolio every account starts with. */
 const FIRST_PORTFOLIO_NAME = 'Main';
 
-/** `PersonNameSchema` bounds each of a person's names to this many characters. */
 const PERSON_NAME_MAX_LENGTH = 255;
 
-/** `CreatePortfolioSchema` bounds a portfolio name to this many characters. */
 const PORTFOLIO_NAME_MAX_LENGTH = 60;
 
 /**
@@ -49,23 +45,16 @@ const CONCURRENT_SIGN_UPS = 3;
 const PASSWORD_MIN_CODE_POINTS = 8;
 const PASSWORD_MAX_BYTES = 72;
 
-/** `!`, the first printable ASCII character: one code point, one UTF-8 byte. */
 const PRINTABLE_ASCII_START = 0x21;
 
-/** `😀`, the first of a run of emoji: each one code point, two UTF-16 code units, four UTF-8 bytes. */
 const ASTRAL_START = 0x1f600;
 const ASTRAL_CHARACTER_BYTES = 4;
 
-/** No two characters alike, so the rule against repeating one is not what decides a length case. */
 const distinctCharacters = (firstCodePoint: number, count: number) =>
   String.fromCodePoint(
     ...Array.from({ length: count }, (_, offset) => firstCodePoint + offset)
   );
 
-/**
- * One second after the Unix epoch: expired under any clock, and with
- * `noTimestamp` the signed token is byte-identical on every run.
- */
 const EXPIRED_AT_EPOCH_SECONDS = 1;
 
 const NEW_USER = {
@@ -78,10 +67,8 @@ const NEW_USER = {
 
 const REPLACEMENT_PASSWORD = 'replacement-password';
 
-/** Below any cost `BCRYPT_SALT` accepts, as a digest stored before the cost was raised would be. */
 const LEGACY_BCRYPT_COST = 4;
 
-/** Interleaved pairs, so a change in machine load falls on both branches alike. */
 const TIMING_SAMPLES = 15;
 
 /**
@@ -91,7 +78,6 @@ const TIMING_SAMPLES = 15;
  */
 const MIN_TIMING_RATIO = 0.6;
 
-/** A documentation range (RFC 5737): one address per attempt keeps every budget out of the measurement. */
 const TIMING_NETWORK = '198.51.100';
 
 type HttpMethod = 'get' | 'post' | 'patch' | 'delete';
@@ -148,10 +134,6 @@ const encodeSegment = (value: object) =>
 const unsignedToken = (payload: object) =>
   `${encodeSegment({ alg: 'none', typ: 'JWT' })}.${encodeSegment(payload)}.`;
 
-/**
- * Claims matching the stored session, so the only condition left to reject a
- * crafted token is the one the test is about.
- */
 const currentSessionClaims = (user: Pick<User, 'id' | 'sessionVersion'>) => ({
   sub: user.id,
   sessionVersion: user.sessionVersion
@@ -519,11 +501,6 @@ describe('authentication', () => {
       assert.deepEqual(wrongPassword.body, unknownEmail.body);
     });
 
-    /**
-     * One bcrypt verification per attempt, at one cost, is the deterministic
-     * evidence that both branches do equal work; the timing test below only
-     * catches a difference large enough to stand out of the noise.
-     */
     it('verifies a password even when the email is unknown', async (t) => {
       const compare = t.mock.method(
         Bcrypt.getInstance(envs.bcryptSalt),
@@ -691,7 +668,6 @@ describe('authentication', () => {
       assert.equal(res.status, 200);
     });
 
-    /** Back-to-back sign-ins share `iat`, which made their tokens identical before session versions. */
     it('issues a distinct token on every sign-in and revokes the previous one', async () => {
       const { user } = await seedPortfolio();
       const credentials = { email: user.email, password: FIXTURE_PASSWORD };

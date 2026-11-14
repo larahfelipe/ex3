@@ -39,10 +39,6 @@ export const readPortfolioHoldings = async (
   };
 };
 
-/**
- * Only the valued positions are quoted, and every other one is still reported,
- * priced by the ledger alone.
- */
 export const quoteHoldings = async (
   marketDataProvider: MarketDataProvider,
   holdings: PricedHoldings,

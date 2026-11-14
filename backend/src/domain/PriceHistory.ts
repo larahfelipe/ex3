@@ -30,14 +30,6 @@ const extremesOf = (stored: ReadonlyArray<StoredClose>) =>
     null
   );
 
-/**
- * What to ask the provider for so a series already stored is not fetched again:
- * the part of the range before the oldest close stored and the part after the
- * newest, in ascending order. The current day in UTC is never asked, because it
- * has no close yet and asking would spend a provider request on every read. A
- * day between the extremes is never asked again either: a day without a close
- * is a day the market did not trade.
- */
 export const missingRangesOf = (
   stored: ReadonlyArray<StoredClose>,
   { from, to }: PriceRange,

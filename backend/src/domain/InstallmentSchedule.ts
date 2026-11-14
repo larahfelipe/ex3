@@ -15,23 +15,14 @@ export type ScheduledInstallment = {
 };
 
 export type InstallmentTerms = {
-  /** Either the sum of the installments, which is split, or each installment's amount. */
   amount: { totalAmount: string } | { installmentAmount: string };
   count: number;
   firstDueDate: Date;
   frequency: RecurrenceFrequency;
   currency: string;
-  /** The number the first scheduled installment takes: 1 for a new plan, the next free one when rescheduling. */
   firstNumber: number;
 };
 
-/**
- * One installment per period of the frequency from the first due date, each
- * counted from it as a recurring series' occurrences are (see
- * `occurrenceAt`): a monthly installment falls on the first's day of the
- * month or the month's last day when shorter. Null when the total is too
- * small to give every installment a minor unit.
- */
 export const scheduleInstallments = ({
   amount,
   count,
@@ -80,11 +71,6 @@ export type InstallmentPlanProgress = {
   lastDueDate: string | null;
 };
 
-/**
- * Totals of the installments that are owed, so a cancelled installment counts
- * neither in the total nor in what remains. A plan whose remaining
- * installments are all paid is complete; a cancelled plan stays cancelled.
- */
 export const describeInstallmentPlan = (
   installments: ReadonlyArray<PlanInstallment>,
   {
@@ -131,11 +117,6 @@ export const describeInstallmentPlan = (
   };
 };
 
-/**
- * The installments a reschedule may replace: those after the last one with any
- * payment, so every paid or partly paid installment, and every one before it,
- * stays as it is.
- */
 export const reschedulableInstallments = <
   Installment extends { installmentNumber: number; hasPayments: boolean }
 >(

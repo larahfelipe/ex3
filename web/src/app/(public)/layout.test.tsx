@@ -22,7 +22,6 @@ const markup = renderToStaticMarkup(
 
 const HIDDEN_OPENING = '<div aria-hidden="true"';
 
-/** Each `aria-hidden` element, from its opening tag to the one that closes it. */
 const hiddenBlocksOf = (html: string) => {
   const blocks: Array<string> = [];
 
@@ -49,7 +48,6 @@ const hiddenBlocksOf = (html: string) => {
 
 const WORDMARK = `<span class="font-display font-bold">${APP_TITLE}</span>`;
 
-/** The class of the paragraph that sets the wordmark. */
 const brandClassOf = (html: string) =>
   new RegExp(`<p class="([^"]+)">${WORDMARK}`).exec(html)?.[1];
 

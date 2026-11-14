@@ -39,11 +39,6 @@ import type {
 
 import { generateDueOccurrences } from './OccurrenceHorizon';
 
-/**
- * The overview of one currency on the reference day: what is still owed in
- * all, what is overdue and due soon, the current month planned against paid,
- * the months before it, and what is committed for the months ahead.
- */
 export class GetFinanceSummaryService {
   private static INSTANCE: GetFinanceSummaryService;
   private readonly financeReportRepository: FinanceReportRepository;
@@ -200,25 +195,16 @@ namespace GetFinanceSummaryService {
     Record<'today', Date>;
   export type Result = {
     currency: string;
-    /** Every currency the user has records in, for choosing which to view. */
     currencies: Array<string>;
     today: CalendarDay;
     month: CalendarMonth;
     reminders: FinanceSettings;
-    /**
-     * Every open expense, whenever due, except the recurring ones due after
-     * the current month: those are projections, in `commitments`.
-     */
     outstanding: AmountCount;
     overdue: AmountCount;
-    /** The open expenses due within the lead days, of the kinds the reminders cover. */
     dueSoon: AmountCount;
-    /** The current month: scheduled is what was planned, paid what actually left. */
     current: PeriodTotals;
-    /** The current month against the previous one. */
     change: Record<'scheduled' | 'paid', Change>;
     trend: Array<MonthlyFigures>;
-    /** What is still to pay in the current month and the ones after it, by origin. */
     commitments: Array<CommitmentFigures>;
     categories: Array<CategoryFigures>;
     installments: {
@@ -228,7 +214,6 @@ namespace GetFinanceSummaryService {
     };
     recurring: {
       activeSeries: number;
-      /** What the active series cost a month on average: a projection, not a contracted amount. */
       monthlyEquivalent: string;
       series: Array<RecurringExpense>;
     };

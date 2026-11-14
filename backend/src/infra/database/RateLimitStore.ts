@@ -19,7 +19,6 @@ type CounterRow = { hits: number; resetAt: Date };
 
 const MS_PER_SECOND = 1000;
 
-/** Assumed, not measured: often enough that expired counters stay few. */
 const SWEEP_INTERVAL_MS = 10 * 60 * MS_PER_SECOND;
 
 const toRateLimitInfo = ({ hits, resetAt }: CounterRow) => ({
@@ -140,7 +139,6 @@ export class RateLimitStore implements Store {
     this.sweepTimer = undefined;
   }
 
-  /** Counters whose window closed answer nothing, so removing them is upkeep. */
   async sweep() {
     await this.run(
       'sweep',

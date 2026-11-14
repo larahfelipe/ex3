@@ -13,11 +13,6 @@ import { healthRouter, router } from '@/routes';
 
 import { envs } from './Envs';
 
-/**
- * An empty allowlist means no browser origin is trusted, which still lets
- * non-browser clients (no `Origin` header) through. `CORS_ALLOWED_ORIGINS` is
- * mandatory in production, so this only ever relaxes local development.
- */
 const corsOptions: CorsOptions = {
   origin: (origin, callback) => {
     if (!origin || envs.corsAllowedOrigins.includes(origin))
@@ -41,10 +36,6 @@ app.disable('x-powered-by');
  */
 app.set('trust proxy', envs.isProduction ? 1 : false);
 
-/**
- * Every answer is JSON for one caller, about one account, so no cache on the
- * way may keep it, and no page may embed or execute it.
- */
 const helmetOptions: Parameters<typeof helmet>[0] = {
   contentSecurityPolicy: {
     useDefaults: false,

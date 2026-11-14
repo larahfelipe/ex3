@@ -31,7 +31,6 @@ const decodeText = (bytes: Buffer) => {
   }
 };
 
-/** The delimiter that splits the first line, outside quotes, into the most fields; `;` on a tie, as Brazilian files use it. */
 const delimiterOf = (text: string): CsvDelimiter => {
   const counts = new Map<CsvDelimiter, number>(
     DELIMITERS.map((delimiter) => [delimiter, 0])
@@ -53,12 +52,6 @@ const delimiterOf = (text: string): CsvDelimiter => {
   );
 };
 
-/**
- * A delimited text file as one sheet of text cells, read as RFC 4180 has it: a
- * quoted field may hold the delimiter, line breaks and doubled quotes, and
- * lines end in CRLF, LF or CR. A row is numbered by its record, as the
- * spreadsheet that opens the file numbers it.
- */
 export const readCsvTable = (
   bytes: Buffer,
   { maxRows, maxColumns, maxCellLength }: SheetLimits

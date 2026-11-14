@@ -16,12 +16,6 @@ import {
   type ImportPreview
 } from './ImportFile';
 
-/**
- * Records the rows a preview selected, all of them or none: the file is read
- * and planned again as the portfolio stands when it is recorded, and a plan
- * that would record any other rows, because the portfolio or the listings
- * changed since the preview, records nothing and asks for a new preview.
- */
 export class CreateTransactionImportService {
   private static INSTANCE: CreateTransactionImportService;
   private readonly transactionImportRepository: TransactionImportRepository;

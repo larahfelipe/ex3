@@ -7,7 +7,6 @@ import type { DecimalString } from '@/types';
  * through binary floating point.
  */
 
-/** The API stores quantities and amounts as DECIMAL(38,18) and rejects what the column would round. */
 export const DECIMAL_COLUMN = { PRECISION: 38, SCALE: 18 } as const;
 
 export const INTEGER_DIGITS = DECIMAL_COLUMN.PRECISION - DECIMAL_COLUMN.SCALE;
@@ -40,7 +39,6 @@ const escapeForPattern = (separator: string) => `\\${separator}`;
 
 const localeSeparators = new Map<Locale, LocaleSeparators>();
 
-/** The separators a language writes numbers with: "," before the decimals in pt-BR, "." in en-US. */
 const separatorsOf = (locale: Locale): LocaleSeparators => {
   const cached = localeSeparators.get(locale);
 
@@ -127,16 +125,9 @@ const interpretSeparators = (
   return { outcome: 'read', value: compact.replace(separator, '.') };
 };
 
-/** Unsigned, without leading zeros, and within what the column stores unrounded. */
 export const isStorableDecimal = (value: string): value is DecimalString =>
   STORABLE_DECIMAL_PATTERN.test(value);
 
-/**
- * Reads a number as a person writes it, in `locale` or in the other
- * convention: a lone separator before the decimals, and dots or commas between
- * groups of three digits. With both, the last one separates the decimals. Only
- * what the column stores is read.
- */
 export const readDecimal = (locale: Locale, text: string): DecimalReading => {
   const reading = interpretSeparators(
     text.replace(/\s/gu, ''),
@@ -150,10 +141,6 @@ export const readDecimal = (locale: Locale, text: string): DecimalReading => {
   return isStorableDecimal(value) ? { outcome: 'read', value } : UNREADABLE;
 };
 
-/**
- * `value` as a person types it in `locale`, with its decimal separator and no
- * grouping, which `readDecimal` reads back as `value`.
- */
 export const decimalInputTextOf = (locale: Locale, value: string) =>
   value.replace('.', separatorsOf(locale).decimal);
 
@@ -169,7 +156,6 @@ export const unitsOf = (value: string, scale: number) => {
   return BigInt(`${whole}${fraction.padEnd(scale, '0')}`);
 };
 
-/** -1, 0 or 1 as `a` is below, equal to or above `b`, exactly, for storable decimals. */
 export const compareDecimals = (a: string, b: string) => {
   const scale = Math.max(decimalPlacesOf(a), decimalPlacesOf(b));
   const difference = unitsOf(a, scale) - unitsOf(b, scale);
@@ -177,7 +163,6 @@ export const compareDecimals = (a: string, b: string) => {
   return difference === 0n ? 0 : difference > 0n ? 1 : -1;
 };
 
-/** A nonnegative count of 10^-scale units, written with exactly `scale` decimal places. */
 export const decimalOfUnits = (units: bigint, scale: number) => {
   const digits = units.toString().padStart(scale + 1, '0');
 
@@ -186,7 +171,6 @@ export const decimalOfUnits = (units: bigint, scale: number) => {
   ) as DecimalString;
 };
 
-/** To `scale` decimal places, halves away from zero, for a storable `value`. */
 export const roundDecimal = (value: string, scale: number) => {
   const places = decimalPlacesOf(value);
 
@@ -200,10 +184,6 @@ export const roundDecimal = (value: string, scale: number) => {
   return decimalOfUnits(hasRoundedUp ? quotient + 1n : quotient, scale);
 };
 
-/**
- * `value` moved by `count` whole units, keeping its decimals, or null when
- * the result would not be positive or would not fit the column.
- */
 export const shiftByWholeUnits = (value: string, count: number) => {
   const places = decimalPlacesOf(value);
   const units = unitsOf(value, places) + BigInt(count) * 10n ** BigInt(places);

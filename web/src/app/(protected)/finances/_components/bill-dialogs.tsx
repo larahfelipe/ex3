@@ -371,10 +371,6 @@ const BillDetails: FC<BillDetailsProps> = ({
   );
 };
 
-/**
- * Everything done to one bill: its details, and the dialogs its actions open.
- * The details stay underneath each action, so cancelling one returns to them.
- */
 export const BillDialogs: FC<BillDialogsProps> = ({ expenseId, onClose }) => {
   const t = useTranslations('bills');
   const tErrors = useTranslations('errors');

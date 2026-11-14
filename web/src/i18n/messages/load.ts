@@ -5,10 +5,6 @@ import {
   type Messages
 } from './catalog';
 
-/**
- * Each catalog in a chunk of its own: the page arrives with the request's
- * catalog, and the browser downloads another only when a person picks it.
- */
 const CATALOG_LOADERS: Readonly<
   Record<Locale, () => Promise<Record<'default', LocaleMessages>>>
 > = {

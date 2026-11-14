@@ -37,7 +37,6 @@ type MoneyInputProps = Omit<
   'type' | 'inputMode' | 'value' | 'onChange' | 'onPaste'
 > & {
   value: string;
-  /** Decimal places typed digits fill; a value written with more keeps them. */
   decimals: number;
   onValueChange: (value: string) => void;
   onRejectedPaste: (reading: RejectedAmount) => void;
@@ -54,11 +53,6 @@ type CurrencySelectProps = Record<'value', string> &
   Partial<Record<'ref', Ref<HTMLButtonElement>>> &
   Pick<AriaAttributes, 'aria-invalid' | 'aria-describedby'>;
 
-/**
- * What opens an amount field, the currency's symbol or a selector of it,
- * joined to the field's edge and set in the figures' own size, so both share
- * one baseline.
- */
 const CURRENCY_ADDON_CLASS =
   'relative -mr-px h-(--field-height) shrink-0 rounded-l-md rounded-r-none border border-input px-3 text-base font-medium md:text-sm focus-visible:z-10 group-data-invalid/amount:border-negative';
 
@@ -73,7 +67,6 @@ const PASTED_AMOUNT_MAX_LENGTH = 64;
 
 const DELETION_INPUT_TYPE_PREFIX = 'delete';
 
-/** Drops a currency sign or code around the amount, as in "R$ 1.234,56" or "12.50 USD". */
 const amountTextOf = (pasted: string) => {
   const characters = Array.from(pasted);
   const start = characters.findIndex((c) => !AFFIX_CHARACTER.test(c));
@@ -86,13 +79,6 @@ const isDeletion = (event: ChangeEvent<HTMLInputElement>) =>
   event.nativeEvent instanceof InputEvent &&
   event.nativeEvent.inputType.startsWith(DELETION_INPUT_TYPE_PREFIX);
 
-/**
- * Digits enter from the right, as on a cash machine: typing 1, 2, 5 and 0
- * reads 12.50, and deleting takes the last digit back. Separators are never
- * typed, so no locale can misread them; a pasted amount is read whole, with
- * either convention, instead of digit by digit. The form holds the plain
- * decimal the API takes, and only the display is grouped.
- */
 export const MoneyInput: FC<MoneyInputProps> = ({
   value,
   decimals,
@@ -148,12 +134,6 @@ export const MoneyInput: FC<MoneyInputProps> = ({
   );
 };
 
-/**
- * The amount with its currency attached: the symbol leads the figures, as
- * text or as `currencyControl`, a selector of it. The amount is held apart
- * from the currency, so choosing another one leaves the figures as typed:
- * nothing is converted.
- */
 export const CurrencyAmountInput: FC<CurrencyAmountInputProps> = ({
   currency,
   currencyControl,
@@ -192,7 +172,6 @@ export const CurrencyAmountInput: FC<CurrencyAmountInputProps> = ({
   );
 };
 
-/** The offered currencies, and the one given when it is not among them, such as a stored record's. */
 export const CurrencySelect: FC<CurrencySelectProps> = ({
   value,
   name,

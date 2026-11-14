@@ -82,12 +82,6 @@ const PAYMENT_ORDER = [
   { id: 'asc' }
 ] as const satisfies Array<Prisma.ExpensePaymentOrderByWithRelationInput>;
 
-/**
- * Every read and write is filtered by the owner, so an id taken from a request
- * never reaches another user's rows; a write by id follows its lookup inside
- * the same serializable transaction, so the payments a settlement is computed
- * from cannot change before it commits.
- */
 export class ExpenseRepository {
   private static INSTANCE: ExpenseRepository;
   private prismaClient: PrismaClient;
@@ -230,7 +224,6 @@ export class ExpenseRepository {
     };
   }
 
-  /** The new expense owes its whole amount: creating it records no payment. */
   async add(params: ExpenseRepository.AddParams) {
     const { userId, ...expense } = params;
 
@@ -251,11 +244,6 @@ export class ExpenseRepository {
     });
   }
 
-  /**
-   * An edit of an installment or occurrence marks it customized, so edits of
-   * its plan or series leave it as it is. A new amount is checked against what
-   * the payments already settled and resettles the expense.
-   */
   async update(
     params: ExpenseRepository.UpdateParams
   ): Promise<ExpenseRepository.Write> {
@@ -344,11 +332,6 @@ export class ExpenseRepository {
     );
   }
 
-  /**
-   * Only a one-time expense without active payments is deleted, along with its
-   * voided payments and its history: deletion is for an expense entered by
-   * mistake. Anything else is cancelled, which keeps it.
-   */
   async delete(
     params: ExpenseRepository.GetByIdParams
   ): Promise<ExpenseRepository.Write> {
@@ -443,7 +426,6 @@ export class ExpenseRepository {
     );
   }
 
-  /** A correction replaces the payment's values and resettles the expense; the history keeps the previous ones. */
   async updatePayment(
     params: ExpenseRepository.UpdatePaymentParams
   ): Promise<ExpenseRepository.PaymentWrite> {
@@ -515,7 +497,6 @@ export class ExpenseRepository {
     );
   }
 
-  /** A voided payment is kept, marked, and settles nothing from then on. */
   async voidPayment(
     params: ExpenseRepository.PaymentParams
   ): Promise<ExpenseRepository.Write> {
@@ -571,7 +552,6 @@ export class ExpenseRepository {
     );
   }
 
-  /** Most recent payment day first. */
   async getPayments(params: PaymentListQuery): Promise<Page<ListedPayment>> {
     const {
       userId,

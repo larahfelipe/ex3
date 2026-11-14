@@ -38,7 +38,6 @@ updates:
     cooldown:
       default-days: 7
 
-  # The pinned `cloudflared` of compose.prod.yaml, and the images of compose.yaml.
   - package-ecosystem: docker-compose
     directory: /
     schedule:

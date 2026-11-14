@@ -8,7 +8,6 @@ declare module 'express-serve-static-core' {
     user: User;
     requestId?: string;
     errorCode?: string;
-    /** Set by `express-rate-limit` under its default `requestPropertyName`. */
     rateLimit?: RateLimitInfo;
   }
 }

@@ -16,14 +16,6 @@
   }
 }
 
-/*
- * The light of the authentication pages, from the `--brand-glow-*` tokens: one
- * warm source just below the bottom edge, its amber core cooling to orange and
- * then rose, over a violet haze that sinks into the deep indigo base, and a
- * faint violet light in the far corner for depth. Each layer fades along a
- * smoothstep, flat at its core and at its rim, so none shows an edge. Flipped
- * vertically, it falls from the top edge instead.
- */
 @utility bg-brand-glow {
   background-color: hsl(var(--brand-glow-base));
   background-image:
@@ -140,7 +132,6 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
 
-  /* Each shadow's top edge catches the light: a highlight that shows only where the theme sets one. */
   --shadow-surface:
     inset 0 1px 0 0 hsl(var(--surface-highlight)),
     0 1px 2px 0 hsl(var(--surface-shade));
@@ -261,11 +252,6 @@
     --navigation-rail: 5rem;
     --navigation-sidebar: 13rem;
     --navigation-bar: 3.75rem;
-    /*
-     * Below `sm`, where navigation is the bottom bar, every field and control
-     * is a 44 px touch target. From `sm` on, fields stand a step taller than
-     * the buttons, and a toolbar sets its fields to the buttons' height.
-     */
     --field-height: 2.75rem;
     --control-height: 2.75rem;
 

@@ -13,17 +13,10 @@ export type Settlement =
       outcome: 'settled';
       settledAmount: string;
       outstandingAmount: string;
-      /** The latest payment day once the payments cover the whole amount, null before. */
       settledOn: Date | null;
     }
   | { outcome: 'over-settled' };
 
-/**
- * Rebuilt from every active payment on each write, never incremented, so a
- * corrected or voided payment leaves no stale balance. A payment set that
- * settles more than the amount is refused: no payment can be recorded twice
- * into an overpayment.
- */
 export const settleExpense = (
   amount: DecimalInput,
   payments: ReadonlyArray<SettlingPayment>
@@ -62,10 +55,6 @@ export type StatusInputs = {
   cancelledAt: Date | null;
 };
 
-/**
- * Overdue is a matter of the day it is asked on, so the status is derived on
- * each read and never stored: due on the reference day is still pending.
- */
 export const expenseStatusOf = (
   { dueDate, settledOn, cancelledAt }: StatusInputs,
   today: Date

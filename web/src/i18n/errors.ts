@@ -6,11 +6,6 @@ type MessageFallbackInfo = Record<'error', IntlError> &
 
 const isProduction = process.env.NODE_ENV === 'production';
 
-/**
- * A key the catalog lacks is a defect the compiler normally catches; one that
- * slips through, such as a key built at run time, is reported while developing
- * and testing, and production shows its path instead of failing the page.
- */
 export const reportIntlError = (error: IntlError) => {
   if (isProduction) return;
 
@@ -21,6 +16,5 @@ export const reportIntlError = (error: IntlError) => {
   );
 };
 
-/** The key's full path, so a missing message is visible and searchable rather than blank. */
 export const messageFallbackOf = ({ key, namespace }: MessageFallbackInfo) =>
   namespace === undefined ? key : `${namespace}.${key}`;

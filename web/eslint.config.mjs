@@ -100,8 +100,6 @@ export default defineConfig(
       'react/jsx-newline': 'warn',
       'react/jsx-no-target-blank': 'warn',
       'react/jsx-no-useless-fragment': 'warn',
-      // Every word the interface shows comes from the message catalogs in
-      // src/i18n, so text written straight into JSX is a missed translation.
       'react/jsx-no-literals': [
         'error',
         {

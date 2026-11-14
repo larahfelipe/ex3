@@ -26,13 +26,6 @@ export class MarketQuoteRepository {
     return MarketQuoteRepository.INSTANCE;
   }
 
-  /**
-   * Each price is the close of a trading day, keyed by the start of that day in
-   * UTC. The unique index on instrument, day and source is the only authority on
-   * whether a day is already recorded, so a day recorded twice keeps the price
-   * first observed and concurrent backfills of one day write it once. Resolves
-   * to how many days were new.
-   */
   async recordDailyCloses(
     params: MarketQuoteRepository.RecordDailyClosesParams
   ) {
@@ -52,11 +45,6 @@ export class MarketQuoteRepository {
     return count;
   }
 
-  /**
-   * The closes stored for the instrument from `from`, inclusive, to `to`,
-   * exclusive, in ascending order of day. Every source is answered, so a day
-   * observed by two sources is two entries.
-   */
   async getDailyCloses(params: MarketQuoteRepository.GetDailyClosesParams) {
     const { instrumentId, from, to } = params;
 

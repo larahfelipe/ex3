@@ -21,7 +21,6 @@ export type SeriesTerms = Record<'amountKind', AmountKind> &
   Record<'endMode', EndMode> &
   Record<'endDate', string>;
 
-/** The day a new series starts on: its own field, or the due date of the bill it repeats. */
 type StartField = 'startDate' | 'dueDate';
 
 type RecurrenceInput = SeriesTerms &
@@ -58,7 +57,6 @@ export const requireEndOf = (
     });
 };
 
-/** The API generates a new series' bills from no further back than `OccurrenceHorizonMonths`. */
 export const requireRecentStartOf = (
   today: string,
   t: ValidationTranslator
@@ -86,7 +84,6 @@ export const endDateOf = ({
 }: Pick<SeriesTerms, 'endMode' | 'endDate'>) =>
   endMode === 'date' ? endDate : null;
 
-/** The `index`-th day of the series, counted from its start as the API does. */
 export const occurrenceDayAt = (
   frequency: RecurrenceFrequency,
   startDate: string,
@@ -218,10 +215,6 @@ const FrequencyChoice: FC = () => {
   );
 };
 
-/**
- * How a new series repeats from the day in `startName`: how often, whether its
- * amount is fixed, when it ends, and the first bills that makes.
- */
 export const RecurrenceFields: FC<StartFieldProps> = ({ startName }) => (
   <>
     <div className="grid gap-4 sm:grid-cols-2">

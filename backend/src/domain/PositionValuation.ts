@@ -41,14 +41,6 @@ export const ValuationDecimal = Prisma.Decimal.clone({
 export const truncateToColumnScale = (value: Prisma.Decimal) =>
   value.toDecimalPlaces(DecimalColumn.SCALE, ValuationDecimal.ROUND_DOWN);
 
-/**
- * `marketValue` is quantity × quoted price, in the quote currency. The invested
- * value is in the ledger currency, so `profitLoss` is given only when both are
- * the same: a ledger without transactions has no currency, and different
- * currencies only add up through an exchange rate. `profitLossPercent` is
- * `profitLoss ÷ investedValue` as a fraction, absent when nothing is invested.
- * Every value is truncated towards zero at the column scale.
- */
 export const valuePosition = (
   { quantity, investedValue, ledgerCurrency }: HeldPosition,
   lookup: QuoteLookup

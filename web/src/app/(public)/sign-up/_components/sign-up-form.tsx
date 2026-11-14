@@ -172,7 +172,6 @@ export const SignUpForm: FC<SignUpFormProps> = ({ challengeSiteKey }) => {
       goToStep(stepOf(field), field);
   };
 
-  /** The password fields are left out, so typing a password never shows or clears an error until the step is submitted. */
   const validateOnChange = (
     field: 'firstName' | 'lastName' | 'email' | 'portfolioName'
   ) => ({

@@ -67,7 +67,6 @@ const ALLOCATION_VIEWS: AllocationView[] = [
   'currency'
 ];
 
-/** A group key no sector or currency code can take. */
 const UNKNOWN_GROUP_KEY = '-';
 
 const ALLOCATION_COLORS: AllocationColor[] = [
@@ -89,7 +88,6 @@ const ALLOCATION_TAIL_COLOR: AllocationColor = {
   swatch: 'bg-muted-foreground'
 };
 
-/** How many of the largest positions the concentration adds up. */
 export const TOP_POSITIONS_COUNT = 3;
 
 const RING_CIRCUMFERENCE = 100;
@@ -101,7 +99,6 @@ const RING_VIEW_BOX = `0 0 ${2 * RING_CENTER} ${2 * RING_CENTER}`;
 const CHART_LAYOUT_CLASS_NAME =
   'flex flex-col items-center gap-6 @md:flex-row @md:items-start';
 
-/** Largest share first; a group without a share, unpriced, goes last in the API's order. */
 const compareShareDescending = (
   { allocation: left }: Pick<AllocationGroup, 'allocation'>,
   { allocation: right }: Pick<AllocationGroup, 'allocation'>
@@ -112,11 +109,6 @@ const compareShareDescending = (
   return Number(right) - Number(left);
 };
 
-/**
- * A sector is reported for companies alone, so the view is offered once one
- * position has it; a single currency splits nothing, so its view is offered
- * once there are two.
- */
 const availableViewsOf = ({
   bySector,
   byCurrency
@@ -179,12 +171,6 @@ const selectAllocationGroups = (
   }));
 };
 
-/**
- * The largest of the groups, sorted largest first, and, when there are more
- * than `TOP_POSITIONS_COUNT`, the share the largest few hold together, added
- * exactly from the API's shares. A single group concentrates nothing, and a
- * missing share leaves nothing to say.
- */
 export const concentrationOf = (
   groups: AllocationGroup[]
 ): Concentration | null => {

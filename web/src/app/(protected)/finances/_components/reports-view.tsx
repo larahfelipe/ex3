@@ -84,10 +84,8 @@ type ReportsTranslator = Translator<'reports'>;
 
 const PERIOD_PARAMS = { From: 'from', To: 'to' } as const;
 
-/** The months shown by default: this one and the five before it. */
 const DEFAULT_PERIOD_MONTHS = 6;
 
-/** How far back and ahead the period can be picked: bills are added at most a year ahead. */
 const PICKABLE_MONTHS_BACK = 36;
 const PICKABLE_MONTHS_AHEAD = FINANCE_LIMITS.OccurrenceHorizonMonths;
 
@@ -102,7 +100,6 @@ const COLUMN_VISIBILITY = { method: 'max-md:hidden' } as const;
 const monthText = (month: string, { formatCalendarMonth }: Format) =>
   formatCalendarMonth(month) ?? month;
 
-/** A period in one of the forms the catalog words it in: a name, "de … a …" or "entre … e …". */
 const periodTextOf = (
   { from, to }: Period,
   form: 'period' | 'span' | 'comparedTo',
@@ -115,7 +112,6 @@ const periodTextOf = (
     to: monthText(to, format)
   });
 
-/** The days a span of months covers, both counted. */
 const daySpanOf = ({ from, to }: Period) => ({
   from: daySpanOfCalendarMonth(from)?.from ?? from,
   to: daySpanOfCalendarMonth(to)?.to ?? to
@@ -129,10 +125,6 @@ const pickableMonthsOf = (currentMonth: string) =>
       currentMonth
   ).toReversed();
 
-/**
- * The period the URL asks for, when it is a valid one the API accepts;
- * otherwise the last few months through this one.
- */
 const periodFrom = (params: URLSearchParams, currentMonth: string): Period => {
   const from = params.get(PERIOD_PARAMS.From);
   const to = params.get(PERIOD_PARAMS.To);
@@ -158,10 +150,6 @@ const periodFrom = (params: URLSearchParams, currentMonth: string): Period => {
   };
 };
 
-/**
- * Moving one end past the other, or the span past the longest the API reports,
- * drags the other end along, so every pick is a period that can be shown.
- */
 const periodWith = (
   period: Period,
   end: keyof Period,

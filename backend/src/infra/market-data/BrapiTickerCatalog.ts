@@ -25,36 +25,18 @@ import {
 const BRAPI_ORIGIN = 'https://brapi.dev';
 const TICKERS_PATH = '/api/v2/tickers';
 
-/** The most tickers the API answers in one page. */
 const TICKERS_PAGE_SIZE = 2_000;
 
-/**
- * Assumed, not measured: B3 listed about 2,300 tickers in 2025, two pages.
- * Past this many pages the catalog keeps the ones read, and a symbol it lacks
- * is looked up as if there were no catalog.
- */
 const MAX_TICKER_PAGES = 5;
 
-/** Assumed, not measured: a page of 2,000 tickers is far larger than a quote, and it is read for an import, not a page load. */
 const REQUEST_TIMEOUT_MS = 15_000;
 
-/**
- * Assumed, not measured: B3 lists, delists and reclassifies tickers far less
- * often than daily, and a ticker listed since the catalog was read is looked
- * up as if there were no catalog. A day of imports reads the catalog once.
- */
 const CATALOG_TIME_TO_LIVE_MS = 86_400_000;
 
-/** Assumed, not measured: after a failure the API is left alone this long, so an import retried at once sends no request. */
 const FAILURE_COOLDOWN_MS = 300_000;
 
 const HTTP_TOO_MANY_REQUESTS = 429;
 
-/**
- * A unit, a certificate of shares, and a BDR, a receipt of a foreign share, are
- * shares as the quote provider lists them; a ticker of another kind is left
- * out.
- */
 const INSTRUMENT_TYPE_BY_SUB_TYPE: ReadonlyMap<string, InstrumentType> =
   new Map([
     ['stock', InstrumentTypes.STOCK],
@@ -91,7 +73,6 @@ type CachedCatalog = {
   readAt: number;
 };
 
-/** Only a ticker in trading, on B3 and in its currency, is listed. */
 const toCatalogListing = (item: unknown): DescribedListing | null => {
   const ticker = TickerSchema.safeParse(item);
 
@@ -122,17 +103,6 @@ const toCatalogListing = (item: unknown): DescribedListing | null => {
   };
 };
 
-/**
- * `ListingCatalog` of B3 over brapi's ticker list, read in pages of
- * `TICKERS_PAGE_SIZE` ordered by symbol, one after another, since the free plan
- * answers one request at a time. Nothing is asked without a key; the key goes
- * only in the header of requests to its fixed origin, and a redirect is refused
- * so it is never sent elsewhere. The catalog is kept for
- * `CATALOG_TIME_TO_LIVE_MS`, in this process, and a read already running is
- * joined. When a read fails, a page of it included, the last catalog read is
- * answered, however old, and the API is left alone for the `Retry-After` of a
- * 429, or else for `FAILURE_COOLDOWN_MS`.
- */
 export class BrapiTickerCatalog implements ListingCatalog {
   private static INSTANCE: BrapiTickerCatalog;
   private readonly apiKey: string | undefined;

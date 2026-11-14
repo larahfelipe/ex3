@@ -59,14 +59,12 @@ type MoneyFieldProps = Record<'name' | 'label' | 'currency', string> &
   Partial<Record<'hint', ReactNode>> &
   Partial<Record<'className', string>> &
   Partial<Record<'action', ReactNode>> &
-  /** Fields whose checks read this one, revalidated as it changes. */
   Partial<Record<'deps', ReadonlyArray<string>>>;
 
 type DayFieldProps = Record<'name' | 'label', string> &
   Partial<Record<'hint', ReactNode>> &
   Partial<Record<'className', string>> &
   Partial<Record<'isOptional', boolean>> &
-  /** Quick picks shown under the picker, above its hint. */
   Partial<Record<'shortcuts', ReactNode>>;
 
 /** A Radix select item cannot carry an empty value, so "not specified" has its own. */
@@ -83,11 +81,6 @@ export const triggerPropsOf = ({
   'aria-describedby': describedBy
 });
 
-/**
- * Every message below is about the field it sits under, which its label
- * already names, so none repeats the label: a message never has to agree with
- * a field's name in gender or number.
- */
 export const requiredTextFieldFor = (
   t: ValidationTranslator,
   maxLength: number
@@ -108,7 +101,6 @@ export const optionalTextFieldFor = (
     .max(maxLength, t('text.tooLong', { max: maxLength }))
     .transform((value) => (value === '' ? null : value));
 
-/** An amount above zero, as the money input writes it. */
 export const positiveMoneyFieldFor = (t: ValidationTranslator) =>
   z
     .string()
@@ -116,14 +108,12 @@ export const positiveMoneyFieldFor = (t: ValidationTranslator) =>
     .refine(isStorableDecimal, decimalLimitsIssueOf(t))
     .refine(isNonzeroDecimal, t('amount.notPositive'));
 
-/** An amount that may be left out, recorded as zero. */
 export const optionalMoneyFieldFor = (t: ValidationTranslator) =>
   z
     .string()
     .transform((value) => (value === '' ? '0' : value))
     .refine(isStorableDecimal, decimalLimitsIssueOf(t));
 
-/** An amount that may be left out, recorded as none; when given, above zero. */
 export const optionalPositiveMoneyFieldFor = (t: ValidationTranslator) =>
   z
     .string()
@@ -140,7 +130,6 @@ export const optionalPositiveMoneyFieldFor = (t: ValidationTranslator) =>
 export const requiredDayFieldFor = (t: ValidationTranslator) =>
   z.string().min(1, t('day.required'));
 
-/** The API refuses an amount finer than the currency's minor unit: say so before it does. */
 export const requireMinorUnitsOf =
   <Field extends string>(
     fields: ReadonlyArray<Field>,
@@ -213,13 +202,11 @@ export const toDescriptionFormValues = ({
   notes: notes ?? ''
 });
 
-/** The form field an issue the API reports on `path` belongs to, if the form has it. */
 export const fieldOfPath =
   <Field extends string>(fields: ReadonlyArray<Field>) =>
   (path: string) =>
     fields.find((field) => field === path);
 
-/** A dialog cannot be dismissed while its save is on its way, so a refusal always has a form to show in. */
 export const useSubmitter = <Draft, Payload>(
   onSubmit: (payload: Payload) => Promise<unknown>,
   payloadOf: (draft: Draft) => Payload,
@@ -242,11 +229,6 @@ export const useSubmitter = <Draft, Payload>(
   return { isSaving, submit };
 };
 
-/**
- * An amount with its currency attached. With `currencyName`, the code that
- * closes the field selects the form's currency; without it, the currency is
- * fixed and shown as text.
- */
 export const MoneyField: FC<MoneyFieldProps> = ({
   name,
   label,
@@ -382,11 +364,6 @@ export const DayField: FC<DayFieldProps> = ({
   );
 };
 
-/**
- * What every bill, plan and series is: its description and its category, two
- * cells of the grid the form lays its essential fields in. The form that
- * renders it provides its methods through `FormProvider`.
- */
 export const DescriptionFields: FC = () => {
   const t = useTranslations('finances');
   const { control, register } = useFormContext<DescriptionFormInput>();
@@ -443,10 +420,6 @@ const MORE_DETAILS = [
   'notes'
 ] as const satisfies ReadonlyArray<keyof DescriptionFormInput>;
 
-/**
- * What a bill, plan or series can say beyond what it is: a subcategory, how it
- * is paid and any notes, all optional and out of the way until asked for.
- */
 export const MoreDetailsFields: FC = () => {
   const t = useTranslations('finances');
   const { control, register, getValues, setFocus } =

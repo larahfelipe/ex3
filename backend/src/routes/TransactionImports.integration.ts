@@ -156,7 +156,6 @@ type Caller = Awaited<ReturnType<typeof signInWithPortfolio>>;
 
 const prismaClient = PrismaClient.getInstance();
 
-/** Replaces the quote provider's listing calls for one test, counting them. */
 const listFrom = (
   t: TestContext,
   provider: FakeMarketDataProvider = new FakeMarketDataProvider(
@@ -200,10 +199,6 @@ describe('transaction imports', () => {
     client = await apiRequest();
   });
 
-  /**
-   * The ticker catalog is swapped in every test, so none reads it whatever key
-   * the shell exports; unavailable, it leaves every symbol to the provider.
-   */
   beforeEach(() => {
     getTickerListings = mock.method(
       BrapiTickerCatalog.getInstance(),
@@ -240,7 +235,6 @@ describe('transaction imports', () => {
       .set(bearer(accessToken))
       .send({ portfolioId: portfolio.id, file, selectedKeys });
 
-  /** Previews the file and records every row the preview selects. */
   const importAll = async (caller: Caller, file: UploadedFile) => {
     const previewed = await preview(caller, file);
 

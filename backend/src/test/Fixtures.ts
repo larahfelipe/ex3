@@ -10,20 +10,14 @@ import { portfolioNameKey } from '@/domain/PortfolioName';
 import { Bcrypt } from '@/infra/cryptography';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 
-/**
- * Plain-text counterpart of every fixture user's stored digest. Tests that sign
- * in need the password that matches the hash, so it cannot be generated.
- */
 export const FIXTURE_PASSWORD = 'fixture-password';
 
 export const FIXTURE_USER_EMAIL = 'holder@ex3.app';
 export const FIXTURE_ASSET_SYMBOL = 'BTC';
 export const FIXTURE_BASE_CURRENCY = 'BRL';
 
-/** Shared by every fixture transaction, so ledger order among them falls to recording order. */
 export const FIXTURE_EXECUTED_AT = new Date('2026-01-05T13:00:00.000Z');
 
-/** Well-formed, and naming no row: the baseline a foreign id must be indistinguishable from. */
 export const MISSING_UUID = '00000000-0000-4000-8000-000000000000';
 
 const FIXTURE_PORTFOLIO_NAME = 'Fixture Portfolio';
@@ -33,10 +27,6 @@ const FIXTURE_TRANSACTION_UNIT_PRICE = 50_000;
 const prismaClient = PrismaClient.getInstance();
 const bcrypt = Bcrypt.getInstance(envs.bcryptSalt);
 
-/**
- * Hashing is the slowest part of seeding a user and every fixture user shares
- * the same password, so the digest is computed once per test process.
- */
 let fixturePasswordDigest: Promise<string> | null = null;
 
 const passwordDigest = () => {
@@ -95,10 +85,6 @@ export const createInstrument = async (
     }
   });
 
-/**
- * Positions in one symbol share its catalog instrument, so the instrument is
- * registered by the first position in the symbol and reused by the others.
- */
 export const createAsset = async ({
   portfolioId,
   symbol = FIXTURE_ASSET_SYMBOL,
@@ -153,12 +139,6 @@ export const createTransaction = async (
     }
   });
 
-/**
- * Smallest coherent graph the API can operate on: a user with a portfolio
- * holding one asset with one transaction. The position is stated explicitly
- * instead of derived from its transactions, so a fixture does not depend on
- * how the API derives it.
- */
 export const seedPortfolio = async (
   overrides: { email?: string; symbol?: string } = {}
 ) => {

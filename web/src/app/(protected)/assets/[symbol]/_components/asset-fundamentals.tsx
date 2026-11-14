@@ -25,7 +25,6 @@ type FundamentalsGapProps = Record<
 > &
   Record<'onRetry', VoidFunction>;
 
-/** A multiple reads as times, a share as a percent, and a growth as a signed, toned percent. */
 type RatioFormat = 'multiple' | 'share' | 'growth';
 
 const RATIO_FORMATS: Record<FundamentalRatio, RatioFormat> = {
@@ -40,7 +39,6 @@ const RATIO_FORMATS: Record<FundamentalRatio, RatioFormat> = {
 
 const MULTIPLE_FRACTION_DIGITS = 2;
 
-/** A company's cash flow runs to billions, which read at a glance only abbreviated. */
 const CASH_FLOW_FORMAT: Intl.NumberFormatOptions = {
   notation: 'compact',
   maximumFractionDigits: 2

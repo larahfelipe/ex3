@@ -75,10 +75,6 @@ type FinanceQuery<Data> = {
 
 type PaymentTarget = Record<'expenseId' | 'paymentId', string>;
 
-/**
- * What is overdue is decided by the browser's own day, not the server's UTC
- * one: a bill due today stays due until the person's midnight.
- */
 export const useReferenceDay = () => calendarDayOf(currentInstant());
 
 const referenceDayParams = (today: string): ReferenceDayParams => ({ today });

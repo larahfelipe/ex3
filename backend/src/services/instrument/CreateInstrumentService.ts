@@ -8,11 +8,6 @@ import type { InstrumentRegistration, User } from '@/domain/models';
 import { AuthorizationError, ConflictError, DomainError } from '@/errors';
 import type { InstrumentRepository } from '@/infra/database';
 
-/**
- * The catalog is shared by every user, so only an admin writes to it: a user
- * picks a catalog instrument or registers a private one along with the asset
- * that holds it.
- */
 export class CreateInstrumentService {
   private static INSTANCE: CreateInstrumentService;
   private readonly instrumentRepository: InstrumentRepository;

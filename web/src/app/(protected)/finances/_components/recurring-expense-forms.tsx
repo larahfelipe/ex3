@@ -116,7 +116,6 @@ const SERIES_TERMS_FIELDS = [
   keyof EditSeriesInput & keyof CreateSeriesInput
 >;
 
-/** The API names the amount's kind `isVariable`; the form has a choice for it. */
 const seriesFieldOf =
   <Field extends string>(fields: ReadonlyArray<Field>) =>
   (path: string) =>
@@ -149,10 +148,6 @@ const createSeriesSchemaFor = (today: string, t: ValidationTranslator) => {
   });
 };
 
-/**
- * The API creates bills `OccurrenceHorizonMonths` ahead and refuses a change
- * from after the day following them, unless the series starts later still.
- */
 const latestEffectiveFromOf = (today: string, startDate: string) => {
   const horizon = shiftCalendarDayByMonths(
     today,

@@ -143,7 +143,6 @@ const InstallmentCountHint: FC<Record<'frequency', RecurrenceFrequency>> = ({
   });
 };
 
-/** A count the form would accept, or null while it is being typed. */
 const installmentCountOf = (value: string | number) => {
   const count = Number(value);
 
@@ -154,7 +153,6 @@ const installmentCountOf = (value: string | number) => {
     : null;
 };
 
-/** In the currency's minor units, or null for what its own field refuses. */
 const minorUnitsOf = (amount: string, currency: string) => {
   const places = currencyFractionDigits(currency);
 
@@ -244,7 +242,6 @@ const PLAN_FORM_FIELDS = [
   'principalAmount'
 ] as const satisfies ReadonlyArray<keyof PlanFormInput>;
 
-/** The API names the amount after its mode; the form has one field for both. */
 const planFieldOf = (path: string) =>
   path === 'totalAmount' || path === 'installmentAmount'
     ? 'amount'
@@ -293,7 +290,6 @@ const rescheduleFieldOf = fieldOfPath([
   'nextDueDate'
 ] as const satisfies ReadonlyArray<keyof RescheduleFormInput>);
 
-/** The last installment a reschedule keeps, and the owed ones it replaces. */
 const rescheduleSplitOf = ({
   installments,
   keptThroughInstallment
@@ -314,7 +310,6 @@ const rescheduleSplitOf = ({
   };
 };
 
-/** The number of the last installment a reschedule keeps, or null when it keeps none. */
 const lastKeptNumberOf = (plan: InstallmentPlanDetail) => {
   const { lastKept } = rescheduleSplitOf(plan);
 
@@ -387,7 +382,6 @@ const rescheduleDefaultsOf = (
   };
 };
 
-/** How the API moves a day the later months or years lack. */
 const shorterPeriodNoteOf = (
   frequency: RecurrenceFrequency,
   firstDueDate: string
@@ -421,10 +415,8 @@ const dueSpanOf = (
     : { label: t('dueSpan'), value: t('dueSpanValue', { first, last }) };
 };
 
-/** The cash price difference's share of the cash price, as a fraction of one. */
 const PERCENT_SCALE = 6;
 
-/** How much more or less than the cash price the installments total, or null when they are the same. */
 const cashPriceDifferenceOf = (
   total: bigint,
   principal: bigint,
@@ -447,7 +439,6 @@ const cashPriceDifferenceOf = (
   });
 };
 
-/** The cash price of a plan whose total is known, measured against that total once it is typed. */
 const CashPriceHint: FC<
   Record<'total', bigint | null> &
     Record<'principalAmount' | 'currency', string>
@@ -469,7 +460,6 @@ const CashPriceHint: FC<
   });
 };
 
-/** What the API will schedule from the terms as typed, or null while they are incomplete. */
 const scheduleOf = (
   {
     currency,
@@ -521,7 +511,6 @@ const SummaryFigure: FC<Record<'label' | 'value', string>> = ({
   </div>
 );
 
-/** The installments, the total and the dates the terms as typed schedule, kept in step with the fields. */
 const ScheduleSummary: FC<Record<'terms', ScheduleTerms>> = ({ terms }) => {
   const t = useTranslations('installments.summary');
   const tFinances = useTranslations('finances');
@@ -830,7 +819,6 @@ type CashPriceInput = Record<'principalAmount', string>;
 
 const CASH_PRICE = ['principalAmount'] as const;
 
-/** A plan's cash price, optional and kept out of the way until it is asked for. */
 const CashPriceDetail: FC<
   Record<'currency', string> & Record<'hint', ReactNode>
 > = ({ currency, hint }) => {

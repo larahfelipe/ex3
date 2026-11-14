@@ -3,10 +3,6 @@ import { z } from 'zod';
 import { NewPasswordSchema, SubmittedPasswordSchema } from './PasswordSchema';
 import { FirstNameSchema, LastNameSchema } from './PersonNameSchema';
 
-/**
- * A new password is accepted only together with the current one: holding a
- * session is not enough to replace the credential that created it.
- */
 export const UpdateUserSchema = z
   .object({
     firstName: FirstNameSchema.optional(),

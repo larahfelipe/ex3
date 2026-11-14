@@ -41,7 +41,6 @@ export type PortfolioDraft = z.output<
 
 type PortfolioFormDialogProps = {
   target: PortfolioFormTarget;
-  /** The names of the caller's other portfolios the page has loaded; the API holds the rest. */
   takenNames: ReadonlyArray<string>;
   onCancel: VoidFunction;
   onSubmit: (draft: PortfolioDraft) => Promise<unknown>;

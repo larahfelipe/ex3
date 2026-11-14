@@ -15,7 +15,6 @@ import type {
 
 import { generateDueOccurrences } from './OccurrenceHorizon';
 
-/** The days of a month with something due; a day's expenses are listed by filtering expenses on it. */
 export class GetFinanceCalendarService {
   private static INSTANCE: GetFinanceCalendarService;
   private readonly financeReportRepository: FinanceReportRepository;

@@ -75,7 +75,6 @@ const COLUMN_VISIBILITY = {
   status: 'max-md:hidden'
 } as const;
 
-/** What the installments cost over the cash price; a negative one costs less. */
 const FinancingCost: FC<Record<'cost' | 'currency', string>> = ({
   cost,
   currency
@@ -430,10 +429,6 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
   );
 };
 
-/**
- * Everything done to one plan: its details, and the dialogs its actions open.
- * The details stay underneath each action, so cancelling one returns to them.
- */
 export const InstallmentPlanDialogs: FC<PlanDialogsProps> = ({
   planId,
   onClose

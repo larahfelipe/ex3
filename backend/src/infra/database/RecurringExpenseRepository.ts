@@ -96,12 +96,6 @@ const toRecurringExpense = (
   };
 };
 
-/**
- * Creates the series' occurrences after its `generatedThrough` day through
- * `through`, or through its end date when earlier, and moves the mark there.
- * An occurrence is unique by series and day, so a day generated twice is
- * skipped, never duplicated. Returns the day generation now covers.
- */
 const generateOccurrences = async (
   transactionClient: Prisma.TransactionClient,
   row: RecurringExpenseRow,
@@ -137,10 +131,6 @@ const generateOccurrences = async (
   return last;
 };
 
-/**
- * The day each series' earliest bill not cancelled is due, from `today` on,
- * as edits left it rather than as the series scheduled it.
- */
 const earliestBillsOf = async (
   client: Prisma.TransactionClient,
   seriesIds: Array<string>,
@@ -167,20 +157,9 @@ const earliestBillsOf = async (
   );
 };
 
-/**
- * An edit or a stop from `effectiveFrom` first creates, on the current terms,
- * every occurrence before that day that is not there yet. A day after
- * `through` would leave occurrences between the two to be generated later on
- * the new terms, so it is refused, unless the series has not started by then.
- */
 const latestEffectiveFromOf = (row: RecurringExpenseRow, through: Date) =>
   maxDay(addDays(through, 1), row.startDate);
 
-/**
- * A series materializes its occurrences as expenses ahead of time, up to a
- * horizon the caller gives, so that they are paid, edited and reported like
- * any other expense. `generatedThrough` marks the last day covered.
- */
 export class RecurringExpenseRepository {
   private static INSTANCE: RecurringExpenseRepository;
   private prismaClient: PrismaClient;
@@ -215,11 +194,6 @@ export class RecurringExpenseRepository {
     };
   }
 
-  /**
-   * Brings every active series of the user up to `through`. Most calls find
-   * nothing to do and return after one read; a concurrent call that also
-   * generates conflicts on the series rows and is rerun, finding them done.
-   */
   async generateDue(
     params: Record<'userId', string> & Record<'through', Date>
   ) {
@@ -275,7 +249,6 @@ export class RecurringExpenseRepository {
     };
   }
 
-  /** Every series of the currency still running on `today`, for the dashboard's recurring summary. */
   async getActive(
     params: Record<'userId' | 'currency', string> & Record<'today', Date>
   ): Promise<Array<RecurringExpense>> {
@@ -318,7 +291,6 @@ export class RecurringExpenseRepository {
     return { ...toRecurringExpense(row, today, earliestBills), history };
   }
 
-  /** The occurrences owe their whole amount: creating a series records no payment. */
   async add(params: RecurringExpenseRepository.AddParams) {
     const { userId, through, ...series } = params;
 
@@ -345,12 +317,6 @@ export class RecurringExpenseRepository {
     });
   }
 
-  /**
-   * The new values reach the occurrences from `effectiveFrom` on that are
-   * still owed, have no active payment and were not edited on their own;
-   * earlier ones keep what they were. An earlier end date removes the
-   * occurrences after it, refused when one of them has a payment record.
-   */
   async update(
     params: RecurringExpenseRepository.UpdateParams
   ): Promise<RecurringExpenseRepository.Write> {
@@ -470,12 +436,6 @@ export class RecurringExpenseRepository {
     );
   }
 
-  /**
-   * Stops the series. From `effectiveFrom` on, an occurrence still owed
-   * without an active payment is removed, or cancelled when it has voided
-   * payments to keep; earlier occurrences, created first when missing, and
-   * partly paid ones stay owed.
-   */
   async cancel(
     params: RecurringExpenseRepository.CancelParams
   ): Promise<RecurringExpenseRepository.Write> {
@@ -569,7 +529,6 @@ export class RecurringExpenseRepository {
     );
   }
 
-  /** For a series entered by mistake: refused once any occurrence has an active payment. */
   async delete(
     params: RecurringExpenseRepository.GetByIdParams
   ): Promise<RecurringExpenseRepository.Write> {
@@ -627,7 +586,6 @@ namespace RecurringExpenseRepository {
     frequency: RecurrenceFrequency;
     startDate: Date;
     endDate: Date | null;
-    /** The last day occurrences are generated through. */
     through: Date;
   };
   export type UpdateParams = GetByIdParams &

@@ -115,11 +115,9 @@ const EMPTY_PAYMENT_DETAILS = {
   notes: ''
 } as const satisfies Record<PaymentDetail, string>;
 
-/** Exact for any storable amount; anything else has already failed its own field. */
 const unitsOfAmount = (value: string) =>
   isStorableDecimal(value) ? unitsOf(value, DECIMAL_COLUMN.SCALE) : 0n;
 
-/** What the payment may settle: the outstanding amount, plus what the payment being corrected settles. */
 const settleableAmountOf = (target: PaymentFormTarget) => {
   const outstanding = unitsOfAmount(target.expense.outstandingAmount);
 
@@ -170,7 +168,6 @@ const paymentSchemaFor = (
       });
   });
 
-/** What the bill still owes once the payment is saved, kept in step with the amounts as typed. */
 const SettlementNote: FC<Record<'target', PaymentFormTarget>> = ({
   target
 }) => {
@@ -208,10 +205,6 @@ const SettlementNote: FC<Record<'target', PaymentFormTarget>> = ({
   );
 };
 
-/**
- * One-tap days for the payment, the one already chosen marked as pressed: today,
- * and the due date while it has passed, since a payment cannot be dated ahead.
- */
 export const PaidOnShortcuts: FC<Record<'dueDate' | 'today', string>> = ({
   dueDate,
   today
@@ -289,10 +282,6 @@ const defaultValuesOf = (
   };
 };
 
-/**
- * A payment asks for what was paid and when; a discount, interest and fees, how
- * it was paid and notes each wait behind their own button.
- */
 export const PaymentFormDialog: FC<PaymentFormDialogProps> = ({
   target,
   onCancel,

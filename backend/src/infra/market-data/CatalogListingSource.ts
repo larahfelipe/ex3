@@ -9,12 +9,6 @@ import type {
 import { BrapiTickerCatalog } from './BrapiTickerCatalog';
 import { YahooFinanceProvider } from './YahooFinanceProvider';
 
-/**
- * `ListingSource` that answers from the catalog every symbol it holds, asked
- * for in the catalog's currency or in none, and asks the provider about the
- * rest in one search. While the catalog is unavailable every symbol is asked
- * of the provider, as if there were no catalog.
- */
 export class CatalogListingSource implements ListingSource {
   private static INSTANCE: CatalogListingSource;
   private readonly catalog: ListingCatalog;

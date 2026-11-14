@@ -20,7 +20,6 @@ import type {
 import type { Translator } from '@/i18n/translator';
 import { cn } from '@/lib/utils';
 
-/** A status is never told by its color alone: each one has its own icon beside its name. */
 const STATUS_BADGES: Record<
   ImportRowStatus,
   Record<'tone', string> & Record<'icon', LucideIcon>
@@ -79,7 +78,6 @@ export const ImportStatusBadge: FC<Record<'status', ImportRowStatus>> = ({
   );
 };
 
-/** How a statement names a row: its sheet, when the file has several, and the number the spreadsheet shows. */
 export const rowReferenceOf = (
   { sheet, rowNumber }: Pick<ImportPreviewRow, 'sheet' | 'rowNumber'>,
   t: Translator<'imports.assets'>
@@ -88,10 +86,6 @@ export const rowReferenceOf = (
     ? t('rowReferenceWithoutSheet', { row: rowNumber })
     : t('rowReference', { sheet, row: rowNumber });
 
-/**
- * Everything the preview says about a row beyond its status: why it has it,
- * what was derived or cut to become a transaction, and what is wrong with it.
- */
 export const rowNotesOf = (
   row: Pick<
     ImportPreviewRow,

@@ -11,7 +11,6 @@ export const generateMetadata = async (): Promise<Metadata> => ({
   title: (await getServerTranslator('navigation.pages'))('notFound')
 });
 
-/** Only a signed-in visitor gets here: the proxy sends anyone else to sign in first. */
 export default async function NotFound() {
   const t = await getServerTranslator('common.notFound');
 

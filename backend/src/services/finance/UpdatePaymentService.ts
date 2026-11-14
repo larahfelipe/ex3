@@ -5,7 +5,6 @@ import type { ExpenseRepository, PaymentEntry } from '@/infra/database';
 
 import { financeRefusalError } from './FinanceRefusalError';
 
-/** A correction: the previous values stay in the expense's history. */
 export class UpdatePaymentService {
   private static INSTANCE: UpdatePaymentService;
   private readonly expenseRepository: ExpenseRepository;

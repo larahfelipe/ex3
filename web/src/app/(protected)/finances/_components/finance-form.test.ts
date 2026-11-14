@@ -14,10 +14,6 @@ import {
 
 const t = translatorOf('pt-BR', 'validation');
 
-/**
- * The message a form shows for `value`: the resolver keeps each field's first
- * issue, as react-hook-form's `firstError` criteria does.
- */
 const shownIssueOf = (schema: z.ZodType, value: unknown) =>
   schema.safeParse(value).error?.issues[0]?.message ?? null;
 

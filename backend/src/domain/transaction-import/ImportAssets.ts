@@ -4,15 +4,9 @@ import type { Listing } from '@/domain/MarketDataProvider';
 import type { AssetResolution } from './ImportPlan';
 import type { ReadRow } from './ImportReading';
 
-/** An instrument the portfolio holds or the person sees, by its symbol. */
 export type KnownInstrument = Record<'instrumentId' | 'name', string> &
   Record<'currency', string | null>;
 
-/**
- * What the quote provider answered for a symbol no known instrument has: the
- * listing a row's currency picks, none, more than one for a row without a
- * currency, no answer, or no question, past the new assets an import looks up.
- */
 export type ListingResolution =
   | (Record<'outcome', 'listed'> &
       Record<'listing', Listing & Partial<Record<'sector', string | null>>>)
@@ -31,7 +25,6 @@ const UNRESOLVED_REASONS = {
   skipped: 'too-many-new-assets'
 } as const;
 
-/** The currency the rows of each symbol name first, null when none does. */
 export const importCurrenciesOf = (rows: ReadonlyArray<ReadRow>) => {
   const currencies = new Map<string, string | null>();
 
@@ -46,10 +39,6 @@ export const importCurrenciesOf = (rows: ReadonlyArray<ReadRow>) => {
   return currencies;
 };
 
-/**
- * The listing of a symbol a row's currency picks. Without a currency, B3's
- * listing, where a ticker of a statement trades, or the only one there is.
- */
 export const pickListing = (
   listings: ReadonlyArray<Listing>,
   currency: string | null
@@ -69,7 +58,6 @@ export const pickListing = (
     : { outcome: 'ambiguous' };
 };
 
-/** Each symbol on what it is recorded: held first, then seen, then listed. */
 export const resolveImportAssets = (
   symbols: Iterable<string>,
   { held, tracked, listings }: ImportAssetState

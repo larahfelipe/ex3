@@ -13,7 +13,6 @@ const USER_ID = '0f2f5a3c-2c1c-4f2a-9a1a-7c6f5d4e3b2a';
 type RequestOverrides = Partial<
   Pick<Request, 'method' | 'baseUrl' | 'user'>
 > & {
-  /** `null` stands for the request Express matched no route for. */
   route?: Record<'path', string> | null;
   requestIdHeader?: string;
 };

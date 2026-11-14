@@ -126,7 +126,6 @@ const API_MESSAGE_KEYS: Readonly<Record<string, PlainErrorKey>> = {
   'File name must not contain control characters': 'api.importFileNameInvalid'
 };
 
-/** Messages the API builds from the web's own limits, so their wording is known in advance. */
 const LIMIT_MESSAGES = [
   {
     message: `Start date must be within the last ${FINANCE_LIMITS.OccurrenceHorizonMonths} months`,
@@ -140,7 +139,6 @@ const LIMIT_MESSAGES = [
   }
 ] as const;
 
-/** Messages the API ends with the calendar day they are about, as ` (YYYY-MM-DD)`. */
 const DATED_MESSAGES = [
   {
     prefix: `Effective from cannot be later than the day after the ${FINANCE_LIMITS.OccurrenceHorizonMonths} months bills are created ahead`,
@@ -174,7 +172,6 @@ const isCategoryCode = (
 ): code is keyof ErrorMessages['categories'] =>
   code !== undefined && CATEGORY_CODES.has(code);
 
-/** What the proxy itself refuses with, by the category the API would answer the same status with. */
 const CATEGORY_BY_STATUS: Readonly<
   Record<number, keyof ErrorMessages['categories']>
 > = {
@@ -187,10 +184,6 @@ const CATEGORY_BY_STATUS: Readonly<
   503: 'INFRASTRUCTURE'
 };
 
-/**
- * The user's wording of one message the API sent, or null when the table does
- * not know it.
- */
 export const knownApiMessageOf = (
   message: string,
   t: Translator<'errors'>
@@ -215,16 +208,9 @@ export const knownApiMessageOf = (
   return null;
 };
 
-/** The message for one field the API refused: its own when known, a generic one otherwise. */
 export const apiIssueMessageOf = (message: string, t: Translator<'errors'>) =>
   knownApiMessageOf(message, t) ?? t('invalidValue');
 
-/**
- * What to tell the user about a failed request. It never shows the API's or
- * the transport's own text, nor a stack: an unknown failure reads as its
- * category, and anything else as `unexpected`, which a caller may word for
- * what failed.
- */
 export const apiErrorMessageOf = (
   error: unknown,
   t: Translator<'errors'>,

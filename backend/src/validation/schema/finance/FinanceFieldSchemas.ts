@@ -69,12 +69,6 @@ export const calendarMonthSchema = (field: string) =>
     return month;
   });
 
-/**
- * The caller's calendar day, which decides what is overdue: the server's UTC
- * day is a day ahead of, or behind, the caller's for part of every day. It
- * defaults to the UTC day and may differ from it by the span of the world's
- * time zones, so no caller can move "today" further than its own clock does.
- */
 export const ReferenceDaySchema = z
   .string()
   .optional()
@@ -147,7 +141,6 @@ export const ExpenseDescriptionSchema = z.object({
     .default(null)
 });
 
-/** The same fields, each optional, for an edit that names only what changes. */
 export const ExpenseDescriptionPatchSchema = z.object({
   description: ExpenseDescriptionSchema.shape.description.optional(),
   category: ExpenseCategorySchema.optional(),
@@ -157,7 +150,6 @@ export const ExpenseDescriptionPatchSchema = z.object({
   notes: ExpenseDescriptionSchema.shape.notes.unwrap().optional()
 });
 
-/** Refuses each named amount with more decimal places than `currency` has minor units. */
 export const requireMinorUnits =
   <Fields extends string>(fields: ReadonlyArray<Fields>) =>
   (

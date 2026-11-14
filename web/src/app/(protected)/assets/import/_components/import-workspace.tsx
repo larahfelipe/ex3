@@ -62,7 +62,6 @@ export const ImportWorkspace: FC<ImportWorkspaceProps> = ({ portfolio }) => {
 
   useEffect(() => () => clearTimeout(replanTimerRef.current), []);
 
-  /** Drops the answer on its way, if any, and the plan waiting to be asked for. */
   const discardPendingPlan = () => {
     latestRequestRef.current += 1;
     clearTimeout(replanTimerRef.current);
@@ -143,11 +142,6 @@ export const ImportWorkspace: FC<ImportWorkspaceProps> = ({ portfolio }) => {
     }, TRANSACTION_IMPORT.ReplanDelayMs);
   };
 
-  /**
-   * Records only a plan the person saw: a selection whose plan failed is
-   * planned again first, and a portfolio that changed since the preview gets a
-   * new one, which the person reviews before confirming again.
-   */
   const confirmImport = async () => {
     if (file === null || preview === null) return;
 

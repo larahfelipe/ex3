@@ -1,11 +1,5 @@
 import { z } from 'zod';
 
-/**
- * NIST SP 800-63B-4 §3.1.1.2 asks 15 characters of a password that is the only
- * factor, as here, and 8 only beside a second one. The product settled on 8,
- * the floor of the 800-63B-3 profile, which leaves resistance to guessing to
- * the checks below and to the sign-in throttle.
- */
 const NEW_PASSWORD_MIN_CODE_POINTS = 8;
 
 /**
@@ -20,11 +14,6 @@ const NEW_PASSWORD_MAX_BYTES = 72;
  */
 const SUBMITTED_PASSWORD_MAX_LENGTH = 255;
 
-/**
- * The passwords that published leak rankings put first, trimmed to those the
- * length floor lets through, compared case-insensitively. Curated, not a breach
- * corpus: one leaked elsewhere but absent here is accepted (TD-005).
- */
 const COMMON_PASSWORDS: ReadonlySet<string> = new Set([
   '0123456789',
   '0987654321',

@@ -36,11 +36,6 @@ type ErrorDefinition = {
   message: string;
 };
 
-/**
- * Status and category are different axes, so two entries can share a category:
- * a payload past the limit is a validation failure answered with 413, and a
- * throttled caller is an infrastructure limit answered with 429.
- */
 export const Errors = {
   VALIDATION: {
     code: ErrorCategories.VALIDATION,
@@ -99,24 +94,6 @@ const FIFTEEN_MINUTES_IN_MS = 15 * ONE_MINUTE_IN_MS;
 const ONE_HOUR_IN_MS = 60 * ONE_MINUTE_IN_MS;
 const ONE_DAY_IN_MS = 24 * ONE_HOUR_IN_MS;
 
-/**
- * Assumed, not measured. Sign-in counts only failed attempts, in three layers:
- * per client address across accounts, against password spraying and
- * credential stuffing from one host; per account and address, the one a person
- * who forgot the password meets; and per account across addresses, against
- * guessing spread over many hosts, which is also what an attacker spends to
- * keep someone else's account locked. Each sign-up costs a bcrypt hash and a
- * transaction, so every attempt counts, per address. The daily budgets
- * escalate per address alone: a host that keeps failing at its short budgets
- * all day is guessing, not mistyping, while a daily budget per account would
- * hand an attacker a day-long lockout of someone else. `ACCOUNT_CHANGE` holds
- * the routes that verify the password of a signed-in account to the budget of
- * a single address. `INSTRUMENT_SEARCH` bounds how fast one session can spend
- * the quote provider's request quota: a debounced search box asks a few times
- * per instrument typed, far below it. `TRANSACTION_IMPORT` bounds the routes
- * that read an uploaded file, each a few megabytes to parse: a preview runs
- * again as the person picks rows, a few times a minute at most.
- */
 export const RateLimits = {
   SIGN_IN_PER_ADDRESS: { windowMs: FIFTEEN_MINUTES_IN_MS, limit: 50 },
   SIGN_IN_PER_ACCOUNT_AND_ADDRESS: {
@@ -133,19 +110,11 @@ export const RateLimits = {
   TRANSACTION_IMPORT: { windowMs: ONE_MINUTE_IN_MS, limit: 30 }
 } as const;
 
-/**
- * What the web adds to each request it forwards: the address of the client it
- * serves, and the secret without which the API ignores that address.
- */
 export const ProxyHeaders = {
   CLIENT_ADDRESS: 'x-client-address',
   PROXY_SECRET: 'x-api-proxy-secret'
 } as const;
 
-/**
- * The header the web forwards a Turnstile token in, and the action each form
- * renders its widget with: a token solved for one form is refused by the other.
- */
 export const BotChallenge = {
   HEADER: 'x-bot-challenge',
   SIGN_IN_ACTION: 'sign-in',
@@ -161,20 +130,11 @@ export const RequestLimits = {
   UPLOAD_BODY_SIZE: '4mb'
 } as const;
 
-/** The routes whose body carries a file, parsed by the route once the caller is authenticated. */
 export const UploadRoutes = {
   TRANSACTION_IMPORT_PREVIEW: '/v1/transaction-import/preview',
   TRANSACTION_IMPORT: '/v1/transaction-import'
 } as const;
 
-/**
- * Assumed, not measured: a B3 statement of several years is a few thousand
- * rows and well under a megabyte. The spreadsheet limits bound what reading a
- * file may cost before its rows are looked at, an XLSX being a ZIP archive
- * whose entries may inflate far past the upload; the data rows, what one
- * import plans and records in one database transaction. New assets are those
- * the quote provider is asked about, a few at a time.
- */
 export const ImportLimits = {
   FILE_BYTES: 2 * 1024 * 1024,
   FILE_NAME_MAX_LENGTH: 255,
@@ -294,10 +254,6 @@ export const TransactionTypes: Record<TransactionType, TransactionType> = {
   ADJUSTMENT: 'ADJUSTMENT'
 } as const;
 
-/**
- * The types whose effect on a position the ledger replay implements. The API
- * records no other type, because no position could be rebuilt from it.
- */
 export const RecordableTransactionTypes = {
   BUY: 'BUY',
   SELL: 'SELL',
@@ -335,10 +291,6 @@ export const InstrumentTypes: Record<InstrumentType, InstrumentType> = {
   OTHER: 'OTHER'
 } as const;
 
-/**
- * The markets an instrument can be registered in: the ones the quote provider
- * knows how to price, so every instrument registered from now on has a quote.
- */
 export const Markets = {
   B3: 'B3',
   NYSE: 'NYSE',
@@ -348,11 +300,6 @@ export const Markets = {
 
 export type Market = (typeof Markets)[keyof typeof Markets];
 
-/**
- * The currency the quote provider prices each market in, so an instrument
- * declared in another one would be valued in the wrong currency. Null where the
- * pair asked for names the currency, as in crypto.
- */
 export const MarketQuoteCurrencies: Record<Market, string | null> = {
   B3: 'BRL',
   NYSE: 'USD',
@@ -360,31 +307,14 @@ export const MarketQuoteCurrencies: Record<Market, string | null> = {
   CRYPTO: null
 };
 
-/**
- * The currencies a crypto symbol is looked up in when searching the quote
- * provider, since the pair names the currency: the ones the web offers as a
- * portfolio base currency.
- */
 export const CryptoListingCurrencies = ['BRL', 'USD', 'EUR'] as const;
 
-/**
- * Bounds of what a client or the quote provider can store on an instrument
- * (OWASP API4:2023, unrestricted resource consumption). Assumed, not measured:
- * above the longest symbol, name and sector label an exchange listing
- * publishes.
- */
 export const InstrumentLimits = {
   SYMBOL_MAX_LENGTH: 6,
   NAME_MAX_LENGTH: 120,
   SECTOR_MAX_LENGTH: 60
 } as const;
 
-/**
- * Listings number their pages from one and answer `DEFAULT_SIZE` rows when the
- * query names no size. `MAX_SIZE` bounds the rows one response can carry (OWASP
- * API4:2023, unrestricted resource consumption), above every page size the web
- * offers.
- */
 export const Pagination = {
   FIRST_PAGE: 1,
   DEFAULT_SIZE: 10,
@@ -397,10 +327,6 @@ export const Pagination = {
  */
 export const INSTRUMENT_SYMBOL_PATTERN = /^[A-Z0-9]+$/;
 
-/**
- * What became of the quote provider lookup of an instrument search: `SKIPPED`
- * when the term cannot be a symbol or names one the caller already sees.
- */
 export const MarketSearchStatuses = {
   SEARCHED: 'SEARCHED',
   SKIPPED: 'SKIPPED',
@@ -500,16 +426,6 @@ export const ExpenseSortFields = {
   CREATED_AT: 'createdAt'
 } as const;
 
-/**
- * Bounds of what a client can store or ask for in personal finance (OWASP
- * API4:2023, unrestricted resource consumption). Assumed, not measured:
- * `INSTALLMENT_MAX_COUNT` covers a 30-year monthly financing;
- * `OCCURRENCE_HORIZON_MONTHS` is how far ahead a recurring expense's
- * occurrences exist, the window planning projects over; `REPORT_MAX_MONTHS`
- * bounds the rows a report reads; `REFERENCE_DAY_TOLERANCE_DAYS` is how far the
- * caller's calendar day may be from the server's UTC day, the span of the
- * world's time zones.
- */
 export const FinanceLimits = {
   DESCRIPTION_MAX_LENGTH: 120,
   SUBCATEGORY_MAX_LENGTH: 60,
@@ -583,5 +499,4 @@ export const FinanceMessages = {
   SETTINGS_UPDATED: 'Finance settings updated successfully'
 };
 
-/** What a finance aggregate is computed in when the query names no currency: the web's default. */
 export const DEFAULT_FINANCE_CURRENCY = 'BRL';

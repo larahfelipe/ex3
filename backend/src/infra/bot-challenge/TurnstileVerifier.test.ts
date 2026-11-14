@@ -15,7 +15,6 @@ const ACTION = 'sign-in';
 const OTHER_ACTION = 'sign-up';
 const HOSTNAME = 'ex3.app';
 const OTHER_HOSTNAME = 'attacker.example';
-/** A documentation address (RFC 5737), so no test names a real host. */
 const REMOTE_ADDRESS = '192.0.2.10';
 const SITEVERIFY_URL =
   'https://challenges.cloudflare.com/turnstile/v0/siteverify';
