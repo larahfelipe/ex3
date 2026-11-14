@@ -3,7 +3,6 @@ import { utcToday } from '@/domain/CalendarDay';
 import type { ExpenseDescription } from '@/domain/models';
 import type { ExpenseRepository } from '@/infra/database';
 
-/** Records what is owed and nothing else: a new expense is never paid until a payment says so. */
 export class CreateExpenseService {
   private static INSTANCE: CreateExpenseService;
   private readonly expenseRepository: ExpenseRepository;

@@ -19,7 +19,6 @@ const STORE_FAILURE = 'connection terminated unexpectedly';
 
 const prismaClient = PrismaClient.getInstance();
 
-/** Each store stands for one API process: separate instances, one table. */
 const processStore = (
   prefix = PREFIX,
   logEntry: (entry: LogEntry) => void = () => undefined

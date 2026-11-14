@@ -18,7 +18,6 @@ const {
   weekdayNames
 } = formatOf('pt-BR');
 
-/** What the date helpers give in the zone this process runs in, read by `dates.test.ts`. */
 const date = dateOfCalendarDay('2026-10-28');
 const instant = instantOfCalendarDay('2026-10-28');
 

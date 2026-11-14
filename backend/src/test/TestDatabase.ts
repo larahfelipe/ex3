@@ -61,11 +61,6 @@ export const resetDatabase = async () => {
   );
 };
 
-/**
- * Resolves only when the connection is usable. The driver adapter builds the
- * pool lazily, so a probe query is the only way to tell an unreachable database
- * from a healthy one.
- */
 export const assertDatabaseReachable = async () => {
   await prismaClient.$queryRaw`SELECT 1`;
 };

@@ -11,13 +11,6 @@ import { realizeProfitLoss, type LedgerEntry } from './PositionLedger';
 import { truncateToColumnScale, ValuationDecimal } from './PositionValuation';
 import { startOfDayInUtc } from './PriceHistory';
 
-/**
- * How far before a window's first day a close is looked for: the day a window
- * starts on may be a weekend or a holiday, whose price is the last close before
- * it. Assumed, not measured: no market is expected to stay closed longer than
- * two weeks, twice the longest run of holidays and weekends of the markets the
- * catalog lists.
- */
 const OPENING_CLOSE_LOOKBACK_DAYS = 14;
 
 const MILLISECONDS_PER_DAY = 86_400_000;
@@ -37,7 +30,6 @@ export type PriceChangeRange = (typeof PriceChangeRanges)[number];
 
 export type DailyClose = Pick<MarketQuote, 'price' | 'currency' | 'timestamp'>;
 
-/** A window's change is read from its opening close, so both are given or neither is. */
 export type PriceChange = Record<'range', PriceChangeRange> &
   (
     | Partial<Record<'change' | 'openedOn', never>>
@@ -82,11 +74,6 @@ const dayOf = (instant: Date) => startOfDayInUtc(instant).getTime();
 export const yearStartOf = (now: Date) =>
   performanceRangeOf(PerformanceRanges.ONE_YEAR, now).from;
 
-/**
- * The closes the indicators read: the last year, from a close early enough to
- * price the first day of its longest window, up to the start of the current
- * day in UTC, the first day with no close yet.
- */
 export const indicatorClosesRangeOf = (now: Date): PriceRange => ({
   from: new Date(
     yearStartOf(now).getTime() -
@@ -95,12 +82,6 @@ export const indicatorClosesRangeOf = (now: Date): PriceRange => ({
   to: startOfDayInUtc(now)
 });
 
-/**
- * A window's change is the latest close over the close that prices its first
- * day, the last one on or before it, minus one, as a fraction. It is absent
- * when the history does not reach back to that day, the latest close is not
- * after it, or the opening close is zero.
- */
 const priceChangeOf = (
   range: PriceChangeRange,
   closes: ReadonlyArray<DailyClose>,
@@ -139,13 +120,6 @@ const lastClosePerDayOf = (ascending: ReadonlyArray<DailyClose>) =>
     return next === undefined || dayOf(next.timestamp) !== dayOf(timestamp);
   });
 
-/**
- * Price indicators need a close within the last year, so an instrument that no
- * longer trades has none. The yearly low and high are of daily closes, not of
- * intraday prices. `closes` starts at the close that opens the one-year
- * window, the longest, so it holds every window's opening close, or at the
- * first close when the history is shorter.
- */
 const pricesOf = (
   closes: ReadonlyArray<DailyClose>,
   now: Date
@@ -197,14 +171,6 @@ export const netIncomeOf = (entries: ReadonlyArray<LedgerEntry>) =>
     )
   );
 
-/**
- * Returns need a transaction, whose currency is the ledger's. `income` is the
- * net of every DIVIDEND, JCP and INTEREST, `q · p − f − t`, and
- * `trailingIncome` that of those executed in the last year. `yieldOnCost` is
- * `trailingIncome ÷ investedValue`, absent while nothing is invested. A stored
- * ledger always replays, since every write rebuilt the position from it, so a
- * refusal is a broken invariant and not an answer.
- */
 const returnsOf = (
   ledger: ReadonlyArray<LedgerEntry>,
   investedValue: Position['investedValue'],
@@ -242,7 +208,6 @@ const returnsOf = (
   };
 };
 
-/** Every value is truncated towards zero at the column scale, and every change and yield is a fraction. */
 export const describePositionIndicators = ({
   now,
   closes,

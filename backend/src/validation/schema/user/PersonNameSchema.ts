@@ -9,7 +9,6 @@ export const FirstNameSchema = boundedTextSchema(
   PERSON_NAME_MAX_LENGTH
 );
 
-/** The last name is optional, so an empty one clears it. */
 export const LastNameSchema = z
   .string()
   .trim()

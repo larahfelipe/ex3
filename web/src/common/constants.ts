@@ -51,13 +51,8 @@ export const APP_STORAGE_KEYS = {
  */
 export const CSRF_HEADER = { Name: 'x-ex3-csrf', Value: '1' } as const;
 
-/** The request header the proxy hands the response's CSP nonce to the layout in. */
 export const NONCE_HEADER = 'x-nonce';
 
-/**
- * Mirror of the API's `BotChallenge`: the header a Turnstile token travels in,
- * Cloudflare's bound on a token's length, and the action each form solves.
- */
 export const BOT_CHALLENGE = {
   Header: 'x-bot-challenge',
   TokenMaxLength: 2048,
@@ -67,22 +62,11 @@ export const BOT_CHALLENGE = {
 export type BotChallengeAction =
   (typeof BOT_CHALLENGE.Actions)[keyof typeof BOT_CHALLENGE.Actions];
 
-/**
- * Mirror of the API's `RequestLimits`, in bytes as its parser counts them: the
- * proxy reads no more of a body than the API would take.
- */
 export const REQUEST_LIMITS = {
   JsonBodyBytes: 100 * 1024,
   UploadBodyBytes: 4 * 1024 * 1024
 } as const;
 
-/**
- * Mirror of the API's `ImportLimits`: the largest file one import reads and
- * the most rows a selection names. A preview reads the file and may ask the
- * quote provider about dozens of new symbols, a few at a time, so it is given
- * longer than other requests; assumed, not measured. Re-planning waits for a
- * pause in the person's picks, so a burst of them is one request.
- */
 export const TRANSACTION_IMPORT = {
   FileMaxBytes: 2 * 1024 * 1024,
   SelectedRowsMax: 5000,
@@ -92,7 +76,6 @@ export const TRANSACTION_IMPORT = {
   RowsPageSize: 50
 } as const;
 
-/** How long a preference kept in a cookie, such as the navigation's state or the language, lasts: a year. */
 export const PREFERENCE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 export const NAVIGATION_STATES = {
@@ -102,7 +85,6 @@ export const NAVIGATION_STATES = {
 
 export const APP_TITLE = 'EX3';
 
-/** The class on `<html>` that selects the theme's tokens, and the theme the toasts draw their own parts in. */
 export const APP_THEME = 'dark';
 
 /** `--background` of the `APP_THEME` palette in hex, for the browser's own chrome, which reads no CSS token. */
@@ -110,7 +92,6 @@ export const APP_THEME_COLOR = '#0e0e0e';
 
 export const APP_TITLE_TEMPLATE = `${APP_TITLE} | %s`;
 
-/** The base currencies a new portfolio is offered in; the API accepts any ISO 4217 code. */
 export const OFFERED_CURRENCIES = ['BRL', 'USD', 'EUR'] as const;
 
 export const DEFAULT_CURRENCY =
@@ -134,12 +115,6 @@ export const TRANSACTION_TYPE_TONES: Record<TransactionType, string> = {
   BONUS: 'text-primary'
 };
 
-/**
- * Decimal places a unit price is typed with when the class is quoted finer
- * than the currency's minor unit. Assumed from market practice, not measured:
- * crypto units and fund shares are quoted to 8 places. The API stores 18 for
- * every class, so a price written with more places keeps them.
- */
 export const UNIT_PRICE_DECIMALS: Partial<Record<InstrumentType, number>> = {
   CRYPTO: 8,
   FUND: 8
@@ -208,7 +183,6 @@ export const signInRouteFor = ({
 export const assetDetailRoute = (symbol: string) =>
   `${APP_ROUTES.Protected.Assets}/${encodeURIComponent(symbol)}`;
 
-/** In the order they are offered: the bills most households have first, `OTHER` last. */
 export const EXPENSE_CATEGORIES: Array<ExpenseCategory> = [
   'HOUSING',
   'UTILITIES',
@@ -260,7 +234,6 @@ export const EXPENSE_STATUS_FILTERS: Array<ExpenseStatusFilter> = [
   ...EXPENSE_STATUSES
 ];
 
-/** A status is never told by its color alone: each tone sits beside the status's name. */
 export const EXPENSE_STATUS_TONES: Record<ExpenseStatus, string> = {
   PENDING: 'border-warning/40 bg-warning/10 text-warning',
   OVERDUE: 'border-negative/40 bg-negative/10 text-negative',
@@ -304,13 +277,11 @@ export const RECURRING_EXPENSE_STATUS_TONES: Record<
   CANCELLED: 'border-border bg-muted text-muted-foreground'
 };
 
-/** The query parameter that opens a bill's details on the bills page. */
 export const BILL_DETAIL_PARAM = 'expense';
 
 export const billDetailRoute = (expenseId: string) =>
   `${APP_ROUTES.Protected.FinanceBills}?${new URLSearchParams({ [BILL_DETAIL_PARAM]: expenseId })}`;
 
-/** The query parameters that open a plan's or a series' details on its page. */
 export const INSTALLMENT_PLAN_DETAIL_PARAM = 'plan';
 export const RECURRING_EXPENSE_DETAIL_PARAM = 'series';
 
@@ -328,7 +299,6 @@ export const billsRouteFor = (filters: Record<string, string>) => {
     : APP_ROUTES.Protected.FinanceBills;
 };
 
-/** Mirror of the API's `FinanceLimits`, so a form refuses what the API would. */
 export const FINANCE_LIMITS = {
   DescriptionMaxLength: 120,
   SubcategoryMaxLength: 60,

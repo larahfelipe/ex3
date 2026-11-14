@@ -13,7 +13,6 @@ const requestWith = (contentType: string | null, body = '{"a":1}') =>
     body
   });
 
-/** Answered as the API answers it, so the interface words both alike. */
 const isPayloadTooLarge = (error: unknown) =>
   error instanceof ApiProxyError &&
   error.status === 413 &&

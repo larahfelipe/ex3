@@ -30,11 +30,6 @@ export type ImportSheet = Record<'name', string> &
     >
   >;
 
-/**
- * The sheets of an uploaded file. `decimalSeparator` is the convention its
- * text numbers are written in when the layout does not fix one: a CSV
- * delimited by commas writes its decimals with a point.
- */
 export type ImportWorkbook = Record<'sheets', ReadonlyArray<ImportSheet>> &
   Record<'date1904', boolean> &
   Record<'decimalSeparator', ',' | '.'>;
@@ -50,12 +45,10 @@ export type ImportReading =
       Record<'rows', Array<ReadRow>>)
   | Record<'outcome', 'unrecognized' | 'empty' | 'too-many-rows'>;
 
-/** A statement's header row sits under a title and the period it covers, never far down. */
 const HEADER_SEARCH_ROWS = 20;
 
 const columnLabelOf = (index: number) => `#${index + 1}`;
 
-/** Each field of the format at the column of the first header it may appear under, or null when a required one is missing. */
 const columnsOf = (
   format: ImportFormat,
   headers: ReadonlyArray<string>
@@ -97,14 +90,6 @@ const recognizedHeaderOf = (sheet: ImportSheet) => {
 
 type DataRows = ImportSheet['rows'];
 
-/**
- * How the sheet's own values are written, where they all agree: the decimal
- * separator of its text numbers, and the order of its slashed dates once one
- * of them could not be read the other way. A file saved again by a spreadsheet
- * set to another language may write a B3 statement's numbers its way; a date
- * order that contradicts the one the layout fixes makes slashed dates
- * ambiguous rather than read either way.
- */
 const conventionsOf = (
   rows: DataRows,
   columns: Record<string, number>,
@@ -144,7 +129,6 @@ const conventionsOf = (
   };
 };
 
-/** The row's cells by the header above each, a header repeated getting its column after it. */
 const sourceOf = (
   sheet: ImportSheet,
   labels: ReadonlyArray<string>,
@@ -173,13 +157,6 @@ const tradeOf = ({ mapped }: ReadRow) =>
 const sameTradeOf = ({ symbol, type, quantity, unitPrice }: ImportedEntry) =>
   [symbol, type, quantity, unitPrice].join('|');
 
-/**
- * The movement statement lists each trade of the trading statement again, as
- * the transfer that settled it days later. Within one file the trading
- * statement's row is kept, since it has the day the trade was made: a
- * settlement of the same asset, side, quantity and price in the days after a
- * trade gives way to it, each trade matched once.
- */
 const ignoreTradesListedElsewhere = (rows: Array<ReadRow>) => {
   const trades = Map.groupBy(
     rows.flatMap((row) =>
@@ -221,12 +198,6 @@ const incomeTupleOf = ({ mapped }: ReadRow) =>
       ].join('|')
     : null;
 
-/**
- * B3 reports one payment in more than one place: the income statement and the
- * movement statement both list it, and the movement statement may list it
- * again as transferred. Within one file the income statement's row is the one
- * kept, and a transferred credit gives way to the plain one beside it.
- */
 const ignoreIncomeListedElsewhere = (rows: Array<ReadRow>) => {
   const tuplesOf = (isSource: (row: ReadRow) => boolean) =>
     new Set(rows.filter(isSource).flatMap((row) => incomeTupleOf(row) ?? []));
@@ -258,13 +229,6 @@ const ignoreIncomeListedElsewhere = (rows: Array<ReadRow>) => {
   });
 };
 
-/**
- * Every data row of the sheets whose header row a format recognizes, mapped
- * by that format, in file order. A sheet no format recognizes is skipped, so a
- * workbook may carry a cover or a summary sheet; blank rows and totals are not
- * data. More data rows than `maxRows` are refused whole rather than imported in
- * part.
- */
 export const readImportRows = (
   workbook: ImportWorkbook,
   { today, maxRows }: Record<'today', CalendarDay> & Record<'maxRows', number>

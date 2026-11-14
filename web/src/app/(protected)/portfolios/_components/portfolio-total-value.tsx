@@ -11,10 +11,6 @@ type PortfolioTotalValueProps = Record<'portfolio', Portfolio>;
 
 const STATUS_CLASS = 'text-sm font-normal text-muted-foreground';
 
-/**
- * The overview's total value, read through the query the overview page uses, so
- * a change to the portfolio's assets or transactions refreshes it here too.
- */
 export const PortfolioTotalValue: FC<PortfolioTotalValueProps> = ({
   portfolio
 }) => {

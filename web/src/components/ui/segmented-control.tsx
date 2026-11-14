@@ -14,10 +14,8 @@ import {
 import { cn } from '@/lib/utils';
 import type { Maybe } from '@/types';
 
-/** Whether the group's indicator is in place; until it is, the checked option is filled by CSS. */
 const HasIndicatorContext = React.createContext(false);
 
-/** The properties the indicator moves by, each on `TAB_SPRING`. */
 const SLIDE_TRANSITION = ['transform', 'width', 'height']
   .map((property) => `${property} ${TAB_SPRING_CSS}`)
   .join(', ');
@@ -90,13 +88,6 @@ const checkedOptionBoxOf = (group: HTMLElement) => {
   );
 };
 
-/**
- * Places the indicator under the checked option, measured within the group
- * rather than on the page, so a page that moves or reflows carries it along
- * instead of sending it across. It is measured before paint after every render,
- * which a new checked option or new options cause, and again whenever the group
- * or an option resizes.
- */
 const useIndicatorPlacement = (
   groupRef: React.RefObject<HTMLElement | null>,
   checkedValue: string | null
@@ -143,13 +134,6 @@ const useIndicatorPlacement = (
   return { placement, settle };
 };
 
-/**
- * One indicator per group slides from the option left to the one chosen, and
- * only then: any other move puts it in place at once. A CSS transition moves
- * it, so a newer choice retargets it from wherever it is. Until it has been
- * placed, on the server and in the first client render, the checked option is
- * filled by CSS instead.
- */
 const SegmentedControl = ({
   className,
   children,

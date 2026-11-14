@@ -23,28 +23,17 @@ import type { Maybe, PageParams } from '@/types';
 
 const QUERY_RETRY_LIMIT = 2;
 
-/**
- * The provider serves a quote for a minute before asking the market again, so a
- * request repeated inside that window returns the same numbers. Anything the
- * user writes invalidates the portfolio scope and refetches regardless.
- */
 const STALE_TIME_MS = 60_000;
 
 const CLIENT_ERROR_FLOOR = 400;
 const SERVER_ERROR_FLOOR = 500;
 const THROTTLED_STATUS = 429;
 
-/** A rejected request fails the same way however many times it is repeated. */
 export const isRequestRejected = (error: Error) =>
   error instanceof ApiProxyError &&
   error.status >= CLIENT_ERROR_FLOOR &&
   error.status < SERVER_ERROR_FLOOR;
 
-/**
- * Whether a later reload may succeed where this request failed. A throttled
- * request is rejected only until the API's window resets, so it counts, though
- * it is not retried at once: that would spend the window again.
- */
 export const isReloadable = (error: Error) =>
   !isRequestRejected(error) ||
   (error instanceof ApiProxyError && error.status === THROTTLED_STATUS);
@@ -86,7 +75,6 @@ const visibleInstruments = () => ['instruments'] as const;
 const portfolioScope = (portfolioId: PortfolioId) =>
   ['portfolio', portfolioId] as const;
 
-/** Cash flow only: no investment query lives under it, and no finance write touches the portfolio scope. */
 const financeScope = () => ['finances'] as const;
 
 export const queryKeys = {

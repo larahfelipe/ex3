@@ -34,7 +34,6 @@ const PaymentEntrySchema = z.object({
 
 const POSITIVE = /[1-9]/;
 
-/** A payment must settle something: an amount, a discount, or both. */
 const requireSettlement = (
   { amount, discount }: Partial<Record<'amount' | 'discount', string>>,
   ctx: z.RefinementCtx

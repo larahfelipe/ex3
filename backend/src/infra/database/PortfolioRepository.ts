@@ -6,10 +6,6 @@ import { PrismaClient } from './PrismaClient';
 /** Backs the unique index only: a response carries the name itself. */
 const NAME_KEY_COLUMN = { nameKey: true } as const;
 
-/**
- * Every lookup is filtered by the owner, so a portfolio id taken from a request
- * never reaches another user's portfolio.
- */
 export class PortfolioRepository {
   private static INSTANCE: PortfolioRepository;
   private prismaClient: PrismaClient;
@@ -79,7 +75,6 @@ export class PortfolioRepository {
     }
   }
 
-  /** A rename that keeps the key, a change of letter case, is the portfolio's own name and never collides. */
   async update(
     params: PortfolioRepository.UpdateParams
   ): Promise<PortfolioRepository.UpdateOutcome> {

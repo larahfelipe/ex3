@@ -42,7 +42,6 @@ export type InstallmentPlanListQuery = {
 
 export type InstallmentPlanDetail = InstallmentPlan & {
   installments: Array<Expense>;
-  /** The last installment a reschedule keeps: the last with any payment, voided ones included. */
   keptThroughInstallment: number | null;
   history: Array<FinanceEvent>;
 };
@@ -60,7 +59,6 @@ const PROGRESS_SELECT = {
   cancelledAt: true
 } as const satisfies Prisma.ExpenseSelect;
 
-/** The plan status of `describeInstallmentPlan`, as a filter the database applies before paginating. */
 const statusWhere = (
   status: InstallmentPlanStatus | undefined
 ): Prisma.InstallmentPlanWhereInput => {
@@ -100,7 +98,6 @@ const PAYMENT_COUNT_INCLUDE = {
   _count: { select: { payments: true } }
 } as const satisfies Prisma.ExpenseInclude;
 
-/** Installments in number order, split into the ones a reschedule keeps and the ones it replaces. */
 const rescheduleSplitOf = <
   Row extends { installmentNumber: number | null } & Record<
     '_count',
@@ -140,11 +137,6 @@ const toInstallmentPlan = (
   updatedAt: row.updatedAt
 });
 
-/**
- * A plan owns its installments, which are expenses numbered from 1 without
- * gaps: what the plan owes is always their sum, never a stored total that
- * could drift from them.
- */
 export class InstallmentPlanRepository {
   private static INSTANCE: InstallmentPlanRepository;
   private prismaClient: PrismaClient;
@@ -227,7 +219,6 @@ export class InstallmentPlanRepository {
     };
   }
 
-  /** Each installment owes its whole amount: creating a plan records no payment. */
   async add(params: InstallmentPlanRepository.AddParams) {
     const { userId, installments, ...plan } = params;
 
@@ -263,10 +254,6 @@ export class InstallmentPlanRepository {
     });
   }
 
-  /**
-   * Descriptive fields reach the installments still owed that were not edited
-   * on their own; a paid or cancelled installment keeps what it was.
-   */
   async update(
     params: InstallmentPlanRepository.UpdateParams
   ): Promise<InstallmentPlanRepository.Write> {
@@ -322,13 +309,6 @@ export class InstallmentPlanRepository {
     );
   }
 
-  /**
-   * Replaces every installment after the last one with any payment record,
-   * voided ones included, by the new schedule at the plan's frequency,
-   * numbered on from it. The
-   * replaced installments have no payments, so nothing paid is lost; the
-   * event keeps what they were.
-   */
   async reschedule(
     params: InstallmentPlanRepository.RescheduleParams
   ): Promise<InstallmentPlanRepository.RescheduleWrite> {
@@ -425,11 +405,6 @@ export class InstallmentPlanRepository {
     );
   }
 
-  /**
-   * Cancels the plan and every installment still owed without an active
-   * payment. A partly paid installment stays owed: its payments are real, and
-   * voiding them first lets it be cancelled.
-   */
   async cancel(
     params: InstallmentPlanRepository.GetByIdParams
   ): Promise<InstallmentPlanRepository.Write> {
@@ -490,7 +465,6 @@ export class InstallmentPlanRepository {
     );
   }
 
-  /** For a plan entered by mistake: refused once any installment has an active payment. */
   async delete(
     params: InstallmentPlanRepository.GetByIdParams
   ): Promise<InstallmentPlanRepository.Write> {

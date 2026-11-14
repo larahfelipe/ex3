@@ -5,10 +5,6 @@ import { portfolioNameKey } from '@/domain/PortfolioName';
 import { Bcrypt } from '../cryptography';
 import { PrismaClient } from './PrismaClient';
 
-/**
- * Never returned by reads meant for a response: the password digest, and the
- * session version that decides which access token is still honoured.
- */
 const CREDENTIAL_COLUMNS = { password: true, sessionVersion: true } as const;
 
 const PROFILE_OMITTED_COLUMNS = {
@@ -63,8 +59,8 @@ export class UserRepository {
    * concurrent sign-ups for one email exactly one succeeds and the others
    * resolve to null; the other unique columns written (`users.id`,
    * `portfolios.id`, and `portfolios.userId` with `nameKey`) hold ids generated
-   * by the same statement, so a violation can only mean the email. The session version is returned so the caller can
-   * issue the first token.
+   * by the same statement, so a violation can only mean the email. The session
+   * version is returned so the caller can issue the first token.
    */
   async add(params: UserRepository.AddParams) {
     const { portfolio, ...account } = params;
@@ -88,10 +84,6 @@ export class UserRepository {
     }
   }
 
-  /**
-   * A new password revokes the current session in the same statement, so no
-   * token issued before the change survives it.
-   */
   async update(params: UserRepository.UpdateParams) {
     const { id, names, password } = params;
 

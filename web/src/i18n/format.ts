@@ -31,7 +31,6 @@ import { decimalInputTextOf, readDecimal } from '@/lib/decimal';
 
 import type { Locale } from './config';
 
-/** Everything that writes or reads a number or a date in a language, each taking the locale first. */
 const LOCALE_FORMATTERS = {
   currencyNameOf,
   currencySymbolOf,
@@ -69,7 +68,6 @@ type WithoutLocale<Formatter> = Formatter extends (
   ? (...args: Args) => Result
   : never;
 
-/** The formatters bound to one locale. */
 export type Format = {
   readonly [Name in keyof LocaleFormatters]: WithoutLocale<
     LocaleFormatters[Name]
@@ -100,9 +98,4 @@ export const formatOf = (locale: Locale): Format => {
   return format;
 };
 
-/**
- * The formatters in the interface's current language. They come from the
- * provider's locale, so a component that uses them renders again when it
- * changes, and the server writes in the request's.
- */
 export const useFormat = () => formatOf(useLocale());

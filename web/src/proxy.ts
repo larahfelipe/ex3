@@ -26,7 +26,6 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 export const TOASTER_STYLESHEET_HASH =
   "'sha256-StEaX+se6YS7pqjzrzMIA0KaX9zF/8zAhvQXZAe5epY='";
 
-/** Serves the Turnstile script and the frame its challenge runs in. */
 const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com';
 
 /**
@@ -86,7 +85,6 @@ export const isCrossSiteWrite = (req: NextRequest) => {
   );
 };
 
-/** An answer holds the account's own data or sets its session, so no cache may keep one. */
 const API_RESPONSE_HEADERS = { 'Cache-Control': 'no-store' };
 
 export const proxy = (req: NextRequest) => {

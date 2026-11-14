@@ -50,7 +50,6 @@ const RESOLUTION_TONES: Record<ImportPreviewAsset['resolution'], string> = {
   unresolved: 'text-negative'
 };
 
-/** What a position holds after the import, and what it held before when that differs. */
 const FigureCell: FC<FigureCellProps> = ({
   figure,
   asset: { before, after, currency },
@@ -90,7 +89,6 @@ const FigureCell: FC<FigureCellProps> = ({
   );
 };
 
-/** Each asset the file names, with its position before and after the selected rows. */
 export const ImportAssetsSection: FC<ImportAssetsSectionProps> = ({
   assets
 }) => {

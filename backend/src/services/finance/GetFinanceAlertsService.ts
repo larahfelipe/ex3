@@ -20,11 +20,6 @@ const alertGroupOf = (expenses: Array<Expense>) => ({
   items: expenses.slice(0, FinanceLimits.ALERT_ITEMS_LIMIT)
 });
 
-/**
- * The in-app reminders: what is overdue, and what falls due within the user's
- * lead days, each group only when the user's settings ask for it. Nothing is
- * sent anywhere; the app shows them where they are read.
- */
 export class GetFinanceAlertsService {
   private static INSTANCE: GetFinanceAlertsService;
   private readonly financeReportRepository: FinanceReportRepository;
@@ -89,7 +84,6 @@ namespace GetFinanceAlertsService {
   export type AlertGroup = {
     count: number;
     totals: Array<CurrencyAmount>;
-    /** The earliest due first, at most `ALERT_ITEMS_LIMIT` of `count`. */
     items: Array<Expense>;
   };
   export type Result = {

@@ -20,13 +20,11 @@ const MILLISECONDS_PER_SECOND = 1_000;
 const ONE_HOUR_MS = 3_600_000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 
-/** Mirror the constants of `YahooFinanceProvider`. */
 const QUOTE_TIME_TO_LIVE_MS = 60_000;
 const FAILURE_COOLDOWN_MS = 30_000;
 const QUOTE_BATCH_SIZE = 10;
 const LISTING_TIME_TO_LIVE_MS = 3_600_000;
 const LISTING_CACHE_MAX_ENTRIES = 5_000;
-/** B3, NYSE and NASDAQ, and crypto in BRL, USD and EUR; NYSE and NASDAQ share the bare symbol. */
 const PROVIDER_SYMBOLS_PER_SEARCH = 5;
 const MAX_CONCURRENT_REQUESTS = 4;
 const RETRY_AFTER_BOUNDS_MS = { min: 1_000, max: 3_600_000 };
@@ -34,7 +32,6 @@ const EMPTY_HISTORY_TIME_TO_LIVE_MS = 3_600_000;
 const EMPTY_HISTORY_CACHE_MAX_ENTRIES = 10_000;
 const FUNDAMENTALS_TIME_TO_LIVE_MS = 3_600_000;
 
-/** Mirrors `InstrumentLimits.NAME_MAX_LENGTH`. */
 const NAME_MAX_LENGTH = 120;
 
 const PETR4: PricedInstrument = {
@@ -69,7 +66,6 @@ const json = (
     headers: { 'content-type': 'application/json', ...headers }
   });
 
-/** Lets every request already answered settle and every request whose turn came be sent. */
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 const quoteItem = (
@@ -180,7 +176,6 @@ const stubProvider = (
   return { provider, calls, clock, logEntries };
 };
 
-/** The search of one symbol, in every market or only where it is quoted in `currency`. */
 const searchFor = async (
   provider: YahooFinanceProvider,
   symbol: string,
@@ -951,7 +946,6 @@ describe('YahooFinanceProvider', () => {
       currency: 'BRL'
     });
 
-    /** Holds every response until it is released, oldest first. */
     const stubHeldProvider = (respond: (url: URL) => Response) => {
       const held: Array<() => void> = [];
       const stub = stubProvider(

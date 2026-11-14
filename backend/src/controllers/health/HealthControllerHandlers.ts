@@ -6,7 +6,6 @@ import { log, LogSeverities, type LogSink } from '@/infra/observability';
 
 const DATABASE_DEPENDENCY = 'database';
 
-/** Resolves with why the database is unusable, or with nothing when it answers. */
 export type DependencyProbe = () => Promise<string | undefined>;
 
 const probeDatabase: DependencyProbe = async () => {
@@ -28,11 +27,6 @@ export const livenessControllerHandler = (_req: Request, res: Response) => {
   res.status(200).json({ status: 'alive' });
 };
 
-/**
- * Readiness: the instance can serve a request that reads. The probe query runs
- * per call, because a cached flag would keep reporting the state of whichever
- * request happened to observe the database last.
- */
 export const createReadinessControllerHandler =
   (
     probe: DependencyProbe = probeDatabase,

@@ -7,19 +7,10 @@ import { log, LogSeverities, type LogSink } from '@/infra/observability';
 const SITEVERIFY_URL =
   'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
-/** Cloudflare's bound on a token; anything longer was not issued by it. */
 export const TURNSTILE_TOKEN_MAX_LENGTH = 2048;
 
-/**
- * Assumed, not measured: siteverify answers in well under a second, and a
- * person waiting on the sign-in button should not wait on it for long.
- */
 const VERIFY_TIMEOUT_MS = 5000;
 
-/**
- * The codes that describe the token the caller sent. Every other code means
- * the request, the secret or Cloudflare failed, which the caller cannot fix.
- */
 const CALLER_ERROR_CODES: ReadonlySet<string> = new Set([
   'missing-input-response',
   'invalid-input-response',
@@ -45,13 +36,6 @@ export type ChallengeVerdict =
 const reasonOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
-/**
- * Asks Cloudflare whether a Turnstile token was solved, for this site and for
- * this action, and not spent before: Cloudflare answers each token once. The
- * secret goes only in the body of requests to its fixed origin, and a redirect
- * is refused so it is never sent elsewhere. A verdict Cloudflare cannot give
- * is `UNAVAILABLE`, never `PASSED`.
- */
 export class TurnstileVerifier {
   private static INSTANCE: TurnstileVerifier;
   private readonly secretKey: string | undefined;
@@ -92,7 +76,6 @@ export class TurnstileVerifier {
     return TurnstileVerifier.INSTANCE;
   }
 
-  /** Without a secret, which production refuses to start without, nothing is verified. */
   get isEnforced() {
     return this.secretKey !== undefined;
   }
@@ -168,7 +151,6 @@ export namespace TurnstileVerifier {
   export type Options = {
     secretKey: string | undefined;
     checksSolvedContext: boolean;
-    /** Empty outside production, where no web origin is required: then any. */
     expectedHostnames: ReadonlyArray<string>;
     fetchResponse?: typeof fetch;
     logEntry?: LogSink;

@@ -11,11 +11,6 @@ type NameFieldProps = Record<'registration', UseFormRegisterReturn> &
 
 type PersonNameFieldsProps = Record<'firstName' | 'lastName', NameFieldProps>;
 
-/**
- * The names sit side by side once the form is wide enough for both. The last
- * name is optional: not everyone has one, and an account created before the
- * names were apart holds its whole name as the first.
- */
 export const PersonNameFields: FC<PersonNameFieldsProps> = ({
   firstName,
   lastName

@@ -75,7 +75,6 @@ const weekdaysOf = ({ weekdayNames }: Format) => {
 
 const SKELETON_WEEKS = Array.from({ length: 5 }, (_, week) => week);
 
-/** The month's days in weeks from Sunday, with null for the cells outside it. */
 const weeksOf = (month: string) => {
   const layout = daysOfCalendarMonth(month);
 
@@ -94,7 +93,6 @@ const weeksOf = (month: string) => {
   );
 };
 
-/** A day's bills split as its markers show them: overdue, still due and paid. */
 const dayCountsOf = ({
   count,
   paidCount,

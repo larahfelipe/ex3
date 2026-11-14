@@ -19,7 +19,6 @@ const utcDay = (year: number, monthIndex: number, day: number) => {
   return date;
 };
 
-/** Null for a string that is not a day of the calendar, such as `2026-02-30`. */
 export const parseCalendarDay = (value: string): Date | null => {
   const match = CALENDAR_DAY_PATTERN.exec(value);
 
@@ -33,7 +32,6 @@ export const parseCalendarDay = (value: string): Date | null => {
     : null;
 };
 
-/** The first day of the month, or null for a string that is not a month. */
 export const parseCalendarMonth = (value: string): Date | null => {
   const match = CALENDAR_MONTH_PATTERN.exec(value);
 
@@ -64,12 +62,6 @@ export const differenceInDays = (later: Date, earlier: Date) =>
 export const daysInMonth = (year: number, monthIndex: number) =>
   utcDay(year, monthIndex + 1, 0).getUTCDate();
 
-/**
- * The day `months` months after `day`, on the `anchorDay` of that month, or on
- * its last day when the month is shorter: anchored on the 31st, January is
- * followed by 28 February (29 in a leap year) and then 31 March, so a short
- * month never drags the later ones back.
- */
 export const addMonths = (
   day: Date,
   months: number,
@@ -94,7 +86,6 @@ export const startOfMonth = (day: Date) =>
 export const endOfMonth = (day: Date) =>
   utcDay(day.getUTCFullYear(), day.getUTCMonth() + 1, 0);
 
-/** The first day of each month from `from`'s through `to`'s, inclusive. */
 export const monthsBetween = (from: Date, to: Date) => {
   const months: Array<Date> = [];
 

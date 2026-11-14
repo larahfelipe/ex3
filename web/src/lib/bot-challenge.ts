@@ -1,10 +1,5 @@
 import { BOT_CHALLENGE } from '@/common/constants';
 
-/**
- * A challenge the visitor did not solve, such as one left unanswered, is
- * `failed`; one the browser could not run, such as when Cloudflare cannot be
- * reached, is `unavailable`. Both match what the API answers in either case.
- */
 export class BotChallengeError extends Error {
   readonly reason: 'failed' | 'unavailable';
 
@@ -14,7 +9,6 @@ export class BotChallengeError extends Error {
   }
 }
 
-/** A form's payload and the token solved for it, null where no challenge is configured. */
 export type ChallengedRequest<Payload> = {
   payload: Payload;
   challengeToken: string | null;

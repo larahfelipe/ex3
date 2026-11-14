@@ -31,11 +31,6 @@ const ACCEPTED_TYPES = [
 
 type LocalRefusal = ImportFileRefusal | 'read-failed';
 
-/**
- * The file is read in the browser only to send it: what it holds is checked
- * by the API, which never keeps it. A file is chosen through the input, which
- * the whole drop area labels, or dropped onto that area.
- */
 export const ImportFileCard: FC<ImportFileCardProps> = ({
   isReading,
   file,

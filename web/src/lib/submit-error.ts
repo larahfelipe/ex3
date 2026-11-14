@@ -9,15 +9,9 @@ type SubmitErrorPlacement<Values extends FieldValues> = {
   setError: UseFormSetError<Values>;
   fieldOf: (path: string) => FieldPath<Values> | undefined;
   t: Translator<'errors'>;
-  /** What failed, for an error that names nothing better. */
   fallbackMessage?: string;
 };
 
-/**
- * Shows each issue of a rejected submit under the field `fieldOf` maps its path
- * to, focusing the first, and every other message in the form's `root.server`
- * alert. Every message is worded by `t`, never taken from the API as sent.
- */
 export const presentSubmitError = <Values extends FieldValues>(
   error: unknown,
   { setError, fieldOf, t, fallbackMessage }: SubmitErrorPlacement<Values>

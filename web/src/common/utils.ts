@@ -7,11 +7,6 @@ const PERCENT_FRACTION_DIGITS = 2;
 const UNIT_AMOUNT_SIGNIFICANT_DIGITS = 4;
 
 /**
- * The formatters below take the locale first: a component reaches them bound
- * to the interface's current one through `useFormat` (`@/i18n/format`).
- */
-
-/**
  * Building a number formatter costs about forty times more than formatting with
  * one, and a table row builds several. The locale and the options are the
  * cache key, and the distinct keys are bounded by the locales, the styles, the
@@ -37,14 +32,12 @@ const formatNumber = (
   options?: Intl.NumberFormatOptions
 ) => numberFormatOf(locale, options).format(value);
 
-/** A currency's minor units are the same in every language, so they need no locale. */
 export const currencyFractionDigits = (currency: string) =>
   numberFormatOf(DEFAULT_LOCALE, {
     style: 'currency',
     currency
   }).resolvedOptions().maximumFractionDigits ?? 0;
 
-/** The symbol `formatMoney` writes, so an amount field shows the one its figures do. */
 export const currencySymbolOf = (locale: Locale, currency: string) =>
   numberFormatOf(locale, { style: 'currency', currency })
     .formatToParts(0)
@@ -65,7 +58,6 @@ export const currencyNameOf = (locale: Locale, currency: string) => {
   return names.of(currency) ?? currency;
 };
 
-/** "a, b e c" in pt-BR, "a, b, and c" in en-US. */
 export const formatList = (locale: Locale, items: ReadonlyArray<string>) => {
   let list = conjunctionLists.get(locale);
 
@@ -84,7 +76,6 @@ export const formatMoney = (
   options?: Intl.NumberFormatOptions
 ) => formatNumber(locale, value, { style: 'currency', currency, ...options });
 
-/** For an axis tick, where the exact amount is in the tooltip and the table. */
 export const formatCompactMoney = (
   locale: Locale,
   value: number | DecimalString,
@@ -109,7 +100,6 @@ export const formatPrice = (
     )
   });
 
-/** Keeps the amount of a unit below one cent, such as a crypto unit's price, from rounding to zero. */
 export const formatUnitAmount = (
   locale: Locale,
   amount: DecimalString,
@@ -132,7 +122,6 @@ export const formatDecimal = (
 
 const BYTES_PER_KILOBYTE = 1024;
 
-/** In the binary multiples a file manager shows, under the locale's own unit names. */
 export const formatFileSize = (locale: Locale, bytes: number) => {
   const kilobytes = bytes / BYTES_PER_KILOBYTE;
   const [value, unit] =

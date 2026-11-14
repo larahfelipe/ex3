@@ -31,7 +31,6 @@ export type PositionRebuild =
 export type ProfitLossRealization =
   { outcome: 'realized'; realizedProfitLoss: string } | LedgerRefusal;
 
-/** The refusal with the entry the replay stopped at, null when the ledger as a whole is refused. */
 export type LocatedLedgerRefusal<Entry extends LedgerEntry = LedgerEntry> =
   LedgerRefusal & Record<'entry', Entry | null>;
 
@@ -78,21 +77,6 @@ const exceedsColumn = (value: Prisma.Decimal) =>
 const truncateToColumnScale = (value: Prisma.Decimal) =>
   value.toDecimalPlaces(DecimalColumn.SCALE, LedgerDecimal.ROUND_DOWN);
 
-/**
- * Entries are replayed by execution time, then by recording order, an entry not
- * yet recorded going after every recorded one executed at the same time, so the
- * same transactions rebuild the same position in whatever order they are given.
- * A ledger holds one currency, since costs in different currencies do not add
- * up. A BUY adds its quantity and its cost, quantity × unit price plus fees and
- * taxes, and truncates the new average cost to the column scale, and so does a
- * BONUS, priced at the cost attributed to each unit; a SELL leaves the average
- * cost unchanged, back to zero once nothing is held, and is refused when it
- * exceeds what the ledger holds at that point; income changes nothing. A SELL
- * realizes its net proceeds, quantity × unit price less fees and taxes, less
- * the average cost of the units it sells, truncated to the column scale before
- * it is added to the others. A ledger passing through a position that does not
- * fit the columns is refused.
- */
 const replayLedger = <Entry extends LedgerEntry>(
   ledger: ReadonlyArray<Entry>
 ): LedgerReplay<Entry> => {
@@ -148,7 +132,6 @@ const replayLedger = <Entry extends LedgerEntry>(
   return { outcome: 'replayed', quantity, averageCost, realizedProfitLoss };
 };
 
-/** `investedValue` is quantity × average cost, truncated to the column scale. */
 export const rebuildPosition = (
   ledger: ReadonlyArray<LedgerEntry>
 ): PositionRebuild => {
@@ -181,11 +164,6 @@ export const realizeProfitLoss = (
     : { outcome: replay.outcome };
 };
 
-/**
- * Where a replay of the ledger is refused: the entry, of those given, that
- * a SELL exceeding the holding or a position past the columns stops at, in
- * replay order. Null when the ledger replays.
- */
 export const locateLedgerRefusal = <Entry extends LedgerEntry>(
   ledger: ReadonlyArray<Entry>
 ): LocatedLedgerRefusal<Entry> | null => {

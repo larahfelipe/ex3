@@ -106,19 +106,8 @@ export const requirePortfolio = (portfolio: Maybe<Portfolio>): Portfolio => {
   return portfolio;
 };
 
-/**
- * How a refresh went: a query on screen failed, the portfolio's value came
- * back resting on missing, fallback or stale market data, or everything
- * reloaded. Without the value on screen there is nothing to tell the second
- * from the third.
- */
 export type RefreshOutcome = 'reloaded' | 'degraded' | 'failed';
 
-/**
- * Resolves once every query of the portfolio on screen has settled, to how the
- * refresh went. A request the API rejects fails the same way however often it
- * is repeated, so only the failures a later reload could fix count.
- */
 export const refreshPortfolioScope = async (
   queryClient: QueryClient,
   portfolioId: Maybe<string> | undefined,
@@ -168,7 +157,6 @@ type PortfolioScopedQuery<Data> = {
   keepsPreviousPage?: boolean;
 };
 
-/** A page of the same portfolio stands in while the next one loads; another portfolio's never does. */
 export const previousPageOfPortfolio =
   (portfolioId: Maybe<string> | undefined) =>
   <Data>(
@@ -202,17 +190,8 @@ type PortfolioChangeAnnouncement = Record<'title', string> &
   Partial<Record<'description', string>> &
   Partial<Record<'action', PortfolioChangeAction>>;
 
-/**
- * Time to read the change and reach the step it offers, above the 4 s of
- * `TOAST_LIFETIME_MS`; the pointer over the toasts pauses it.
- */
 const ACTIONABLE_TOAST_DURATION_MS = 10_000;
 
-/**
- * The toast confirms the write as soon as it succeeds, so the dialog that made
- * it closes then, and the scope refetches behind it. An action acts on the
- * component that announced it, so its toast leaves when that component does.
- */
 export const useAnnouncePortfolioChange = (portfolio: Maybe<Portfolio>) => {
   const refreshPortfolio = useRefreshPortfolio(portfolio);
   const actionableToasts = useRef(new Set<string | number>());
@@ -244,7 +223,6 @@ export const useAnnouncePortfolioChange = (portfolio: Maybe<Portfolio>) => {
   );
 };
 
-/** The portfolio as a page of the account's portfolios already lists it, in that page's response. */
 export const listedPortfolioOf = (
   queryClient: QueryClient,
   portfolioId: Maybe<string> | undefined

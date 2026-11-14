@@ -33,13 +33,11 @@ const CREATE_ASSET_ROUTE = '/v1/asset';
 
 const assetRoute = (symbol: string) => `/v1/asset/${symbol}`;
 
-/** Mirrors `AssetSymbolSchema`. */
 const SYMBOL_MAX_LENGTH = 6;
 
 const OTHER_USER_EMAIL = 'other@ex3.app';
 const UNHELD_SYMBOL = 'ETH';
 
-/** Outside the letters-and-digits allowlist, as a symbol stored before it existed. */
 const LEGACY_SYMBOL = 'BRK.B';
 
 const prismaClient = PrismaClient.getInstance();
@@ -775,7 +773,6 @@ describe('assets', () => {
   });
 
   describe('portfolio scope', () => {
-    /** Well-formed, and naming no portfolio: the baseline a foreign portfolio id must be indistinguishable from. */
     const MISSING_PORTFOLIO_ID = MISSING_UUID;
 
     const scopedRequests = {

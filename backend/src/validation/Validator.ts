@@ -24,6 +24,5 @@ export const validate = async <T>(
   }
 };
 
-/** A body's fields, to validate together with the route's parameters. */
 export const fieldsOf = (body: unknown): object =>
   typeof body === 'object' && body !== null ? body : {};

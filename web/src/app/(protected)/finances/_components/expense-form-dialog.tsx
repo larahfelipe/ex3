@@ -70,7 +70,6 @@ export type ExpenseDraft = z.output<ReturnType<typeof expenseFormSchemaFor>>;
 
 type ExpenseFormInput = z.input<ReturnType<typeof expenseFormSchemaFor>>;
 
-/** What a new bill's form adds: the bill, or the recurring expense whose first bill it is. */
 export type NewBill =
   | (Record<'kind', 'bill'> & Record<'bill', CreateExpenseRequestPayload>)
   | (Record<'kind', 'series'> &
@@ -92,7 +91,6 @@ const expenseFormFieldsFor = (t: ValidationTranslator) =>
     endDate: z.string()
   });
 
-/** The recurrence is checked only while the bill repeats: hidden, it keeps what was chosen and asks nothing of it. */
 export const expenseFormSchemaFor = (
   today: string,
   t: ValidationTranslator
@@ -120,7 +118,6 @@ const EXPENSE_FORM_FIELDS = [
   'endDate'
 ] as const satisfies ReadonlyArray<keyof ExpenseFormInput>;
 
-/** A recurring expense starts on the bill's due date, and the API names its amount's kind `isVariable`. */
 const expenseFieldOf = (path: string) => {
   if (path === 'startDate') return 'dueDate';
   if (path === 'isVariable') return 'amountKind';
@@ -128,7 +125,6 @@ const expenseFieldOf = (path: string) => {
   return fieldOfPath(EXPENSE_FORM_FIELDS)(path);
 };
 
-/** A bill's currency is fixed once it exists, so an edit sends everything else. */
 export const expenseChangesOf = ({
   amount,
   dueDate,
@@ -199,11 +195,6 @@ const defaultValuesOf = (
         dueDate: target.expense.dueDate
       };
 
-/**
- * A new bill can repeat: the switch below its essential fields turns it into a
- * recurring expense whose first bill is due on its due date, and shows how it
- * repeats in place. Turning it off again keeps what was chosen.
- */
 export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
   target,
   onCancel,
@@ -380,7 +371,6 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
   );
 };
 
-/** Adds a bill, or the recurring expense the form was asked to repeat it as. */
 export const AddBillDialog: FC<Record<'onClose', VoidFunction>> = ({
   onClose
 }) => {

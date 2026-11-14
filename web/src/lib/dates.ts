@@ -4,14 +4,6 @@ import utc from 'dayjs/plugin/utc';
 
 import type { Locale } from '@/i18n/config';
 
-/**
- * The API takes and returns instants as ISO 8601 and stores them in UTC; a day
- * of a performance series is its midnight UTC. Every date the web reads,
- * converts or shows passes through here: an instant in the browser's zone, a
- * series day in UTC. dayjs reads and counts; `Intl` writes, in the locale each
- * formatter takes first, which `useFormat` (`@/i18n/format`) binds.
- */
-
 dayjs.extend(customParseFormat);
 dayjs.extend(utc);
 
@@ -33,7 +25,6 @@ const DAY_FORMAT: Intl.DateTimeFormatOptions = {
 const SHORT_MONTH_FORMAT: Intl.DateTimeFormatOptions = { month: 'short' };
 const NARROW_MONTH_FORMAT: Intl.DateTimeFormatOptions = { month: 'narrow' };
 
-/** As with the number formatters, building one costs far more than using it, so each set of options builds once. */
 const dateFormats = new Map<string, Intl.DateTimeFormat>();
 
 const dateFormatOf = (locale: Locale, options: Intl.DateTimeFormatOptions) => {
@@ -48,7 +39,6 @@ const dateFormatOf = (locale: Locale, options: Intl.DateTimeFormatOptions) => {
   return format;
 };
 
-/** In the browser's zone, the one a person reads an instant in. */
 const formatInstant = (
   locale: Locale,
   instant: dayjs.Dayjs,
@@ -81,7 +71,6 @@ const utcCalendarDayOrNull = (day: string) => {
 export const formatQuoteTime = (locale: Locale, timestamp: string) =>
   formatInstant(locale, dayjs(timestamp), QUOTE_TIME_FORMAT);
 
-/** A transaction records the day it was executed, picked in the browser's zone. */
 export const formatExecutionDay = (locale: Locale, timestamp: string) =>
   formatInstant(locale, dayjs(timestamp), DAY_FORMAT);
 
@@ -102,7 +91,6 @@ const formatCalendarDayWith = (
 export const formatCalendarDay = (locale: Locale, day: string) =>
   formatCalendarDayWith(locale, day, DAY_FORMAT);
 
-/** The UTC midnight that starts `day`, for a message that writes the day itself, in its zone, UTC. */
 export const utcDateOfCalendarDay = (day: string) =>
   utcCalendarDayOrNull(day)?.toDate() ?? null;
 
@@ -122,7 +110,6 @@ export const dateOfCalendarDay = (day: string) =>
 export const calendarDayOfDate = (date: Date) =>
   dayjs(date).format(CALENDAR_DAY_FORMAT);
 
-/** A month of the calendar: 0 for January to 11 for December. */
 export const startOfMonthNumbered = (shown: Date, month: number) =>
   dayjs(shown).startOf('month').month(month).toDate();
 
@@ -177,7 +164,6 @@ export const isCalendarMonth = (month: string) =>
 
 export const isCalendarDay = (day: string) => calendarDayOrNull(day) !== null;
 
-/** The first and the last day of `month`, both counted. */
 export const daySpanOfCalendarMonth = (month: string) => {
   const start = calendarMonthOrNull(month);
 
@@ -192,13 +178,11 @@ export const daySpanOfCalendarMonth = (month: string) => {
 export const calendarMonthOfDay = (day: string) =>
   calendarDayOrNull(day)?.format(CALENDAR_MONTH_FORMAT) ?? null;
 
-/** `count` months after `month`, or before it when negative. */
 export const shiftCalendarMonth = (month: string, count: number) =>
   calendarMonthOrNull(month)
     ?.add(count, 'month')
     .format(CALENDAR_MONTH_FORMAT) ?? null;
 
-/** Months from `from` to `to`, counting both. */
 export const monthSpanOf = (from: string, to: string) => {
   const start = calendarMonthOrNull(from);
   const end = calendarMonthOrNull(to);
@@ -234,7 +218,6 @@ export const formatWeekdayCalendarDay = (locale: Locale, day: string) =>
 export const formatLongWeekdayCalendarDay = (locale: Locale, day: string) =>
   formatCalendarDayWith(locale, day, LONG_WEEKDAY_DAY_FORMAT);
 
-/** Weekday names from Sunday, in the form `format` asks for, such as "dom." or "domingo". */
 export const weekdayNames = (
   locale: Locale,
   format: 'narrow' | 'short' | 'long'
@@ -246,7 +229,6 @@ export const weekdayNames = (
     })
   );
 
-/** `count` months after `day`, on the month's last day when it is shorter, as the API schedules. */
 export const shiftCalendarDayByMonths = (day: string, count: number) =>
   calendarDayOrNull(day)?.add(count, 'month').format(CALENDAR_DAY_FORMAT) ??
   null;
@@ -254,7 +236,6 @@ export const shiftCalendarDayByMonths = (day: string, count: number) =>
 export const shiftCalendarDay = (day: string, count: number) =>
   calendarDayOrNull(day)?.add(count, 'day').format(CALENDAR_DAY_FORMAT) ?? null;
 
-/** Whole days from `from` to `to`: negative when `to` comes first. */
 export const daysBetween = (from: string, to: string) => {
   const start = calendarDayOrNull(from);
   const end = calendarDayOrNull(to);
@@ -262,7 +243,6 @@ export const daysBetween = (from: string, to: string) => {
   return start === null || end === null ? null : end.diff(start, 'day');
 };
 
-/** Every day of `month`, and the weekday of its first, 0 for Sunday to 6 for Saturday. */
 export const daysOfCalendarMonth = (month: string) => {
   const start = calendarMonthOrNull(month);
 

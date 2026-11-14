@@ -12,7 +12,6 @@ export type TransactionType =
   | 'TRANSFER_OUT'
   | 'ADJUSTMENT';
 
-/** Quantities and monetary values are decimal strings, exact to the scale of their columns. */
 export type Transaction = {
   id: string;
   type: TransactionType;

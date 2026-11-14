@@ -15,15 +15,6 @@ type RefreshPortfolioButtonProps = {
   className?: string;
 };
 
-/**
- * Refreshes every figure of the portfolio at once, so the page never shows a
- * value priced later than the rest. The refresh joins requests already running
- * instead of restarting them, and it ignores clicks until every request has
- * settled. It reloads what the API has, which reads the market-data source's
- * cache, so the toast never promises a new price, and it warns when the value
- * still rests on missing or old market data; a failure shows in the section
- * it failed in, and the toast points there.
- */
 export const RefreshPortfolioButton: FC<RefreshPortfolioButtonProps> = ({
   portfolio,
   className

@@ -69,7 +69,6 @@ export default function Overview() {
 
   const openAddAssetDialog = () => setAssetDialog({ kind: 'add-asset' });
 
-  // A page of the previous portfolio's positions means nothing in the next one.
   const resetPositionsPage = () => {
     if (positionsPage !== FIRST_PAGE) goToPositionsPage(FIRST_PAGE);
   };

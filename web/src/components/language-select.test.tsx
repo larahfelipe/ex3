@@ -38,7 +38,6 @@ const withLocaleSwitch = (localeSwitch: LocaleSwitch, node: ReactNode) =>
     localeSwitch.locale
   );
 
-/** The sidebar's trigger, reduced to what it reads. */
 const navigationTrigger = (
   <LanguageSelect
     renderTrigger={({ locale, isPending }) => (
@@ -150,7 +149,6 @@ const ROUTER: AppRouterInstance = {
   prefetch: () => undefined
 };
 
-/** The provider the root layout renders, seeded as the server seeds it from the cookie. */
 const appIn = (locale: Locale) =>
   renderToStaticMarkup(
     <AppRouterContext value={ROUTER}>

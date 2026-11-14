@@ -8,13 +8,11 @@ import {
   unitsOf
 } from './decimal';
 
-/** `gross` is the quantity times the unit price; `charges` the fees plus the taxes; `net` what the transaction moves. */
 export type TransactionEffect = Record<
   'quantity' | 'unitPrice' | 'gross' | 'charges' | 'net',
   DecimalString
 >;
 
-/** A buy and a bonus cost the charges on top of the units; a sale and income bring in the units less them. */
 export const isCostOf = (type: TransactionType) =>
   type === 'BUY' || type === 'BONUS';
 
@@ -23,13 +21,6 @@ const signedDecimalOf = (units: bigint, scale: number): DecimalString =>
     ? (`-${decimalOfUnits(-units, scale)}` as DecimalString)
     : decimalOfUnits(units, scale);
 
-/**
- * What the API books for the transaction, computed exactly from the typed
- * amounts: a buy or a bonus costs `q · p + f + t`, which goes into the average
- * cost, and a sale or an income brings in `q · p − f − t`. An empty charge is
- * zero; any other amount that the column would not store leaves nothing to
- * show.
- */
 export const transactionEffectOf = (
   type: TransactionType,
   {

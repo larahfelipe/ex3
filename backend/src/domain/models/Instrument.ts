@@ -23,7 +23,6 @@ export type Instrument = {
   updatedAt: Date;
 };
 
-/** Market and currency are required from registration on, so every new instrument can be quoted. */
 export type InstrumentRegistration = Pick<
   Instrument,
   'symbol' | 'name' | 'type'

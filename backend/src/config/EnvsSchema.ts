@@ -1,15 +1,7 @@
 import { z } from 'zod';
 
-/**
- * HS256 derives its security from the secret's entropy. 32 bytes matches the
- * digest size, below which the signature is weaker than the algorithm implies.
- */
 const JWT_SECRET_MIN_LENGTH = 32;
 
-/**
- * Whoever holds it chooses the client address the API throttles a request
- * under, so it gets the entropy asked of the JWT secret.
- */
 const API_PROXY_SECRET_MIN_LENGTH = 32;
 
 const BCRYPT_SALT_MIN_ROUNDS = 10;
@@ -40,10 +32,6 @@ const SECONDS_PER_UNIT: ReadonlyMap<string, number> = new Map([
   ['d', SECONDS_PER_DAY]
 ]);
 
-/**
- * NIST SP 800-63B bounds a password-authenticated (AAL1) session at 30 days
- * before reauthentication; a token living longer would outlast that bound.
- */
 const MAX_TOKEN_LIFETIME_DAYS = 30;
 const MAX_TOKEN_LIFETIME_SECONDS = MAX_TOKEN_LIFETIME_DAYS * SECONDS_PER_DAY;
 

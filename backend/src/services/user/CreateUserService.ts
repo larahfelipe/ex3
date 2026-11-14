@@ -5,11 +5,6 @@ import { ConflictError } from '@/errors';
 import type { Jwt } from '@/infra/cryptography';
 import type { UserRepository } from '@/infra/database';
 
-/**
- * The portfolio every account starts with when the sign-up names none, and the
- * name the migration gave to the ones created before an account could hold
- * more than one.
- */
 const FIRST_PORTFOLIO_NAME = 'Main';
 
 export class CreateUserService {
@@ -48,7 +43,6 @@ export class CreateUserService {
 
     const { sessionVersion, ...newUser } = account;
 
-    // The row was created by this call, so no other token carries its version.
     const accessToken = await this.jwt.encrypt({
       sub: newUser.id,
       sessionVersion

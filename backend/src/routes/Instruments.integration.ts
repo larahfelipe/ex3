@@ -29,7 +29,6 @@ const USER_ROUTE = '/v1/user';
 
 const instrumentRoute = (symbol: string) => `/v1/instrument/${symbol}`;
 
-/** Mirrors `InstrumentAttributesSchema`. */
 const NAME_MAX_LENGTH = 120;
 
 const PETR4 = {

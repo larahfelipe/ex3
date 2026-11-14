@@ -48,12 +48,6 @@ export class AssetRepository {
     return position && toPosition(position);
   }
 
-  /**
-   * The positions of the portfolio in symbol order, only those in the symbols
-   * when given, with what they are quoted and allocated by. Every transaction of
-   * a position shares one currency, so the first one found is the currency of
-   * its ledger, null without transactions.
-   */
   async getPricedPositions(
     params: AssetRepository.GetPricedPositionsParams
   ): Promise<Array<AssetRepository.PricedPosition>> {
@@ -110,11 +104,6 @@ export class AssetRepository {
     );
   }
 
-  /**
-   * The unique index on portfolio and instrument is the only authority on
-   * whether the portfolio already holds the instrument, so of concurrent
-   * additions exactly one succeeds and the others resolve to null.
-   */
   async add(params: AssetRepository.AddParams) {
     try {
       const position = await this.prismaClient.position.create({
@@ -130,13 +119,6 @@ export class AssetRepository {
     }
   }
 
-  /**
-   * The private instrument and the position holding it are created in one
-   * serializable transaction, so a failure leaves neither. The unique index on
-   * owner and symbol is the only authority on whether the owner already
-   * registered the symbol, so of concurrent registrations exactly one succeeds
-   * and the others resolve to null.
-   */
   async addWithPrivateInstrument(
     params: AssetRepository.AddWithPrivateInstrumentParams
   ) {
@@ -166,11 +148,6 @@ export class AssetRepository {
     }
   }
 
-  /**
-   * The position and its transactions move to the new instrument in one
-   * serializable transaction, so none is left behind on the old one. Resolves
-   * to false, moving nothing, when the portfolio already holds the new one.
-   */
   async update(params: AssetRepository.UpdateParams) {
     const { oldInstrumentId, newInstrumentId, portfolioId } = params;
 
@@ -197,11 +174,6 @@ export class AssetRepository {
     }
   }
 
-  /**
-   * The position and its transactions go in one serializable transaction, so a
-   * transaction recorded concurrently cannot survive as an orphan that a later
-   * position in the same instrument would inherit.
-   */
   async delete(params: AssetRepository.DeleteParams) {
     const { instrumentId, portfolioId } = params;
 

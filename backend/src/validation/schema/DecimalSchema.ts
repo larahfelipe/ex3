@@ -4,7 +4,6 @@ import { DecimalColumn } from '@/config/Constants';
 
 const INTEGER_DIGITS = DecimalColumn.PRECISION - DecimalColumn.SCALE;
 
-/** Unsigned, without exponent or leading zeros, and stored by the column without rounding. */
 const DECIMAL_PATTERN = new RegExp(
   `^(0|[1-9]\\d{0,${INTEGER_DIGITS - 1}})(\\.\\d{1,${DecimalColumn.SCALE}})?$`
 );

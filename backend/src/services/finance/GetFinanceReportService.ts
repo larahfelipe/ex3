@@ -25,7 +25,6 @@ import type {
 
 import { generateDueOccurrences } from './OccurrenceHorizon';
 
-/** A span of whole months of one currency, compared with the span of equal length just before it. */
 export class GetFinanceReportService {
   private static INSTANCE: GetFinanceReportService;
   private readonly financeReportRepository: FinanceReportRepository;
@@ -122,7 +121,6 @@ namespace GetFinanceReportService {
     Record<'from' | 'to' | 'today', Date>;
   export type Result = {
     currency: string;
-    /** Every currency the user has records in, for choosing which to view. */
     currencies: Array<string>;
     from: CalendarMonth;
     to: CalendarMonth;

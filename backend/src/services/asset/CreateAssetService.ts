@@ -56,13 +56,6 @@ export class CreateAssetService {
     return CreateAssetService.INSTANCE;
   }
 
-  /**
-   * With a listing, the symbol is registered as a private instrument of the
-   * caller, with the name, type and sector the quote provider lists it under,
-   * refused when the caller already sees an instrument of that symbol: the
-   * catalog one is picked instead of duplicated. Without one, the symbol names
-   * the instrument the caller sees.
-   */
   async execute({
     userId,
     portfolioId,
@@ -109,7 +102,6 @@ export class CreateAssetService {
     return newAsset;
   }
 
-  /** Every refusal the request alone decides comes before the quote provider is asked. */
   private async addListedInstrument(
     portfolioId: Position['portfolioId'],
     visibleInstrument: Instrument | null,

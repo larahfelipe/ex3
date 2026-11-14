@@ -23,7 +23,6 @@ export type PortfolioHoldings = {
 
 export type PortfolioOverview = {
   baseCurrency: Portfolio['baseCurrency'];
-  /** Positions with units: zero tells a portfolio that holds nothing from one whose holdings are worth zero. */
   heldPositionCount: number;
   totalValue?: string;
   investedValue?: string;
@@ -118,7 +117,6 @@ export type PortfolioAllocation = {
   byCurrency: Array<Pick<Instrument, 'currency'> & AllocationShare>;
 };
 
-/** Longer than a weekend, so a market closed since Friday's close is not stale on Monday. */
 export const STALE_QUOTE_AFTER_DAYS = 4;
 
 const MILLISECONDS_PER_DAY = 86_400_000;
@@ -166,17 +164,6 @@ const convertingTo =
     return rate?.outcome === 'quoted' ? amount.mul(rate.quote.price) : null;
   };
 
-/**
- * Every total is in `baseCurrency`, each amount converted at the latest rate
- * from its own currency, so neither `profitLoss` nor `dayChange` reflects how
- * the rates moved. A total is given only when every position with units has
- * what it needs: `investedValue` the rate from the currency of a cost that is
- * not zero, `totalValue` a quote and the rate from its currency, and
- * `dayChange` also the previous close. `profitLossPercent` is a fraction of the
- * invested value and `dayChangePercent` of the value at the previous close,
- * each absent when that is zero. Totals are truncated towards zero at the
- * column scale.
- */
 export const summarizePortfolio = (
   holdings: PortfolioHoldings
 ): PortfolioOverview => {
@@ -260,18 +247,6 @@ export const summarizePortfolio = (
   };
 };
 
-/**
- * What the overview's totals rest on, so that an incomplete or old valuation is
- * explained instead of passing for a complete one. Of the positions with
- * units, `valuedPositionCount` counts those with a market value in the base
- * currency; `missingQuotes` lists those without a quote, and `missingRates`
- * each currency, of a quote or of a cost that is not zero, without a rate to
- * the base currency. The `reason` is `not-found` when the source does not know
- * the symbol or pair, which retrying does not change, and `unavailable` when
- * the source failed. `isFallback` tells that some quote or rate used is the
- * last one received, answered because the source failed, and `isStale` that
- * `quotedAt` is more than `STALE_QUOTE_AFTER_DAYS` before `now`.
- */
 export const describeMarketData = (
   { baseCurrency, positions, quotes, exchangeRates }: PortfolioHoldings,
   quotedAt: Date | undefined,
@@ -333,15 +308,6 @@ export const describeMarketData = (
   };
 };
 
-/**
- * Each listed position is valued in `baseCurrency` at the latest rate, as in
- * the overview: `marketPrice` and `marketValue` from the quote, `averageCost`
- * and the invested value from the ledger. `allocation` is the fraction of the
- * overview's `totalValue` the market value makes, absent when that total is
- * absent or zero, and `profitLossPercent` the fraction of the invested value,
- * absent when that is zero. Every value is truncated towards zero at the
- * column scale.
- */
 export const valuePositionsInBaseCurrency = (
   holdings: PortfolioHoldings,
   listedPositions: ReadonlyArray<ListedPosition>
@@ -412,13 +378,6 @@ export const valuePositionsInBaseCurrency = (
   );
 };
 
-/**
- * The position valued as in `valuePositionsInBaseCurrency`, next to its latest
- * quote in the currency it was quoted in. `dayChange` is the price less the
- * previous close and `dayChangePercent` a fraction of that close, both absent
- * without it and the percentage also when it is zero. Both are truncated
- * towards zero at the column scale.
- */
 export const describePosition = (
   holdings: PortfolioHoldings,
   position: AllocatedPosition & Pick<Instrument, 'market'>
@@ -478,10 +437,6 @@ export const matchesPositionFilter =
     );
   };
 
-/**
- * Positions without the value go last in either direction. The sort is stable,
- * so ties keep the order the positions came in.
- */
 export const sortPositionsBy = (
   positions: ReadonlyArray<PortfolioPosition>,
   sortBy: Exclude<PositionSortField, typeof PositionSortFields.SYMBOL>,
@@ -528,16 +483,6 @@ const compareGroupKeys = (a: string | null, b: string | null) => {
   return a < b ? -1 : 1;
 };
 
-/**
- * Only positions with units are allocated. A group adds up exactly the
- * `marketValue` and `allocation` its positions have in
- * `valuePositionsInBaseCurrency`, and leaves either out when one of them lacks
- * it, so every breakdown adds up to the same amounts: for n positions, short of
- * `totalValue` by less than n × 10⁻¹⁸ and of 1 by less than
- * n × 10⁻¹⁸ × (1 + 1 ÷ totalValue). A position counts in the currency of its
- * quote, or of the catalog without one. Groups follow the order of their keys,
- * a null key last.
- */
 export const allocatePortfolio = (
   holdings: Omit<PortfolioHoldings, 'positions'> &
     Record<'positions', ReadonlyArray<AllocatedPosition>>

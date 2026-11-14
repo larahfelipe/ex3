@@ -112,7 +112,6 @@ const LISTING_PARAMS = {
   Status: 'status'
 } as const;
 
-/** The API rejects a longer search, and no instrument name is longer. */
 const SEARCH_MAX_LENGTH = 120;
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -132,12 +131,6 @@ const POSITION_SORT_FIELDS: Array<PositionSortField> = [
   'profitLossPercent'
 ];
 
-/**
- * Columns leave from the widest breakpoint down, so a phone keeps the asset,
- * its value and, under the name, its profit or loss; the quantity and the
- * average cost fall back under the value and the price, and the asset detail
- * page keeps every hidden number.
- */
 const COLUMN_VISIBILITY = {
   quantity: 'max-xl:hidden',
   averageCost: 'max-xl:hidden',

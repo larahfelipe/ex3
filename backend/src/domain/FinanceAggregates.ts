@@ -20,11 +20,6 @@ import type {
   ExpenseKind
 } from './models';
 
-/**
- * Every aggregate is over one currency: the caller filters the rows, because
- * amounts in different currencies never add up. Amounts are exact decimals.
- */
-
 export type AggregateExpense = {
   amount: DecimalInput;
   settledAmount: DecimalInput;
@@ -55,13 +50,9 @@ export type UpcomingReminders = Record<
 
 export type MonthlyFigures = {
   month: CalendarMonth;
-  /** Σ amount of the expenses due in the month that are owed (not cancelled): what was planned. */
   scheduled: string;
-  /** Σ cash paid in the month (payment amount plus fees), by payment day: what actually left. */
   paid: string;
-  /** Σ outstanding of the month's expenses not yet settled. */
   outstanding: string;
-  /** The part of `outstanding` already past due on the reference day. */
   overdue: string;
 };
 
@@ -69,7 +60,6 @@ export type CategoryFigures = {
   category: ExpenseCategory;
   scheduled: string;
   paid: string;
-  /** `scheduled` over the period's scheduled total, a fraction. */
   share: string | null;
 };
 
@@ -103,7 +93,6 @@ export type CurrencyAmount = { currency: string; amount: string };
 
 export type CalendarDayFigures = {
   date: CalendarDay;
-  /** Expenses owed on the day: neither the cancelled ones nor their amounts count. */
   count: number;
   paidCount: number;
   overdueCount: number;
@@ -147,7 +136,6 @@ export const overdueOf = (
     outstandingOf
   );
 
-/** Whether a due-soon reminder covers an expense of `kind`: installments have a switch of their own. */
 export const remindsUpcoming = (
   kind: ExpenseKind,
   reminders: UpcomingReminders
@@ -156,7 +144,6 @@ export const remindsUpcoming = (
     ? reminders.remindUpcomingInstallments
     : reminders.remindUpcomingBills;
 
-/** Open expenses due from the reference day through `leadDays` days after it, inclusive. */
 export const dueSoonOf = (
   expenses: ReadonlyArray<AggregateExpense>,
   today: Date,
@@ -218,7 +205,6 @@ export const monthlyFiguresOf = (
     };
   });
 
-/** Largest scheduled amount first; a category with only payments in the period is listed too. */
 export const categoryFiguresOf = (
   expenses: ReadonlyArray<AggregateExpense>,
   payments: ReadonlyArray<AggregatePayment>,
@@ -293,11 +279,6 @@ export const kindFiguresOf = (
     ).toFixed()
   }));
 
-/**
- * What is still to pay in each month, by origin. Overdue amounts from earlier
- * months are not carried forward: they are reported as overdue, not as a
- * future commitment.
- */
 export const commitmentsOf = (
   expenses: ReadonlyArray<AggregateExpense>,
   months: ReadonlyArray<Date>
@@ -320,14 +301,12 @@ export const commitmentsOf = (
     };
   });
 
-/** `percent` is a fraction of the previous value, absent when it is zero. */
 export const changeOf = (current: string, previous: string): Change => {
   const amount = decimalOf(current).minus(decimalOf(previous));
 
   return { amount: amount.toFixed(), percent: ratioOf(amount, previous) };
 };
 
-/** Σ outstanding by currency, alphabetically: amounts in different currencies are listed side by side, never added. */
 export const outstandingByCurrencyOf = (
   expenses: ReadonlyArray<{ currency: string; outstandingAmount: DecimalInput }>
 ): Array<CurrencyAmount> => {
@@ -344,7 +323,6 @@ export const outstandingByCurrencyOf = (
     .map(([currency, amount]) => ({ currency, amount: amount.toFixed() }));
 };
 
-/** The days of a month with an owed expense, in order, each with its totals by currency. */
 export const calendarDaysOf = (
   expenses: ReadonlyArray<CurrencyExpense>,
   today: Date

@@ -1,16 +1,13 @@
 export type IndicatorBox = Record<'x' | 'y' | 'width' | 'height', number>;
 
-/** Where the indicator stands, under which option, and whether it is sliding there from another. */
 export type IndicatorPlacement = Record<'value', string> &
   Record<'box', IndicatorBox> &
   Record<'isSliding', boolean>;
 
-/** What moved the indicator: the checked option changed, or the group or its options resized. */
 export type PlacementCause = 'selection' | 'resize';
 
 type Rect = Record<'left' | 'top' | 'width' | 'height', number>;
 
-/** The group's rect on screen, with its untransformed size and the offsets of its padding box. */
 export type GroupMetrics = Rect &
   Record<
     | 'layoutWidth'
@@ -24,7 +21,6 @@ export type GroupMetrics = Rect &
 
 const BOX_KEYS = ['x', 'y', 'width', 'height'] as const;
 
-/** Below a hundredth of a pixel two measurements of one layout differ only by rounding. */
 const BOX_TOLERANCE = 0.01;
 
 /** A size not laid out, being hidden, is zero, or `NaN` when read from a computed `auto`. */
@@ -66,13 +62,6 @@ export const boxWithin = (
 const isSameBox = (left: IndicatorBox, right: IndicatorBox) =>
   BOX_KEYS.every((key) => Math.abs(left[key] - right[key]) < BOX_TOLERANCE);
 
-/**
- * Where the indicator goes next. It slides only when the checked option
- * changes from one it already stood under, and keeps sliding when a resize
- * moves its target mid-slide. Any other move, the page reflowing around the
- * group or a breakpoint rearranging its options, puts it in place at once.
- * Returns `previous` itself when nothing changed.
- */
 export const nextPlacement = (
   previous: IndicatorPlacement | null,
   value: string | null,
@@ -99,7 +88,6 @@ export const nextPlacement = (
   return { value, box, isSliding };
 };
 
-/** Once a slide ends, a later move is a layout change, not a selection. */
 export const settledPlacement = (
   placement: IndicatorPlacement | null
 ): IndicatorPlacement | null =>

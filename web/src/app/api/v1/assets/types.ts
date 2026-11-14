@@ -11,10 +11,6 @@ export type AssetProperties = {
 
 export type Asset = WithId & AssetProperties;
 
-/**
- * With `listing`, the symbol is registered as a private instrument of the
- * caller from what the quote provider lists in that market and currency.
- */
 export type CreateAssetRequestPayload = Pick<
   AssetProperties,
   'symbol' | 'portfolioId'

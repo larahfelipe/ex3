@@ -53,13 +53,6 @@ export class GetPriceHistoryService {
     return GetPriceHistoryService.INSTANCE;
   }
 
-  /**
-   * The daily closes of an instrument from `from`, inclusive, to `to`,
-   * exclusive, in ascending order of `timestamp`. What the range is missing is
-   * asked of the provider and recorded before the series is answered; a
-   * provider that has no such prices or does not respond leaves the series as
-   * what is stored, because an incomplete history is not a failed request.
-   */
   async execute({
     instrumentId,
     from,
