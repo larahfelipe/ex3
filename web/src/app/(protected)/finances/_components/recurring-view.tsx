@@ -32,6 +32,7 @@ import {
   Button,
   Card,
   CardContent,
+  DialogPresence,
   Label,
   Select,
   SelectContent,
@@ -379,17 +380,26 @@ export const RecurringView: FC = () => {
         </Card>
       </section>
 
-      <RecurringExpenseDialogs seriesId={openSeriesId} onClose={closeSeries} />
+      <DialogPresence>
+        {openSeriesId !== null && (
+          <RecurringExpenseDialogs
+            key={openSeriesId}
+            seriesId={openSeriesId}
+            onClose={closeSeries}
+          />
+        )}
 
-      {isAdding && (
-        <CreateSeriesDialog
-          onCancel={() => setIsAdding(false)}
-          onSubmit={async (series) => {
-            await createSeries(series);
-            setIsAdding(false);
-          }}
-        />
-      )}
+        {isAdding && (
+          <CreateSeriesDialog
+            key="add"
+            onCancel={() => setIsAdding(false)}
+            onSubmit={async (series) => {
+              await createSeries(series);
+              setIsAdding(false);
+            }}
+          />
+        )}
+      </DialogPresence>
     </div>
   );
 };

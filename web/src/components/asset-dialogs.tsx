@@ -1,4 +1,4 @@
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 
 import { useTranslations } from 'use-intl';
 
@@ -6,6 +6,7 @@ import type { Portfolio } from '@/app/api/v1/portfolios';
 import { AddAssetDialog } from '@/components/add-asset-dialog';
 import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
+import { DialogPresence } from '@/components/ui';
 import { useCreateAsset, useDeleteAsset } from '@/hooks/use-assets';
 import { useCreateTransaction } from '@/hooks/use-transactions';
 import type { Maybe } from '@/types';
@@ -46,55 +47,62 @@ export const AssetDialogs: FC<AssetDialogsProps> = ({
   const { mutateAsync: createTransaction } = useCreateTransaction(portfolio);
   const { mutateAsync: deleteAsset } = useDeleteAsset(portfolio);
 
-  switch (dialog?.kind) {
-    case 'add-asset':
-      return (
-        <AddAssetDialog
-          onCancel={closeDialog}
-          onConfirm={async (addition) => {
-            await createAsset(addition);
-            closeDialog();
-          }}
-        />
-      );
+  const openDialog = (): ReactNode => {
+    switch (dialog?.kind) {
+      case 'add-asset':
+        return (
+          <AddAssetDialog
+            key="add-asset"
+            onCancel={closeDialog}
+            onConfirm={async (addition) => {
+              await createAsset(addition);
+              closeDialog();
+            }}
+          />
+        );
 
-    case 'add-transaction':
-      return (
-        <TransactionFormDialog
-          portfolio={portfolio}
-          target={{
-            kind: 'create',
-            symbol: dialog.symbol,
-            currency: portfolio.baseCurrency
-          }}
-          onCancel={closeDialog}
-          onSubmit={async (draft) => {
-            await createTransaction({ ...draft, assetSymbol: dialog.symbol });
-            closeDialog();
-          }}
-        />
-      );
+      case 'add-transaction':
+        return (
+          <TransactionFormDialog
+            key={`add-transaction-${dialog.symbol}`}
+            portfolio={portfolio}
+            target={{
+              kind: 'create',
+              symbol: dialog.symbol,
+              currency: portfolio.baseCurrency
+            }}
+            onCancel={closeDialog}
+            onSubmit={async (draft) => {
+              await createTransaction({ ...draft, assetSymbol: dialog.symbol });
+              closeDialog();
+            }}
+          />
+        );
 
-    case 'delete-asset':
-      return (
-        <ConfirmDeletionDialog
-          title={t('title', { symbol: dialog.symbol })}
-          description={t('description', {
-            symbol: dialog.symbol,
-            portfolio: portfolio.name
-          })}
-          confirmLabel={t('confirm')}
-          failureMessage={t('failed')}
-          onCancel={closeDialog}
-          onConfirm={async () => {
-            await deleteAsset({ symbol: dialog.symbol });
-            onAssetDeleted?.();
-            closeDialog();
-          }}
-        />
-      );
+      case 'delete-asset':
+        return (
+          <ConfirmDeletionDialog
+            key={`delete-asset-${dialog.symbol}`}
+            title={t('title', { symbol: dialog.symbol })}
+            description={t('description', {
+              symbol: dialog.symbol,
+              portfolio: portfolio.name
+            })}
+            confirmLabel={t('confirm')}
+            failureMessage={t('failed')}
+            onCancel={closeDialog}
+            onConfirm={async () => {
+              await deleteAsset({ symbol: dialog.symbol });
+              onAssetDeleted?.();
+              closeDialog();
+            }}
+          />
+        );
 
-    default:
-      return null;
-  }
+      default:
+        return null;
+    }
+  };
+
+  return <DialogPresence>{openDialog()}</DialogPresence>;
 };

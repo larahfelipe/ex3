@@ -11,6 +11,7 @@ import { TransactionDetailsDialog } from '@/components/transaction-details-dialo
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
 import {
   Button,
+  DialogPresence,
   Table,
   TableBody,
   TableCaption,
@@ -142,50 +143,59 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
         </TableBody>
       </Table>
 
-      <TransactionDetailsDialog
-        transaction={selection?.transaction ?? null}
-        onClose={() => setSelection(null)}
-        onEdit={(transaction) => setSelection({ transaction, action: 'edit' })}
-        onDelete={(transaction) =>
-          setSelection({ transaction, action: 'delete' })
-        }
-      />
+      <DialogPresence>
+        {selection !== null && (
+          <TransactionDetailsDialog
+            key={selection.transaction.id}
+            transaction={selection.transaction}
+            onClose={() => setSelection(null)}
+            onEdit={(transaction) =>
+              setSelection({ transaction, action: 'edit' })
+            }
+            onDelete={(transaction) =>
+              setSelection({ transaction, action: 'delete' })
+            }
+          />
+        )}
 
-      {selection?.action === 'edit' && (
-        <TransactionFormDialog
-          portfolio={portfolio}
-          target={{ kind: 'edit', transaction: selection.transaction }}
-          onCancel={() => setSelection({ ...selection, action: 'details' })}
-          onSubmit={async (draft) => {
-            await updateTransaction({
-              ...draft,
-              id: selection.transaction.id,
-              currency: selection.transaction.currency
-            });
-            setSelection(null);
-          }}
-        />
-      )}
+        {selection?.action === 'edit' && (
+          <TransactionFormDialog
+            key="edit"
+            portfolio={portfolio}
+            target={{ kind: 'edit', transaction: selection.transaction }}
+            onCancel={() => setSelection({ ...selection, action: 'details' })}
+            onSubmit={async (draft) => {
+              await updateTransaction({
+                ...draft,
+                id: selection.transaction.id,
+                currency: selection.transaction.currency
+              });
+              setSelection(null);
+            }}
+          />
+        )}
 
-      {selection?.action === 'delete' && (
-        <ConfirmDeletionDialog
-          title={t('deletion.title')}
-          description={t('deletion.description', {
-            type: t(`types.${selection.transaction.type}`),
-            quantity: formatQuantity(selection.transaction.quantity),
-            symbol: selection.transaction.symbol,
-            date: formatExecutionDay(selection.transaction.executedAt)
-          })}
-          confirmLabel={t('deletion.confirm')}
-          failureMessage={t('deletion.failed')}
-          onCancel={() => setSelection({ ...selection, action: 'details' })}
-          onConfirm={async () => {
-            await deleteTransaction({ id: selection.transaction.id });
-            deletedIdRef.current = selection.transaction.id;
-            setSelection(null);
-          }}
-        />
-      )}
+        {selection?.action === 'delete' && (
+          <ConfirmDeletionDialog
+            key="delete"
+            title={t('deletion.title')}
+            description={t('deletion.description', {
+              type: t(`types.${selection.transaction.type}`),
+              quantity: formatQuantity(selection.transaction.quantity),
+              symbol: selection.transaction.symbol,
+              date: formatExecutionDay(selection.transaction.executedAt)
+            })}
+            confirmLabel={t('deletion.confirm')}
+            failureMessage={t('deletion.failed')}
+            onCancel={() => setSelection({ ...selection, action: 'details' })}
+            onConfirm={async () => {
+              await deleteTransaction({ id: selection.transaction.id });
+              deletedIdRef.current = selection.transaction.id;
+              setSelection(null);
+            }}
+          />
+        )}
+      </DialogPresence>
     </>
   );
 };

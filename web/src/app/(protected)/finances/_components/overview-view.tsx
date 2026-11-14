@@ -17,7 +17,7 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
 import { HEADLINE_VALUE_CLASS, Money } from '@/components/financial';
 import { PageHeader } from '@/components/page-header';
 import { SectionHeader } from '@/components/section-header';
-import { Button, Card, CardContent } from '@/components/ui';
+import { Button, Card, CardContent, DialogPresence } from '@/components/ui';
 import {
   useFinanceSettings,
   useFinanceSummary,
@@ -696,18 +696,23 @@ export const OverviewView: FC = () => {
         />
       )}
 
-      {isAdding && <AddBillDialog onClose={() => setIsAdding(false)} />}
+      <DialogPresence>
+        {isAdding && (
+          <AddBillDialog key="add" onClose={() => setIsAdding(false)} />
+        )}
 
-      {isEditingReminders && settings !== undefined && (
-        <ReminderSettingsDialog
-          settings={settings}
-          onCancel={() => setIsEditingReminders(false)}
-          onSubmit={async (next) => {
-            await updateSettings(next);
-            setIsEditingReminders(false);
-          }}
-        />
-      )}
+        {isEditingReminders && settings !== undefined && (
+          <ReminderSettingsDialog
+            key="reminders"
+            settings={settings}
+            onCancel={() => setIsEditingReminders(false)}
+            onSubmit={async (next) => {
+              await updateSettings(next);
+              setIsEditingReminders(false);
+            }}
+          />
+        )}
+      </DialogPresence>
     </div>
   );
 };

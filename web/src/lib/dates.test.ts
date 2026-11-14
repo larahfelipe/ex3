@@ -12,6 +12,7 @@ const {
   formatCalendarMonth,
   formatLongCalendarMonth,
   formatLongWeekdayCalendarDay,
+  formatNarrowCalendarMonth,
   formatSeriesDay,
   formatShortCalendarMonth,
   formatWeekdayCalendarDay,
@@ -52,6 +53,7 @@ describe('date formats', () => {
     assert.equal(formatCalendarMonth('2026-10'), 'out. de 2026');
     assert.equal(formatLongCalendarMonth('2026-10'), 'outubro de 2026');
     assert.equal(formatShortCalendarMonth('2026-10'), 'out.');
+    assert.equal(formatNarrowCalendarMonth('2026-10'), 'O');
     assert.equal(formatWeekdayCalendarDay('2026-10-28'), 'qua., 28 de out.');
     assert.equal(
       formatLongWeekdayCalendarDay('2026-10-28'),

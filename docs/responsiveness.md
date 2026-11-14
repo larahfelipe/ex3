@@ -22,7 +22,7 @@ it.
 | `md` | 768 px | no direct use; only the `@md` container variant |
 | `lg` | 1024 px | two-column public layout, the dashboard's three-column grid and the asset detail's two grids |
 | `xl` | 1280 px | unused since TASK 15.2 |
-| `@md` | 448 px container | allocation chart orientation, in `allocation-chart.tsx` |
+| `@md` | 448 px container | allocation chart orientation, in `allocation-chart.tsx`; the finance column charts' phone layout and column gaps, in `finance-charts.tsx` |
 
 The product's real cut is a single one, at 640 px: below it navigation is a
 bottom bar and everything stacks; above it navigation is a fixed 10 rem rail and
@@ -56,7 +56,8 @@ already stacked, never the navigation.
 | Residual scrolling | Whatever still overflows stays inside the region in `components/ui/table.tsx`, which only then is named and takes `Tab` — never the document |
 | Asset detail | One column; the two `lg:grid-cols-2` grids stay stacked |
 | Forms | Fields in a single column; the forms' `sm:grid-cols-2` does not apply. A form opens on its essential fields, and optional ones wait behind outline buttons that wrap onto as many rows as they need |
-| Dialogs | A sheet along the bottom edge: `w-full` with no side margin, rounded top corners, 20 px of padding — 280 px of content is left at 320 px — sliding up on open. It is at most `100dvh − 1rem` tall, so a strip of the page stays visible above it; the title and the footer with the CTA stay pinned and only the body between them scrolls, so the primary action is always in reach of the thumb. The close button is a 44 px target |
+| Dialogs | A sheet along the bottom edge: `w-full` with no side margin, rounded top corners, 20 px of padding — 280 px of content is left at 320 px — sliding up on open and back down on close, 200 ms each way, while the backdrop fades with it; a dialog rendered only while open stays mounted until that exit ends (`DialogPresence`). It is at most `100dvh − 1rem` tall, so a strip of the page stays visible above it; the title and the footer with the CTA stay pinned and only the body between them scrolls, so the primary action is always in reach of the thumb. The close button is a 44 px target |
+| Finance charts | Each column chart answers to its own width: under 448 px the scale's top value sits above the plot and the columns take the whole 254 px of a 320 px screen; columns sit 4 px apart, 2 px past 12 months; a month is named by its abbreviation, or by its initial where its column is under 28 px (14 px past 12 months, when every other month is named) — six months read `jan.`, twelve read `J F M…` at 320 px. The tooltip is placed against the plot and is never wider than it, so it cannot reach past the screen. Category labels wrap rather than truncate |
 | Controls | Fields, select triggers, buttons and segmented controls are 44 px tall, through `--field-height` and `--control-height`, with text at 16 px in fields and 14 px in buttons; the smaller button sizes, a menu's or a list's options and the calendar's days are 40 px, and `xxs`, the inline action in a table row, 32 px. From `sm` up the same tokens return to the compact sizes: fields 40 px, buttons and toolbar fields 36 px, options 32 px, days 36 px |
 | Virtual keyboard | `interactiveWidget: 'resizes-content'` shrinks the layout viewport, and every `dvh` with it: the dialog resizes above the keyboard and the focused field comes into the visible area |
 | Authentication | The form column only; the art column is `max-lg:hidden`, and the wordmark heads the form, centred at the top, over the glow falling from the top edge. `main` has `min-h-dvh`, so it grows instead of clipping when the keyboard shrinks the screen |
@@ -70,6 +71,7 @@ already stacked, never the navigation.
 | Dashboard | Still a single stack — the grid only splits at 1280 px |
 | Allocation | Container above 448 px: past `@md`, ring and legend side by side |
 | Positions | Filters in a row; the eight columns return and the table may overflow, inside the named scrollable region |
+| Finance charts | Past 448 px of chart, as here, the scale returns to the left of the plot, `R$ 0` at its foot, and columns sit 8 px apart, 4 px past 12 months until 576 px — the layout from before the phone one, which desktop widths keep |
 | Dialogs | Centred, rounded corners, `max-w-lg` (32 rem) unless the dialog widens it (`sm:max-w-xl`, `2xl` or `3xl` for the longer forms and details), height capped at `calc(100dvh - 2rem)` to leave the frame, with the same pinned header and footer around a scrolling body; the close button is a 32 px target |
 | Authentication | The form column only, centred: the art joins with the grid, at 1024 px |
 
@@ -104,3 +106,4 @@ Observed while writing this document, each addressed in the task indicated:
 | ~~The public layout uses `h-screen`, not `dvh`~~ — solved in TASK 15.4 | R6 | 15.4 |
 | ~~No dialog takes the full screen below `sm`, and only the transaction one caps its height~~ — solved in TASK 15.4: the cap and the scrolling live in both primitives, and the root viewport shrinks with the keyboard | R5, R6 | 15.4 |
 | ~~A dialog taller than the screen scrolls its footer, and the CTA with it, out of view, and its close button is a 32 px target below `sm`~~ — solved: below `sm` a dialog is a bottom sheet whose header and footer stay pinned around a scrolling `DialogBody`, and the close button is 44 px there | R3, R5, R6 | — |
+| ~~The finance column charts scroll the page sideways below `sm`: each column's tooltip, laid out while hidden and anchored to its column, runs past the screen~~ — solved: the tooltip is placed against the plot and never wider than it, and below 448 px of chart the scale moves above the plot and the month labels shorten to fit their columns | R1, R4 | — |

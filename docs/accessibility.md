@@ -496,7 +496,7 @@ browser.
 
 | Change | Accessibility |
 | --- | --- |
-| Below `sm`, a dialog is a bottom sheet with the header and the footer pinned and only the body scrolling | the primary action and the close button stay reachable without scrolling (2.4.3, 2.5.8); the sheet slides up in 200 ms, as the centred dialog scales, and the global `prefers-reduced-motion` rule in `globals.css` cuts both to near zero |
+| Below `sm`, a dialog is a bottom sheet with the header and the footer pinned and only the body scrolling | the primary action and the close button stay reachable without scrolling (2.4.3, 2.5.8); the sheet slides up in 200 ms and back down in as many, as the centred dialog scales, with the overlay fading in step, and the global `prefers-reduced-motion` rule in `globals.css` cuts both to near zero; the exit still ends on Radix's `animationend`, so under that preference the dialog leaves at once |
 | The dialog's close button is a 44 px target below `sm` | K6's 44 px rule now covers it on a coarse pointer, with the icon unchanged |
 | A payment's day offers "Today" and, once past, "Due date (date)" under the picker | buttons in a group named "Quick dates", the one matching the chosen day `aria-pressed`, so the state is announced as well as drawn; the picker keeps the date in text |
 | "Repeat this bill" is a native checkbox with its hint as `aria-describedby` | the recurrence fields it reveals follow it in the reading and tab order, inside a titled group |

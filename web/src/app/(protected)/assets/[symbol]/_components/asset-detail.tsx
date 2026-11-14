@@ -35,7 +35,13 @@ import { QuerySection } from '@/components/query-section';
 import { SectionHeader } from '@/components/section-header';
 import { SeriesChart, type SeriesTone } from '@/components/series-chart';
 import { TransactionFormDialog } from '@/components/transaction-form-dialog';
-import { Button, Card, CardContent, Skeleton } from '@/components/ui';
+import {
+  Button,
+  Card,
+  CardContent,
+  DialogPresence,
+  Skeleton
+} from '@/components/ui';
 import {
   useActivePortfolio,
   usePosition,
@@ -709,24 +715,27 @@ export const AssetDetail: FC<AssetDetailProps> = ({ symbol }) => {
             symbol={heldPosition.symbol}
           />
 
-          {isAddingTransaction && (
-            <TransactionFormDialog
-              portfolio={portfolio}
-              target={{
-                kind: 'create',
-                symbol: heldPosition.symbol,
-                currency: portfolio.baseCurrency
-              }}
-              onCancel={() => setIsAddingTransaction(false)}
-              onSubmit={async (draft) => {
-                await createTransaction({
-                  ...draft,
-                  assetSymbol: heldPosition.symbol
-                });
-                setIsAddingTransaction(false);
-              }}
-            />
-          )}
+          <DialogPresence>
+            {isAddingTransaction && (
+              <TransactionFormDialog
+                key="add-transaction"
+                portfolio={portfolio}
+                target={{
+                  kind: 'create',
+                  symbol: heldPosition.symbol,
+                  currency: portfolio.baseCurrency
+                }}
+                onCancel={() => setIsAddingTransaction(false)}
+                onSubmit={async (draft) => {
+                  await createTransaction({
+                    ...draft,
+                    assetSymbol: heldPosition.symbol
+                  });
+                  setIsAddingTransaction(false);
+                }}
+              />
+            )}
+          </DialogPresence>
         </>
       )}
     </div>

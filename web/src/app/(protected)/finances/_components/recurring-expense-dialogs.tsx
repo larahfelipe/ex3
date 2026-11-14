@@ -29,6 +29,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogPresence,
   DialogTitle,
   SegmentedControl,
   SegmentedControlItem,
@@ -67,7 +68,7 @@ import {
 import { PaymentFormDialog } from './payment-form-dialog';
 import { EditSeriesDialog, StopSeriesDialog } from './recurring-expense-forms';
 
-type SeriesDialogsProps = Record<'seriesId', string | null> &
+type SeriesDialogsProps = Record<'seriesId', string> &
   Record<'onClose', VoidFunction>;
 
 type SeriesAction =
@@ -492,17 +493,9 @@ export const RecurringExpenseDialogs: FC<SeriesDialogsProps> = ({
   const series = seriesQuery.data;
   const backToDetails = () => setAction({ kind: 'details' });
 
-  const close = () => {
-    setAction({ kind: 'details' });
-    onClose();
-  };
-
   return (
     <>
-      <Dialog
-        open={seriesId !== null && action.kind === 'details'}
-        onOpenChange={close}
-      >
+      <Dialog open={action.kind === 'details'} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-3xl">
           {series === undefined && seriesQuery.isError && (
             <>
@@ -545,57 +538,63 @@ export const RecurringExpenseDialogs: FC<SeriesDialogsProps> = ({
         </DialogContent>
       </Dialog>
 
-      {series !== undefined && action.kind === 'edit' && (
-        <EditSeriesDialog
-          series={series}
-          onCancel={backToDetails}
-          onSubmit={async (changes) => {
-            await updateSeries({ ...changes, id: series.id });
-            backToDetails();
-          }}
-        />
-      )}
+      <DialogPresence>
+        {series !== undefined && action.kind === 'edit' && (
+          <EditSeriesDialog
+            key="edit"
+            series={series}
+            onCancel={backToDetails}
+            onSubmit={async (changes) => {
+              await updateSeries({ ...changes, id: series.id });
+              backToDetails();
+            }}
+          />
+        )}
 
-      {series !== undefined && action.kind === 'stop' && (
-        <StopSeriesDialog
-          series={series}
-          onCancel={backToDetails}
-          onSubmit={async (terms) => {
-            await stopSeries({ ...terms, id: series.id });
-            backToDetails();
-          }}
-        />
-      )}
+        {series !== undefined && action.kind === 'stop' && (
+          <StopSeriesDialog
+            key="stop"
+            series={series}
+            onCancel={backToDetails}
+            onSubmit={async (terms) => {
+              await stopSeries({ ...terms, id: series.id });
+              backToDetails();
+            }}
+          />
+        )}
 
-      {series !== undefined && action.kind === 'pay' && (
-        <PaymentFormDialog
-          target={{ kind: 'record', expense: action.occurrence }}
-          onCancel={backToDetails}
-          onSubmit={async (payment) => {
-            await recordPayment({
-              ...payment,
-              expenseId: action.occurrence.id
-            });
-            backToDetails();
-          }}
-        />
-      )}
+        {series !== undefined && action.kind === 'pay' && (
+          <PaymentFormDialog
+            key="pay"
+            target={{ kind: 'record', expense: action.occurrence }}
+            onCancel={backToDetails}
+            onSubmit={async (payment) => {
+              await recordPayment({
+                ...payment,
+                expenseId: action.occurrence.id
+              });
+              backToDetails();
+            }}
+          />
+        )}
 
-      {series !== undefined && action.kind === 'delete' && (
-        <ConfirmDeletionDialog
-          title={t('deletion.title')}
-          description={t('deletion.description', {
-            description: series.description
-          })}
-          confirmLabel={t('deletion.confirm')}
-          failureMessage={t('deletion.failed')}
-          onCancel={backToDetails}
-          onConfirm={async () => {
-            await deleteSeries({ id: series.id });
-            close();
-          }}
-        />
-      )}
+        {series !== undefined && action.kind === 'delete' && (
+          <ConfirmDeletionDialog
+            key="delete"
+            title={t('deletion.title')}
+            description={t('deletion.description', {
+              description: series.description
+            })}
+            confirmLabel={t('deletion.confirm')}
+            failureMessage={t('deletion.failed')}
+            onCancel={backToDetails}
+            onConfirm={async () => {
+              await deleteSeries({ id: series.id });
+              onClose();
+            }}
+          />
+        )}
+      </DialogPresence>
     </>
   );
 };

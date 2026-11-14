@@ -6,22 +6,29 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
+import {
+  DialogContentSignal,
+  useIsDialogClosing,
+  withDialogPresence
+} from '@/components/ui/dialog-presence';
 import { useFocusReturn } from '@/hooks/use-focus-return';
 import { cn } from '@/lib/utils';
 
 export const DIALOG_OVERLAY_CLASS =
-  'fixed inset-0 z-50 bg-scrim/60 backdrop-blur-sm duration-200 ease-out data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-150 data-[state=closed]:ease-in reduced-transparency:bg-scrim/80 reduced-transparency:backdrop-blur-none';
+  'fixed inset-0 z-50 bg-scrim/60 backdrop-blur-sm duration-200 ease-out data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:ease-in reduced-transparency:bg-scrim/80 reduced-transparency:backdrop-blur-none';
 
 /**
  * Below `sm` it is a sheet along the bottom edge that slides up, so the thumb
  * reaches its actions; from `sm` it is centred and fades and scales in place.
- * The keyframes animate `transform`, which adds to the `translate` that centres
- * it, so a slide there would bring it in off its axis.
+ * It leaves the way it came, over the same time, easing in where it eased out,
+ * and the backdrop fades with it. The keyframes animate `transform`, which
+ * adds to the `translate` that centres it, so a slide there would bring it in
+ * off its axis.
  */
 export const DIALOG_CONTENT_CLASS =
-  'fixed inset-x-0 bottom-0 z-50 flex max-h-[calc(100dvh-1rem)] w-full flex-col rounded-t-2xl border border-b-0 bg-surface-elevated text-surface-elevated-foreground shadow-elevated outline-hidden duration-200 ease-out data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom data-[state=closed]:duration-150 data-[state=closed]:ease-in sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border-b sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-bottom-0 sm:data-[state=closed]:zoom-out-95';
+  'fixed inset-x-0 bottom-0 z-50 flex max-h-[calc(100dvh-1rem)] w-full flex-col rounded-t-2xl border border-b-0 bg-surface-elevated text-surface-elevated-foreground shadow-elevated outline-hidden duration-200 ease-out data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom data-[state=closed]:ease-in sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border-b sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-bottom-0 sm:data-[state=closed]:zoom-out-95';
 
-const Dialog = DialogPrimitive.Root;
+const Dialog = withDialogPresence(DialogPrimitive.Root);
 
 const DialogTrigger = DialogPrimitive.Trigger;
 
@@ -59,6 +66,7 @@ const DialogContent = ({
   ...props
 }: DialogContentProps) => {
   const focusReturn = useFocusReturn();
+  const isClosing = useIsDialogClosing();
   const t = useTranslations('common.actions');
 
   return (
@@ -67,6 +75,7 @@ const DialogContent = ({
 
       <DialogPrimitive.Content
         {...focusReturn}
+        inert={isClosing}
         className={cn(DIALOG_CONTENT_CLASS, 'overflow-hidden', className)}
         onPointerDownOutside={(event) => {
           if (hasUnsavedChanges) event.preventDefault();
@@ -75,6 +84,8 @@ const DialogContent = ({
         }}
         {...props}
       >
+        <DialogContentSignal />
+
         {children}
 
         <DialogPrimitive.Close className="absolute right-1 top-2.5 inline-flex size-11 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 disabled:pointer-events-none sm:right-2 sm:top-2 sm:size-8">

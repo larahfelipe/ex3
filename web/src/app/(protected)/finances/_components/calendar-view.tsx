@@ -21,7 +21,13 @@ import { Money } from '@/components/financial';
 import { PageHeader } from '@/components/page-header';
 import { PageNavigation } from '@/components/page-navigation';
 import { SectionHeader } from '@/components/section-header';
-import { Button, Card, CardContent, Skeleton } from '@/components/ui';
+import {
+  Button,
+  Card,
+  CardContent,
+  DialogPresence,
+  Skeleton
+} from '@/components/ui';
 import {
   useExpenses,
   useFinanceCalendar,
@@ -636,7 +642,15 @@ export const CalendarView: FC = () => {
         )}
       </div>
 
-      <BillDialogs expenseId={openBillId} onClose={closeBill} />
+      <DialogPresence>
+        {openBillId !== null && (
+          <BillDialogs
+            key={openBillId}
+            expenseId={openBillId}
+            onClose={closeBill}
+          />
+        )}
+      </DialogPresence>
     </div>
   );
 };

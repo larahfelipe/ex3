@@ -13,7 +13,7 @@ import { InfoNote } from '@/components/info-note';
 import { PageHeader } from '@/components/page-header';
 import { PageNavigation } from '@/components/page-navigation';
 import { QuerySection } from '@/components/query-section';
-import { Button } from '@/components/ui';
+import { Button, DialogPresence } from '@/components/ui';
 import { usePageParam } from '@/hooks/use-page-param';
 import {
   selectActivePortfolio,
@@ -238,59 +238,64 @@ export default function Portfolios() {
         }
       </QuerySection>
 
-      {dialog?.kind === 'create' && (
-        <PortfolioFormDialog
-          target={dialog}
-          takenNames={namesOtherThan(null)}
-          onCancel={closeDialog}
-          onSubmit={async (draft) => {
-            await createPortfolio(draft);
-            closeDialog();
-          }}
-        />
-      )}
+      <DialogPresence>
+        {dialog?.kind === 'create' && (
+          <PortfolioFormDialog
+            key="create"
+            target={dialog}
+            takenNames={namesOtherThan(null)}
+            onCancel={closeDialog}
+            onSubmit={async (draft) => {
+              await createPortfolio(draft);
+              closeDialog();
+            }}
+          />
+        )}
 
-      {dialog?.kind === 'edit' && (
-        <PortfolioFormDialog
-          target={dialog}
-          takenNames={namesOtherThan(dialog.portfolio.id)}
-          onCancel={closeDialog}
-          onSubmit={async (draft) => {
-            await updatePortfolio({
-              ...draft,
-              portfolioId: dialog.portfolio.id
-            });
-            closeDialog();
-          }}
-        />
-      )}
+        {dialog?.kind === 'edit' && (
+          <PortfolioFormDialog
+            key={`edit-${dialog.portfolio.id}`}
+            target={dialog}
+            takenNames={namesOtherThan(dialog.portfolio.id)}
+            onCancel={closeDialog}
+            onSubmit={async (draft) => {
+              await updatePortfolio({
+                ...draft,
+                portfolioId: dialog.portfolio.id
+              });
+              closeDialog();
+            }}
+          />
+        )}
 
-      {dialog?.kind === 'delete' && (
-        <ConfirmDeletionDialog
-          title={t('deletion.title', { name: dialog.portfolio.name })}
-          description={
-            <>
-              {`${t('deletion.description', { name: dialog.portfolio.name })} `}
+        {dialog?.kind === 'delete' && (
+          <ConfirmDeletionDialog
+            key={`delete-${dialog.portfolio.id}`}
+            title={t('deletion.title', { name: dialog.portfolio.name })}
+            description={
+              <>
+                {`${t('deletion.description', { name: dialog.portfolio.name })} `}
 
-              <strong className="font-medium text-foreground">
-                {t('deletion.permanent')}
-              </strong>
+                <strong className="font-medium text-foreground">
+                  {t('deletion.permanent')}
+                </strong>
 
-              {dialog.portfolio.id === activePortfolio?.id &&
-                ` ${t('deletion.activeFallback')}`}
-            </>
-          }
-          confirmLabel={t('deletion.confirm')}
-          confirmationPhrase={dialog.portfolio.name}
-          failureMessage={t('deletion.failed')}
-          onCancel={closeDialog}
-          onConfirm={async () => {
-            await deletePortfolio({ portfolioId: dialog.portfolio.id });
-            deletedIdRef.current = dialog.portfolio.id;
-            closeDialog();
-          }}
-        />
-      )}
+                {dialog.portfolio.id === activePortfolio?.id &&
+                  ` ${t('deletion.activeFallback')}`}
+              </>
+            }
+            confirmLabel={t('deletion.confirm')}
+            confirmationPhrase={dialog.portfolio.name}
+            failureMessage={t('deletion.failed')}
+            onCancel={closeDialog}
+            onConfirm={async () => {
+              await deletePortfolio({ portfolioId: dialog.portfolio.id });
+              deletedIdRef.current = dialog.portfolio.id;
+              closeDialog();
+            }}
+          />
+        )}
+      </DialogPresence>
     </div>
   );
 }

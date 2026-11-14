@@ -23,6 +23,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogPresence,
   DialogTitle,
   Table,
   TableBody,
@@ -59,7 +60,7 @@ import {
 import { EditPlanDialog, ReschedulePlanDialog } from './installment-plan-forms';
 import { PaymentFormDialog } from './payment-form-dialog';
 
-type PlanDialogsProps = Record<'planId', string | null> &
+type PlanDialogsProps = Record<'planId', string> &
   Record<'onClose', VoidFunction>;
 
 type PlanAction =
@@ -451,17 +452,9 @@ export const InstallmentPlanDialogs: FC<PlanDialogsProps> = ({
   const plan = planQuery.data;
   const backToDetails = () => setAction({ kind: 'details' });
 
-  const close = () => {
-    setAction({ kind: 'details' });
-    onClose();
-  };
-
   return (
     <>
-      <Dialog
-        open={planId !== null && action.kind === 'details'}
-        onOpenChange={close}
-      >
+      <Dialog open={action.kind === 'details'} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-3xl">
           {plan === undefined && planQuery.isError && (
             <>
@@ -504,75 +497,82 @@ export const InstallmentPlanDialogs: FC<PlanDialogsProps> = ({
         </DialogContent>
       </Dialog>
 
-      {plan !== undefined && action.kind === 'edit' && (
-        <EditPlanDialog
-          plan={plan}
-          onCancel={backToDetails}
-          onSubmit={async (changes) => {
-            await updatePlan({ ...changes, id: plan.id });
-            backToDetails();
-          }}
-        />
-      )}
+      <DialogPresence>
+        {plan !== undefined && action.kind === 'edit' && (
+          <EditPlanDialog
+            key="edit"
+            plan={plan}
+            onCancel={backToDetails}
+            onSubmit={async (changes) => {
+              await updatePlan({ ...changes, id: plan.id });
+              backToDetails();
+            }}
+          />
+        )}
 
-      {plan !== undefined && action.kind === 'reschedule' && (
-        <ReschedulePlanDialog
-          plan={plan}
-          onCancel={backToDetails}
-          onSubmit={async (terms) => {
-            await reschedulePlan({ ...terms, id: plan.id });
-            backToDetails();
-          }}
-        />
-      )}
+        {plan !== undefined && action.kind === 'reschedule' && (
+          <ReschedulePlanDialog
+            key="reschedule"
+            plan={plan}
+            onCancel={backToDetails}
+            onSubmit={async (terms) => {
+              await reschedulePlan({ ...terms, id: plan.id });
+              backToDetails();
+            }}
+          />
+        )}
 
-      {plan !== undefined && action.kind === 'pay' && (
-        <PaymentFormDialog
-          target={{ kind: 'record', expense: action.installment }}
-          onCancel={backToDetails}
-          onSubmit={async (payment) => {
-            await recordPayment({
-              ...payment,
-              expenseId: action.installment.id
-            });
-            backToDetails();
-          }}
-        />
-      )}
+        {plan !== undefined && action.kind === 'pay' && (
+          <PaymentFormDialog
+            key="pay"
+            target={{ kind: 'record', expense: action.installment }}
+            onCancel={backToDetails}
+            onSubmit={async (payment) => {
+              await recordPayment({
+                ...payment,
+                expenseId: action.installment.id
+              });
+              backToDetails();
+            }}
+          />
+        )}
 
-      {plan !== undefined && action.kind === 'cancel' && (
-        <ConfirmDeletionDialog
-          title={t('cancellation.title')}
-          description={t('cancellation.description', {
-            description: plan.description
-          })}
-          confirmLabel={t('cancellation.confirm')}
-          cancelLabel={tActions('back')}
-          failureMessage={t('cancellation.failed')}
-          onCancel={backToDetails}
-          onConfirm={async () => {
-            await cancelPlan({ id: plan.id });
-            backToDetails();
-          }}
-        />
-      )}
+        {plan !== undefined && action.kind === 'cancel' && (
+          <ConfirmDeletionDialog
+            key="cancel"
+            title={t('cancellation.title')}
+            description={t('cancellation.description', {
+              description: plan.description
+            })}
+            confirmLabel={t('cancellation.confirm')}
+            cancelLabel={tActions('back')}
+            failureMessage={t('cancellation.failed')}
+            onCancel={backToDetails}
+            onConfirm={async () => {
+              await cancelPlan({ id: plan.id });
+              backToDetails();
+            }}
+          />
+        )}
 
-      {plan !== undefined && action.kind === 'delete' && (
-        <ConfirmDeletionDialog
-          title={t('deletion.title')}
-          description={t('deletion.description', {
-            description: plan.description,
-            count: plan.installments.length
-          })}
-          confirmLabel={t('deletion.confirm')}
-          failureMessage={t('deletion.failed')}
-          onCancel={backToDetails}
-          onConfirm={async () => {
-            await deletePlan({ id: plan.id });
-            close();
-          }}
-        />
-      )}
+        {plan !== undefined && action.kind === 'delete' && (
+          <ConfirmDeletionDialog
+            key="delete"
+            title={t('deletion.title')}
+            description={t('deletion.description', {
+              description: plan.description,
+              count: plan.installments.length
+            })}
+            confirmLabel={t('deletion.confirm')}
+            failureMessage={t('deletion.failed')}
+            onCancel={backToDetails}
+            onConfirm={async () => {
+              await deletePlan({ id: plan.id });
+              onClose();
+            }}
+          />
+        )}
+      </DialogPresence>
     </>
   );
 };

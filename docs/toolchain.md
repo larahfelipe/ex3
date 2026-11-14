@@ -394,7 +394,9 @@ and Turbopack does not prune a re-exported namespace. Importing from
 of 154 KB ([`performance.md`](performance.md), "Animated tabs"). The rest of the
 app keeps animating through CSS: dialogs, popovers, menus and the buttons'
 press already have entrance and exit through `tw-animate-css` over Radix's
-presence.
+presence. Since 2026-11-13 `AnimatePresence` also keeps a dialog that its
+parent stops rendering mounted until that CSS exit ends (`DialogPresence`); it
+animates nothing itself, so no feature bundle loads for it.
 
 Since 2026-11-11 the `SegmentedControl` indicator slides by a CSS transition,
 measured within the control, and no longer uses the library; framer-motion

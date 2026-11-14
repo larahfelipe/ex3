@@ -3,6 +3,7 @@ export * from './button';
 export * from './calendar';
 export * from './card';
 export * from './dialog';
+export { DialogPresence } from './dialog-presence';
 export * from './dropdown-menu';
 export * from './field';
 export * from './input';

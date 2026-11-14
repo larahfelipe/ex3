@@ -9,10 +9,15 @@ import {
   DIALOG_CONTENT_CLASS,
   DIALOG_OVERLAY_CLASS
 } from '@/components/ui/dialog';
+import {
+  DialogContentSignal,
+  useIsDialogClosing,
+  withDialogPresence
+} from '@/components/ui/dialog-presence';
 import { useFocusReturn } from '@/hooks/use-focus-return';
 import { cn } from '@/lib/utils';
 
-const AlertDialog = AlertDialogPrimitive.Root;
+const AlertDialog = withDialogPresence(AlertDialogPrimitive.Root);
 
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 
@@ -30,9 +35,11 @@ const AlertDialogOverlay = ({
 
 const AlertDialogContent = ({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content>) => {
   const focusReturn = useFocusReturn();
+  const isClosing = useIsDialogClosing();
 
   return (
     <AlertDialogPortal>
@@ -40,13 +47,18 @@ const AlertDialogContent = ({
 
       <AlertDialogPrimitive.Content
         {...focusReturn}
+        inert={isClosing}
         className={cn(
           DIALOG_CONTENT_CLASS,
           'gap-4 overflow-y-auto overscroll-contain p-5',
           className
         )}
         {...props}
-      />
+      >
+        <DialogContentSignal />
+
+        {children}
+      </AlertDialogPrimitive.Content>
     </AlertDialogPortal>
   );
 };

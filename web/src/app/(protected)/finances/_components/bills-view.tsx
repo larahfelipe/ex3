@@ -60,6 +60,7 @@ import {
   Button,
   Card,
   CardContent,
+  DialogPresence,
   Input,
   Label,
   SearchableSelect,
@@ -1330,20 +1331,31 @@ export const BillsView: FC = () => {
         </Card>
       </section>
 
-      <BillDialogs expenseId={openBillId} onClose={closeBill} />
+      <DialogPresence>
+        {openBillId !== null && (
+          <BillDialogs
+            key={openBillId}
+            expenseId={openBillId}
+            onClose={closeBill}
+          />
+        )}
 
-      {payingExpense !== null && (
-        <PaymentFormDialog
-          target={{ kind: 'record', expense: payingExpense }}
-          onCancel={() => setPayingExpense(null)}
-          onSubmit={async (payment) => {
-            await recordPayment({ ...payment, expenseId: payingExpense.id });
-            setPayingExpense(null);
-          }}
-        />
-      )}
+        {payingExpense !== null && (
+          <PaymentFormDialog
+            key={`pay-${payingExpense.id}`}
+            target={{ kind: 'record', expense: payingExpense }}
+            onCancel={() => setPayingExpense(null)}
+            onSubmit={async (payment) => {
+              await recordPayment({ ...payment, expenseId: payingExpense.id });
+              setPayingExpense(null);
+            }}
+          />
+        )}
 
-      {isAdding && <AddBillDialog onClose={() => setIsAdding(false)} />}
+        {isAdding && (
+          <AddBillDialog key="add" onClose={() => setIsAdding(false)} />
+        )}
+      </DialogPresence>
     </div>
   );
 };
