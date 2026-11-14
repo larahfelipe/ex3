@@ -32,6 +32,7 @@ import {
   Button,
   Card,
   CardContent,
+  DialogPresence,
   Label,
   Select,
   SelectContent,
@@ -401,17 +402,26 @@ export const InstallmentsView: FC = () => {
         </Card>
       </section>
 
-      <InstallmentPlanDialogs planId={openPlanId} onClose={closePlan} />
+      <DialogPresence>
+        {openPlanId !== null && (
+          <InstallmentPlanDialogs
+            key={openPlanId}
+            planId={openPlanId}
+            onClose={closePlan}
+          />
+        )}
 
-      {isAdding && (
-        <CreatePlanDialog
-          onCancel={() => setIsAdding(false)}
-          onSubmit={async (plan) => {
-            await createPlan(plan);
-            setIsAdding(false);
-          }}
-        />
-      )}
+        {isAdding && (
+          <CreatePlanDialog
+            key="add"
+            onCancel={() => setIsAdding(false)}
+            onSubmit={async (plan) => {
+              await createPlan(plan);
+              setIsAdding(false);
+            }}
+          />
+        )}
+      </DialogPresence>
     </div>
   );
 };

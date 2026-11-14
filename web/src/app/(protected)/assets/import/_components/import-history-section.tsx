@@ -11,6 +11,7 @@ import { PageNavigation } from '@/components/page-navigation';
 import { QuerySection } from '@/components/query-section';
 import {
   Button,
+  DialogPresence,
   Table,
   TableBody,
   TableCaption,
@@ -173,22 +174,25 @@ export const ImportHistorySection: FC<ImportHistorySectionProps> = ({
         }
       </QuerySection>
 
-      {undoing !== null && (
-        <ConfirmDeletionDialog
-          title={t('undoDialog.title', { file: undoing.fileName })}
-          description={t('undoDialog.description', {
-            count: undoing.transactionCount
-          })}
-          confirmLabel={t('undoDialog.confirm')}
-          cancelLabel={t('undoDialog.cancel')}
-          failureMessage={t('undoDialog.failed')}
-          onCancel={() => setUndoing(null)}
-          onConfirm={async () => {
-            await undoImport({ id: undoing.id });
-            setUndoing(null);
-          }}
-        />
-      )}
+      <DialogPresence>
+        {undoing !== null && (
+          <ConfirmDeletionDialog
+            key={undoing.id}
+            title={t('undoDialog.title', { file: undoing.fileName })}
+            description={t('undoDialog.description', {
+              count: undoing.transactionCount
+            })}
+            confirmLabel={t('undoDialog.confirm')}
+            cancelLabel={t('undoDialog.cancel')}
+            failureMessage={t('undoDialog.failed')}
+            onCancel={() => setUndoing(null)}
+            onConfirm={async () => {
+              await undoImport({ id: undoing.id });
+              setUndoing(null);
+            }}
+          />
+        )}
+      </DialogPresence>
     </>
   );
 };

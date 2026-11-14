@@ -31,6 +31,7 @@ const DAY_FORMAT: Intl.DateTimeFormatOptions = {
   year: 'numeric'
 };
 const SHORT_MONTH_FORMAT: Intl.DateTimeFormatOptions = { month: 'short' };
+const NARROW_MONTH_FORMAT: Intl.DateTimeFormatOptions = { month: 'narrow' };
 
 /** As with the number formatters, building one costs far more than using it, so each set of options builds once. */
 const dateFormats = new Map<string, Intl.DateTimeFormat>();
@@ -223,6 +224,9 @@ export const formatLongCalendarMonth = (locale: Locale, month: string) =>
 
 export const formatShortCalendarMonth = (locale: Locale, month: string) =>
   formatCalendarMonthWith(locale, month, SHORT_MONTH_FORMAT);
+
+export const formatNarrowCalendarMonth = (locale: Locale, month: string) =>
+  formatCalendarMonthWith(locale, month, NARROW_MONTH_FORMAT);
 
 export const formatWeekdayCalendarDay = (locale: Locale, day: string) =>
   formatCalendarDayWith(locale, day, WEEKDAY_DAY_FORMAT);

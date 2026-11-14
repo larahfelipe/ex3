@@ -62,6 +62,36 @@ const PLOT_HEIGHT_CLASS = 'h-44';
 /** One label in two past a year of columns, so the month names never collide. */
 const DENSE_COLUMN_COUNT = 12;
 
+/**
+ * Spacing follows the chart's own width, not the screen's: a narrow chart
+ * gives its columns the room, and a dense one spaces them less, so two years
+ * of months still draw as bars on a phone.
+ */
+const COLUMN_GAP_CLASS = 'gap-1 @md:gap-2';
+const DENSE_COLUMN_GAP_CLASS = 'gap-0.5 @md:gap-1 @xl:gap-2';
+
+/**
+ * Each month's label queries its own column: one too narrow for the
+ * abbreviation shows the initial. Past a year only every other month is
+ * named, so a label may spread over its blank neighbours and the cut is lower.
+ */
+const MONTH_LABEL_CLASSES = {
+  short: '@max-[1.75rem]:hidden',
+  narrow: '@min-[1.75rem]:hidden'
+};
+const DENSE_MONTH_LABEL_CLASSES = {
+  short: '@max-[0.875rem]:hidden',
+  narrow: '@min-[0.875rem]:hidden'
+};
+
+/**
+ * The tooltip's left edge sits at the column's centre, as a share of the plot,
+ * and moves back by the same share of its own width. No wider than the plot,
+ * it then stays over its column and never leaves the plot, at either end.
+ */
+const columnCentreOf = (index: number, count: number) =>
+  `${((index + 0.5) / count) * 100}%`;
+
 /** Amounts become numbers only to be scaled: every value read is formatted from the API's decimal. */
 const scaleOf = (amounts: ReadonlyArray<number>) => {
   const highest = Math.max(0, ...amounts);
@@ -96,33 +126,34 @@ const SeriesLegend: FC<
   </ul>
 );
 
+/** Placed against the plot rather than its column, which is too narrow to hold it. */
 const ColumnTooltip = <Key extends string>({
   column,
   series,
   currency,
-  alignEnd,
+  centre,
   linkLabel
 }: Record<'column', MonthColumn<Key>> &
   Record<'series', ReadonlyArray<ChartSeries<Key>>> &
-  Record<'currency', string> &
-  Record<'alignEnd', boolean> &
+  Record<'currency' | 'centre', string> &
   Partial<Record<'linkLabel', string>>) => {
   const { formatCalendarMonth, formatMoney } = useFormat();
 
   return (
     <div
       aria-hidden="true"
-      className={cn(
-        'pointer-events-none invisible absolute bottom-full z-10 mb-2 w-max min-w-40 space-y-1 rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground opacity-0 shadow-elevated transition-opacity group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100',
-        alignEnd ? 'right-0' : 'left-0'
-      )}
+      style={{ left: centre, translate: `-${centre} 0` }}
+      className="pointer-events-none invisible absolute bottom-full z-10 mb-2 w-max min-w-[min(10rem,100%)] max-w-full space-y-1 rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground opacity-0 shadow-elevated transition-opacity group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100"
     >
       <p className="font-semibold">
         {formatCalendarMonth(column.month) ?? column.month}
       </p>
 
       {series.map(({ key, label, color }) => (
-        <p key={key} className="flex items-center justify-between gap-4">
+        <p
+          key={key}
+          className="flex flex-wrap items-center justify-between gap-x-4"
+        >
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <span
               aria-hidden="true"
@@ -264,6 +295,9 @@ const ChartTable = <Key extends string>({
  * One column per month, its series side by side or stacked. Each month is a
  * link to its records when it has one, and names its figures, so the chart
  * reads without the pointer; the table view holds every value as well.
+ *
+ * Below `@md` the chart is a phone's: the scale's top value moves above the
+ * plot, so the columns take the full width.
  */
 export const MonthColumnChart = <Key extends string>({
   title,
@@ -278,6 +312,7 @@ export const MonthColumnChart = <Key extends string>({
     formatCalendarMonth,
     formatCompactMoney,
     formatMoney,
+    formatNarrowCalendarMonth,
     formatShortCalendarMonth
   } = useFormat();
   const tableId = useId();
@@ -294,6 +329,10 @@ export const MonthColumnChart = <Key extends string>({
   );
 
   const isDense = columns.length > DENSE_COLUMN_COUNT;
+  const gapClass = isDense ? DENSE_COLUMN_GAP_CLASS : COLUMN_GAP_CLASS;
+  const labelClasses = isDense
+    ? DENSE_MONTH_LABEL_CLASSES
+    : MONTH_LABEL_CLASSES;
 
   const describe = (column: MonthColumn<Key>) =>
     t('column', {
@@ -309,7 +348,7 @@ export const MonthColumnChart = <Key extends string>({
     });
 
   return (
-    <figure className="space-y-3">
+    <figure className="@container space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <SeriesLegend series={series} />
 
@@ -328,7 +367,7 @@ export const MonthColumnChart = <Key extends string>({
         <div
           aria-hidden="true"
           className={cn(
-            'flex shrink-0 flex-col justify-between text-right text-[0.6875rem] text-muted-foreground tabular-nums',
+            'flex shrink-0 flex-col justify-between text-right text-[0.6875rem] text-muted-foreground tabular-nums @max-md:hidden',
             PLOT_HEIGHT_CLASS
           )}
         >
@@ -342,6 +381,13 @@ export const MonthColumnChart = <Key extends string>({
         </div>
 
         <div className="min-w-0 flex-1">
+          <p
+            aria-hidden="true"
+            className="mb-1 text-[0.6875rem] text-muted-foreground tabular-nums @md:hidden"
+          >
+            {formatCompactMoney(highest, currency)}
+          </p>
+
           <div className={cn('relative', PLOT_HEIGHT_CLASS)}>
             <div
               aria-hidden="true"
@@ -353,9 +399,13 @@ export const MonthColumnChart = <Key extends string>({
               className="absolute inset-x-0 top-1/2 border-t border-border/60"
             />
 
-            <ul className="relative flex h-full items-end gap-1 border-b border-border sm:gap-2">
+            <ul
+              className={cn(
+                'relative flex h-full items-end border-b border-border',
+                gapClass
+              )}
+            >
               {columns.map((column, index) => {
-                const alignEnd = index >= columns.length / 2;
                 const marks = (
                   <>
                     <ColumnMarks
@@ -369,13 +419,13 @@ export const MonthColumnChart = <Key extends string>({
                       column={column}
                       series={series}
                       currency={currency}
-                      alignEnd={alignEnd}
+                      centre={columnCentreOf(index, columns.length)}
                       linkLabel={linkLabel}
                     />
                   </>
                 );
                 const markClass =
-                  'group relative flex h-full min-w-0 flex-1 rounded-t-sm outline-hidden hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-focus';
+                  'group flex h-full min-w-0 flex-1 rounded-t-sm outline-hidden hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-focus';
 
                 return (
                   <li key={column.month} className="flex h-full min-w-0 flex-1">
@@ -411,13 +461,27 @@ export const MonthColumnChart = <Key extends string>({
 
           <div
             aria-hidden="true"
-            className="mt-1.5 flex gap-1 text-center text-[0.6875rem] text-muted-foreground sm:gap-2"
+            className={cn(
+              'mt-1.5 flex text-[0.6875rem] text-muted-foreground',
+              gapClass
+            )}
           >
             {columns.map(({ month }, index) => (
-              <span key={month} className="min-w-0 flex-1 truncate">
-                {isDense && index % 2 === 1
-                  ? ''
-                  : formatShortCalendarMonth(month)}
+              <span
+                key={month}
+                className="@container flex min-w-0 flex-1 justify-center whitespace-nowrap"
+              >
+                {(!isDense || index % 2 === 0) && (
+                  <>
+                    <span className={labelClasses.short}>
+                      {formatShortCalendarMonth(month)}
+                    </span>
+
+                    <span className={labelClasses.narrow}>
+                      {formatNarrowCalendarMonth(month)}
+                    </span>
+                  </>
+                )}
               </span>
             ))}
           </div>
@@ -453,7 +517,7 @@ export const CategoryBars: FC<
         const content = (
           <>
             <span className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="min-w-0 truncate font-medium">{label}</span>
+              <span className="min-w-0 font-medium">{label}</span>
 
               <span className="shrink-0 tabular-nums">
                 <Money value={value} currency={currency} />

@@ -26,6 +26,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogPresence,
   DialogTitle
 } from '@/components/ui';
 import {
@@ -54,7 +55,7 @@ import {
 } from './finance-display';
 import { PaymentFormDialog } from './payment-form-dialog';
 
-type BillDialogsProps = Record<'expenseId', string | null> &
+type BillDialogsProps = Record<'expenseId', string> &
   Record<'onClose', VoidFunction>;
 
 type BillAction =
@@ -393,12 +394,6 @@ export const BillDialogs: FC<BillDialogsProps> = ({ expenseId, onClose }) => {
   const expense = expenseQuery.data;
   const backToDetails = () => setAction({ kind: 'details' });
 
-  const close = () => {
-    setAction({ kind: 'details' });
-    setRestoreError(null);
-    onClose();
-  };
-
   const restore = async () => {
     if (expense === undefined) return;
 
@@ -415,10 +410,7 @@ export const BillDialogs: FC<BillDialogsProps> = ({ expenseId, onClose }) => {
 
   return (
     <>
-      <Dialog
-        open={expenseId !== null && action.kind === 'details'}
-        onOpenChange={close}
-      >
+      <Dialog open={action.kind === 'details'} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-2xl">
           {expense === undefined && expenseQuery.isError && (
             <>
@@ -470,98 +462,110 @@ export const BillDialogs: FC<BillDialogsProps> = ({ expenseId, onClose }) => {
         </DialogContent>
       </Dialog>
 
-      {expense !== undefined && action.kind === 'edit' && (
-        <ExpenseFormDialog
-          target={{ kind: 'edit', expense }}
-          onCancel={backToDetails}
-          onSubmit={async (draft) => {
-            await updateExpense({ ...expenseChangesOf(draft), id: expense.id });
-            backToDetails();
-          }}
-        />
-      )}
+      <DialogPresence>
+        {expense !== undefined && action.kind === 'edit' && (
+          <ExpenseFormDialog
+            key="edit"
+            target={{ kind: 'edit', expense }}
+            onCancel={backToDetails}
+            onSubmit={async (draft) => {
+              await updateExpense({
+                ...expenseChangesOf(draft),
+                id: expense.id
+              });
+              backToDetails();
+            }}
+          />
+        )}
 
-      {expense !== undefined && action.kind === 'pay' && (
-        <PaymentFormDialog
-          target={{ kind: 'record', expense }}
-          onCancel={backToDetails}
-          onSubmit={async (payment) => {
-            await recordPayment({ ...payment, expenseId: expense.id });
-            backToDetails();
-          }}
-        />
-      )}
+        {expense !== undefined && action.kind === 'pay' && (
+          <PaymentFormDialog
+            key="pay"
+            target={{ kind: 'record', expense }}
+            onCancel={backToDetails}
+            onSubmit={async (payment) => {
+              await recordPayment({ ...payment, expenseId: expense.id });
+              backToDetails();
+            }}
+          />
+        )}
 
-      {expense !== undefined && action.kind === 'correct' && (
-        <PaymentFormDialog
-          target={{ kind: 'correct', expense, payment: action.payment }}
-          onCancel={backToDetails}
-          onSubmit={async (payment) => {
-            await updatePayment({
-              ...payment,
-              expenseId: expense.id,
-              paymentId: action.payment.id
-            });
-            backToDetails();
-          }}
-        />
-      )}
+        {expense !== undefined && action.kind === 'correct' && (
+          <PaymentFormDialog
+            key="correct"
+            target={{ kind: 'correct', expense, payment: action.payment }}
+            onCancel={backToDetails}
+            onSubmit={async (payment) => {
+              await updatePayment({
+                ...payment,
+                expenseId: expense.id,
+                paymentId: action.payment.id
+              });
+              backToDetails();
+            }}
+          />
+        )}
 
-      {expense !== undefined && action.kind === 'void' && (
-        <ConfirmDeletionDialog
-          title={t('voiding.title')}
-          description={t('voiding.description', {
-            amount: formatMoney(action.payment.amount, expense.currency),
-            day:
-              formatCalendarDay(action.payment.paidOn) ?? action.payment.paidOn
-          })}
-          confirmLabel={t('voiding.confirm')}
-          failureMessage={t('voiding.failed')}
-          onCancel={backToDetails}
-          onConfirm={async () => {
-            await voidPayment({
-              expenseId: expense.id,
-              paymentId: action.payment.id
-            });
-            backToDetails();
-          }}
-        />
-      )}
+        {expense !== undefined && action.kind === 'void' && (
+          <ConfirmDeletionDialog
+            key="void"
+            title={t('voiding.title')}
+            description={t('voiding.description', {
+              amount: formatMoney(action.payment.amount, expense.currency),
+              day:
+                formatCalendarDay(action.payment.paidOn) ??
+                action.payment.paidOn
+            })}
+            confirmLabel={t('voiding.confirm')}
+            failureMessage={t('voiding.failed')}
+            onCancel={backToDetails}
+            onConfirm={async () => {
+              await voidPayment({
+                expenseId: expense.id,
+                paymentId: action.payment.id
+              });
+              backToDetails();
+            }}
+          />
+        )}
 
-      {expense !== undefined && action.kind === 'cancel' && (
-        <ConfirmDeletionDialog
-          title={t('cancellation.title')}
-          description={t('cancellation.description', {
-            description: expense.description,
-            day: formatCalendarDay(expense.dueDate) ?? expense.dueDate
-          })}
-          confirmLabel={t('cancellation.confirm')}
-          cancelLabel={tActions('back')}
-          failureMessage={t('cancellation.failed')}
-          onCancel={backToDetails}
-          onConfirm={async () => {
-            await updateExpense({ id: expense.id, cancelled: true });
-            backToDetails();
-          }}
-        />
-      )}
+        {expense !== undefined && action.kind === 'cancel' && (
+          <ConfirmDeletionDialog
+            key="cancel"
+            title={t('cancellation.title')}
+            description={t('cancellation.description', {
+              description: expense.description,
+              day: formatCalendarDay(expense.dueDate) ?? expense.dueDate
+            })}
+            confirmLabel={t('cancellation.confirm')}
+            cancelLabel={tActions('back')}
+            failureMessage={t('cancellation.failed')}
+            onCancel={backToDetails}
+            onConfirm={async () => {
+              await updateExpense({ id: expense.id, cancelled: true });
+              backToDetails();
+            }}
+          />
+        )}
 
-      {expense !== undefined && action.kind === 'delete' && (
-        <ConfirmDeletionDialog
-          title={t('deletion.title')}
-          description={t('deletion.description', {
-            description: expense.description,
-            day: formatCalendarDay(expense.dueDate) ?? expense.dueDate
-          })}
-          confirmLabel={t('deletion.confirm')}
-          failureMessage={t('deletion.failed')}
-          onCancel={backToDetails}
-          onConfirm={async () => {
-            await deleteExpense({ id: expense.id });
-            close();
-          }}
-        />
-      )}
+        {expense !== undefined && action.kind === 'delete' && (
+          <ConfirmDeletionDialog
+            key="delete"
+            title={t('deletion.title')}
+            description={t('deletion.description', {
+              description: expense.description,
+              day: formatCalendarDay(expense.dueDate) ?? expense.dueDate
+            })}
+            confirmLabel={t('deletion.confirm')}
+            failureMessage={t('deletion.failed')}
+            onCancel={backToDetails}
+            onConfirm={async () => {
+              await deleteExpense({ id: expense.id });
+              onClose();
+            }}
+          />
+        )}
+      </DialogPresence>
     </>
   );
 };

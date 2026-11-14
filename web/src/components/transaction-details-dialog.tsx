@@ -28,10 +28,7 @@ type TransactionAction = (transaction: ListedTransaction) => void;
 
 type TransactionActions = Record<'onEdit' | 'onDelete', TransactionAction>;
 
-type TransactionDetailsDialogProps = Record<
-  'transaction',
-  ListedTransaction | null
-> &
+type TransactionDetailsDialogProps = Record<'transaction', ListedTransaction> &
   Record<'onClose', VoidFunction> &
   TransactionActions;
 
@@ -128,15 +125,13 @@ export const TransactionDetailsDialog: FC<TransactionDetailsDialogProps> = ({
   onEdit,
   onDelete
 }) => (
-  <Dialog open={transaction !== null} onOpenChange={onClose}>
+  <Dialog open onOpenChange={onClose}>
     <DialogContent>
-      {transaction !== null && (
-        <TransactionDetails
-          transaction={transaction}
-          onEdit={onEdit}
-          onDelete={onDelete}
-        />
-      )}
+      <TransactionDetails
+        transaction={transaction}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
     </DialogContent>
   </Dialog>
 );
