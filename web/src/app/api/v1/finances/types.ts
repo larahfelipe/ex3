@@ -34,7 +34,6 @@ export type RecurrenceFrequency = 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 
 export type ExpenseStatus = 'PENDING' | 'OVERDUE' | 'PAID' | 'CANCELLED';
 
-/** A status, or `OPEN`: pending and overdue alike, whatever is still owed. */
 export type ExpenseStatusFilter = ExpenseStatus | 'OPEN';
 
 export type ExpenseKind = 'ONE_TIME' | 'INSTALLMENT' | 'RECURRING';
@@ -58,16 +57,10 @@ export type ExpenseSortField =
 
 export type SortOrder = 'asc' | 'desc';
 
-/** A calendar day, `YYYY-MM-DD`, with no time zone. */
 export type CalendarDay = string;
 
-/** A calendar month, `YYYY-MM`. */
 export type CalendarMonth = string;
 
-/**
- * The browser's own day, which decides what is overdue. The API accepts it
- * within a day of its UTC day, the span of the world's time zones.
- */
 export type ReferenceDayParams = Record<'today', CalendarDay>;
 
 export type ExpenseDescription = {
@@ -149,7 +142,6 @@ export type InstallmentPlan = WithId &
     lastDueDate: CalendarDay | null;
   };
 
-/** `keptThroughInstallment`: the last installment a reschedule keeps, the last with any payment, voided ones included. */
 export type InstallmentPlanDetail = InstallmentPlan &
   Record<'installments', Array<Expense>> &
   Record<'keptThroughInstallment', number | null> &
@@ -179,7 +171,6 @@ export type AmountCount = Record<'amount', DecimalString> &
 export type CurrencyAmount = Record<'currency', string> &
   Record<'amount', DecimalString>;
 
-/** `percent` is a fraction of the previous value, null when that was zero. */
 export type Change = Record<'amount', DecimalString> &
   Record<'percent', DecimalString | null>;
 
@@ -290,7 +281,6 @@ export type GetInstallmentPlansResponseData = Page<InstallmentPlan>;
 
 export type GetInstallmentPlanResponseData = InstallmentPlanDetail;
 
-/** Exactly one of the two amounts: the sum of the installments or each one's. */
 export type CreateInstallmentPlanRequestPayload = ExpenseDescription &
   Record<'currency' | 'firstDueDate', string> &
   Record<'frequency', RecurrenceFrequency> &
@@ -329,7 +319,6 @@ export type CreateRecurringExpenseRequestPayload = ExpenseDescription &
 
 export type CreateRecurringExpenseResponseData = WithId & WithMessage;
 
-/** Applies to the occurrences from `effectiveFrom` on that have no payments and were not edited on their own. */
 export type UpdateRecurringExpenseRequestPayload = Partial<
   ExpenseDescription &
     Record<'amount' | 'effectiveFrom', string> &
@@ -352,10 +341,8 @@ export type GetFinanceSummaryResponseData = {
   today: CalendarDay;
   month: CalendarMonth;
   reminders: FinanceSettings;
-  /** Every open bill, whenever due, except recurring ones due after the current month. */
   outstanding: AmountCount;
   overdue: AmountCount;
-  /** Of the kinds the reminders cover. */
   dueSoon: AmountCount;
   current: PeriodTotals;
   change: Record<'scheduled' | 'paid', Change>;

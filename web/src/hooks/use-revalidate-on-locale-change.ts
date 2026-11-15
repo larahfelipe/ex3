@@ -38,11 +38,6 @@ export const clientErrorPathsOf = (
     return isRoot ? [] : clientErrorPathsOf(node, path);
   });
 
-/**
- * A validation message is written in the language the field was checked in,
- * so after a switch the fields that show one are checked again, in the new
- * language. Fields without an error stay unchecked, so nothing new appears.
- */
 export const useRevalidateOnLocaleChange = <Values extends FieldValues>(
   errors: FieldErrors<Values>,
   trigger: UseFormTrigger<Values>

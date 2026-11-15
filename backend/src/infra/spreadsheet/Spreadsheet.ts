@@ -11,12 +11,6 @@ const PDF_SIGNATURE = Buffer.from('%PDF');
 
 export type SpreadsheetLimits = SheetLimits & ZipLimits;
 
-/**
- * The file's sheets, told apart by what the bytes are rather than by the name
- * or type the upload claims: a ZIP archive is read as an Office Open XML
- * workbook, anything else as delimited text. A legacy binary workbook and a
- * PDF are refused by their signature.
- */
 export const readSpreadsheet = (
   bytes: Buffer,
   limits: SpreadsheetLimits

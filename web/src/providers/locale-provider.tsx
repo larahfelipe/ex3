@@ -35,7 +35,6 @@ type ActiveCatalog = Record<'locale', Locale> & Record<'messages', Messages>;
 
 export const LocaleSwitchContext = createContext<LocaleSwitch | null>(null);
 
-/** The interface's language and the way to change it, the same for every selector on the page. */
 export const useLocaleSwitch = () => {
   const localeSwitch = use(LocaleSwitchContext);
 
@@ -45,13 +44,6 @@ export const useLocaleSwitch = () => {
   return localeSwitch;
 };
 
-/**
- * Holds the language the whole tree renders in. The server picks the first
- * one from the cookie and sends its catalog; a switch loads the other catalog,
- * renders every component again in place, so typed values, filters and open
- * dialogs stay, saves the choice in the cookie and refreshes what the server
- * rendered, such as the page title.
- */
 export const LocaleProvider: FC<LocaleProviderProps> = ({
   locale,
   messages,
@@ -80,7 +72,6 @@ export const LocaleProvider: FC<LocaleProviderProps> = ({
             setCatalog({ locale: shown, messages: shownMessages }),
           savePreference: (saved) => {
             document.cookie = localeCookieOf(saved);
-            // What the server rendered, such as the page title, follows the cookie.
             router.refresh();
           },
           setPendingLocale

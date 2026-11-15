@@ -124,14 +124,11 @@ type AmountFieldProps = Record<'name', AmountField> &
   Partial<Record<'action', ReactNode>> &
   Record<'control', Control<TransactionFormInput, unknown, TransactionDraft>>;
 
-/** The API bounds broker and notes to these lengths. */
 const BROKER_MAX_LENGTH = 60;
 const NOTES_MAX_LENGTH = 500;
 
-/** One whole unit, keeping the fraction, moves a quantity of any class. */
 const QUANTITY_STEP = 1;
 
-/** A new transaction starts at one unit, the stepper's own step. */
 const INITIAL_QUANTITY = '1';
 
 /**
@@ -141,7 +138,6 @@ const INITIAL_QUANTITY = '1';
 const PAIRED_FIELD_CLASS =
   '[&>:first-child]:flex [&>:first-child]:min-h-6 [&>:first-child]:items-center';
 
-/** Fields a transaction often goes without, added to the form one by one. */
 const TRANSACTION_DETAILS = [
   'fees',
   'taxes',
@@ -149,15 +145,12 @@ const TRANSACTION_DETAILS = [
   'notes'
 ] as const satisfies ReadonlyArray<TransactionFormField>;
 
-/** A trade happens at the market, so its price is the one to start from. */
 const isTradedAtMarket = (type: TransactionType) =>
   type === 'BUY' || type === 'SELL';
 
-/** A sale and every income count the units already held; a buy and a bonus add new ones. */
 const isQuantityOfHeldUnits = (type: TransactionType) =>
   type !== 'BUY' && type !== 'BONUS';
 
-/** Interest on equity is paid net of a tax withheld at source. */
 const hasWithheldTax = (type: TransactionType) => type === 'JCP';
 
 const quantityFieldFor = (t: Translator<'validation'>, format: Format) =>
@@ -215,7 +208,6 @@ const unitPriceIssueOf = (
   return null;
 };
 
-/** A class quoted finer than the currency's minor unit is typed with its own decimal places. */
 const unitPriceDecimalsOf = (
   instrumentType: Maybe<InstrumentType>,
   currency: string
@@ -225,10 +217,6 @@ const unitPriceDecimalsOf = (
     (instrumentType && UNIT_PRICE_DECIMALS[instrumentType]) ?? 0
   );
 
-/**
- * The position's market price, in the portfolio's base currency, at the places
- * a unit price is typed with, or exact when those places would round it to zero.
- */
 const marketUnitPriceOf = (
   position: Maybe<PositionDetail>,
   currency: string,
@@ -253,7 +241,6 @@ const marketPriceHintOf = (
     ? t('marketPrice')
     : t('marketPriceAsOf', { time: formatQuoteTime(quote.timestamp) });
 
-/** The quantity the stepper moves from, or null while the text is not a number. */
 const steppableQuantityOf = (quantity: string, { readDecimal }: Format) => {
   if (quantity.trim() === '') return '0';
 
@@ -262,7 +249,6 @@ const steppableQuantityOf = (quantity: string, { readDecimal }: Format) => {
   return reading.outcome === 'read' ? reading.value : null;
 };
 
-/** The day is the browser's; the API receives the instant `instantOfCalendarDay` anchors it to. */
 const transactionFormSchemaFor = (
   t: Translator<'validation'>,
   format: Format
@@ -325,7 +311,6 @@ const EMPTY_TRANSACTION_FORM: TransactionFormInput = {
 const isTransactionFormField = (path: string): path is TransactionFormField =>
   TRANSACTION_FORM_FIELDS.some((field) => field === path);
 
-/** An error the API reports on the instant belongs to the day it records. */
 const formFieldOf = (path: string) => {
   if (path === 'executedAt') return 'executionDay';
 
@@ -546,10 +531,6 @@ const TransactionForm: FC<TransactionFormProps> = ({
     taxes
   });
 
-  /**
-   * A unit price still at the market price follows the type: a trade keeps it,
-   * and income or a bonus, priced per unit by the payer, starts empty.
-   */
   const followSelectedType = () => {
     const type = getValues('type');
     const currentUnitPrice = getValues('unitPrice');
@@ -859,12 +840,6 @@ const TransactionForm: FC<TransactionFormProps> = ({
   );
 };
 
-/**
- * The form waits for the position, whose class sets the decimal places a unit
- * price is typed with and whose market price starts a new trade's unit price.
- * When the position cannot be read, the form still opens, with the currency's
- * own decimal places and no unit price.
- */
 export const TransactionFormDialog: FC<TransactionFormDialogProps> = ({
   portfolio,
   target,

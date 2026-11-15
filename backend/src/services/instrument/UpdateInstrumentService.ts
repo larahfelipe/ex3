@@ -25,10 +25,6 @@ export class UpdateInstrumentService {
     return UpdateInstrumentService.INSTANCE;
   }
 
-  /**
-   * The symbol names the instrument the caller sees. A private one is only ever
-   * seen by its owner, who may change it; the catalog is written by an admin.
-   */
   async execute({
     userId,
     isAdmin,

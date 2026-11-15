@@ -82,7 +82,6 @@ const SERIES_STATUS_ICONS: Record<RecurringExpenseStatus, LucideIcon> = {
   CANCELLED: CircleStop
 };
 
-/** Each status has its own icon besides its tone, so statuses differ in shape as well as in color. */
 const StatusBadge: FC<
   Record<'tone' | 'label', string> &
     Record<'icon', LucideIcon> &
@@ -195,7 +194,6 @@ export const originLabelOf = (
       })
     : t(`kinds.${kind}`);
 
-/** How far the due date is from `today`, for a bill still owed. */
 export const dueDistanceOf = (
   dueDate: string,
   today: string,
@@ -252,7 +250,6 @@ const isRetiredCategory = (
 const isChangedField = (field: string): field is ChangedField =>
   CHANGED_FIELDS.some((known) => known === field);
 
-/** A value as the event recorded it: amounts and days as the API writes them. */
 const recordedTextOf = (
   field: string,
   value: unknown,
@@ -287,7 +284,6 @@ const isChangeEntry = (value: unknown): value is ChangeEntry =>
 
 const countOf = (value: unknown) => (Array.isArray(value) ? value.length : 0);
 
-/** One line per event: what changed, from what to what, in the record's currency. */
 export const describeEvent = (
   { type, changes }: Pick<FinanceEvent, 'type' | 'changes'>,
   currency: string,

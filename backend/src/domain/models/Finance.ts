@@ -23,10 +23,8 @@ export type PaymentMethod =
 
 export type RecurrenceFrequency = 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 
-/** Derived on every read from the due date, the settled amount and the reference day; never stored. */
 export type ExpenseStatus = 'PENDING' | 'OVERDUE' | 'PAID' | 'CANCELLED';
 
-/** A list filter: one status, or `OPEN` for every expense still owed, pending or overdue. */
 export type ExpenseStatusFilter = ExpenseStatus | 'OPEN';
 
 export type ExpenseKind = 'ONE_TIME' | 'INSTALLMENT' | 'RECURRING';
@@ -48,17 +46,10 @@ export type FinanceEventType =
   | 'PAYMENT_VOIDED'
   | 'RESCHEDULED';
 
-/** A calendar day, `YYYY-MM-DD`, with no time zone. */
 export type CalendarDay = string;
 
-/** A calendar month, `YYYY-MM`. */
 export type CalendarMonth = string;
 
-/**
- * Monetary values are decimal strings, exact to the scale of their columns.
- * `settledAmount` is what the active payments cleared (amount plus discount),
- * `outstandingAmount` what is still owed.
- */
 export type Expense = {
   id: string;
   description: string;
@@ -110,7 +101,6 @@ export type FinanceEvent = {
   createdAt: Date;
 };
 
-/** The fields a person describes a bill with, shared by expenses, plans and series. */
 export type ExpenseDescription = Pick<
   Expense,
   | 'description'
@@ -133,7 +123,6 @@ export type InstallmentPlan = ExpenseDescription & {
   totalAmount: string;
   settledAmount: string;
   outstandingAmount: string;
-  /** `totalAmount − principalAmount`: interest and fees when positive, a discount when negative. */
   financingCost: string | null;
   paidInstallments: number;
   remainingInstallments: number;
@@ -155,7 +144,6 @@ export type RecurringExpense = ExpenseDescription & {
   endDate: CalendarDay | null;
   cancelledAt: Date | null;
   status: RecurringExpenseStatus;
-  /** The amount spread over a month: weekly × 52 ÷ 12, yearly ÷ 12, truncated to the currency's minor unit. */
   monthlyEquivalent: string;
   nextDueDate: CalendarDay | null;
   createdAt: Date;

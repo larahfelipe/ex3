@@ -5,10 +5,6 @@ import type { PortfolioRepository } from '@/infra/database';
 
 export type PortfolioScope = Record<'userId' | 'portfolioId', string>;
 
-/**
- * The single ownership check of the API: a portfolio of another user answers
- * as one that does not exist, so a caller cannot probe for foreign ids.
- */
 export const requireOwnedPortfolio = async (
   portfolioRepository: PortfolioRepository,
   { userId, portfolioId }: PortfolioScope

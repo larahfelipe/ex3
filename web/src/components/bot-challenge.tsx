@@ -20,7 +20,6 @@ import { useNonce } from '@/providers/nonce-provider';
 const TURNSTILE_SCRIPT_URL =
   'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
-/** The narrowest container the full-width widget fits; a narrower one gets the compact widget. */
 const FLEXIBLE_WIDGET_MIN_WIDTH = 300;
 
 type TurnstileOptions = {
@@ -96,9 +95,7 @@ const settle = (
 };
 
 export type BotChallengeHandle = {
-  /** A token for one request, or null where no site key is configured. */
   solve: () => Promise<string | null>;
-  /** Readies the widget for the next attempt: Cloudflare accepts each token once. */
   reset: () => void;
 };
 
@@ -108,11 +105,6 @@ type BotChallengeProps = {
   ref: Ref<BotChallengeHandle>;
 };
 
-/**
- * Cloudflare Turnstile, run only when the form submits. Most visitors never see
- * it; one Cloudflare is unsure of is shown the challenge in place, with a
- * prompt the live region reads, while the submit stays pending.
- */
 export const BotChallenge: FC<BotChallengeProps> = ({
   siteKey,
   action,

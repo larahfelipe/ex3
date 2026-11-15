@@ -17,8 +17,8 @@ type Generations = Record<'keys', readonly React.Key[]> &
   Record<'counts', ReadonlyMap<React.Key, number>>;
 
 /**
- * Dialogs here are mostly rendered only while open, so the parent closing one
- * used to remove it before its exit animation could play. A dialog that its
+ * Most dialogs here are rendered only while open, so a parent closing one
+ * would remove it before its exit animation could play. A dialog that its
  * parent stops rendering inside `DialogPresence` stays in the tree, closes as
  * though `open` had turned false, and leaves once Radix has unmounted its
  * content at the end of the exit. A group of dialogs that leaves closes the
@@ -26,7 +26,7 @@ type Generations = Record<'keys', readonly React.Key[]> &
  *
  * A key that comes back while its dialog is still leaving opens a new one
  * beside it rather than reviving it, so every opening starts from fresh state
- * and focus, as it did when the dialog mounted on each open.
+ * and focus.
  *
  * Inside a group that is leaving, the children are let go: `AnimatePresence`
  * would otherwise take a render of the group during its exit, a refetch after

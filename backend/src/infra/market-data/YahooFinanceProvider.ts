@@ -48,10 +48,8 @@ const PROFILE_MODULE = 'assetProfile';
 const FINANCIAL_DATA_MODULE = 'financialData';
 const SUMMARY_DETAIL_MODULE = 'summaryDetail';
 
-/** Assumed, not measured: well above a quote round trip, short enough not to hold a page load. */
 const REQUEST_TIMEOUT_MS = 5_000;
 
-/** The provider documents no maximum; its own examples quote 10 symbols per request. */
 const QUOTE_BATCH_SIZE = 10;
 
 /**
@@ -62,61 +60,20 @@ const QUOTE_BATCH_SIZE = 10;
  */
 const MAX_CONCURRENT_REQUESTS = 4;
 
-/**
- * The endpoint of current quotes, and of searches, goes ahead of histories and
- * summaries: it is what a page shows first, and one request answers up to
- * `QUOTE_BATCH_SIZE` symbols.
- */
 const PRIORITY_PATHS: ReadonlySet<string> = new Set([QUOTE_PATH]);
 
-/**
- * Assumed, not measured: a quote a minute old is current enough for a portfolio
- * view, and reloads within the minute spend none of the plan's request quota.
- */
 const QUOTE_TIME_TO_LIVE_MS = 60_000;
 
-/**
- * Assumed, not measured: after a failure the provider is left alone this long,
- * so a provider that is down costs one timeout, not one per page load.
- */
 const FAILURE_COOLDOWN_MS = 30_000;
 
-/**
- * Assumed, not measured: an exchange renames, reclassifies or moves a listing
- * far less often than hourly, and a search typed again within the hour spends
- * none of the plan's request quota.
- */
 const LISTING_TIME_TO_LIVE_MS = 3_600_000;
 
-/**
- * Assumed, not measured: searched symbols come from users and not from what is
- * stored, so the listing cache is bounded by count, dropping the oldest entry.
- * It keeps each provider symbol a search asks for, five for a search in every
- * market, so this is a thousand such searches.
- */
 const LISTING_CACHE_MAX_ENTRIES = 5_000;
 
-/**
- * Assumed, not measured: a range the provider answered with no prices (a
- * weekend, a holiday, the days before a listing) stays without them, and the
- * history services ask for such an edge of a stored series on every read that
- * misses it. It is answered empty again for this long without a request, and a
- * close the provider publishes late is picked up once it expires.
- */
 const EMPTY_HISTORY_TIME_TO_LIVE_MS = 3_600_000;
 
-/**
- * Assumed, not measured: the ranges come from callers, so the empty histories
- * kept are bounded by count, dropping the oldest entry.
- */
 const EMPTY_HISTORY_CACHE_MAX_ENTRIES = 10_000;
 
-/**
- * Assumed, not measured: statements change once a quarter, and within the hour
- * the price moves the multiples and the yield by less than a reader of
- * fundamentals acts on; a page reloaded within it spends none of the plan's
- * request quota.
- */
 const FUNDAMENTALS_TIME_TO_LIVE_MS = 3_600_000;
 
 const HTTP_NOT_FOUND = 404;
@@ -125,10 +82,6 @@ const PERCENT = 100;
 const MILLISECONDS_PER_SECOND = 1_000;
 const MILLISECONDS_PER_DAY = 86_400_000;
 
-/**
- * How far back the provider serves each interval: below one hour only the last
- * 60 days, hourly the last 730, daily without a bound.
- */
 const LOOKBACK_DAYS: ReadonlyMap<PriceInterval, number> = new Map([
   ['5m', 60],
   ['15m', 60],
@@ -164,7 +117,6 @@ const YAHOO_SYMBOL_BY_MARKET: Record<
   [Markets.CRYPTO]: (symbol, currency) => `${symbol}-${currency}`
 };
 
-/** The venue codes Yahoo reports for each known market; a listing on any other venue is left out. */
 const MARKET_BY_EXCHANGE: ReadonlyMap<string, Market> = new Map([
   ['SAO', Markets.B3],
   ['NYQ', Markets.NYSE],
@@ -184,13 +136,11 @@ const INSTRUMENT_TYPE_BY_QUOTE_TYPE: ReadonlyMap<string, InstrumentType> =
     ['CRYPTOCURRENCY', InstrumentTypes.CRYPTO]
   ]);
 
-/** Only equities have a sector, so no other listing spends a profile request. */
 const SECTORED_TYPES: ReadonlySet<InstrumentType> = new Set([
   InstrumentTypes.STOCK,
   InstrumentTypes.REIT
 ]);
 
-/** A fund has no statements, so a request for its yield alone asks for its summary alone. */
 const FUNDAMENTALS_MODULE_BY_METRIC: Record<
   FundamentalMetric,
   typeof FINANCIAL_DATA_MODULE | typeof SUMMARY_DETAIL_MODULE
@@ -212,7 +162,6 @@ const FUNDAMENTALS_MODULE_BY_METRIC: Record<
  */
 const REAL_ESTATE_FUND_NAME_PATTERN = /\bFII\b|imobili[aá]ri/i;
 
-/** A price fits the decimal columns, as every monetary value does. */
 const PRICE_UPPER_BOUND = 10 ** (DecimalColumn.PRECISION - DecimalColumn.SCALE);
 
 const ISO_CURRENCY_CODES: ReadonlySet<string> = new Set(
@@ -343,7 +292,6 @@ type CachedQuote = {
 
 type ListingItem = z.infer<typeof ListingSchema>;
 
-/** What the provider answered for one of its symbols, null when it listed nothing under it. */
 type CachedListingItem = {
   item: ListingItem | null;
   cachedAt: number;
@@ -373,12 +321,6 @@ type CachedFundamentals = {
 type ListingCandidate = Record<'yahooSymbol' | 'currency', string> &
   Record<'market', Market>;
 
-/**
- * `pause` leaves the provider alone for `FAILURE_COOLDOWN_MS`, as any quote
- * failure does; `report` only logs it, for an optional answer from an endpoint
- * the plan may not include, which must not take quotes down with it. A 429
- * pauses either way: the limit is the account's, not the endpoint's.
- */
 type FailureHandling = 'pause' | 'report';
 
 type RequestQueue = 'priority' | 'regular';
@@ -395,10 +337,6 @@ const toYahooSymbol = ({ symbol, market, currency }: PricedInstrument) =>
     ? YAHOO_SYMBOL_BY_MARKET[market](symbol, currency)
     : null;
 
-/**
- * The symbol under every market, and under every looked-up currency where the
- * pair names one; with a currency, only where it would be quoted in it.
- */
 const listingCandidatesOf = (
   symbol: string,
   currency: string | null
@@ -417,7 +355,6 @@ const listingCandidatesOf = (
       }));
   });
 
-/** A candidate is listed only where the venue and the currency the provider reports are its own. */
 const toListing = (
   symbol: string,
   { market, currency }: ListingCandidate,
@@ -451,7 +388,6 @@ const toListing = (
   };
 };
 
-/** A search is unavailable when the provider never answered one of the symbols it asks for. */
 const searchOf = (
   symbol: string,
   candidates: ReadonlyArray<ListingCandidate>,
@@ -535,7 +471,6 @@ const inBatches = <Item>(items: ReadonlyArray<Item>, size: number) =>
     items.slice(index * size, (index + 1) * size)
   );
 
-/** Sets the entry as the newest, first dropping the oldest when the cache is full. */
 const cacheWithinBound = <Entry>(
   cache: Map<string, Entry>,
   key: string,
@@ -553,22 +488,6 @@ const cacheWithinBound = <Entry>(
   cache.set(key, entry);
 };
 
-/**
- * `MarketDataProvider` over the YH Finance API. The key goes only in the header
- * of requests to its fixed origin, and a redirect is refused so it is never
- * sent elsewhere. Quotes are cached for `QUOTE_TIME_TO_LIVE_MS` and a symbol
- * already being requested joins that request; when the provider fails, the
- * last quote received is answered, with the timestamp it was observed at. A
- * history range already being requested joins that request, and one answered
- * with no prices is answered so again for `EMPTY_HISTORY_TIME_TO_LIVE_MS`.
- * Fundamentals are cached for `FUNDAMENTALS_TIME_TO_LIVE_MS`. The quote and
- * fundamentals caches hold only symbols translated from stored instruments and
- * from pairs of stored currency codes, so they are bounded by what is stored;
- * the listing and empty-history caches hold what callers ask for, so they are
- * bounded by count. All of them live in this process, as does the turn each
- * request waits for: no more than `MAX_CONCURRENT_REQUESTS` are sent at once,
- * and the ones past it are sent as others finish, quotes first.
- */
 export class YahooFinanceProvider implements MarketDataProvider {
   private static INSTANCE: YahooFinanceProvider;
   private readonly apiKey: string | undefined;
@@ -625,7 +544,6 @@ export class YahooFinanceProvider implements MarketDataProvider {
     );
   }
 
-  /** A rate the provider answers in another currency than `baseCurrency` is not the pair asked for. */
   async getExchangeRates(
     currencies: ReadonlyArray<string>,
     baseCurrency: string
@@ -661,7 +579,6 @@ export class YahooFinanceProvider implements MarketDataProvider {
     return this.lookUpPriceHistory(yahooSymbol, range, interval);
   }
 
-  /** A series the provider answers in another currency than `baseCurrency` is not the pair asked for. */
   async getHistoricalExchangeRate(
     currency: string,
     baseCurrency: string,
@@ -683,12 +600,6 @@ export class YahooFinanceProvider implements MarketDataProvider {
       : lookup;
   }
 
-  /**
-   * The provider symbols of every search are asked for together, up to
-   * `QUOTE_BATCH_SIZE` a request, and each answer is kept for
-   * `LISTING_TIME_TO_LIVE_MS`; one the provider fails to give is the last
-   * received for that symbol, however old.
-   */
   async findListings(
     currencyBySymbol: ReadonlyMap<string, string | null>
   ): Promise<ReadonlyMap<string, ListingSearch>> {
@@ -773,7 +684,6 @@ export class YahooFinanceProvider implements MarketDataProvider {
     };
   }
 
-  /** Answers only the symbols answered now or before; a search missing one is unavailable. */
   private async lookUpListingItems(yahooSymbols: ReadonlyArray<string>) {
     const items = new Map<string, ListingItem | null>();
     const unrequested: string[] = [];
@@ -816,7 +726,6 @@ export class YahooFinanceProvider implements MarketDataProvider {
     return items;
   }
 
-  /** A symbol the provider leaves out of its answer, or answers outside the expected shape, lists nothing. */
   private async requestListingItems(
     batch: ReadonlyArray<string>
   ): Promise<ListingItemsResponse> {
@@ -844,7 +753,6 @@ export class YahooFinanceProvider implements MarketDataProvider {
     };
   }
 
-  /** The sector is optional, so a profile the provider does not answer is none. */
   private async lookUpSector(yahooSymbol: string) {
     const response = await this.request(
       `${QUOTE_SUMMARY_PATH}${encodeURIComponent(yahooSymbol)}`,
@@ -885,7 +793,6 @@ export class YahooFinanceProvider implements MarketDataProvider {
     return response;
   }
 
-  /** The figures are optional, so a failure is reported without leaving quotes alone. */
   private async requestFundamentals(
     yahooSymbol: string,
     modules: string
@@ -1140,7 +1047,6 @@ export class YahooFinanceProvider implements MarketDataProvider {
     );
   }
 
-  /** The last quote received for a symbol, marked as standing in for one the provider failed to give. */
   private lastQuoteOf(yahooSymbol: string): QuoteLookup {
     const lookup = this.quoteCache.get(yahooSymbol)?.lookup;
 
@@ -1189,7 +1095,6 @@ export class YahooFinanceProvider implements MarketDataProvider {
     return this.now() < this.unavailableUntil;
   }
 
-  /** Runs `task` once fewer than `MAX_CONCURRENT_REQUESTS` run, then hands its turn to the next waiting. */
   private async inTurn<Result>(
     queue: RequestQueue,
     task: () => Promise<Result>
@@ -1250,10 +1155,6 @@ export class YahooFinanceProvider implements MarketDataProvider {
     }
   }
 
-  /**
-   * Every request is paused for as long as the provider asks or, when it does
-   * not say, for `FAILURE_COOLDOWN_MS`; a longer pause already running stays.
-   */
   private async pauseThrottled(
     response: Response
   ): Promise<typeof UNAVAILABLE> {

@@ -17,15 +17,12 @@ import { envs } from './Envs';
 
 const [ALLOWED_ORIGIN] = envs.corsAllowedOrigins;
 const FORBIDDEN_ORIGIN = 'https://attacker.example';
-/** Any route reaches the middleware chain; liveness needs neither auth nor database. */
 const PROBE_ROUTE = '/health';
-/** Behind the general limiter, which counts a request before the route turns away an unknown session. */
 const COUNTED_ROUTE = '/v1/user';
 const REQUEST_ID_HEADER = 'x-request-id';
 const THROTTLED_ACCOUNT = 'throttled@ex3.app';
 const OTHER_ACCOUNT = 'other@ex3.app';
 const PROBE_SESSION = 'probe-session-token';
-/** Documentation ranges (RFC 5737), so no test address names a real host. */
 const OWNER_ADDRESS = '192.0.2.10';
 const ATTACKER_ADDRESS = '203.0.113.10';
 const DISTRIBUTED_NETWORK = '198.51.100';
@@ -35,13 +32,11 @@ const OTHER_SESSION = 'other-session-token';
 const CONCURRENT_EXCESS = 5;
 const STORE_FAILURE = 'connection terminated unexpectedly';
 
-/** `RateLimit: "<name>"; r=<remaining>; t=<seconds>`, the draft-8 budget line. */
 const REMAINING_BUDGET = /r=(?<remaining>\d+)/;
 
 const remainingBudgetOf = (res: request.Response) =>
   Number(REMAINING_BUDGET.exec(res.headers['ratelimit'])?.groups?.remaining);
 
-/** `RateLimit-Policy: "<name>"; q=<limit>; w=<seconds>`, one entry per limiter that states its budget. */
 const STATED_LIMIT = /q=(?<limit>\d+)/g;
 
 const statedLimitsOf = (res: request.Response) =>
@@ -49,7 +44,6 @@ const statedLimitsOf = (res: request.Response) =>
     (match) => Number(match.groups?.limit)
   );
 
-/** The headers the web adds to a request it forwards on behalf of `address`. */
 const vouchedFor = (address: string, secret = envs.apiProxySecret) => {
   assert.ok(secret, 'API_PROXY_SECRET must be set for the test environment');
 
@@ -278,11 +272,6 @@ describe('HTTP hardening', () => {
       );
     });
 
-    /**
-     * What is left of an account's budget counts the failures of every
-     * address, so stating it would tell one caller about the attempts of
-     * others.
-     */
     it('states no budget of the credential endpoints, only the general one', async () => {
       const signIn = await signInAs(THROTTLED_ACCOUNT);
       const signUp = await request(app)
@@ -294,10 +283,6 @@ describe('HTTP hardening', () => {
         assert.deepEqual(statedLimitsOf(res), [RateLimits.API.limit]);
     });
 
-    /**
-     * A person who forgot the password, or an attacker who knows only the
-     * email, locks that account from one address and no further.
-     */
     it('keeps a throttled account open to other addresses and the address open to other accounts', async () => {
       await failSignIns(RateLimits.SIGN_IN_PER_ACCOUNT_AND_ADDRESS.limit, () =>
         signInAs(THROTTLED_ACCOUNT, ATTACKER_ADDRESS)
@@ -362,10 +347,6 @@ describe('HTTP hardening', () => {
       assert.equal(other.status, Errors.VALIDATION.status);
     });
 
-    /**
-     * A caller that could name its own address would get a fresh budget per
-     * request, so the claim counts only beside the web's secret.
-     */
     const unvouchedClaims = {
       'without the secret': (address: string) => ({
         [ProxyHeaders.CLIENT_ADDRESS]: address

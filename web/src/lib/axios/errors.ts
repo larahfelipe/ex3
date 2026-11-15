@@ -11,20 +11,14 @@ export type WithStatusHeader = {
   statusText: string;
 };
 
-/**
- * `message` is technical, for logs: the interface words an error from its
- * `_error`, its status and `retryAfterSeconds` (see `apiErrorMessageOf`).
- */
 export type ApiProxyErrorData = {
   _error: ApiServerErrorData | null;
   message: string;
-  /** From a throttled answer's `Retry-After`; null when it named no delay. */
   retryAfterSeconds?: number | null;
 };
 
 export type ApiProxyErrorFields = WithStatusHeader & ApiProxyErrorData;
 
-/** The technical message of an error that carries no other; it never reaches the interface. */
 export const UNEXPECTED_ERROR_MESSAGE = 'Unexpected error';
 
 const VALIDATION_ERROR_CODE = 'VALIDATION';

@@ -21,7 +21,6 @@ export const ZERO = new FinanceDecimal(0);
 const WEEKS_PER_YEAR = 52;
 const MONTHS_PER_YEAR = 12;
 
-/** Read from the ISO 4217 data the runtime carries: 2 for BRL, 0 for JPY, 3 for KWD. */
 export const minorUnitsOf = (currency: string) =>
   new Intl.NumberFormat('en', {
     style: 'currency',
@@ -48,7 +47,6 @@ export const truncateToMinorUnits = (amount: DecimalInput, currency: string) =>
     FinanceDecimal.ROUND_DOWN
   );
 
-/** A column scale fraction, truncated toward zero, as every exposed ratio is. */
 export const ratioOf = (numerator: DecimalInput, denominator: DecimalInput) => {
   const divisor = decimalOf(denominator);
 
@@ -60,12 +58,6 @@ export const ratioOf = (numerator: DecimalInput, denominator: DecimalInput) => {
     .toFixed();
 };
 
-/**
- * Splits `total` into `count` amounts in the currency's minor unit that add up
- * to exactly `total`: each one is the total divided by the count, truncated,
- * and the first absorbs the remainder of the truncation. Null when the
- * truncated share is zero, since an installment cannot be.
- */
 export const splitIntoInstallments = (
   total: DecimalInput,
   count: number,
@@ -83,7 +75,6 @@ export const splitIntoInstallments = (
   );
 };
 
-/** What a recurring amount costs per month on average, truncated to the currency's minor unit. */
 export const monthlyEquivalentOf = (
   amount: DecimalInput,
   frequency: RecurrenceFrequency,

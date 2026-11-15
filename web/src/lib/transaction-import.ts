@@ -9,11 +9,6 @@ import { decimalOfUnits, decimalPlacesOf, unitsOf } from './decimal';
 
 export type ImportFileRefusal = 'unsupported' | 'too-large' | 'empty';
 
-/**
- * What the browser can tell about a file before sending it: its extension and
- * its size. Whether it is a spreadsheet, and one EX3 reads, is decided by the
- * API from its content.
- */
 export const importFileRefusalOf = ({
   name,
   size
@@ -53,13 +48,11 @@ const SELECTABLE_STATUSES: ReadonlySet<ImportRowStatus> = new Set([
   'refused'
 ]);
 
-/** Mirror of the API's selectable statuses: a row that becomes a transaction the person may include. */
 export const isSelectableRow = (
   row: Pick<ImportPreviewRow, 'key' | 'status'>
 ): row is Pick<ImportPreviewRow, 'status'> & Record<'key', string> =>
   row.key !== null && SELECTABLE_STATUSES.has(row.status);
 
-/** A sheet's rows are numbered as the spreadsheet numbers them, so the sheet and the number name one row. */
 export const rowIdOf = ({
   sheet,
   rowNumber
@@ -116,7 +109,6 @@ const COUNT_GROUPS: Record<ImportCountGroup, ReadonlyArray<ImportRowStatus>> = {
   ignored: ['ignored']
 };
 
-/** The rows of a preview by what the person does about them. */
 export const countGroupsOf = (counts: Record<ImportRowStatus, number>) =>
   Object.fromEntries(
     Object.entries(COUNT_GROUPS).map(([group, statuses]) => [
@@ -130,7 +122,6 @@ export const isSameSelection = (
   keys: ReadonlyArray<string>
 ) => selection.size === keys.length && keys.every((key) => selection.has(key));
 
-/** What a row costs beyond its price, exactly: the API sends nonnegative decimals. */
 export const costsOf = ({
   fees,
   taxes

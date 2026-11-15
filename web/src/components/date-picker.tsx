@@ -24,17 +24,11 @@ import { cn } from '@/lib/utils';
 type DatePickerProps = Omit<FieldControlProps, 'required'> & {
   ref?: Ref<HTMLButtonElement>;
   name?: string;
-  /** A calendar day as `YYYY-MM-DD`, or empty. */
   value: string;
   onValueChange: (day: string) => void;
   onBlur?: VoidFunction;
 };
 
-/**
- * A label names a button in place of its content, so the chosen day, which
- * the button shows, also describes it for a screen reader. Below the month,
- * Today picks the current day in one step, from whichever month is shown.
- */
 export const DatePicker: FC<DatePickerProps> = ({
   id,
   ref,

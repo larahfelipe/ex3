@@ -6,10 +6,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui';
 
 type InfoTipProps = Record<'label', string> & Record<'children', ReactNode>;
 
-/**
- * Opens on click, tap or Enter instead of on hover: a hover tooltip never shows
- * on a touch screen, and the explanation has to reach every reader.
- */
 export const InfoTip: FC<InfoTipProps> = ({ label, children }) => (
   <Popover>
     <PopoverTrigger

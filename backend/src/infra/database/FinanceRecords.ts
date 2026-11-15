@@ -67,7 +67,6 @@ const DESCRIPTION_FIELDS = [
   'notes'
 ] as const satisfies ReadonlyArray<keyof ExpenseDescription>;
 
-/** The fields a plan or series hands down to the expenses it creates. */
 export const expenseDescriptionOf = (
   row: ExpenseDescription
 ): ExpenseDescription =>
@@ -103,7 +102,6 @@ export const OPEN_EXPENSE_WHERE = {
   settledOn: null
 } as const satisfies Prisma.ExpenseWhereInput;
 
-/** Days as `YYYY-MM-DD` and decimals as their exact string, the way the API writes them. */
 const recordedValueOf = (value: unknown): Prisma.InputJsonValue | null => {
   if (value === null || value === undefined) return null;
   if (value instanceof Date) return formatCalendarDay(value);
@@ -194,7 +192,6 @@ export const toSettlingPayment = (
   row: Pick<ExpensePaymentRow, 'amount' | 'discount' | 'paidOn' | 'voidedAt'>
 ): SettlingPayment => row;
 
-/** The first of `amounts` with more decimal places than the currency's minor unit, or null. */
 export const impreciseFieldOf = (
   amounts: Record<string, string | undefined | null>,
   currency: string
@@ -217,7 +214,6 @@ export const kindWhere = (
   return {};
 };
 
-/** The status of `expenseStatusOf`, as a filter the database applies before paginating. */
 export const statusWhere = (
   status: ExpenseStatusFilter | undefined,
   today: Date

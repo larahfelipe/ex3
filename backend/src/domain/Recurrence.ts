@@ -33,7 +33,6 @@ export const occurrenceAt = (
   return addMonths(startDate, index * MONTHS_PER_YEAR);
 };
 
-/** A lower bound of the index of the first occurrence on or after `day`. */
 const firstIndexNear = (
   { frequency, startDate }: Pick<RecurrenceRule, 'frequency' | 'startDate'>,
   day: Date
@@ -54,7 +53,6 @@ const firstIndexNear = (
   return Math.max(0, Math.floor(elapsedMonths / MONTHS_PER_YEAR));
 };
 
-/** Every occurrence of the rule from `from` through `through`, inclusive, within its start and end. */
 export const occurrencesBetween = (
   rule: RecurrenceRule,
   from: Date,
@@ -74,7 +72,6 @@ export const occurrencesBetween = (
   }
 };
 
-/** The first occurrence on or after `day`, or null when the series ends before it. */
 export const nextOccurrence = (rule: RecurrenceRule, day: Date) => {
   for (let index = firstIndexNear(rule, day); ; index += 1) {
     const occurrence = occurrenceAt(rule, index);
@@ -85,12 +82,6 @@ export const nextOccurrence = (rule: RecurrenceRule, day: Date) => {
   }
 };
 
-/**
- * The day of the series' next bill on or after `today`. A bill it already
- * created keeps the day an edit moved it to, so the earliest of them still
- * due, `earliestCreated`, counts as it stands, and the rule gives the day only
- * past the created ones.
- */
 export const nextBillDay = (
   rule: RecurrenceRule & Record<'generatedThrough', Date>,
   today: Date,
@@ -107,7 +98,6 @@ export const nextBillDay = (
   return minDay(earliestCreated, scheduled);
 };
 
-/** A series past its end date has ended; one with an end date still ahead is active until then. */
 export const recurringExpenseStatusOf = (
   {
     endDate,

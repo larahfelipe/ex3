@@ -19,10 +19,6 @@ instrumentRouter.get(
   getAllInstrumentsControllerHandler as Application
 );
 
-/**
- * A search can spend the quote provider's request quota, which every user
- * shares, so each signed-in user gets a budget of its own on top of the API's.
- */
 instrumentRouter.get(
   '/v1/instruments/search',
   authMiddleware,

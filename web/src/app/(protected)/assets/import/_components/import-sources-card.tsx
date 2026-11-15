@@ -8,7 +8,6 @@ import { Button, Card, CardContent } from '@/components/ui';
 import type { Locale } from '@/i18n/config';
 import type { Children } from '@/types';
 
-/** Each template is written as the locale writes numbers, which its delimiter tells the API. */
 const TEMPLATE_FILES: Record<Locale, string> = {
   'pt-BR': '/templates/ex3-modelo-importacao.csv',
   'en-US': '/templates/ex3-import-template.csv'

@@ -48,12 +48,6 @@ const READING_MESSAGES = {
   'too-many-rows': TransactionImportMessages.TOO_MANY_ROWS
 } satisfies Record<Exclude<ImportReading['outcome'], 'read'>, string>;
 
-/**
- * The decimal separator of a file's text numbers when its layout does not fix
- * one. A CSV separated by commas cannot write decimals with them; one
- * separated otherwise, and a workbook, follow the Brazilian convention EX3's
- * template is written in.
- */
 const decimalSeparatorOf = (spreadsheet: Spreadsheet): ',' | '.' =>
   spreadsheet.format === 'csv' && spreadsheet.delimiter === ',' ? '.' : ',';
 
@@ -61,13 +55,6 @@ export type ImportFile = Record<'name' | 'digest', string> &
   Record<'formats', Array<string>> &
   Record<'rows', Array<ReadRow>>;
 
-/**
- * The rows of an uploaded file, in memory only: what the file is, a spreadsheet
- * EX3 reads and a layout it recognizes, is decided from its content, and the
- * file itself is never stored. Its name must then end in the extension of what
- * the content is. A day after today, in UTC, which is never behind São Paulo,
- * is refused.
- */
 export const readImportFile = (
   { name, content }: Record<'name', string> & Record<'content', Buffer>,
   now: Date = new Date()
@@ -128,15 +115,6 @@ const inBatches = async <Item, Result>(
   return results;
 };
 
-/**
- * Asks the listing source about the symbols no known instrument has, no more
- * than an import looks up, all in one search; those past the limit, in symbol
- * order, are not asked about. A symbol is looked up only where it is quoted in
- * the currency its rows name, the one a listing is picked by. Searches are
- * cached by the source; the listing picked for a symbol about to be recorded
- * is described too, a few at a time, with its sector, as registering an asset
- * by hand does.
- */
 export const lookUpListings = async (
   listingSource: ListingSource,
   {
@@ -194,7 +172,6 @@ export const lookUpListings = async (
   ]);
 };
 
-/** A plan as the API answers it: rows and assets, and the keys a confirmation sends back. */
 export const previewOf = (file: ImportFile, plan: ImportPlan) => ({
   file: { name: file.name, formats: file.formats },
   counts: plan.counts,

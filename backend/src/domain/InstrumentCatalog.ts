@@ -19,7 +19,6 @@ export const isListableSymbol = (term: string) =>
   term.length <= InstrumentLimits.SYMBOL_MAX_LENGTH &&
   INSTRUMENT_SYMBOL_PATTERN.test(term);
 
-/** The owner stays internal: a caller only ever sees its own private instruments. */
 export const toVisibleInstrument = ({
   ownerId,
   ...instrument
@@ -28,7 +27,6 @@ export const toVisibleInstrument = ({
   scope: ownerId === null ? InstrumentScopes.CATALOG : InstrumentScopes.PRIVATE
 });
 
-/** An attribute left unset, or a market registered before the known ones, constrains nothing. */
 export const isQuotedCurrencyOf = ({
   market,
   currency

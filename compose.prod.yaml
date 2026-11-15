@@ -1,11 +1,5 @@
 name: ex3-prod
 
-# Production on one host behind a Cloudflare Tunnel, with the database on
-# Supabase. Nothing is published on the host: cloudflared connects out to
-# Cloudflare and forwards to the web. Run every command with
-#   docker compose --file compose.prod.yaml --env-file <production env file> …
-# from a checkout used for nothing else; see docs/deployment.md.
-
 x-hardening: &hardening
   restart: unless-stopped
   read_only: true

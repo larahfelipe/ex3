@@ -55,7 +55,6 @@ const [SCHEDULED_COLOR, PAID_COLOR, RECURRING_COLOR] = FINANCE_SERIES_COLORS;
 const remindsUpcoming = (reminders: FinanceSettings) =>
   reminders.remindUpcomingBills || reminders.remindUpcomingInstallments;
 
-/** What the reminders flag, as catalog keys. */
 const remindedOf = (reminders: FinanceSettings) =>
   [
     reminders.remindOverdue && ('overdue' as const),
@@ -189,7 +188,7 @@ const UpcomingBill: FC<
         className="flex items-start justify-between gap-3 rounded-md px-2 py-2.5 ring-offset-background outline-hidden hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-focus"
       >
         <span className="min-w-0 space-y-0.5">
-          <span className="block truncate text-sm font-medium">
+          <span className="line-clamp-2 text-sm font-medium wrap-anywhere">
             {expense.description}
           </span>
 
@@ -292,7 +291,7 @@ const CommitmentSummaries: FC<
   );
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <Card>
         <SectionHeader
           id="finance-installments"
@@ -514,7 +513,7 @@ const SummaryContent: FC<
 
       <MonthMetrics summary={summary} />
 
-      <div className="grid gap-4 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
         <div className="xl:col-span-3">
           <ChartCard
             id="finance-trend"

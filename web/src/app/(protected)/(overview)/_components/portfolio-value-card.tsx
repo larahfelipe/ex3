@@ -38,13 +38,6 @@ const GAP_REASONS: MarketDataGapReason[] = ['unavailable', 'not-found'];
 const SYMBOL_LINK_CLASS =
   'rounded-sm font-medium underline underline-offset-4 ring-offset-background hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2';
 
-/**
- * Says what the totals rest on when it is less than every position priced
- * today: which prices or rates are missing and whether trying again can help,
- * as a source that failed may answer later while one that does not know a
- * symbol will not. Missing prices link to their assets, where the symbol can
- * be checked.
- */
 const MarketDataNotice: FC<MarketDataNoticeProps> = ({
   marketData,
   heldPositionCount,

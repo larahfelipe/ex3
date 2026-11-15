@@ -30,19 +30,15 @@ const CHART_HEIGHT = 200;
 const CHART_VIEW_BOX = `0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`;
 const CHART_PADDING = 6;
 
-/** Four units drawn, four skipped: dashed enough to read as a reference, not as data. */
 const BASELINE_DASH = '4 4';
 
-/** Longer dashes than the baseline's, so a compared series reads as data, apart from it. */
 const COMPARISON_DASH = '8 5';
 
 /** Two points closer than one unit of the drawing box land on the same pixel. */
 export const MAX_PLOTTED_POINTS = CHART_WIDTH;
 
-/** Page Up and Page Down move a tenth of the series, so a long one is crossed in ten steps. */
 const PAGE_FRACTION = 0.1;
 
-/** A baseline tick closer than this to the top or bottom one would overlap it. */
 const MIN_TICK_GAP = 0.15;
 
 const TONE_CLASSES: Record<
@@ -103,7 +99,6 @@ const linePathOf = (points: ReadonlyArray<ChartPoint>) =>
     .map(({ x, y }, index) => `${index === 0 ? 'M' : 'L'}${x} ${y}`)
     .join(' ');
 
-/** A missing value breaks the line, so a gap reads as a gap and not as a straight move. */
 const brokenLinePathOf = (points: ReadonlyArray<Maybe<ChartPoint>>) =>
   points
     .map((point, index) => {
@@ -126,13 +121,8 @@ const areaPathOf = (points: ReadonlyArray<ChartPoint>) => {
 };
 
 /**
- * The caller holds the point under the pointer or the keyboard, so it can read
- * that point outside the drawing too. The chart is a slider over the points:
- * the arrows, Home, End, Page Up and Page Down move along them, Escape lets go,
- * and `describePoint` is what a screen reader announces. `comparison` is drawn
- * dashed on the same scale, index for index with `values`. The paths are
- * rebuilt only when `values`, `comparison` or `baseline` change, so they must
- * keep their identity across renders.
+ * The paths are rebuilt only when `values`, `comparison` or `baseline` change,
+ * so they must keep their identity across renders.
  */
 export const SeriesChart: FC<SeriesChartProps> = ({
   values,

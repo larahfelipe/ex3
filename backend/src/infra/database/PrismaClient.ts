@@ -15,10 +15,6 @@ const ADAPTER_WRITE_CONFLICT = 'TransactionWriteConflict';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
-/**
- * Assumed, not measured: a conflict needs a concurrent write to the same rows,
- * so a third failure in a row is contention worth surfacing, not retrying.
- */
 const SERIALIZABLE_MAX_ATTEMPTS = 3;
 
 export class PrismaClient extends _PrismaClient {

@@ -6,14 +6,8 @@ import { getAccessTokenExpiration } from './access-token';
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
-/**
- * How long after the token expires a return to a protected page still says the
- * session expired. Assumed, not measured: past a week the notice explains
- * nothing the user would miss.
- */
 const SESSION_EXPIRY_NOTICE_MS = 7 * MILLISECONDS_PER_DAY;
 
-/** The marker's presence is all that is read. */
 const SESSION_MARKER_VALUE = '1';
 
 /**

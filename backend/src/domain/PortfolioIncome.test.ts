@@ -4,7 +4,6 @@ import { describe, it } from 'node:test';
 import { summarizeIncome } from './PortfolioIncome';
 import type { LedgerEntry } from './PositionLedger';
 
-/** The one-year window starts on 2025-09-23. */
 const NOW = new Date('2026-09-23T15:00:00.000Z');
 
 const ledgerEntry = (

@@ -86,7 +86,6 @@ const OCCURRENCES_PAGE_SIZE = 10;
 
 const COLUMN_VISIBILITY = { status: 'max-sm:hidden' } as const;
 
-/** Upcoming bills run from today forward, earlier ones from yesterday back. */
 const occurrenceFiltersOf = (view: OccurrenceView, today: string) =>
   view === 'upcoming'
     ? { dueFrom: today, sortOrder: 'asc' as const }
@@ -472,11 +471,6 @@ const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
   );
 };
 
-/**
- * Everything done to one recurring expense: its details, and the dialogs its
- * actions open. The details stay underneath each action, so cancelling one
- * returns to them.
- */
 export const RecurringExpenseDialogs: FC<SeriesDialogsProps> = ({
   seriesId,
   onClose

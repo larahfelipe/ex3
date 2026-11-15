@@ -23,7 +23,6 @@ export type FinanceSettings = Record<'reminderLeadDays', number> &
     boolean
   >;
 
-/** What a user who never saved settings gets: every reminder, a few days ahead. */
 const DEFAULT_SETTINGS: FinanceSettings = {
   reminderLeadDays: FinanceLimits.REMINDER_DEFAULT_LEAD_DAYS,
   remindOverdue: true,
@@ -50,10 +49,6 @@ const AGGREGATE_SELECT = {
   recurringExpenseId: true
 } as const satisfies Prisma.ExpenseSelect;
 
-/**
- * The rows the dashboard, reports, calendar and alerts aggregate. The sums are
- * taken by the domain, in exact decimals, over the rows of one currency.
- */
 export class FinanceReportRepository {
   private static INSTANCE: FinanceReportRepository;
   private prismaClient: PrismaClient;
@@ -69,11 +64,6 @@ export class FinanceReportRepository {
     return FinanceReportRepository.INSTANCE;
   }
 
-  /**
-   * The expenses due from `dueFrom` through `dueTo` and, with
-   * `withOpenBefore`, every expense still open that was due earlier, which is
-   * what is overdue from before the period.
-   */
   async getExpenseFigures(
     params: FinanceReportRepository.ExpenseFiguresQuery
   ): Promise<Array<CurrencyExpense>> {
@@ -99,7 +89,6 @@ export class FinanceReportRepository {
     }));
   }
 
-  /** Active payments made from `paidFrom` through `paidTo`, with the category and origin of their expense. */
   async getPaymentFigures(
     params: FinanceReportRepository.PaymentFiguresQuery
   ): Promise<Array<AggregatePayment>> {
@@ -134,7 +123,6 @@ export class FinanceReportRepository {
     }));
   }
 
-  /** Every currency the user has an expense, plan or series in, alphabetically. */
   async getCurrencies(userId: string) {
     const [expenses, plans, series] = await Promise.all([
       this.prismaClient.expense.findMany({
@@ -161,7 +149,6 @@ export class FinanceReportRepository {
     ].toSorted();
   }
 
-  /** Open expenses due through `through`, in every currency, earliest first. */
   async getOpenDueThrough(
     params: Record<'userId', string> & Record<'through' | 'today', Date>
   ): Promise<Array<Expense>> {
@@ -190,11 +177,6 @@ export class FinanceReportRepository {
     );
   }
 
-  /**
-   * What the open expenses of the currency still owe, whenever due, except
-   * the recurring ones due after `recurringThrough`: a series' later
-   * occurrences are projections of what it will cost, not bills owed yet.
-   */
   async getOutstanding(
     params: Record<'userId' | 'currency', string> &
       Record<'recurringThrough', Date>
@@ -223,7 +205,6 @@ export class FinanceReportRepository {
     };
   }
 
-  /** What the plans of the currency still owe, whenever due: the contracted part of what is to pay. */
   async getInstallmentSummary(params: Record<'userId' | 'currency', string>) {
     const { userId, currency } = params;
 

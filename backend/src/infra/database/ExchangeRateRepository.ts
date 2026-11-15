@@ -26,16 +26,6 @@ export class ExchangeRateRepository {
     return ExchangeRateRepository.INSTANCE;
   }
 
-  /**
-   * Each rate is the close of a trading day, the price of one unit of
-   * `currency` in `baseCurrency`, keyed by the start of that day in UTC. The
-   * pair comes from the caller, not from the prices: a pair is quoted in the
-   * base currency, so the currency a price carries is the base one. The unique
-   * index on pair, day and source is the only authority on whether a day is
-   * already recorded, so a day recorded twice keeps the rate first observed and
-   * concurrent backfills of one day write it once. Resolves to how many days
-   * were new.
-   */
   async recordDailyRates(
     params: ExchangeRateRepository.RecordDailyRatesParams
   ) {
@@ -55,11 +45,6 @@ export class ExchangeRateRepository {
     return count;
   }
 
-  /**
-   * The rates stored for the pair from `from`, inclusive, to `to`, exclusive, in
-   * ascending order of day. Every source is answered, so a day observed by two
-   * sources is two entries.
-   */
   async getDailyRates(params: ExchangeRateRepository.GetDailyRatesParams) {
     const { currency, baseCurrency, from, to } = params;
 

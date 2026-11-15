@@ -9,11 +9,6 @@ import { Button } from '@/components/ui';
 
 type ErrorProps = Record<'retry', VoidFunction>;
 
-/**
- * A page that fails to render is replaced here, inside the layout, so the
- * navigation stays and the user can leave for a page that works. Its content
- * is gone, and focus with it, so the heading takes focus and is announced.
- */
 export default function PageError({ retry }: ErrorProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const t = useTranslations('common.fallback');

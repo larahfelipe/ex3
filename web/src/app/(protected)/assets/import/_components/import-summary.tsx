@@ -90,11 +90,6 @@ export const ImportSummary: FC<ImportSummaryProps> = ({
   );
 };
 
-/**
- * Stays in view while the person scrolls the rows. The import waits for the
- * plan of the current selection, so what it records is what the preview shows;
- * `isReplanning` covers the pause before that plan is asked for, too.
- */
 export const ImportConfirmBar: FC<ImportConfirmBarProps> = ({
   selectedCount,
   isReplanning,

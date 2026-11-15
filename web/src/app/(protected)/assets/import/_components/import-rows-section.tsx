@@ -108,11 +108,6 @@ const OriginalRow: FC<Record<'row', ImportPreviewRow>> = ({ row }) => {
   );
 };
 
-/**
- * Every row of the file, a page at a time. A checkbox stands for a row the
- * person may include; checking or clearing one asks the page for a new plan,
- * which may clear rows of the same asset again when they no longer replay.
- */
 export const ImportRowsSection: FC<ImportRowsSectionProps> = ({
   rows,
   selection,

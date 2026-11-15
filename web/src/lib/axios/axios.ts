@@ -22,7 +22,6 @@ const baseAxiosConfig: CreateAxiosDefaults = {
 
 const THROTTLED_STATUS = 429;
 
-/** The API's message says only "later"; its `Retry-After`, in seconds, says when. */
 const retryAfterSecondsOf = (retryAfter: unknown) => {
   if (typeof retryAfter !== 'string') return null;
 

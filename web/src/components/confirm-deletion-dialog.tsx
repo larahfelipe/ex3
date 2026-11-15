@@ -24,17 +24,11 @@ type ConfirmDeletionDialogProps = Record<
 > & {
   description: ReactNode;
   confirmationPhrase?: string;
-  /** For a dialog whose action is itself a cancellation, so its two buttons never read alike. */
   cancelLabel?: string;
   onCancel: VoidFunction;
   onConfirm: () => Promise<unknown>;
 };
 
-/**
- * Stays open until `onConfirm` settles, so the consumer closes it after a
- * deletion and a refusal is shown in place. The confirm button keeps focus
- * while pending through `aria-disabled`, as `SubmitButton` does.
- */
 export const ConfirmDeletionDialog: FC<ConfirmDeletionDialogProps> = ({
   title,
   description,

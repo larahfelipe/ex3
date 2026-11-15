@@ -19,7 +19,6 @@ const SIGN_UP_ROUTE = '/v1/user/create';
 const SIGN_IN_ROUTE = '/v1/user';
 const SOLVED_TOKEN = 'solved-turnstile-token';
 const WEB_HOSTNAME = 'ex3.app';
-/** Documentation addresses (RFC 5737), so no test names a real host. */
 const CLIENT_ADDRESS = '192.0.2.10';
 const OTHER_ADDRESS = '203.0.113.10';
 
@@ -41,7 +40,6 @@ const json = (body: unknown, status = 200) =>
 const solvedFor = (action: string) => async () =>
   json({ success: true, hostname: WEB_HOSTNAME, action });
 
-/** Answers each token once, as Cloudflare does, and then as spent. */
 const answeringOnce = (action: string): Siteverify => {
   const spent = new Set<string>();
 
@@ -55,10 +53,6 @@ const answeringOnce = (action: string): Siteverify => {
   };
 };
 
-/**
- * The suite runs without a Turnstile secret, which leaves the check off; this
- * turns it on for one test, with `siteverify` standing in for Cloudflare.
- */
 const enforceChallenge = (t: TestContext, siteverify: Siteverify) => {
   const requests: Array<Record<string, string>> = [];
 

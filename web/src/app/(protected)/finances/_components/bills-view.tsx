@@ -190,7 +190,6 @@ const COLUMN_VISIBILITY = {
 const dayParamOf = (value: string | null) =>
   value !== null && isCalendarDay(value) ? value : undefined;
 
-/** The address holds the amount as the API takes it, never as a person types it. */
 const amountParamOf = (value: string | null) =>
   value !== null && isStorableDecimal(value) ? value : undefined;
 
@@ -291,7 +290,6 @@ const hasRefinementIn = (listing: BillListing) =>
     (key) => listing[key as keyof BillListing] !== undefined
   );
 
-/** The filters the panel holds, counted on its toggle while it is closed. */
 const PANEL_FILTERS = [
   'kind',
   'category',
@@ -304,7 +302,6 @@ const PANEL_FILTERS = [
 const dayText = (day: string, { formatCalendarDay }: Format) =>
   formatCalendarDay(day) ?? day;
 
-/** Each filter in force, in words, with what removes it; the search shows in its own field. */
 const activeFiltersOf = (
   {
     status,
@@ -379,7 +376,6 @@ const activeFiltersOf = (
 
 const unitsOfAmount = (amount: string) => unitsOf(amount, DECIMAL_COLUMN.SCALE);
 
-/** A range given backwards still means the span between its ends. */
 const orderedRange = (
   from: string | undefined,
   to: string | undefined,
@@ -389,7 +385,6 @@ const orderedRange = (
     ? { from: to, to: from }
     : { from, to };
 
-/** Which bills of how many the page shows, such as "21–40 de 134 contas". */
 const pageDetailOf = (
   {
     page,
@@ -405,7 +400,6 @@ const pageDetailOf = (
   return t('range', { first, last: first + items.length - 1, total });
 };
 
-/** Whether `value` passes `limit` on its side: above a maximum, below a minimum. */
 const isPastLimit = (value: DecimalString, limit: AmountLimit | undefined) => {
   if (limit === undefined) return false;
 
@@ -414,11 +408,6 @@ const isPastLimit = (value: DecimalString, limit: AmountLimit | undefined) => {
   return limit.side === 'max' ? order > 0 : order < 0;
 };
 
-/**
- * Digits enter as in the forms' amounts, from the right, and the amount
- * applies on leaving the field or on Enter, so typing it never refetches the
- * list halfway. An amount on the wrong side of the other bound stays unapplied.
- */
 const AmountFilter: FC<AmountFilterProps> = ({
   label,
   value,
@@ -667,11 +656,6 @@ const BillSort: FC<
   );
 };
 
-/**
- * Search, status and sort stay in view; the rarer filters fold into a panel,
- * open from the start when one of them is set. Every filter in force shows as
- * a chip that removes it, whether the panel is open or not.
- */
 const BillFilters: FC<
   Record<'listing', BillListing> &
     Record<'refine', Refine> &
@@ -979,7 +963,6 @@ const BillRow: FC<
   );
 };
 
-/** Each alert opens the bills it counts, as the overview's do. */
 const AlertsStrip: FC = () => {
   const t = useTranslations('bills.alerts');
   const { data } = useFinanceAlerts();

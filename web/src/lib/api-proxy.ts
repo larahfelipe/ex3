@@ -15,13 +15,10 @@ type ForwardedRequest = {
   path: string;
   searchParams?: URLSearchParams;
   payloadFrom?: Request;
-  /** The largest body read from `payloadFrom`, in bytes; the API's JSON limit unless the route takes more. */
   maxPayloadBytes?: number;
-  /** For a route that may outlast the default, as one that reads a file and asks the quote provider about it. */
   timeoutMs?: number;
 };
 
-/** The browser never holds the token: it is read from the httpOnly cookie and sent only to the API. */
 const authorizationHeaders = async () => {
   const accessToken = (await cookies()).get(APP_STORAGE_KEYS.Token)?.value;
 
@@ -34,7 +31,6 @@ const authorizationHeaders = async () => {
   return { Authorization: `Bearer ${accessToken}` };
 };
 
-/** Mirror of the API's `ProxyHeaders`. */
 const CLIENT_ADDRESS_HEADER = 'x-client-address';
 const PROXY_SECRET_HEADER = 'x-api-proxy-secret';
 
@@ -77,11 +73,6 @@ export const clientAddressHeaders = async (): Promise<
     : {};
 };
 
-/**
- * The browser's Turnstile token, passed on as sent for the API to verify. One
- * longer than Cloudflare issues is dropped here, so the API refuses it as
- * missing without the proxy forwarding an oversized header.
- */
 export const botChallengeHeadersOf = (req: Request): Record<string, string> => {
   const token = req.headers.get(BOT_CHALLENGE.Header);
 
@@ -96,7 +87,6 @@ const isJsonRequest = (req: Request) =>
   req.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ===
   JSON_MEDIA_TYPE;
 
-/** The API's own answer to a body past its limit, so the interface words both alike. */
 const payloadTooLargeError = () =>
   new ApiProxyError('Request body is too large', {
     status: 413,
@@ -108,11 +98,6 @@ const payloadTooLargeError = () =>
     }
   });
 
-/**
- * The body as text, read no further than `maxBytes`: a declared length past it
- * is refused before reading, and a body that runs past it while streaming,
- * declared or not, is cancelled there.
- */
 const boundedTextOf = async (req: Request, maxBytes: number) => {
   if (Number(req.headers.get('content-length')) > maxBytes)
     throw payloadTooLargeError();

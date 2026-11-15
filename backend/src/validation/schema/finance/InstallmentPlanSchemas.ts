@@ -45,7 +45,6 @@ const installmentCountSchema = (field: string) =>
 const ONE_AMOUNT_MESSAGE =
   'Give either the total amount or the installment amount';
 
-/** Exactly one of the two: the sum of the installments, or each one's amount. */
 const requireOneAmount = (
   {
     totalAmount,
@@ -93,18 +92,12 @@ export const CreateInstallmentPlanSchema = z
     return z.NEVER;
   });
 
-/** Descriptive fields only; what is owed changes through a reschedule. */
 export const UpdateInstallmentPlanSchema = z.object({
   ...ExpenseDescriptionPatchSchema.shape,
   id: InstallmentPlanIdSchema,
   principalAmount: positiveDecimalSchema('Cash price').nullable().optional()
 });
 
-/**
- * Replaces the installments after the last one with payments by
- * `remainingCount` new ones adding up to `remainingAmount`, at the plan's
- * frequency from `nextDueDate`.
- */
 export const RescheduleInstallmentPlanSchema = z.object({
   id: InstallmentPlanIdSchema,
   remainingAmount: positiveDecimalSchema('Remaining amount'),

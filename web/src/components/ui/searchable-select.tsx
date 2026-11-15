@@ -17,7 +17,6 @@ import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { SELECT_ITEM_CLASS, SELECT_TRIGGER_CLASS } from './select';
 
-/** A `description` shows under the label, and typing finds the option by it too: what a category holds, say. */
 export type SearchableOption = Record<'value' | 'label', string> &
   Partial<Record<'description', string>>;
 
@@ -37,7 +36,6 @@ type SearchableSelectProps = Record<
 
 const COMBINING_MARKS = /\p{M}/gu;
 
-/** Case and accents aside, so "saude" finds "Saúde". */
 const searchTextOf = (text: string) =>
   text.normalize('NFD').replace(COMBINING_MARKS, '').toLocaleLowerCase();
 
@@ -59,12 +57,6 @@ export const optionsMatching = (
 const isTypedCharacter = ({ key, altKey, ctrlKey, metaKey }: KeyboardEvent) =>
   key.length === 1 && key !== ' ' && !altKey && !ctrlKey && !metaKey;
 
-/**
- * A select whose list is narrowed by typing, for lists long enough that
- * scanning them is slower than naming the option. Typing on the closed field
- * opens it with that text; the arrows move through the matches, Enter picks
- * one and Escape closes it, giving focus back to the field.
- */
 export const SearchableSelect = ({
   options,
   value,

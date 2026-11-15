@@ -38,13 +38,6 @@ export class GetExchangeRateHistoryService {
     return GetExchangeRateHistoryService.INSTANCE;
   }
 
-  /**
-   * The daily rates of each currency to `baseCurrency` from `from`, inclusive,
-   * to `to`, exclusive, keyed by currency. What the range is missing is asked of
-   * the provider and recorded before the rates are answered, as the price
-   * history is, and a provider that does not answer leaves what is stored. The
-   * base currency is never asked: one unit of it is worth one.
-   */
   async execute({
     currencies,
     baseCurrency,

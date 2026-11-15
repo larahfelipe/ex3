@@ -11,7 +11,6 @@ import {
 import type { Listing, MarketDataProvider } from '@/domain/MarketDataProvider';
 import type { InstrumentRepository } from '@/infra/database';
 
-/** Assumed, not measured: more matches than fit a picker ask for a longer term, not a next page. */
 const SEARCH_RESULT_LIMIT = 20;
 
 export class SearchInstrumentsService {
@@ -40,11 +39,6 @@ export class SearchInstrumentsService {
     return SearchInstrumentsService.INSTANCE;
   }
 
-  /**
-   * The quote provider is asked only for a term that could be a new symbol and
-   * names no instrument the caller already sees: that one is added as it is,
-   * and a listing under its symbol could not be registered beside it.
-   */
   async execute({
     userId,
     query

@@ -26,22 +26,15 @@ const ImportDecimal = Prisma.Decimal.clone({
   precision: 2 * DecimalColumn.PRECISION + 1
 });
 
-/** A statement rounds each amount to the cent, so a difference below one is rounding. */
 const CENT = new ImportDecimal('0.01');
 
 const BROKER_MAX_LENGTH = 60;
 const NOTES_MAX_LENGTH = 500;
 
-/**
- * A B3 trading code: a four-character issuer root and a one or two-digit
- * class, as PETR4, TAEE11 or AAPL34. The odd-lot market trades the same
- * security under the code with an `F` after it.
- */
 const B3_TICKER = /^[A-Z][A-Z0-9]{3}\d{1,2}$/;
 const ODD_LOT_SUFFIX = /^([A-Z][A-Z0-9]{3}\d{1,2})F$/;
 const CURRENCY_CODE = /^[A-Z]{3}$/;
 
-/** Collects what is wrong with a row, so every problem of it is reported at once. */
 export class RowCheck {
   readonly problems: Array<ImportProblem> = [];
   readonly warnings: Array<ImportWarning> = [];
@@ -75,7 +68,6 @@ export class RowCheck {
     return date.value;
   }
 
-  /** A decimal the row must have, greater than zero when `isPositive`. */
   decimal(
     cell: ImportCell | null,
     field: ImportField,
@@ -91,7 +83,6 @@ export class RowCheck {
     return value;
   }
 
-  /** Undefined when the cell is blank, null when it holds no valid decimal (and the row is rejected). */
   optionalDecimal(
     cell: ImportCell | null,
     field: ImportField
@@ -105,7 +96,6 @@ export class RowCheck {
     return value.value;
   }
 
-  /** A trading code written in a statement, the odd-lot `F` dropped, since both trade one security. */
   b3Ticker(cell: ImportCell | null): string | null {
     const text = textOf(cell)?.toUpperCase();
 
@@ -118,11 +108,6 @@ export class RowCheck {
       : this.reject('invalid-symbol', 'symbol');
   }
 
-  /**
-   * The trading code a statement's product names before its description, as
-   * `PETR4 - PETROLEO BRASILEIRO S.A. PETROBRAS`, its odd-lot `F` dropped. A
-   * product without one, as a treasury bond or a CDB, is not a listed security.
-   */
   b3Product(cell: ImportCell | null): string | null {
     const text = textOf(cell);
 
@@ -182,7 +167,6 @@ export class RowCheck {
     return text.slice(0, maxLength).trim();
   }
 
-  /** Warns when the total a statement reports differs from quantity × price by a cent or more. */
   checkTotal(
     quantity: string,
     unitPrice: string,
@@ -194,13 +178,6 @@ export class RowCheck {
       this.warn('value-mismatch');
   }
 
-  /**
-   * The gross unit value and the withholding of income a statement reports
-   * per unit and net. When quantity × unit value exceeds the net amount, the
-   * difference is the tax withheld, as on interest on equity; when the
-   * statement gives only the net amount, or a unit value too small to explain
-   * it, the unit value is the net amount per unit and nothing is withheld.
-   */
   incomeAmounts(
     quantity: string,
     grossUnitPrice: string | null | undefined,

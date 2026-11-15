@@ -46,7 +46,6 @@ const positionFundamentalsRoute = (symbol: string) =>
   `${PORTFOLIO_POSITIONS_ROUTE}/${encodeURIComponent(symbol)}/fundamentals`;
 const PORTFOLIOS_ROUTE = '/v1/portfolios';
 
-/** Mirror `CreatePortfolioSchema` and `Pagination`. */
 const NAME_MAX_LENGTH = 60;
 const DEFAULT_PAGE_LIMIT = 10;
 const MAX_PAGE_LIMIT = 100;
@@ -55,10 +54,6 @@ const OTHER_USER_EMAIL = 'other@ex3.app';
 
 const MISSING_PORTFOLIO_ID = MISSING_UUID;
 
-/**
- * Portfolios created one day apart, so the listing order by creation is total
- * and does not depend on the resolution of the database clock.
- */
 const FIRST_CREATION_EPOCH_MS = Date.UTC(2026, 0, 1);
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -70,7 +65,6 @@ const NAME_TAKEN_BODY = {
   details: [{ path: 'name', message: PortfolioMessages.NAME_TAKEN }]
 };
 
-/** The smallest positive value a quantity or monetary column holds. */
 const COLUMN_UNIT = `0.${'0'.repeat(DecimalColumn.SCALE - 1)}1`;
 
 const prismaClient = PrismaClient.getInstance();
@@ -78,7 +72,6 @@ const prismaClient = PrismaClient.getInstance();
 const namesOf = (portfolios: ReadonlyArray<{ name: string }>) =>
   portfolios.map(({ name }) => name);
 
-/** Inserted newest first, so only the creation instant can put them in order. */
 const holdPortfolios = async (userId: string) => {
   for (const [index, name] of [...HELD_PORTFOLIO_NAMES.entries()].reverse())
     await createPortfolio(userId, {
@@ -1669,10 +1662,6 @@ describe('portfolios', () => {
       currency: 'BRL'
     };
 
-    /**
-     * The window is resolved from the current day, so the closes are seeded
-     * relative to it instead of at fixed dates the suite would outlive.
-     */
     const now = new Date();
     const startOfToday = new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())

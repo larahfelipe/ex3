@@ -21,7 +21,6 @@ type IcuNode = { type: number; value?: string } & Partial<
 > &
   Partial<Record<'children', Array<IcuNode>>>;
 
-/** The node types of `@formatjs/icu-messageformat-parser`'s AST. */
 const ICU = {
   argument: 1,
   number: 2,
@@ -34,7 +33,6 @@ const ICU = {
 
 type ArgumentKind = 'text' | 'number' | 'choice' | 'date' | 'tag';
 
-/** A number for a plural wins over a choice, which wins over plain text: each one formats as the others. */
 const KIND_RANK: Record<ArgumentKind, number> = {
   text: 0,
   choice: 1,
@@ -121,7 +119,6 @@ describe('locale', () => {
       LOCALES.length
     );
 
-    // As the language names itself, in the "standard" style: "English (United States)", not "American English".
     for (const locale of LOCALES)
       assert.equal(
         new Intl.DisplayNames(locale, {
@@ -246,7 +243,6 @@ describe('catalogs', () => {
       ([key, message]) => portuguese.get(key) === message
     );
 
-    // Names, symbols and markup-only messages read the same in both.
     assert.ok(
       copied.length < english.length / 20,
       copied.map(([key]) => key).join(', ')

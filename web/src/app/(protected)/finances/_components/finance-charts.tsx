@@ -59,22 +59,11 @@ export const FINANCE_SERIES_COLORS: ReadonlyArray<SeriesColor> = [
 
 const PLOT_HEIGHT_CLASS = 'h-44';
 
-/** One label in two past a year of columns, so the month names never collide. */
 const DENSE_COLUMN_COUNT = 12;
 
-/**
- * Spacing follows the chart's own width, not the screen's: a narrow chart
- * gives its columns the room, and a dense one spaces them less, so two years
- * of months still draw as bars on a phone.
- */
 const COLUMN_GAP_CLASS = 'gap-1 @md:gap-2';
 const DENSE_COLUMN_GAP_CLASS = 'gap-0.5 @md:gap-1 @xl:gap-2';
 
-/**
- * Each month's label queries its own column: one too narrow for the
- * abbreviation shows the initial. Past a year only every other month is
- * named, so a label may spread over its blank neighbours and the cut is lower.
- */
 const MONTH_LABEL_CLASSES = {
   short: '@max-[1.75rem]:hidden',
   narrow: '@min-[1.75rem]:hidden'
@@ -126,7 +115,6 @@ const SeriesLegend: FC<
   </ul>
 );
 
-/** Placed against the plot rather than its column, which is too narrow to hold it. */
 const ColumnTooltip = <Key extends string>({
   column,
   series,
@@ -291,14 +279,6 @@ const ChartTable = <Key extends string>({
   );
 };
 
-/**
- * One column per month, its series side by side or stacked. Each month is a
- * link to its records when it has one, and names its figures, so the chart
- * reads without the pointer; the table view holds every value as well.
- *
- * Below `@md` the chart is a phone's: the scale's top value moves above the
- * plot, so the columns take the full width.
- */
 export const MonthColumnChart = <Key extends string>({
   title,
   currency,
@@ -502,7 +482,6 @@ export const MonthColumnChart = <Key extends string>({
   );
 };
 
-/** One bar per category, longest first, its value at the tip and its share beside it. */
 export const CategoryBars: FC<
   Record<'bars', ReadonlyArray<CategoryBar>> &
     Record<'currency', string> &

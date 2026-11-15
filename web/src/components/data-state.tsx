@@ -74,12 +74,6 @@ export const LoadingState: FC<LoadingStateProps> = ({
   </output>
 );
 
-/**
- * What a place shows before it holds anything. With a title, it is a page's
- * first run: the icon, what belongs there, how it gets there and the action
- * that starts it. Without one, it is a section's line, beside data that
- * explains it, with an icon when one tells the case apart.
- */
 export const EmptyState: FC<EmptyStateProps> = ({
   message,
   action,
@@ -149,7 +143,6 @@ export const ErrorState: FC<ErrorStateProps> = ({ message, onRetry }) => {
   );
 };
 
-/** Data shown from before a refresh that failed; the message defaults to saying so. */
 export const StaleState: FC<StaleStateProps> = ({
   message,
   onRetry,

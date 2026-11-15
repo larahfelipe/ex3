@@ -8,11 +8,6 @@ export const LogSeverities = {
 
 export type LogSeverity = (typeof LogSeverities)[keyof typeof LogSeverities];
 
-/**
- * Every line the service writes is one of these events. The discriminator is
- * what a log query groups by, so a new kind of line is a new member here, never
- * a free-form message.
- */
 export type LogEvent =
   | { event: 'server_started'; port: number }
   | { event: 'database_connected' }
@@ -85,7 +80,6 @@ export const severityOfStatus = (status: number): LogSeverity => {
 export const formatLogEntry = (entry: LogEntry, occurredAt: Date) =>
   JSON.stringify({ timestamp: occurredAt.toISOString(), ...entry });
 
-/** The suite's output is the test runner's; a server line in it reports nothing. */
 const isSilenced = envs.nodeEnv === 'test';
 
 export const log: LogSink = (entry) => {

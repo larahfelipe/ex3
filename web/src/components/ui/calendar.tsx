@@ -32,7 +32,6 @@ import {
   SelectValue
 } from './select';
 
-/** The dropdowns move the calendar from the month it shows, so it shows one at a time. */
 type CalendarProps = React.ComponentProps<typeof DayPicker> &
   Partial<Record<'numberOfMonths', 1>>;
 
@@ -40,7 +39,6 @@ type CalendarDropdownProps = DropdownProps & {
   onValueChange: (value: number) => void;
 };
 
-/** DayPicker's own wording, such as the month buttons' labels, and its week, which starts on Sunday in Brazil and in the United States. */
 const DAY_PICKER_LOCALES = {
   'pt-BR': ptBR,
   'en-US': enUS
@@ -59,10 +57,6 @@ const CalendarChevron = ({ orientation = 'left', className }: ChevronProps) => {
   return <Icon aria-hidden="true" className={cn('size-4', className)} />;
 };
 
-/**
- * The month and the year are picked from the themed Select instead of the
- * native `<select>`, whose list the browser draws in its own colors.
- */
 const CalendarDropdown = ({
   options = [],
   value,

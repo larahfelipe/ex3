@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils';
 type OptionalDetailsOptions<Detail extends string> = {
   details: ReadonlyArray<Detail>;
   initiallyShown: () => Iterable<Detail>;
-  /** Shown whatever was chosen, such as a detail that holds an error. */
   required?: ReadonlyArray<Detail>;
   focus: (detail: Detail) => void;
   clear: (detail: Detail) => void;
@@ -27,12 +26,6 @@ type OptionalDetailButtonsProps<Detail extends string> = {
 type RemoveDetailButtonProps = Record<'children', ReactNode> &
   Record<'onClick', VoidFunction>;
 
-/**
- * A form's optional fields, each waiting behind its own button until it is
- * asked for. Showing one focuses its field; removing one clears its value and
- * hands focus back to the button that shows it again, so nothing typed is
- * left behind out of sight.
- */
 export const useOptionalDetails = <Detail extends string>({
   details,
   initiallyShown,

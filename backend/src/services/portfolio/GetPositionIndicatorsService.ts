@@ -56,10 +56,6 @@ export class GetPositionIndicatorsService {
     return GetPositionIndicatorsService.INSTANCE;
   }
 
-  /**
-   * The ledger is read up to the moment of the request, so a transaction dated
-   * later has not realized a result or paid income yet.
-   */
   async execute({
     userId,
     portfolioId,

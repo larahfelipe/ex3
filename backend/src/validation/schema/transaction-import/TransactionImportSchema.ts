@@ -13,7 +13,6 @@ const BASE64_MAX_LENGTH = Math.ceil(ImportLimits.FILE_BYTES / 3) * 4;
 const IMPORT_KEY = /^[0-9a-f]{64}$/;
 const CONTROL_CHARACTER = /\p{Cc}/u;
 
-/** The file in the body, read in memory and never stored; its name is only shown back. */
 const ImportFileSchema = z.object({
   name: boundedTextSchema(
     'File name',

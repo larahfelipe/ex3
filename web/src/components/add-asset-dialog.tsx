@@ -107,7 +107,6 @@ const choicesOf = (
   }))
 ];
 
-/** A ticker the market could not be searched for is not told to search by ticker: the outage notice beside it says what is missing. */
 export const noMatchMessageOf = (
   search: string,
   marketSearch: MarketSearchStatus,
@@ -135,11 +134,6 @@ const submitFailureMessageOf = (
     ? t('alreadyHeld', { symbol })
     : apiErrorMessageOf(error, tErrors, t('failed'));
 
-/**
- * Only a term the user typed is searched. A single result is chosen for them
- * once it settles, so Enter searches without waiting for the debounce and a
- * second Enter adds what was found.
- */
 export const AddAssetDialog: FC<AddAssetDialogProps> = ({
   onCancel,
   onConfirm

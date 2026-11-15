@@ -28,7 +28,6 @@ import {
 type ImportRequest = Record<'file', ImportFilePayload> &
   Partial<Record<'selectedKeys', Array<string>>>;
 
-/** A file the API reads and plans in one request may take longer than the default allows. */
 const IMPORT_REQUEST_CONFIG = { timeout: TRANSACTION_IMPORT.RequestTimeoutMs };
 
 export const useTransactionImports = (
@@ -48,7 +47,6 @@ export const useTransactionImports = (
     keepsPreviousPage: true
   });
 
-/** Writes nothing: what the file would record with `selectedKeys`, or with its ready rows when left out. */
 export const usePreviewTransactionImport = (portfolio: Maybe<Portfolio>) =>
   useMutation<
     AxiosResponse<PreviewTransactionImportResponseData>,
@@ -67,10 +65,6 @@ export const usePreviewTransactionImport = (portfolio: Maybe<Portfolio>) =>
       )
   });
 
-/**
- * A row may register a B3 listing as a private instrument, which the asset
- * search lists among the person's own, so that list is refetched too.
- */
 export const useCreateTransactionImport = (portfolio: Maybe<Portfolio>) => {
   const announceChange = useAnnouncePortfolioChange(portfolio);
   const queryClient = useQueryClient();

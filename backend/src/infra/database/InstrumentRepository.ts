@@ -19,10 +19,6 @@ export class InstrumentRepository {
     return InstrumentRepository.INSTANCE;
   }
 
-  /**
-   * A private instrument shadows the catalog one of its symbol, so only the
-   * catalog instruments whose symbol the user has not registered are listed.
-   */
   async getAllVisible(params: InstrumentRepository.GetAllVisibleParams) {
     const { userId, page, limit, search } = params;
 

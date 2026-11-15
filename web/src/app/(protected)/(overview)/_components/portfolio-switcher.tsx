@@ -17,18 +17,11 @@ import { FIRST_PAGE } from '@/lib/pagination';
 type PortfolioSwitcherProps = Record<'portfolio', Portfolio> &
   Partial<Record<'onSwitch', VoidFunction>>;
 
-/** The API's largest page: an account rarely has more portfolios, and past it the list links to all of them. */
 const SWITCHABLE_PORTFOLIOS: GetPortfoliosRequestParams = {
   page: FIRST_PAGE,
   limit: 100
 };
 
-/**
- * Switches the active portfolio in place. Every figure on the page is keyed by
- * the portfolio, so the new one loads its own instead of showing the previous
- * one's. With a single portfolio there is nothing to switch to, and nothing
- * is shown.
- */
 export const PortfolioSwitcher: FC<PortfolioSwitcherProps> = ({
   portfolio,
   onSwitch

@@ -12,11 +12,6 @@ import {
   type ImportPreview
 } from './ImportFile';
 
-/**
- * Reads the file and plans its rows into the portfolio without writing
- * anything. Without a selection, every row that can be recorded is selected;
- * with one, the effect shown is the effect of the selected rows only.
- */
 export class PreviewTransactionImportService {
   private static INSTANCE: PreviewTransactionImportService;
   private readonly transactionImportRepository: TransactionImportRepository;

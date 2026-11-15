@@ -8,13 +8,11 @@ import { BrapiTickerCatalog } from './BrapiTickerCatalog';
 const API_KEY = 'brapi-api-key';
 const NOW = Date.parse('2026-09-11T20:00:00.000Z');
 
-/** Mirror the constants of `BrapiTickerCatalog`. */
 const TICKERS_PAGE_SIZE = 2_000;
 const MAX_TICKER_PAGES = 5;
 const CATALOG_TIME_TO_LIVE_MS = 86_400_000;
 const FAILURE_COOLDOWN_MS = 300_000;
 
-/** Mirrors `InstrumentLimits.NAME_MAX_LENGTH`. */
 const NAME_MAX_LENGTH = 120;
 
 type CatalogCall = { url: URL; init: RequestInit };

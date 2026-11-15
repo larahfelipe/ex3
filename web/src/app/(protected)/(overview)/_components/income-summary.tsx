@@ -102,11 +102,6 @@ const CurrencyIncomeSummary: FC<CurrencyIncomeSummaryProps> = ({
   );
 };
 
-/**
- * The income recorded in the portfolio's transactions, net of fees and taxes,
- * over the last 12 months and in all. Each currency stays apart, unconverted,
- * since no single exchange rate settles payments made on different days.
- */
 export const IncomeSummary: FC<IncomeSummaryProps> = ({ portfolio }) => {
   const incomeQuery = useIncome(portfolio);
   const t = useTranslations('investments.overview.income');

@@ -35,13 +35,6 @@ type LanguageSelectProps = Partial<
     Record<'renderTrigger', (language: LanguageTriggerState) => ReactElement>
   >;
 
-/**
- * Picks the interface's language among the ones it is fully translated into.
- * Every instance reads and changes the provider's locale, so they all show the
- * same one. Each language is named in its own words and marked with its
- * `lang`, so a screen reader pronounces it. Without `renderTrigger` it is a
- * form field; with it, the element it returns opens the list.
- */
 export const LanguageSelect: FC<LanguageSelectProps> = ({
   renderTrigger,
   className,
@@ -52,7 +45,6 @@ export const LanguageSelect: FC<LanguageSelectProps> = ({
   const { locale, pendingLocale, switchLocale } = useLocaleSwitch();
   const t = useTranslations('common.language');
 
-  // The choice shows at once, while its catalog loads.
   const shownLocale = pendingLocale ?? locale;
   const isPending = pendingLocale !== null;
 

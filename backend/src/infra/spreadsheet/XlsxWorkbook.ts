@@ -47,7 +47,6 @@ const requireXml = (archive: ZipEntryReader, path: string) => {
 
 const directoryOf = (path: string) => path.slice(0, path.lastIndexOf('/') + 1);
 
-/** A relationship target resolved against the part that declares it, as the archive names it. */
 const resolvePartPath = (fromDirectory: string, target: string) => {
   const segments: Array<string> = [];
 
@@ -87,7 +86,6 @@ const relationshipsOf = (xml: string | null) => {
 const relationshipsPathOf = (partPath: string) =>
   `${directoryOf(partPath)}_rels/${partPath.slice(partPath.lastIndexOf('/') + 1)}.rels`;
 
-/** The text of every string item, its runs joined, without the phonetic guides some locales add. */
 const sharedStringsOf = (xml: string | null) => {
   const strings: Array<string> = [];
 
@@ -289,14 +287,6 @@ const rowsOf = (
   return rows;
 };
 
-/**
- * Every worksheet of an Office Open XML workbook, in tab order, as the values
- * its cells hold: a number as the plain decimal of the value stored, to the 15
- * significant digits a spreadsheet keeps, anything else as its text. Formulas
- * are not evaluated; a cell answers the value last saved with it. A date cell
- * is the serial number it stores, so `date1904` says which epoch it counts
- * from. Chartsheets and parts the workbook does not name are never read.
- */
 export const readXlsxWorkbook = (
   bytes: Buffer,
   zipLimits: ZipLimits,

@@ -12,7 +12,6 @@ const QUOTE_SOURCE = 'yahoo-finance';
 const OTHER_QUOTE_SOURCE = 'fake';
 const QUOTE_CURRENCY = 'BRL';
 
-/** Two closes of consecutive trading days, each hours after the start of its day in UTC. */
 const FIRST_CLOSE_AT = new Date('2026-09-14T20:00:00.000Z');
 const SECOND_CLOSE_AT = new Date('2026-09-15T20:00:00.000Z');
 const FIRST_DAY_IN_UTC = new Date('2026-09-14T00:00:00.000Z');

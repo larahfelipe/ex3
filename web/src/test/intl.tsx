@@ -17,11 +17,6 @@ const ENTITIES: Readonly<Record<string, string>> = {
   '&nbsp;': ' '
 };
 
-/**
- * The markup a component renders with a locale's catalog, the default's
- * unless given. Any message the provider reports, such as a missing key,
- * fails the render instead of printing its path.
- */
 export const renderWithIntl = (
   node: ReactNode,
   locale: Locale = DEFAULT_LOCALE
@@ -45,7 +40,6 @@ export const renderWithIntl = (
   return markup;
 };
 
-/** The text a screen reader reads from the markup, visible or not, with spaces as rendered. */
 export const textOf = (markup: string) =>
   markup
     .replace(/<[^>]+>/g, '')

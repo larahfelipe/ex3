@@ -30,20 +30,10 @@ const app = async () => {
 
 export const apiRequest = async () => request(await app());
 
-/**
- * The rate limiters keep their counters in process memory, which outlives a
- * single test. Budgets are tight by design, so a suite that authenticates
- * repeatedly has to clear them between tests.
- */
 export const resetRateLimits = async () => {
   await Promise.all(rateLimitStores.map((store) => store.resetAll()));
 };
 
-/**
- * Whether the per-account sign-in limiter is counting the account the
- * credentials name. The harness test reads it to prove `resetRateLimits` clears
- * the key the limiter actually derives, instead of silently clearing nothing.
- */
 export const isAccountRateLimited = async (email: string) =>
   (await signInPerAccountRateLimitMiddleware.getKey(
     accountRateLimitKey(email)

@@ -45,11 +45,6 @@ const requireEndAfterStart = (
     });
 };
 
-/**
- * A start further back than the occurrence horizon would generate a backlog of
- * overdue occurrences at once, unbounded for a weekly series started years
- * ago.
- */
 const requireRecentStart = (
   { startDate }: { startDate: Date },
   ctx: z.RefinementCtx
@@ -79,12 +74,6 @@ export const CreateRecurringExpenseSchema = z
   .superRefine(requireRecentStart)
   .superRefine(requireMinorUnits(['amount']));
 
-/**
- * Frequency and start define which days the series falls on, so they are fixed
- * at creation. The other fields apply to the occurrences from `effectiveFrom`
- * on (the current day by default) that have no payments and were not edited
- * on their own.
- */
 export const UpdateRecurringExpenseSchema = z.object({
   ...ExpenseDescriptionPatchSchema.shape,
   id: RecurringExpenseIdSchema,

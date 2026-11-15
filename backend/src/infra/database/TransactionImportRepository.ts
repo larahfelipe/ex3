@@ -88,12 +88,6 @@ const bySymbol = <Row extends Record<'symbol', string>>(
 
 const PRIVATE_FIRST = { ownerId: { sort: 'asc', nulls: 'last' } } as const;
 
-/**
- * What planning the rows into the portfolio reads: the positions of their
- * symbols the portfolio holds, with every transaction of each, the instruments
- * of the other symbols the person sees, and which of the rows were imported
- * already.
- */
 const readPlanningState = async (
   client: Client,
   { portfolioId, userId, rows }: TransactionImportRepository.PlanningScope
@@ -198,10 +192,6 @@ const storePosition = (
     data: { quantity, averageCost, investedValue }
   });
 
-/**
- * Every read and write is scoped to a portfolio the caller already proved to
- * own, or, for an import by id, to the owner of the import's portfolio.
- */
 export class TransactionImportRepository {
   private static INSTANCE: TransactionImportRepository;
   private prismaClient: PrismaClient;
@@ -217,7 +207,6 @@ export class TransactionImportRepository {
     return TransactionImportRepository.INSTANCE;
   }
 
-  /** The symbols of the rows that no position or visible instrument has, which the quote provider is asked about. */
   async getUnknownSymbols(params: TransactionImportRepository.PlanningScope) {
     const { symbols, held, tracked } = await readPlanningState(
       this.prismaClient,
@@ -238,16 +227,6 @@ export class TransactionImportRepository {
     });
   }
 
-  /**
-   * Plans the rows again against the portfolio as it stands inside one
-   * serializable transaction and, when the rows that would be recorded are
-   * exactly the ones selected, records them: the positions of new assets, the
-   * import, each transaction with its key and source row, in the order the
-   * plan replayed them, and every position the plan rebuilt. Any difference,
-   * as a row imported or a sale recorded meanwhile, records nothing. The
-   * database assigns sequences in insertion order, which is checked, so the
-   * ledger replays the transactions of one day in the order planned.
-   */
   async record(
     params: TransactionImportRepository.RecordParams
   ): Promise<TransactionImportRepository.RecordOutcome> {
@@ -419,7 +398,6 @@ export class TransactionImportRepository {
     }
   }
 
-  /** Newest first. */
   async getAll(
     params: TransactionImportRepository.GetAllParams
   ): Promise<Page<TransactionImport>> {
@@ -446,14 +424,6 @@ export class TransactionImportRepository {
     };
   }
 
-  /**
-   * Deletes the transactions the import recorded that are still there, edited
-   * or not, and rebuilds each position from what is left, in one serializable
-   * transaction; refused, touching nothing, when a ledger without them would
-   * not replay, as when a sale recorded later needs a purchase the import
-   * brought. A position the import opened and left with no transaction is
-   * closed. The import stays on record, undone.
-   */
   async undo(
     params: TransactionImportRepository.UndoParams
   ): Promise<TransactionImportRepository.UndoOutcome> {

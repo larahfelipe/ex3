@@ -12,7 +12,6 @@ export type WorkbookSheet = Record<'name', string> &
 
 const UTF8_NAME_FLAG = 0x800;
 
-/** A ZIP archive as a spreadsheet application writes one: deflated entries, a central directory and its end record. */
 export const zipOf = (entries: Array<ZipEntry>) => {
   const localParts: Array<Buffer> = [];
   const centralParts: Array<Buffer> = [];
@@ -79,7 +78,6 @@ const columnNameOf = (index: number): string =>
     : columnNameOf(Math.floor(index / 26) - 1) +
       String.fromCharCode(65 + (index % 26));
 
-/** The parts of a minimal Office Open XML workbook: text in shared strings, numbers as stored values. */
 export const workbookEntriesOf = (
   sheets: Array<WorkbookSheet>,
   { date1904 = false }: { date1904?: boolean } = {}

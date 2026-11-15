@@ -36,7 +36,6 @@ export const totalsText = (
     .map(({ amount, currency }) => formatMoney(amount, currency))
     .join(' · ');
 
-/** Overdue or due-soon bills, each currency apart: amounts in two currencies never add up. */
 export const AlertTotals: FC<
   Record<'tone', AlertTone> &
     Record<'title', string> &
@@ -83,12 +82,6 @@ export const AlertTotals: FC<
 
 const UNSIGNED: Intl.NumberFormatOptions = { signDisplay: 'never' };
 
-/**
- * More or less than the previous period, in words: spending more is neither
- * good nor bad by itself, so the change carries no gain or loss color. The
- * period is `lastMonth`, or a phrase for the previous one, such as
- * "em out. de 2026".
- */
 export const changeTextOf = (
   { amount, percent }: Change,
   currency: string,
@@ -112,7 +105,6 @@ export const changeTextOf = (
     : t('more', { amount: amountText, period });
 };
 
-/** A headline figure that opens the records it counts. */
 export const LinkedMetric: FC<LinkedMetricProps> = ({
   label,
   href,

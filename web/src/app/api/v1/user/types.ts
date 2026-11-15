@@ -3,7 +3,6 @@ import type { WithMessage } from '@/types';
 
 export type GetCurrentUserResponseData = Record<'user', SignInResponseData>;
 
-/** An empty last name clears it. */
 export type UpdateProfileRequestPayload = Record<
   'firstName' | 'lastName',
   string

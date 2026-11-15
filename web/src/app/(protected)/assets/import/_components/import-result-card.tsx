@@ -21,12 +21,10 @@ type ImportResultCardProps = Record<
 > &
   Record<'onImportAnother', VoidFunction>;
 
-/** B3's trading statement carries no trade costs, so a result recorded from it says what is left to add. */
 const FORMATS_WITHOUT_TRADE_COSTS: ReadonlySet<ImportFormatId> = new Set([
   'b3-trades'
 ]);
 
-/** Takes focus when it appears, as the preview it replaces held it. */
 export const ImportResultCard: FC<ImportResultCardProps> = ({
   result: { transactionImport },
   onImportAnother

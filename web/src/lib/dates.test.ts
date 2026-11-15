@@ -25,7 +25,6 @@ const FIXTURE = fileURLToPath(
   new URL('../test/fixtures/calendar-days.ts', import.meta.url)
 );
 
-/** The reference, Brazil's, the furthest ahead of UTC, the furthest behind it, and one that changes its offset in the week checked. */
 const ZONES = [
   'UTC',
   'America/Sao_Paulo',

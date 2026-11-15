@@ -28,7 +28,7 @@ export const FinanceNavigation: FC = () => {
       aria-label={t('label')}
       className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0"
     >
-      <ul className="flex w-max gap-1 border-b sm:w-auto">
+      <ul className="flex w-max min-w-full gap-1 border-b">
         {FINANCE_PAGES.map(({ name, path }) => {
           const isCurrent = pathname === path;
 

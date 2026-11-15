@@ -56,13 +56,11 @@ type GettingStartedProgress = Record<'portfolioId', Maybe<string>> &
 
 const FIRST_ASSETS = { page: FIRST_PAGE, pageSize: 1 };
 
-/** Time to see every step done before the overview takes the guide's place. */
 const COMPLETION_HOLD_MS = 1600;
 
 /** The leaving card's `duration-200`. */
 const LEAVE_MS = 200;
 
-/** Between one step settling and the next, so steps done together read in order. */
 const STEP_CASCADE_MS = 150;
 
 const LEAVE_CLASS =
@@ -76,7 +74,6 @@ const MARKER_CLASSES: Readonly<Record<StepStatus, string>> = {
 
 const dismissalSubscribers = new Set<VoidFunction>();
 
-/** Hides the guide for the rest of the visit when the browser blocks storage. */
 let isDismissedForVisit = false;
 
 const readIsDismissed = () => {
@@ -106,11 +103,6 @@ const subscribeToDismissal = (onChange: VoidFunction) => {
   };
 };
 
-/**
- * Whether the guide was hidden in this browser. It stays hidden for every
- * portfolio, since whoever hid it once knows the way; each section's empty
- * state still offers its next step.
- */
 export const useGettingStartedDismissal = () => {
   const isDismissed = useSyncExternalStore(
     subscribeToDismissal,
@@ -133,10 +125,6 @@ export const useGettingStartedDismissal = () => {
   return [isDismissed, dismiss] as const;
 };
 
-/**
- * Opens while the portfolio has no transaction and completes when the first
- * one lands while it is open; a count still loading changes nothing.
- */
 export const nextGettingStartedStage = (
   stage: GettingStartedStage,
   transactionCount: Maybe<number>
@@ -148,12 +136,6 @@ export const nextGettingStartedStage = (
   return stage === 'open' ? 'complete' : stage;
 };
 
-/**
- * Where the Overview's guide stands for the active portfolio. Once the first
- * transaction lands, the guide stays a moment with every step done, fades out,
- * and the overview fades in, instead of one replacing the other at once. Focus
- * dropped by a step's action, or by the leaving guide, goes to `focusFallback`.
- */
 export const useGettingStartedStage = (
   portfolioId: Maybe<string>,
   transactionCount: Maybe<number>,
@@ -221,12 +203,6 @@ const StepCheck: FC<Record<'isDrawn', boolean>> = ({ isDrawn }) => (
   </svg>
 );
 
-/**
- * A step settles in place: its marker turns from the number to a drawn check,
- * the line to the next step fills, and the next step takes the accent. Colour,
- * opacity, scale and stroke change, never the size, so nothing around moves.
- * `cascade` staggers steps that change together.
- */
 const GettingStartedStep: FC<GettingStartedStepProps> = ({
   number,
   title,
@@ -299,12 +275,6 @@ const GettingStartedStep: FC<GettingStartedStepProps> = ({
   );
 };
 
-/**
- * Remounted once the first asset is known, so a portfolio that already holds
- * one shows its steps done instead of animating them; from then on, each step
- * the user completes animates. Focus lost with the action of the step just
- * done goes to the next step's action.
- */
 const GettingStartedSteps: FC<GettingStartedStepsProps> = ({
   portfolio,
   assets,
@@ -430,13 +400,6 @@ const GettingStartedSteps: FC<GettingStartedStepsProps> = ({
   );
 };
 
-/**
- * Takes the place of the overview's sections while the portfolio has no
- * transaction, when every one of them would be empty: it says what fills them
- * and offers the next step. Once a transaction is recorded it shows every step
- * done and announces it, then leaves on its own; whoever needs no guide can
- * hide it.
- */
 export const GettingStarted: FC<GettingStartedProps> = ({
   portfolio,
   isComplete = false,

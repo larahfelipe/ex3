@@ -38,12 +38,10 @@ const seriesRoute = (id: string) => `${SERIES_ROUTE}/${id}`;
 
 const INTRUDER_EMAIL = 'intruder@ex3.app';
 
-/** The server's UTC day when the suite loads; every request may name a day within one of it. */
 const TODAY = utcToday();
 
 const dayFrom = (days: number) => formatCalendarDay(addDays(TODAY, days));
 
-/** The first year after the current one whose February has `februaryDays` days. */
 const comingYearWith = (februaryDays: 28 | 29) => {
   let year = TODAY.getUTCFullYear() + 1;
 
@@ -52,7 +50,6 @@ const comingYearWith = (februaryDays: 28 | 29) => {
   return year;
 };
 
-/** Plans start in a coming January, so their installments are never overdue and their month ends stay fixed. */
 const PLAN_YEAR = comingYearWith(28);
 const LEAP_YEAR = comingYearWith(29);
 

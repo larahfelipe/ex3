@@ -6,13 +6,11 @@ import { EnvValidationError, parseEnvs } from './EnvsSchema';
 const VALID_JWT_SECRET = 'a'.repeat(32);
 const VALID_API_PROXY_SECRET = 'b'.repeat(32);
 const TURNSTILE_SECRET_KEY = '0x4AAAAAAAturnstile-secret-for-tests';
-/** Cloudflare's published test secret that passes every token. */
 const TURNSTILE_TEST_SECRET_KEY = '1x0000000000000000000000000000000AA';
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 
-/** Mirrors the token lifetime ceiling in `EnvsSchema`. */
 const MAX_TOKEN_LIFETIME_SECONDS = 30 * SECONDS_PER_DAY;
 
 const validEnvs: NodeJS.ProcessEnv = {

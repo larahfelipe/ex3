@@ -86,10 +86,6 @@ type PositionReturnsProps = Pick<PositionDetail, 'type'> &
 
 type IncomeKind = 'income' | 'interest';
 
-/**
- * What a class pays its holders. A class mapped to `null` pays nothing, so its
- * income shows only once its ledger records some, under the recorded kind.
- */
 const INCOME_KINDS: Record<InstrumentType, Maybe<IncomeKind>> = {
   STOCK: 'income',
   ETF: 'income',
@@ -106,7 +102,6 @@ const RECORDED_INCOME_KIND: IncomeKind = 'income';
 
 const WHOLE_BAR_PERCENT = 100;
 
-/** A year whose closes never moved has no span to place the close in. */
 const FLAT_YEAR_PLACEMENT = 0.5;
 
 const CHANGE_TONES: Record<ValueSign, SeriesTone> = {
@@ -190,10 +185,6 @@ const longestChangeOf = (changes: ReadonlyArray<PriceChange>) =>
     undefined
   );
 
-/**
- * Closes, not candles: the history keeps one price per day, and a line reads
- * the direction of a window at a glance in the room the card leaves it.
- */
 const PriceChart: FC<PriceChartProps> = ({
   closes,
   currency,
@@ -258,11 +249,6 @@ const PriceChart: FC<PriceChartProps> = ({
   );
 };
 
-/**
- * The windows' changes select what the chart draws: from the window's opening
- * close, the dashed line, to the latest. Without any change, the chart draws
- * every close the history has.
- */
 const PriceMovement: FC<PriceIndicatorsProps> = ({ prices }) => {
   const t = useTranslations('investments');
   const { formatSeriesDay } = useFormat();

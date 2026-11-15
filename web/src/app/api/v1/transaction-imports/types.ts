@@ -9,7 +9,6 @@ import type {
 import type { PortfolioScopeParams } from '../portfolio';
 import type { TransactionType } from '../transactions';
 
-/** Mirror of the API's `ImportFormatId`: the layouts a file is recognized by. */
 export type ImportFormatId =
   'b3-trades' | 'b3-income' | 'b3-movements' | 'ex3-template';
 
@@ -78,17 +77,14 @@ export type UnresolvedReason =
 
 export type RefusalReason = 'oversold' | 'currency-mismatch' | 'out-of-range';
 
-/** Why a row has its status: what is ignored, unresolved, refused or worth a review. */
 export type ImportRowReason =
   ImportIgnoreReason | ImportReviewReason | UnresolvedReason | RefusalReason;
 
-/** A row normalized into what EX3 records; `tradeDate` is a calendar day, `YYYY-MM-DD`. */
 export type ImportedEntry = Record<'symbol' | 'tradeDate', string> &
   Record<'type', TransactionType> &
   Record<'quantity' | 'unitPrice' | 'fees' | 'taxes', DecimalString> &
   Record<'currency' | 'broker' | 'notes', string | null>;
 
-/** One row of the file, as the file has it in `cells`, and what importing it would do. */
 export type ImportPreviewRow = Record<'key', string | null> &
   Record<'format', ImportFormatId> &
   Record<'entry', ImportedEntry | null> &
@@ -107,7 +103,6 @@ export type PositionFigures = Record<
   DecimalString
 >;
 
-/** Held and tracked are instruments EX3 knows; listed is a B3 listing registered on import. */
 export type ImportAssetResolution =
   'held' | 'tracked' | 'listed' | 'unresolved';
 
@@ -132,7 +127,6 @@ export type ImportPreview = Record<
   Record<'assets', Array<ImportPreviewAsset>> &
   Record<'rows', Array<ImportPreviewRow>>;
 
-/** `content` is the file's bytes in base64. */
 export type ImportFilePayload = Record<'name' | 'content', string>;
 
 export type PreviewTransactionImportRequestPayload = PortfolioScopeParams &

@@ -51,10 +51,6 @@ type ChoiceFieldProps = FieldDescription & {
   children: ReactNode;
 };
 
-/**
- * Inside an optional section the title already says so, and among details
- * added on request their Remove button does: their fields do not repeat it.
- */
 const OptionalSectionContext = createContext(false);
 
 const useFieldDescription = ({ hint, error }: FieldDescription) => {
@@ -168,12 +164,10 @@ export const ChoiceField: FC<ChoiceFieldProps> = ({
   );
 };
 
-/** Optional details added on request, each beside the button that removes it. */
 export const OptionalFields: FC<Record<'children', ReactNode>> = ({
   children
 }) => <OptionalSectionContext value>{children}</OptionalSectionContext>;
 
-/** A titled group of a form's fields, with an optional control beside the title. */
 export const FormSection: FC<FormSectionProps> = ({
   title,
   isOptional = false,
@@ -217,13 +211,6 @@ export const FormSection: FC<FormSectionProps> = ({
   );
 };
 
-/**
- * An optional section that waits behind a button until it is asked for, so a
- * form opens on what it needs. It is open from the start when it already holds
- * something, and opens for good when one of its fields reports an error.
- * `onReveal` runs once its fields are in the page, to focus the first. A
- * `revealHint` beside the button says what the section holds.
- */
 export const DeferredSection: FC<DeferredSectionProps> = ({
   revealLabel,
   revealHint,

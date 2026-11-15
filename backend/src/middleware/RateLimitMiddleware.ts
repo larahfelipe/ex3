@@ -16,18 +16,7 @@ type BudgetName = keyof typeof RateLimits;
 type KeyGenerator = (req: Request) => string;
 
 type Accounting = {
-  /**
-   * Gives back the attempt of a request answered below 400, so a person who
-   * signs in, or changes the account, spends nothing.
-   */
   countsOnlyFailures: boolean;
-  /**
-   * Whether every response states the budget and what is left of it. A
-   * credential endpoint shares its budgets with whoever else tries the same
-   * account or address, so what is left would tell one caller about the
-   * attempts of others; there a caller learns only when to retry, once turned
-   * away.
-   */
   disclosesBudget: boolean;
 };
 
@@ -108,7 +97,6 @@ const submittedAccountOf = (req: Request) => {
   return typeof email === 'string' && email.trim().length > 0 ? email : null;
 };
 
-/** Traffic that carries no session at all is counted per client address. */
 const sessionKey: KeyGenerator = (req) => {
   const session = submittedSessionOf(req);
 
@@ -126,7 +114,6 @@ const accountKey: KeyGenerator = (req) => {
 const accountAndAddressKey: KeyGenerator = (req) =>
   `${accountKey(req)}|${clientAddressKey(req)}`;
 
-/** Only for a route behind `authMiddleware`, which has already resolved the user. */
 const signedInUserKey: KeyGenerator = (req) =>
   `${USER_NAMESPACE}:${req.user.id}`;
 
@@ -159,10 +146,6 @@ const rejectThrottledRequest: RateLimitExceededEventHandler = (req, res) => {
   });
 };
 
-/**
- * One store per budget, which names its prefix in the shared counter table. A
- * suite that authenticates repeatedly clears them between tests.
- */
 export const rateLimitStores: RateLimitStore[] = [];
 
 const limiterOf = (

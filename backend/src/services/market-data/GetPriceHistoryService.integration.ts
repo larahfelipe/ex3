@@ -30,7 +30,6 @@ const RANGE = {
 
 const marketQuoteRepository = MarketQuoteRepository.getInstance();
 
-/** The fake needs a price per symbol; every test replaces `getHistoricalPrices` with its own. */
 const marketDataProvider = new FakeMarketDataProvider({
   [SYMBOL]: [{ price: '1', currency: CURRENCY, timestamp: NOW }]
 });

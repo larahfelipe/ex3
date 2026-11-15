@@ -34,7 +34,6 @@ export const ExpenseReadSchema = z.object({
   today: ReferenceDaySchema
 });
 
-/** No payment is part of a new expense: it is owed until a payment is recorded for it. */
 export const CreateExpenseSchema = z
   .object({
     ...ExpenseDescriptionSchema.shape,
@@ -45,11 +44,6 @@ export const CreateExpenseSchema = z
   })
   .superRefine(requireMinorUnits(['amount']));
 
-/**
- * The currency is fixed at creation, so the amount's precision is checked
- * against the stored one by the service. `cancelled` cancels or restores the
- * expense.
- */
 export const UpdateExpenseSchema = z.object({
   ...ExpenseDescriptionPatchSchema.shape,
   id: ExpenseIdSchema,

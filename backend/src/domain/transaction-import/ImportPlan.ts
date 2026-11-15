@@ -42,13 +42,6 @@ export type ImportRowStatus =
   | 'ignored'
   | 'rejected';
 
-/**
- * Why a row's symbol resolves to no instrument it can be recorded on: the quote
- * provider does not list it on B3, a symbol of another market is not among
- * the instruments the person sees, the provider could not be asked or the file
- * names more new symbols than one import looks up, or the row's currency is
- * not the instrument's.
- */
 export type UnresolvedReason =
   | 'not-listed'
   | 'not-found'
@@ -59,13 +52,6 @@ export type UnresolvedReason =
 
 export type RefusalReason = 'oversold' | 'currency-mismatch' | 'out-of-range';
 
-/**
- * What a symbol of the file is recorded on: a position the portfolio holds,
- * an instrument the person sees but the portfolio does not hold yet, or a B3
- * listing the provider knows, registered as a private instrument on import.
- * `currency` is what the instrument is quoted in, or the currency of its
- * ledger when the instrument does not say.
- */
 export type AssetResolution =
   | (Record<'status', 'held' | 'tracked'> &
       Record<'instrumentId' | 'name', string> &
@@ -123,7 +109,6 @@ export type PlannedAsset = Record<'symbol', string> &
     | null
   >;
 
-/** A selected row as it is recorded, in the order it is recorded. */
 export type RecordedEntry = Record<'key', string> &
   Record<'format', ImportFormatId> &
   Record<'entry', ImportedEntry & Record<'currency', string>> &
@@ -194,7 +179,6 @@ const keyTupleOf = (namespace: string, entry: ImportedEntry) =>
 const digestOf = (text: string) =>
   createHash('sha256').update(text).digest('hex');
 
-/** The key of each row that records a transaction, in file order, null for one that does not. */
 export const importKeysOf = (rows: ReadonlyArray<ReadRow>) => {
   const occurrences = new Map<string, number>();
 
@@ -210,7 +194,6 @@ export const importKeysOf = (rows: ReadonlyArray<ReadRow>) => {
   });
 };
 
-/** A transaction a row may repeat, its days and price worked out once, so that matching a row compares text alone. */
 type MatchCandidate = Record<'id' | 'unitPrice', string> &
   Record<'day' | 'utcDay', CalendarDay>;
 
@@ -223,12 +206,6 @@ const likenessOf = (
 const isSameDay = ({ day, utcDay }: MatchCandidate, tradeDate: CalendarDay) =>
   day === tradeDate || utcDay === tradeDate;
 
-/**
- * The days a transaction may be dated on when it is the trade a B3 row records
- * on another day: a settlement transfer is dated days after the trade it
- * settles, which the trading statement or a person recording it by hand dates
- * the day it was made. The price must then match too.
- */
 const sameTradeDaysOf = (
   format: ImportFormatId,
   entry: ImportedEntry
@@ -278,20 +255,6 @@ const emptyCounts = (): Record<ImportRowStatus, number> => ({
   rejected: 0
 });
 
-/**
- * What importing the rows would do, decided row by row and then asset by
- * asset. A row already imported is a duplicate, and one that records what a
- * transaction of the portfolio already does on that day, with the same type
- * and quantity, a possible duplicate, as is a B3 trade the portfolio has at
- * the same price on the day it was made or settled; each is matched to one
- * transaction at most.
- * Ready rows are selected unless `selection` names the rows instead; possible
- * duplicates and rows to review only when it does. Each asset's ledger is then
- * replayed with its selected rows, and when the replay is refused, as when a
- * sale exceeds what is held because an earlier purchase is not in the file,
- * none of that asset's rows stays selected: the asset tells where it stopped,
- * and the person picks the rows that do replay.
- */
 export const planImport = ({
   rows,
   assets,

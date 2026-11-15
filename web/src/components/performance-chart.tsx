@@ -81,7 +81,6 @@ const PERFORMANCE_RANGES: PerformanceRange[] = [
 
 const PERFORMANCE_METRICS: PerformanceMetric[] = ['value', 'return'];
 
-/** ETFs that follow the two indexes a Brazilian investor most often measures against. */
 const BENCHMARK_SYMBOLS = ['BOVA11', 'VOO'] as const;
 
 const benchmarkSymbolOf = (symbol: Maybe<string>) =>
@@ -89,7 +88,6 @@ const benchmarkSymbolOf = (symbol: Maybe<string>) =>
 
 const ZERO_RETURN: DecimalString = '0';
 
-/** One decimal is enough to place a line against its axis; the exact return is in the tooltip and the table. */
 const RETURN_TICK_FORMAT: Intl.NumberFormatOptions = {
   maximumFractionDigits: 1
 };
@@ -112,7 +110,6 @@ const plottedSeriesOf = (
     : [...sampled, last];
 };
 
-/** The benchmark has no point on a day without a close near it, so it is read by date, not by position. */
 const benchmarkReturnsOn = (
   points: ReadonlyArray<PerformancePoint>,
   benchmark: Maybe<PerformanceBenchmark>
@@ -184,12 +181,6 @@ const PeriodSummary: FC<
   );
 };
 
-/**
- * Holds the hovered point so that moving the pointer redraws the headline and
- * the chart alone, leaving the controls and the table untouched. The value
- * view reads the money, contributions included; the return view reads the
- * time-weighted return, which leaves them out, against the benchmark's.
- */
 export const PerformanceSeries: FC<PerformanceSeriesProps> = ({
   series,
   baseCurrency,
@@ -455,7 +446,6 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
     { range: HISTORY_RANGE, ...(symbol !== undefined && { symbol }) }
   );
 
-  /** A failed period keeps the selector, so another one can still be chosen. */
   const hasRangesToChoose =
     isError ||
     (performance !== undefined && performance.series.length > 0) ||

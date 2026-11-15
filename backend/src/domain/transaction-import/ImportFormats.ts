@@ -14,7 +14,6 @@ import { normalizeLabel, textOf, type ImportCell } from './ImportValues';
 const B3_CURRENCY = 'BRL';
 const B3_KEY_NAMESPACE = 'b3';
 
-/** Statements end with a row of totals, which is not a record of its own. */
 const isTotalsRow = (cell: ImportCell | null) =>
   normalizeLabel(textOf(cell) ?? '').startsWith('total');
 
@@ -33,7 +32,6 @@ const ignored = (reason: ImportIgnoreReason): MappedRow => ({
   reason
 });
 
-/** The cash market, in whole and odd lots; options, forward and futures trades are outside what EX3 models. */
 const CASH_MARKETS = new Set(['mercado a vista', 'mercado fracionario']);
 
 const TRADE_SIDES: Readonly<Record<string, ImportableType>> = {
@@ -50,7 +48,6 @@ const INCOME_EVENTS: Readonly<Record<string, ImportableType>> = {
 
 const TRANSFERRED_SUFFIX = ' - transferido';
 
-/** Movements that are not a trade of their own: the trade settles as a transfer, and custody moves between brokers. */
 const IGNORED_MOVEMENTS: Readonly<Record<string, ImportIgnoreReason>> = {
   compra: 'settlement',
   venda: 'settlement',
@@ -81,11 +78,6 @@ type TradeField =
   | 'unitPrice'
   | 'total';
 
-/**
- * The trading statement of the Investor Area (Extrato > Negociação), one row
- * per trade of the period: B3 reports neither the brokerage fee nor the
- * exchange and settlement fees of a trade, so a trade imports without them.
- */
 export const B3TradingStatement: ImportFormat<TradeField> = {
   id: 'b3-trades',
   keyNamespace: B3_KEY_NAMESPACE,
@@ -158,11 +150,6 @@ export const B3TradingStatement: ImportFormat<TradeField> = {
 type IncomeField =
   'symbol' | 'date' | 'event' | 'broker' | 'quantity' | 'unitPrice' | 'net';
 
-/**
- * The income statement of the Investor Area (Proventos Recebidos), one row
- * per payment: the unit value is gross and the amount net, so what interest
- * on equity had withheld is their difference.
- */
 export const B3IncomeStatement: ImportFormat<IncomeField> = {
   id: 'b3-income',
   keyNamespace: B3_KEY_NAMESPACE,
@@ -235,7 +222,6 @@ type MovementField =
   | 'unitPrice'
   | 'total';
 
-/** A trade as the movement statement settles it: a credit is a purchase and a debit a sale, dated the day it settled. */
 const settlementTradeOf = (
   cells: FieldCells<MovementField>,
   context: MappingContext
@@ -287,16 +273,6 @@ const settlementTradeOf = (
   };
 };
 
-/**
- * The movement statement of the Investor Area (Extrato > Movimentação), every
- * credit and debit of custody. A trade is read from its settlement transfer,
- * without fees, which B3 does not report; the plain purchase and sale entries,
- * custody transfers and lending are not trades of their own. A split is a bonus
- * of the units it credits, with no cost, and a credit B3 marks as transferred
- * may repeat a payment the file lists already, so both wait for the person to
- * include them. A reverse split, a subscription, a fraction auction or a
- * merger is not modeled, and is rejected for the person to record by hand.
- */
 export const B3MovementStatement: ImportFormat<MovementField> = {
   id: 'b3-movements',
   keyNamespace: B3_KEY_NAMESPACE,
@@ -454,13 +430,6 @@ const TEMPLATE_PORTUGUESE_DATE_HEADERS = [
   'data do negocio'
 ];
 
-/**
- * EX3's own layout, for any broker's history: one transaction per row, its
- * headers in Portuguese or English. The unit price of income is gross, and its
- * taxes are what was withheld; a bonus may have no unit price. The currency is
- * the instrument's when left out. Under the English date header a date is
- * written as ISO 8601 has it, since one with slashes may put the month first.
- */
 export const Ex3Template: ImportFormat<TemplateField> = {
   id: 'ex3-template',
   keyNamespace: 'ex3-template',

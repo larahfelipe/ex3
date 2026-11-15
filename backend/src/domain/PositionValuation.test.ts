@@ -6,7 +6,6 @@ import { valuePosition } from './PositionValuation';
 
 const OBSERVED_AT = new Date('2026-09-11T19:55:00.000Z');
 
-/** The largest and the smallest positive values of a `DECIMAL(38,18)` column. */
 const COLUMN_MAXIMUM = '99999999999999999999.999999999999999999';
 const COLUMN_UNIT = '0.000000000000000001';
 

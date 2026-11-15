@@ -10,7 +10,6 @@ import type { CalendarDay } from '@/domain/models';
 
 import type { SlashedDates } from './ImportRecord';
 
-/** A cell as the reader stored it: a number as a plain decimal string, anything else as its text. */
 export type ImportCell = Record<'value', string> &
   Record<'kind', 'number' | 'text'>;
 
@@ -29,10 +28,6 @@ const parsed = <Value>(value: Value) => ({ outcome: 'parsed', value }) as const;
 
 const INTEGER_DIGITS = DecimalColumn.PRECISION - DecimalColumn.SCALE;
 
-/**
- * Statements leave a value out as a blank, a dash or a hyphen; a currency sign
- * and the blanks a spreadsheet pads numbers with are not part of the value.
- */
 const EMPTY_VALUES = new Set(['', '-', '–', '—']);
 const CURRENCY_DECORATION = /R\$|US\$|\$|\s/g;
 const UNSIGNED_DIGITS = /^[\d.,]+$/;
@@ -45,7 +40,6 @@ const GROUPED_INTEGER_BY_SEPARATOR: Record<DecimalSeparator, RegExp> = {
 const isBlank = (cell: ImportCell | null) =>
   cell === null || EMPTY_VALUES.has(cell.value.trim());
 
-/** Lower case, without accents or repeated blanks: how labels written by hand or by B3 are compared. */
 export const normalizeLabel = (text: string) =>
   text
     .normalize('NFD')
@@ -57,7 +51,6 @@ export const normalizeLabel = (text: string) =>
 export const textOf = (cell: ImportCell | null) =>
   isBlank(cell) || cell === null ? null : cell.value.trim();
 
-/** The canonical decimal string the columns store, or null when it does not fit them. */
 const canonicalDecimalOf = (digits: string) => {
   const value = new Prisma.Decimal(digits);
   const [integerPart, fractionPart = ''] = value.abs().toFixed().split('.');
@@ -99,13 +92,6 @@ const decimalSeparatorOf = <Convention extends DecimalSeparator | null>(
   return GROUPED_INTEGER.test(digits) ? convention : separator;
 };
 
-/**
- * A non-negative decimal as written in a statement or a spreadsheet: a number
- * cell as stored, a text cell in either convention, with thousands groups of
- * three digits and an optional currency sign. Missing for a blank or a dash;
- * invalid for anything else that is not such a number, a negative one or one
- * the columns cannot store exactly.
- */
 export const parseDecimal = (
   cell: ImportCell | null,
   convention: DecimalSeparator
@@ -143,7 +129,6 @@ export const parseDecimal = (
   return canonical === null ? INVALID : parsed(canonical);
 };
 
-/** The separator a text number shows its decimals with, or null when it does not tell, as `10` or `1.234`. */
 export const writtenDecimalSeparatorOf = (
   cell: ImportCell | null
 ): DecimalSeparator | null => {
@@ -165,7 +150,6 @@ export const writtenDecimalSeparatorOf = (
 const EXCEL_EPOCH_OFFSET_DAYS = 25_569;
 const EXCEL_1904_EPOCH_OFFSET_DAYS = 24_107;
 const DAY_MS = 86_400_000;
-/** 9999-12-31, the last day a workbook stores, in days since the Unix epoch. */
 const LAST_WORKBOOK_DAY = Date.UTC(9999, 11, 31) / DAY_MS;
 const SLASHED_DATE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
 const MONTHS = 12;
@@ -174,10 +158,6 @@ const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})(?:[T ].*)?$/;
 const isoDayOf = (year: string, month: string, day: string) =>
   `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
-/**
- * The order a slashed date writes its day and month in, when one of them could
- * not be a month; null when either could come first.
- */
 export const slashedDateOrderOf = (
   cell: ImportCell | null
 ): Exclude<SlashedDates, 'ambiguous'> | null => {
@@ -196,13 +176,6 @@ export const slashedDateOrderOf = (
   return null;
 };
 
-/**
- * A calendar day as a statement writes it, `DD/MM/YYYY`, as ISO 8601 has it,
- * `YYYY-MM-DD` (a time after it is ignored), or as the serial number a
- * workbook stores a date cell as. A slashed date reads in the order
- * `slashedDates` gives, the day first as Brazil writes it, and is ambiguous
- * where that order is not known.
- */
 export const parseTradeDate = (
   cell: ImportCell | null,
   {
@@ -267,7 +240,6 @@ const saoPauloClockFormat = new Intl.DateTimeFormat('en-US', {
   second: 'numeric'
 });
 
-/** The calendar day B3 is in at the instant. */
 export const saoPauloDayOf = (instant: Date): CalendarDay =>
   saoPauloDayFormat.format(instant);
 

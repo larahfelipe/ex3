@@ -4,7 +4,6 @@ import type { InstallmentPlanRepository } from '@/infra/database';
 
 import { financeRefusalError } from './FinanceRefusalError';
 
-/** Changes what is still to pay; the installments with payments, and the ones before them, stay as they are. */
 export class RescheduleInstallmentPlanService {
   private static INSTANCE: RescheduleInstallmentPlanService;
   private readonly installmentPlanRepository: InstallmentPlanRepository;

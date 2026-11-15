@@ -31,7 +31,6 @@ const paramsWithCurrency = (current: URLSearchParams, currency: string) => {
   return params;
 };
 
-/** The currency a finance page shows, kept in the URL so a link names it. */
 export const useCurrencyParam = () => {
   const searchParams = useSearchParams();
   const requested = searchParams.get(CURRENCY_PARAM)?.toUpperCase();
@@ -76,7 +75,6 @@ export const useAdoptedCurrency = (
   }, [adopted, searchParams]);
 };
 
-/** Shown only when there is a choice: amounts in two currencies are never added up. */
 export const CurrencyPicker: FC<CurrencyPickerProps> = ({
   value,
   currencies,

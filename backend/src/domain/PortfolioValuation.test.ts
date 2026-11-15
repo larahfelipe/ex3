@@ -28,7 +28,6 @@ const OBSERVED_AT = new Date('2026-09-11T19:55:00.000Z');
 const EARLIER = new Date('2026-09-11T19:50:00.000Z');
 const EARLIEST = new Date('2026-09-11T19:45:00.000Z');
 
-/** Mirror `DecimalColumn`. */
 const COLUMN_SCALE = 18;
 const COLUMN_MAXIMUM = '99999999999999999999.999999999999999999';
 

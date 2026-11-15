@@ -67,14 +67,12 @@ const PORTFOLIO_SECTIONS: Array<NavigationSection> = [
   }
 ];
 
-/** Cash flow, kept apart from the investment sections it never mixes with. */
 const FINANCE_SECTION: NavigationSection = {
   name: 'finances',
   path: APP_ROUTES.Protected.Finances,
   icon: <ReceiptText size={18} />
 };
 
-/** Past this, the badge reads "99+": the exact count is on the finance overview. */
 const ALERT_BADGE_MAX = 99;
 
 const ACCOUNT_SECTION: NavigationSection = {
@@ -83,25 +81,15 @@ const ACCOUNT_SECTION: NavigationSection = {
   icon: <CircleUserRound size={18} />
 };
 
-/** WCAG 2.5.5 asks for a 44px target, above the default button height. */
 const NAVIGATION_ITEM_CLASS =
   'group/item relative flex min-h-11 w-full min-w-11 flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 text-[0.6875rem] font-medium text-muted-foreground outline-hidden ring-offset-background transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 aria-disabled:pointer-events-none aria-disabled:opacity-50 motion-safe:active:scale-95 aria-[current=page]:text-foreground sm:py-2 navigation-expanded:flex-row navigation-expanded:justify-start navigation-expanded:gap-3 navigation-expanded:px-3 navigation-expanded:text-sm navigation-expanded:hover:bg-accent navigation-expanded:aria-[current=page]:bg-accent';
 
 const NAVIGATION_ICON_CLASS =
   'flex h-7 w-12 shrink-0 items-center justify-center rounded-full transition-colors group-hover/item:bg-accent group-aria-[current=page]/item:bg-primary/15 group-aria-[current=page]/item:text-primary navigation-expanded:h-auto navigation-expanded:w-auto navigation-expanded:bg-transparent navigation-expanded:group-hover/item:bg-transparent navigation-expanded:group-aria-[current=page]/item:bg-transparent';
 
-/**
- * The toggle sits on the rail's border, centred on the brand's line: 24 px
- * drawn, with a 44 px target (WCAG 2.5.5) from the pseudo-element around it.
- */
 const NAVIGATION_TOGGLE_CLASS =
   'absolute top-3.5 right-0 z-10 hidden size-6 translate-x-1/2 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-surface ring-offset-background transition-colors before:absolute before:-inset-2.5 hover:border-input hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-90 lg:flex';
 
-/**
- * The brand leads to the overview. It is drawn 32 px tall, centred on the
- * toggle's line, with a 44 px target (WCAG 2.5.5) from the pseudo-element
- * around it; once expanded, its text lines up with the items' icons.
- */
 const BRAND_LINK_CLASS =
   'relative -my-0.5 flex h-8 items-center rounded-md px-2 text-lg outline-hidden ring-offset-background transition-colors before:absolute before:-inset-x-1 before:-inset-y-1.5 hover:bg-accent focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-95';
 
@@ -174,7 +162,6 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
 
   const { mutate: signOut, isPending: isSigningOut } = useSignOut();
   const { data: user } = useCurrentUser();
-  // A badge that fails to load is left out: the finance pages show the same count with their own error state.
   const { data: financeAlerts } = useFinanceAlerts();
 
   const isExpanded = navigationState === NAVIGATION_STATES.Expanded;
@@ -286,7 +273,6 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
                       {tLanguage('label')}
                     </span>
 
-                    {/* The control's value: read out on the rail, shown once expanded. */}
                     <span
                       lang={locale}
                       className="sr-only max-w-full text-xs font-normal text-muted-foreground navigation-expanded:not-sr-only"

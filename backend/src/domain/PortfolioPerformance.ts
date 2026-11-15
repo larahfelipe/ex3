@@ -90,19 +90,8 @@ const WINDOW_BACK: ReadonlyMap<
 
 const ONE = new ValuationDecimal(1);
 
-/**
- * How far back a benchmark close or rate still stands for a day it lacks: its
- * market may be closed on a day the portfolio's markets trade.
- */
 export const BENCHMARK_CARRY_DAYS = 7;
 
-/**
- * Every window ends at the start of the current day in UTC, the first day with
- * no close yet, and starts at the start of a day as well, so the same range
- * asked twice in a day answers the same days whatever timezone the caller is
- * in. `MAX` starts at `since`, the day the portfolio's ledger begins, and is an
- * empty window while there is none.
- */
 export const performanceRangeOf = (
   range: PerformanceRange,
   now: Date,
@@ -132,7 +121,6 @@ export const performanceRangeOf = (
   };
 };
 
-/** The window a benchmark's closes and rates are read over, so the carry reaches before it. */
 export const benchmarkRangeOf = ({ from, to }: PriceRange): PriceRange => ({
   from: new Date(from.getTime() - BENCHMARK_CARRY_DAYS * MILLISECONDS_PER_DAY),
   to
@@ -171,7 +159,6 @@ const cashFlowOf = ({
   return traded.sub(charges).neg();
 };
 
-/** The latest price on or before each of the ascending `days`, within the carry. */
 const carriedPricesOf = (
   prices: ReadonlyArray<DailyPrice>,
   days: ReadonlyArray<number>
@@ -196,13 +183,6 @@ const carriedPricesOf = (
   });
 };
 
-/**
- * The benchmark's price return in the base currency, on the portfolio's own
- * points: its close times its rate to the base currency, each the latest within
- * the carry, over the same on the portfolio's first point. Without both on that
- * first point there is no common start, and the series is empty; a later point
- * without them is left out.
- */
 const benchmarkReturnsOf = (
   { closes, currency }: QuotedInstrument,
   baseCurrency: string,
@@ -273,30 +253,6 @@ const summaryOf = (
   };
 };
 
-/**
- * The portfolio valued at the close of each trading day of the range, in
- * `baseCurrency`, and what it returned. A day is a point only when every
- * position held that day, and every transaction executed since the previous
- * point, has a close and a rate to the base currency: a partial day would
- * answer a smaller portfolio as if it had lost value. Positions are replayed
- * from the ledger at each day, so a transaction recorded retroactively moves
- * the whole series it precedes.
- *
- * `netContribution` is the money put in or taken out since the previous point,
- * or since the start of the range for the first one, at the point's rates, so
- * a transaction executed on a day left out, or on a day without trading, still
- * counts once and never as a gain.
- *
- * `twr` is the time-weighted return accumulated from the first point, chaining
- * each point's `(value − netContribution) ÷ previous value`. A gap in the days
- * makes the next return span the gap. Every amount is truncated towards zero
- * at the column scale.
- *
- * `summary` spans the first point to the last: the change in value, which
- * includes the money put in or taken out after the first point, that money,
- * and the return over the period. The change is a fraction of the first value
- * only when that value is not zero.
- */
 export const trackPortfolioPerformance = ({
   baseCurrency,
   range,

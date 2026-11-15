@@ -1,4 +1,3 @@
-/** Monetary values are decimal strings, exact to the scale of their columns. */
 export type ExchangeRate = {
   id: string;
   currency: string;

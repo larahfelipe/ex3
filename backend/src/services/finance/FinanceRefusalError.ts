@@ -2,7 +2,6 @@ import { FinanceMessages } from '@/config/Constants';
 import type { FinanceRecordType } from '@/domain/models';
 import { ConflictError, DomainError, ValidationError } from '@/errors';
 
-/** Every outcome a finance write is refused with, short of the record not existing. */
 export type FinanceRefusal =
   | { outcome: 'imprecise-amount'; field: string }
   | { outcome: 'due-before-kept'; lastKeptDueDate: string }
@@ -37,10 +36,6 @@ const HAS_PAYMENTS_MESSAGES = {
 const fieldError = (path: string, message: string) =>
   new ValidationError(message, [{ path, message }]);
 
-/**
- * A refusal over a field's value answers 400 under that field, one over the
- * record's state 409, and one a rule of the domain makes 422.
- */
 export const financeRefusalError = (
   refusal: FinanceRefusal,
   recordType: FinanceRecordType

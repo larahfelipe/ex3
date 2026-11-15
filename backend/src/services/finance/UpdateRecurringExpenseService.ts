@@ -7,7 +7,6 @@ import type { RecurringExpenseRepository } from '@/infra/database';
 import { financeRefusalError } from './FinanceRefusalError';
 import { occurrenceHorizonOf } from './OccurrenceHorizon';
 
-/** Applies from `effectiveFrom`, the current day by default: what is behind it keeps its values. */
 export class UpdateRecurringExpenseService {
   private static INSTANCE: UpdateRecurringExpenseService;
   private readonly recurringExpenseRepository: RecurringExpenseRepository;

@@ -28,7 +28,6 @@ const newQueryClient = () => {
   return queryClient;
 };
 
-/** A query on screen: one with an observer, which an invalidation refetches. */
 const observe = async (
   queryClient: QueryClient,
   queryKey: QueryKey,

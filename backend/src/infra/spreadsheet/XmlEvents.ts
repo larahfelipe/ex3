@@ -62,7 +62,6 @@ const requireIndexOf = (xml: string, search: string, from: number) => {
   return index;
 };
 
-/** Where the tag opened before `from` ends: its first `>` outside a quoted attribute value. */
 const tagEndOf = (xml: string, from: number) => {
   let quote: string | null = null;
 
@@ -78,7 +77,6 @@ const tagEndOf = (xml: string, from: number) => {
   throw malformed();
 };
 
-/** Attributes by their qualified name, each value decoded. */
 const attributesOf = (source: string) => {
   const attributes = new Map<string, string>();
   let at = 0;

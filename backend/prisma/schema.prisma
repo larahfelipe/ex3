@@ -17,9 +17,6 @@ model User {
   email          String      @unique
   password       String
   portfolios     Portfolio[]
-  /// Sign-up issues the first token at the initial value; sign-in, sign-out
-  /// and password change bump it. An access token is honoured only while it
-  /// carries the current value.
   sessionVersion Int         @default(0)
   isAdmin        Boolean     @default(false)
   createdAt      DateTime    @default(now())
@@ -89,8 +86,6 @@ model MarketQuote {
   price        Decimal    @db.Decimal(38, 18)
   currency     String
   source       String
-  /// The close of a trading day, at the start of that day in UTC, so an
-  /// instrument has one row per trading day and source.
   timestamp    DateTime
   instrument   Instrument @relation(fields: [instrumentId], references: [id])
   instrumentId String
@@ -106,8 +101,6 @@ model ExchangeRate {
   baseCurrency String
   rate         Decimal  @db.Decimal(38, 18)
   source       String
-  /// The close of a trading day, at the start of that day in UTC, so a pair of
-  /// currencies has one row per trading day and source.
   timestamp    DateTime
   createdAt    DateTime @default(now())
 
@@ -163,12 +156,7 @@ model Transaction {
   portfolioId  String
   instrument   Instrument         @relation(fields: [instrumentId], references: [id])
   instrumentId String
-  /// What the row of an imported file records, as `src/domain/transaction-import`
-  /// digests it: unique in the portfolio, so a file imported again records
-  /// nothing twice. Null for a transaction recorded by hand.
   importKey    String?
-  /// The row as the file had it, `{ format, sheet, rowNumber, cells }`, so an
-  /// imported transaction can always be traced back to its source.
   importedRow  Json?
   import       TransactionImport? @relation(fields: [importId], references: [id])
   importId     String?
@@ -180,10 +168,6 @@ model Transaction {
   @@map("transactions")
 }
 
-/// One file imported into a portfolio. The file is never stored: its SHA-256
-/// identifies it, and each transaction it recorded keeps the row it came from.
-/// Undoing an import deletes its transactions and keeps the record, with the
-/// time it was undone.
 model TransactionImport {
   id                  String        @id @default(uuid())
   fileName            String
@@ -191,8 +175,6 @@ model TransactionImport {
   formats             String[]
   rowCount            Int
   importedCount       Int
-  /// The instruments the import opened a position in, closed again when an
-  /// undo leaves them without transactions.
   openedInstrumentIds String[]
   createdAt           DateTime      @default(now())
   undoneAt            DateTime?
@@ -204,9 +186,6 @@ model TransactionImport {
   @@map("transaction_imports")
 }
 
-/// Personal finance records belong to a user, not to a portfolio: what an
-/// account owes is independent of what it invests. Every table holds the
-/// owner's id, which each read and write filters by.
 enum ExpenseCategory {
   HOUSING
   UTILITIES
@@ -255,9 +234,6 @@ enum FinanceEventType {
   RESCHEDULED
 }
 
-/// A bill: a one-time expense, an installment of a plan or an occurrence of a
-/// recurring expense. Days are calendar days (`DATE`): a bill is due on a day,
-/// not at an instant, so no time zone moves it.
 model Expense {
   id                 String            @id @default(uuid())
   description        String
@@ -270,9 +246,6 @@ model Expense {
   paymentMethod      PaymentMethod?
   account            String?
   notes              String?
-  /// What the active payments settled (their amount plus discount), and the
-  /// day the last of them brought the outstanding to zero. Every payment write
-  /// recomputes both from the payments, in the same transaction.
   settledAmount      Decimal           @default(0) @db.Decimal(38, 18)
   settledOn          DateTime?         @db.Date
   cancelledAt        DateTime?
@@ -281,10 +254,7 @@ model Expense {
   installmentNumber  Int?
   recurringExpense   RecurringExpense? @relation(fields: [recurringExpenseId], references: [id])
   recurringExpenseId String?
-  /// The day the series scheduled the occurrence on: its identity within the
-  /// series, kept when its due date is edited.
   occurrenceDate     DateTime?         @db.Date
-  /// Edited on its own, so an edit of the whole plan or series leaves it as is.
   isCustomized       Boolean           @default(false)
   payments           ExpensePayment[]
   userId             String
@@ -297,9 +267,6 @@ model Expense {
   @@map("expenses")
 }
 
-/// `amount` and `discount` settle the expense; `fees` (late interest, charges)
-/// are paid on top. The cash spent is `amount + fees`. A voided payment is kept
-/// as history and settles nothing.
 model ExpensePayment {
   id        String         @id @default(uuid())
   amount    Decimal        @db.Decimal(38, 18)
@@ -320,17 +287,13 @@ model ExpensePayment {
   @@map("expense_payments")
 }
 
-/// The installments are `expenses` rows; the plan's totals are computed from
-/// them, so a corrected installment never leaves a stale total behind.
 model InstallmentPlan {
   id              String              @id @default(uuid())
   description     String
   category        ExpenseCategory
   subcategory     String?
   currency        String
-  /// How often the installments fall due, each counted from the first due date.
   frequency       RecurrenceFrequency @default(MONTHLY)
-  /// The cash price, when known: the plan's financing cost is its total minus it.
   principalAmount Decimal?            @db.Decimal(38, 18)
   paymentMethod   PaymentMethod?
   account         String?
@@ -346,9 +309,6 @@ model InstallmentPlan {
   @@map("installment_plans")
 }
 
-/// The occurrences are `expenses` rows, generated ahead up to a horizon.
-/// `generatedThrough` is the last day generation covered, so it resumes after
-/// it and an occurrence is never generated twice.
 model RecurringExpense {
   id               String              @id @default(uuid())
   description      String
@@ -374,13 +334,11 @@ model RecurringExpense {
   @@map("recurring_expenses")
 }
 
-/// The change history of a finance record: append-only, never edited.
 model FinanceEvent {
   id         String            @id @default(uuid())
   recordType FinanceRecordType
   recordId   String
   type       FinanceEventType
-  /// Each changed field's value before and after, or the values recorded.
   changes    Json
   userId     String
   createdAt  DateTime          @default(now())
@@ -390,8 +348,6 @@ model FinanceEvent {
   @@map("finance_events")
 }
 
-/// Which in-app reminders the user wants: overdue bills, and the bills and
-/// installments falling due within `reminderLeadDays`.
 model FinanceSettings {
   id                         String   @id @default(uuid())
   userId                     String   @unique
@@ -405,9 +361,6 @@ model FinanceSettings {
   @@map("finance_settings")
 }
 
-/// One rate limiter's count of the requests a key made in the current window,
-/// shared by every API process. Written only by `RateLimitStore`, on the
-/// database clock.
 model RateLimitCounter {
   key     String   @id
   hits    Int

@@ -14,16 +14,13 @@ const Select = SelectPrimitive.Root;
 
 const SelectValue = SelectPrimitive.Value;
 
-/** Opens the list from a control of its own, through `asChild`, such as a navigation item. */
 const UnstyledSelectTrigger = SelectPrimitive.Trigger;
 
-/** A closed list's look, shared by the searchable one. */
 const SELECT_TRIGGER_CLASS = cn(
   FIELD_CLASS,
   'flex h-(--field-height) w-full items-center justify-between px-3 py-2 text-base data-placeholder:text-muted-foreground md:text-sm [&>span]:line-clamp-1'
 );
 
-/** An option's look, shared by the searchable list. */
 const SELECT_ITEM_CLASS =
   'relative flex w-full cursor-default select-none items-center rounded-sm py-2.5 pl-2 pr-8 text-sm outline-hidden sm:py-1.5 focus:bg-accent focus:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50';
 

@@ -10,12 +10,6 @@ import { log, LogSeverities, type LogSink } from '@/infra/observability';
 
 import { quoteHoldings, readPortfolioHoldings } from './QuotedHoldings';
 
-/**
- * A total the API cannot calculate is worth a line of its own: the provider
- * records an outage once, while this names what each affected portfolio is
- * left without, a symbol the source does not know or a pair it has no rate for
- * included. Only codes are written, nothing of the user's holdings.
- */
 export const logValuationGaps = (
   logEntry: LogSink,
   portfolioId: string,

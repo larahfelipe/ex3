@@ -14,7 +14,6 @@ import type { Page } from '@/interfaces';
 
 import { PrismaClient } from './PrismaClient';
 
-/** What the import keeps to trace a transaction to its file is not part of the transaction. */
 const toTransaction = ({
   sequence,
   quantity,
@@ -52,11 +51,6 @@ const ledgerOf = (
     }
   });
 
-/**
- * Deleting or moving a position takes its transactions along, so a ledger
- * without its position is a broken invariant, surfaced by the update instead of
- * answered as a missing row.
- */
 const storePosition = (
   transactionClient: Prisma.TransactionClient,
   { portfolioId, instrumentId }: TransactionRepository.AssetScope,
@@ -77,12 +71,6 @@ export type TransactionListQuery = Pick<Transaction, 'portfolioId'> &
 
 export type ListedTransaction = Transaction & Pick<Instrument, 'symbol'>;
 
-/**
- * Lookups by asset are filtered by a portfolio the caller already proved to own,
- * and lookups by transaction id by the owner of the transaction's portfolio, so
- * an id or a symbol taken from a request never reaches another user's rows.
- * Writes by id follow such a lookup inside the same database transaction.
- */
 export class TransactionRepository {
   private static INSTANCE: TransactionRepository;
   private prismaClient: PrismaClient;
@@ -116,7 +104,6 @@ export class TransactionRepository {
     }));
   }
 
-  /** Newest first, the reverse of ledger order, with inclusive execution time bounds. */
   async getAll(params: TransactionListQuery): Promise<Page<ListedTransaction>> {
     const {
       portfolioId,
@@ -160,11 +147,6 @@ export class TransactionRepository {
     };
   }
 
-  /**
-   * Every transaction of the portfolio executed before `to`, in ledger order,
-   * with the instrument each one moves. The whole ledger is read at once so a
-   * position can be replayed at each day of a range without a query per day.
-   */
   async getLedgerUpTo(
     params: Pick<Transaction, 'portfolioId'> &
       Partial<Pick<Transaction, 'instrumentId'>> &
@@ -203,14 +185,6 @@ export class TransactionRepository {
     return transaction && toTransaction(transaction);
   }
 
-  /**
-   * The position is rebuilt from the ledger as it will stand after the write,
-   * and both are written in one serializable transaction, so the ledger a SELL
-   * is checked against cannot change before the write commits. A refused write
-   * touches nothing. The new row has no sequence until it is recorded, so it is
-   * replayed after every row executed at the same time, which is where the
-   * sequence the database assigns places it.
-   */
   async add(
     params: TransactionRepository.AddParams
   ): Promise<TransactionRepository.LedgerAddition> {
@@ -242,7 +216,6 @@ export class TransactionRepository {
     );
   }
 
-  /** Replaces the row, keeping its recording order, under the guarantees of `add`. */
   async update(
     params: TransactionRepository.UpdateParams
   ): Promise<TransactionRepository.LedgerWrite> {
@@ -274,7 +247,6 @@ export class TransactionRepository {
     );
   }
 
-  /** Removes the row from the ledger, under the guarantees of `add`. */
   async delete(
     params: TransactionRepository.GetByIdParams
   ): Promise<TransactionRepository.LedgerWrite> {
@@ -314,7 +286,6 @@ namespace TransactionRepository {
   export type GetByIdParams = Pick<Transaction, 'id'> &
     Record<'userId', string>;
   export type UpdateParams = TransactionEntry & GetByIdParams;
-  /** `not-found` answers a transaction or asset outside the caller's portfolios exactly like a missing one. */
   export type LedgerRejection = { outcome: 'not-found' } | LedgerRefusal;
   export type LedgerWrite = { outcome: 'recorded' } | LedgerRejection;
   export type LedgerAddition =

@@ -6,7 +6,6 @@ import type { LedgerEntry } from './PositionLedger';
 export type IncomeType =
   (typeof IncomeTransactionTypes)[keyof typeof IncomeTransactionTypes];
 
-/** Net amounts in one currency: all that was recorded, and what was executed since `trailingFrom`. */
 export type IncomeTotals = Record<'total' | 'trailingTotal', string>;
 
 export type CurrencyIncome = Record<'currency', string> &
@@ -28,16 +27,6 @@ const totalsOf = (
   ).toFixed()
 });
 
-/**
- * The income recorded in the ledger, each DIVIDEND, JCP and INTEREST net of
- * its fees and taxes (`q · p − f − t`), per currency and per type: in all, and
- * executed since `trailingFrom`, the start of the same one-year window as a
- * position's `trailingIncome`. Amounts in different currencies are not added:
- * converting them would need a rate the ledger does not settle, the day's of
- * each payment or today's. The base currency comes first and the others follow
- * in code order; a currency or a type without income is left out. Only what
- * was recorded counts, so nothing here is a forecast.
- */
 export const summarizeIncome = (
   ledger: ReadonlyArray<LedgerEntry>,
   baseCurrency: string,

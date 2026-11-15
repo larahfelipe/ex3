@@ -18,12 +18,8 @@ export const DIALOG_OVERLAY_CLASS =
   'fixed inset-0 z-50 bg-scrim/60 backdrop-blur-sm duration-200 ease-out data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:ease-in reduced-transparency:bg-scrim/80 reduced-transparency:backdrop-blur-none';
 
 /**
- * Below `sm` it is a sheet along the bottom edge that slides up, so the thumb
- * reaches its actions; from `sm` it is centred and fades and scales in place.
- * It leaves the way it came, over the same time, easing in where it eased out,
- * and the backdrop fades with it. The keyframes animate `transform`, which
- * adds to the `translate` that centres it, so a slide there would bring it in
- * off its axis.
+ * The keyframes animate `transform`, which adds to the `translate` that centres
+ * the dialog from `sm`, so a slide there would bring it in off its axis.
  */
 export const DIALOG_CONTENT_CLASS =
   'fixed inset-x-0 bottom-0 z-50 flex max-h-[calc(100dvh-1rem)] w-full flex-col rounded-t-2xl border border-b-0 bg-surface-elevated text-surface-elevated-foreground shadow-elevated outline-hidden duration-200 ease-out data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom data-[state=closed]:ease-in sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border-b sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:slide-out-to-bottom-0 sm:data-[state=closed]:zoom-out-95';
@@ -50,10 +46,6 @@ type DialogContentProps = React.ComponentProps<typeof DialogPrimitive.Content> &
   Partial<Record<'hasUnsavedChanges', boolean>>;
 
 /**
- * Lays out a pinned `DialogHeader`, a `DialogBody` that scrolls when the
- * content is taller than the screen, and a pinned `DialogFooter`, so the title
- * and the actions stay in view on a short screen or above the keyboard.
- *
  * With `hasUnsavedChanges`, a press outside leaves the dialog open, so a stray
  * click on the backdrop cannot throw away what was typed. Escape, the close
  * button and the form's own cancel still close it: those are deliberate.
@@ -108,11 +100,10 @@ const DialogHeader = ({ className, ...props }: React.ComponentProps<'div'>) => (
   />
 );
 
-/** Spaces its children as the content did before it scrolled: `gap-4` between them, and `py-4` from the header and the footer's divider. */
 const DialogBody = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
     className={cn(
-      'grid min-h-0 flex-1 content-start gap-4 overflow-y-auto overscroll-contain px-5 py-4',
+      'grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto overscroll-contain px-5 py-4',
       className
     )}
     {...props}

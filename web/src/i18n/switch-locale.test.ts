@@ -12,7 +12,6 @@ type Step =
   | ['show', Locale]
   | ['save', Locale];
 
-/** A catalog that arrives when the test says so, to order the steps of overlapping switches. */
 const deferredCatalog = () => {
   let resolve: (messages: Messages) => void = () => undefined;
   let reject: (error: Error) => void = () => undefined;
@@ -84,7 +83,6 @@ describe('switching the language', () => {
     );
 
     const toEnglish = switchFrom('pt-BR', 'en-US');
-    // Back to the language shown before English arrives.
     await switchFrom('pt-BR', 'pt-BR');
     english.resolve(MESSAGES['en-US']);
     await toEnglish;

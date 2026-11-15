@@ -36,7 +36,6 @@ const TRANSACTIONS_ROUTE = '/v1/transactions';
 
 const transactionRoute = (id: string) => `/v1/transaction/${id}`;
 
-/** Mirrors the default page size in `PageQuerySchema`. */
 const DEFAULT_PAGE_SIZE = 10;
 
 const INTRUDER_EMAIL = 'intruder@ex3.app';
@@ -46,7 +45,6 @@ const MISSING_PORTFOLIO_ID = MISSING_UUID;
 
 const MISSING_ASSET_SYMBOL = 'XRP';
 
-/** Carried by every entry a test sends, unless the test is about currency or execution time. */
 const ENTRY_CONTEXT = {
   currency: FIXTURE_BASE_CURRENCY,
   executedAt: FIXTURE_EXECUTED_AT.toISOString()
@@ -61,10 +59,8 @@ const TRANSACTION_EDIT = {
 
 const COLUMN_INTEGER_DIGITS = DecimalColumn.PRECISION - DecimalColumn.SCALE;
 
-/** The largest value a quantity or monetary column holds. */
 const COLUMN_MAX = `${'9'.repeat(COLUMN_INTEGER_DIGITS)}.${'9'.repeat(DecimalColumn.SCALE)}`;
 
-/** The smallest positive value a quantity or monetary column holds. */
 const COLUMN_UNIT = `0.${'0'.repeat(DecimalColumn.SCALE - 1)}1`;
 
 const prismaClient = PrismaClient.getInstance();
@@ -78,7 +74,6 @@ describe('transactions', () => {
     client = await apiRequest();
   });
 
-  /** A holder of one BTC transaction, and another user with an empty portfolio. */
   const seedHolderAndIntruder = async () => {
     const { accessToken: holderToken, ...holder } = await signInSeeded();
     const intruder = await signInWithPortfolio(INTRUDER_EMAIL);
@@ -373,7 +368,6 @@ describe('transactions', () => {
     const EARLIER_EXECUTED_AT = '2026-01-04T13:00:00.000Z';
     const LATER_EXECUTED_AT = '2026-01-06T13:00:00.000Z';
 
-    /** `LATER_EXECUTED_AT` written at another offset. */
     const LATER_EXECUTED_AT_WITH_OFFSET = '2026-01-06T10:00:00-03:00';
 
     const BETWEEN_EXECUTIONS = '2026-01-05T00:00:00.000Z';
@@ -383,7 +377,6 @@ describe('transactions', () => {
     const UNHELD_SYMBOL = 'SOL';
     const PAGE_SIZE = 2;
 
-    /** The largest page the schema accepts, far past any stored transaction. */
     const FARTHEST_PAGE = Number.MAX_SAFE_INTEGER;
 
     type StoredTransaction = Awaited<ReturnType<typeof createTransaction>>;
@@ -419,10 +412,6 @@ describe('transactions', () => {
     const idsOf = (transactions: Array<Pick<StoredTransaction, 'id'>>) =>
       transactions.map(({ id }) => id);
 
-    /**
-     * Two transactions share the latest execution time, so recording order
-     * decides between them, and another portfolio of the same user holds one more.
-     */
     const seedLedger = async () => {
       const { portfolio, accessToken } =
         await signInWithPortfolio(FIXTURE_USER_EMAIL);
@@ -643,7 +632,6 @@ describe('transactions', () => {
 
     const REPLAY_SYMBOL = 'SOL';
 
-    /** A day before and a day after the execution time `ENTRY_CONTEXT` carries. */
     const EXECUTED_BEFORE_CONTEXT = '2026-01-04T13:00:00.000Z';
     const EXECUTED_AFTER_CONTEXT = '2026-01-06T13:00:00.000Z';
 
@@ -669,7 +657,6 @@ describe('transactions', () => {
             portfolioId
           });
 
-    /** An owner whose asset starts empty, so every change to the position comes from the API. */
     const openEmptyPosition = async () => {
       const { portfolio, accessToken } =
         await signInWithPortfolio(FIXTURE_USER_EMAIL);
@@ -1515,14 +1502,11 @@ describe('transactions', () => {
         assert.equal(res.status, Errors.VALIDATION.status, method);
     });
 
-    /** Mirror `TransactionEntrySchema`. */
     const BROKER_MAX_LENGTH = 60;
     const NOTES_MAX_LENGTH = 500;
 
-    /** The instant `ENTRY_CONTEXT` carries, written with a UTC−3 offset. */
     const EXECUTED_AT_WITH_OFFSET = '2026-01-05T10:00:00-03:00';
 
-    /** A BUY the holder's ledger accepts both as a new transaction and as an edit of the seeded one. */
     const ACCEPTED_ENTRY = { ...TRANSACTION_EDIT, type: TransactionTypes.BUY };
 
     const assertEntriesRejected = async (

@@ -22,12 +22,6 @@ type SeededListing = Listing & Partial<Record<'sector', string>>;
 
 export const FAKE_MARKET_DATA_SOURCE = 'fake';
 
-/**
- * An exchange rate is seeded under the codes of its pair, as `USDBRL` for one
- * dollar in reais. A listing is seeded apart from prices, since a search
- * answers what the provider lists and not what it quotes, and so are the
- * fundamentals of a symbol.
- */
 export class FakeMarketDataProvider implements MarketDataProvider {
   private readonly pricesBySymbol: ReadonlyMap<string, Quote[]>;
   private readonly listings: ReadonlyArray<SeededListing>;

@@ -17,11 +17,6 @@ import { TOAST_LIFETIME_MS, toastLifetimeOf } from '@/lib/toast-lifetime';
 const FOCUS_RING_CLASSES =
   'focus-visible:outline-hidden! focus-visible:ring-2! focus-visible:ring-focus!';
 
-/**
- * The action sits under the message, aligned with its text, as the secondary
- * button at the `xs` size: the next step stays at hand without outweighing
- * what the toast says, and the message keeps the toast's full width.
- */
 const ACTION_BUTTON_CLASSES =
   'col-start-2! m-0! h-8! justify-self-start! rounded-md! bg-secondary! px-2.5! text-sm! font-medium! text-secondary-foreground! hover:bg-secondary/80!';
 

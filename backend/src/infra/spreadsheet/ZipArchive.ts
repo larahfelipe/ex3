@@ -8,7 +8,6 @@ export type ZipLimits = Record<
 >;
 
 export type ZipEntryReader = {
-  /** The entry's bytes, or null when the archive has no entry of that name. */
   read: (name: string) => Buffer | null;
 };
 

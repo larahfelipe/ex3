@@ -43,7 +43,6 @@ export class GetPositionFundamentalsService {
     return GetPositionFundamentalsService.INSTANCE;
   }
 
-  /** A class no metric reads is answered without asking the provider. */
   async execute({
     userId,
     portfolioId,

@@ -53,7 +53,6 @@ export const FinanceAlertsQuerySchema = z.object({
   today: ReferenceDaySchema
 });
 
-/** Every setting, as a `PUT` replaces them all. */
 export const UpdateFinanceSettingsSchema = z.object({
   reminderLeadDays: z
     .number('Reminder lead days must be a number')

@@ -11,10 +11,6 @@ import {
 } from '../DecimalSchema';
 import { TransactionTypeSchema } from './TransactionTypeSchema';
 
-/**
- * Bounds the free-text fields (OWASP API4:2023, unrestricted resource
- * consumption). Assumed, not measured: above a broker's name and a short note.
- */
 const BROKER_MAX_LENGTH = 60;
 const NOTES_MAX_LENGTH = 500;
 
