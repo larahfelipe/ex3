@@ -284,10 +284,10 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
       errorMessage={t('allocation.loadFailed')}
       action={
         hasGroups && (
-          <fieldset>
+          <fieldset className="min-w-0 max-sm:w-full">
             <legend className="sr-only">{t('allocation.groupBy')}</legend>
 
-            <SegmentedControl className="flex-wrap">
+            <SegmentedControl isFullWidthBelowSm>
               {availableViews.map((view) => (
                 <SegmentedControlItem
                   key={view}

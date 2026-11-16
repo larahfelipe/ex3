@@ -5,7 +5,12 @@ import {
   maxDay,
   minDay
 } from './CalendarDay';
-import type { RecurrenceFrequency, RecurringExpenseStatus } from './models';
+import { cardDueDateOf } from './CardStatement';
+import type {
+  CreditCardCycle,
+  RecurrenceFrequency,
+  RecurringExpenseStatus
+} from './models';
 
 const DAYS_PER_WEEK = 7;
 const MONTHS_PER_YEAR = 12;
@@ -82,15 +87,24 @@ export const nextOccurrence = (rule: RecurrenceRule, day: Date) => {
   }
 };
 
+/**
+ * Charged to a card, a later occurrence never lands on an earlier statement,
+ * so the soonest occurrence is still the soonest bill.
+ */
 export const nextBillDay = (
   rule: RecurrenceRule & Record<'generatedThrough', Date>,
   today: Date,
-  earliestCreated: Date | null
+  earliestCreated: Date | null,
+  card: CreditCardCycle | null = null
 ) => {
-  const scheduled = nextOccurrence(
+  const occurrence = nextOccurrence(
     rule,
     maxDay(today, addDays(rule.generatedThrough, 1))
   );
+  const scheduled =
+    occurrence === null || card === null
+      ? occurrence
+      : cardDueDateOf(card, occurrence);
 
   if (earliestCreated === null || scheduled === null)
     return earliestCreated ?? scheduled;

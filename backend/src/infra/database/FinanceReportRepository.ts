@@ -13,7 +13,8 @@ import type { Expense } from '@/domain/models';
 import {
   installmentCountsOf,
   OPEN_EXPENSE_WHERE,
-  toExpense
+  toExpense,
+  WITH_CREDIT_CARD
 } from './FinanceRecords';
 import { PrismaClient } from './PrismaClient';
 
@@ -156,7 +157,8 @@ export class FinanceReportRepository {
 
     const rows = await this.prismaClient.expense.findMany({
       where: { userId, ...OPEN_EXPENSE_WHERE, dueDate: { lte: through } },
-      orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }]
+      orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+      include: WITH_CREDIT_CARD
     });
     const counts = await installmentCountsOf(this.prismaClient, [
       ...new Set(

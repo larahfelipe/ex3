@@ -3,6 +3,8 @@ import { utcToday } from '@/domain/CalendarDay';
 import type { ExpenseDescription } from '@/domain/models';
 import type { ExpenseRepository } from '@/infra/database';
 
+import { financeRefusalError } from './FinanceRefusalError';
+
 export class CreateExpenseService {
   private static INSTANCE: CreateExpenseService;
   private readonly expenseRepository: ExpenseRepository;
@@ -24,12 +26,15 @@ export class CreateExpenseService {
     entryDate,
     ...expense
   }: CreateExpenseService.DTO): Promise<CreateExpenseService.Result> {
-    const id = await this.expenseRepository.add({
+    const write = await this.expenseRepository.add({
       ...expense,
       entryDate: entryDate ?? utcToday()
     });
 
-    return { id, message: FinanceMessages.EXPENSE_CREATED };
+    if (write.outcome !== 'written')
+      throw financeRefusalError(write, 'EXPENSE');
+
+    return { id: write.id, message: FinanceMessages.EXPENSE_CREATED };
   }
 }
 
@@ -37,6 +42,7 @@ namespace CreateExpenseService {
   export type DTO = ExpenseDescription &
     Record<'amount' | 'currency' | 'userId', string> &
     Record<'dueDate', Date> &
+    Record<'creditCardId', string | null> &
     Partial<Record<'entryDate', Date>>;
   export type Result = Record<'id' | 'message', string>;
 }

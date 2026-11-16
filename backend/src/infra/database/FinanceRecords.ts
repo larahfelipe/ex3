@@ -1,11 +1,13 @@
 import {
   Prisma,
+  type CreditCard as CreditCardRow,
   type ExpensePayment as ExpensePaymentRow,
   type Expense as ExpenseRow,
   type FinanceEvent as FinanceEventRow
 } from '@prisma/client';
 
 import { formatCalendarDay } from '@/domain/CalendarDay';
+import { cardDueDateOf } from '@/domain/CardStatement';
 import {
   expenseKindOf,
   expenseStatusOf,
@@ -13,6 +15,7 @@ import {
 } from '@/domain/ExpenseSettlement';
 import { fitsMinorUnits } from '@/domain/FinanceMoney';
 import type {
+  CreditCardSummary,
   Expense,
   ExpenseDescription,
   ExpenseKind,
@@ -20,14 +23,31 @@ import type {
   ExpenseStatusFilter,
   FinanceEvent,
   FinanceEventType,
-  FinanceRecordType
+  FinanceRecordType,
+  PaymentMethod
 } from '@/domain/models';
 
 const calendarDayOrNull = (day: Date | null) =>
   day === null ? null : formatCalendarDay(day);
 
+export const toCreditCardSummary = (row: CreditCardRow): CreditCardSummary => ({
+  id: row.id,
+  name: row.name,
+  lastFourDigits: row.lastFourDigits,
+  brand: row.brand,
+  closingDay: row.closingDay,
+  dueDay: row.dueDay,
+  deletedAt: row.deletedAt
+});
+
+export const WITH_CREDIT_CARD = {
+  creditCard: true
+} as const satisfies Prisma.ExpenseInclude & Prisma.RecurringExpenseInclude;
+
+export type WithCreditCard = Record<'creditCard', CreditCardRow | null>;
+
 export const toExpense = (
-  row: ExpenseRow,
+  row: ExpenseRow & WithCreditCard,
   today: Date,
   installmentCount: number | null = null
 ): Expense => ({
@@ -54,6 +74,10 @@ export const toExpense = (
   recurringExpenseId: row.recurringExpenseId,
   occurrenceDate: calendarDayOrNull(row.occurrenceDate),
   isCustomized: row.isCustomized,
+  originalDueDate: calendarDayOrNull(row.originalDueDate),
+  creditCardId: row.creditCardId,
+  creditCard:
+    row.creditCard === null ? null : toCreditCardSummary(row.creditCard),
   createdAt: row.createdAt,
   updatedAt: row.updatedAt
 });
@@ -101,6 +125,61 @@ export const OPEN_EXPENSE_WHERE = {
   cancelledAt: null,
   settledOn: null
 } as const satisfies Prisma.ExpenseWhereInput;
+
+export const UNPAID_EXPENSE_WHERE = {
+  ...OPEN_EXPENSE_WHERE,
+  payments: { none: { voidedAt: null } }
+} as const satisfies Prisma.ExpenseWhereInput;
+
+/**
+ * The card a record already names stays chosen after its deletion, so editing
+ * anything else on the record keeps it.
+ */
+export const chargedCardOf = async (
+  client: Prisma.TransactionClient,
+  params: {
+    userId: string;
+    creditCardId: string | null;
+    current: CreditCardRow | null;
+  }
+): Promise<CreditCardRow | null | 'card-not-found'> => {
+  const { userId, creditCardId, current } = params;
+
+  if (creditCardId === null) return null;
+  if (creditCardId === current?.id) return current;
+
+  const card = await client.creditCard.findFirst({
+    where: { id: creditCardId, userId, deletedAt: null }
+  });
+
+  return card ?? 'card-not-found';
+};
+
+export const cardPaymentMethodOf = (paymentMethod: PaymentMethod | null) =>
+  paymentMethod === null || paymentMethod === 'CREDIT_CARD'
+    ? 'CREDIT_CARD'
+    : 'card-method-mismatch';
+
+export const billDatesOf = (
+  card: Pick<CreditCardRow, 'closingDay' | 'dueDay'> | null,
+  billDueDate: Date
+) =>
+  card === null
+    ? { dueDate: billDueDate, originalDueDate: null }
+    : {
+        dueDate: cardDueDateOf(card, billDueDate),
+        originalDueDate: billDueDate
+      };
+
+/** The card as a history entry records it, readable after the card changes or is deleted. */
+export const recordedCardOf = (card: CreditCardRow | null) =>
+  card === null
+    ? null
+    : {
+        name: card.name,
+        brand: card.brand,
+        lastFourDigits: card.lastFourDigits
+      };
 
 const recordedValueOf = (value: unknown): Prisma.InputJsonValue | null => {
   if (value === null || value === undefined) return null;

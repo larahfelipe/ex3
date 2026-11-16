@@ -45,8 +45,8 @@ const COLUMN_COUNT = 7;
 
 const RESOLUTION_TONES: Record<ImportPreviewAsset['resolution'], string> = {
   held: 'text-muted-foreground',
-  tracked: 'text-primary',
-  listed: 'text-primary',
+  tracked: 'text-info',
+  listed: 'text-info',
   unresolved: 'text-negative'
 };
 

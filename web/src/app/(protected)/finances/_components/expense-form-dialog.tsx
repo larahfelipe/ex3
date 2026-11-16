@@ -1,5 +1,10 @@
 import { useId, useMemo, useState, type FC } from 'react';
-import { FormProvider, useForm, useWatch } from 'react-hook-form';
+import {
+  FormProvider,
+  useForm,
+  useFormContext,
+  useWatch
+} from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslations } from 'use-intl';
@@ -35,8 +40,16 @@ import {
   useReferenceDay
 } from '@/hooks/use-finances';
 import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
+import { ownDueDateOf } from '@/lib/card-statement';
 import { presentSubmitError } from '@/lib/submit-error';
 
+import {
+  CardChoice,
+  cardChoiceOf,
+  chargedCardIdOf,
+  NO_CARD,
+  PlanCardNote
+} from './credit-card-fields';
 import {
   DayField,
   DESCRIPTION_FORM_FIELDS,
@@ -55,6 +68,7 @@ import {
 } from './finance-form';
 import {
   AMOUNT_KINDS,
+  earliestStartOf,
   END_MODES,
   endDateOf,
   RecurrenceFields,
@@ -84,6 +98,7 @@ const expenseFormFieldsFor = (t: ValidationTranslator) =>
     amount: positiveMoneyFieldFor(t),
     currency: z.string().min(1, t('currency.required')),
     dueDate: requiredDayFieldFor(t),
+    creditCardId: z.string(),
     repeats: z.boolean(),
     frequency: z.enum(RECURRENCE_FREQUENCIES),
     amountKind: z.enum(AMOUNT_KINDS),
@@ -103,7 +118,7 @@ export const expenseFormSchemaFor = (
 
     if (!bill.repeats) return;
 
-    requireEndOf(bill, bill.dueDate, ctx, t);
+    requireEndOf(bill, { startDate: bill.dueDate, today }, ctx, t);
     requireRecentStart(bill.dueDate, 'dueDate', ctx);
   });
 };
@@ -113,6 +128,7 @@ const EXPENSE_FORM_FIELDS = [
   'amount',
   'currency',
   'dueDate',
+  'creditCardId',
   'frequency',
   'amountKind',
   'endDate'
@@ -125,18 +141,26 @@ const expenseFieldOf = (path: string) => {
   return fieldOfPath(EXPENSE_FORM_FIELDS)(path);
 };
 
-export const expenseChangesOf = ({
+/** An installment is charged to its plan's card, so an edit of one leaves the card alone. */
+export const expenseChangesOf = (
+  {
+    amount,
+    dueDate,
+    creditCardId,
+    description,
+    category,
+    subcategory,
+    paymentMethod,
+    account,
+    notes
+  }: ExpenseDraft,
+  { kind }: Pick<Expense, 'kind'>
+): UpdateExpenseRequestPayload => ({
   amount,
   dueDate,
-  description,
-  category,
-  subcategory,
-  paymentMethod,
-  account,
-  notes
-}: ExpenseDraft): UpdateExpenseRequestPayload => ({
-  amount,
-  dueDate,
+  ...(kind !== 'INSTALLMENT' && {
+    creditCardId: chargedCardIdOf({ paymentMethod, creditCardId })
+  }),
   description,
   category,
   subcategory,
@@ -152,20 +176,30 @@ export const newBillOf = ({
   endMode,
   endDate,
   dueDate,
+  creditCardId,
   ...bill
-}: ExpenseDraft): NewBill =>
-  repeats
+}: ExpenseDraft): NewBill => {
+  const charged = {
+    ...bill,
+    creditCardId: chargedCardIdOf({
+      paymentMethod: bill.paymentMethod,
+      creditCardId
+    })
+  };
+
+  return repeats
     ? {
         kind: 'series',
         series: {
-          ...bill,
+          ...charged,
           frequency,
           startDate: dueDate,
           isVariable: amountKind === 'variable',
           endDate: endDateOf({ endMode, endDate })
         }
       }
-    : { kind: 'bill', bill: { ...bill, dueDate } };
+    : { kind: 'bill', bill: { ...charged, dueDate } };
+};
 
 const NO_RECURRENCE = {
   repeats: false,
@@ -185,15 +219,52 @@ const defaultValuesOf = (
         ...NO_RECURRENCE,
         amount: '',
         currency: DEFAULT_CURRENCY,
-        dueDate: today
+        dueDate: today,
+        creditCardId: NO_CARD
       }
     : {
         ...toDescriptionFormValues(target.expense),
         ...NO_RECURRENCE,
         amount: target.expense.amount,
         currency: target.expense.currency,
-        dueDate: target.expense.dueDate
+        dueDate: ownDueDateOf(target.expense),
+        creditCardId: cardChoiceOf(target.expense.creditCardId)
       };
+
+const DueDateField: FC<Record<'repeats', boolean>> = ({ repeats }) => {
+  const t = useTranslations('bills.form');
+  const tRecurring = useTranslations('recurring.form');
+  const tFinances = useTranslations('finances.form');
+  const { control } = useFormContext<ExpenseFormInput>();
+  const [paymentMethod, creditCardId] = useWatch({
+    control,
+    name: ['paymentMethod', 'creditCardId']
+  });
+  const today = useReferenceDay();
+
+  if (repeats)
+    return (
+      <DayField
+        name="dueDate"
+        label={tRecurring('startDate')}
+        hint={tRecurring('startDateHint', {
+          months: FINANCE_LIMITS.OccurrenceHorizonMonths
+        })}
+        min={earliestStartOf(today)}
+      />
+    );
+
+  return (
+    <DayField
+      name="dueDate"
+      label={
+        chargedCardIdOf({ paymentMethod, creditCardId }) === null
+          ? t('dueDate')
+          : tFinances('billDueDate')
+      }
+    />
+  );
+};
 
 export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
   target,
@@ -238,6 +309,10 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
   const originKind =
     target.kind === 'edit' && target.expense.kind !== 'ONE_TIME'
       ? target.expense.kind
+      : null;
+  const planCard =
+    originKind === 'INSTALLMENT' && target.kind === 'edit'
+      ? target.expense.creditCard
       : null;
 
   const submitDraft = async (draft: ExpenseDraft) => {
@@ -301,17 +376,7 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
                   }
                 />
 
-                <DayField
-                  name="dueDate"
-                  label={repeats ? tRecurring('startDate') : t('dueDate')}
-                  hint={
-                    repeats
-                      ? tRecurring('startDateHint', {
-                          months: FINANCE_LIMITS.OccurrenceHorizonMonths
-                        })
-                      : undefined
-                  }
-                />
+                <DueDateField repeats={repeats} />
               </div>
 
               {target.kind === 'create' && (
@@ -346,7 +411,26 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
                 </div>
               )}
 
-              <MoreDetailsFields />
+              <MoreDetailsFields
+                isPaymentMethodFixed={planCard !== null}
+                cardChoice={
+                  originKind === 'INSTALLMENT' ? (
+                    planCard === null ? undefined : (
+                      <PlanCardNote card={planCard} />
+                    )
+                  ) : (
+                    <CardChoice
+                      dayName="dueDate"
+                      schedule={repeats ? 'series' : 'bill'}
+                      currentCard={
+                        target.kind === 'edit'
+                          ? target.expense.creditCard
+                          : null
+                      }
+                    />
+                  )
+                }
+              />
 
               <FormRootError />
             </form>

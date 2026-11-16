@@ -70,6 +70,7 @@ export default {
   recurring: {
     endBeforeStart:
       'Escolha uma data igual ou posterior ao primeiro vencimento',
+    endBeforeToday: 'Escolha hoje ou uma data posterior',
     startTooEarly:
       'Escolha uma data nos últimos {months, plural, one {# mês} other {# meses}} ou depois',
     effectiveFromTooLate: 'Escolha {day} ou uma data anterior'
@@ -79,6 +80,13 @@ export default {
     daysWhole: 'Informe um número inteiro de dias',
     daysMin: 'O número de dias não pode ser negativo',
     daysMax: 'Informe no máximo {max, number} dias'
+  },
+  card: {
+    nameHasNumber: 'Não inclua o número do cartão no nome',
+    lastFourDigits: 'Informe exatamente os 4 últimos dígitos',
+    dayRequired: 'Informe um dia',
+    dayRange: 'Informe um dia de 1 a 31',
+    sameDays: 'Escolha um dia de vencimento diferente do dia de fechamento'
   },
   quantity: {
     required: 'Informe a quantidade',

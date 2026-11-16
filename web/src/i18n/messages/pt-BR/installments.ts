@@ -39,6 +39,7 @@ export default {
     scheduleRange: '<first></first> a <last></last>',
     category: 'Categoria',
     paymentMethod: 'Forma de pagamento',
+    card: 'Cartão',
     account: 'Conta bancária ou cartão',
     notes: 'Observações',
     installments: 'Parcelas',
@@ -82,7 +83,7 @@ export default {
     editDescription:
       'Valores em {currency}. Para mudar o que ainda está em aberto, reagende o parcelamento.',
     editNote:
-      'A descrição vale para as parcelas em aberto, exceto as que você editou individualmente. As parcelas pagas mantêm a descrição delas.',
+      'A descrição vale para as parcelas em aberto, exceto as que você editou individualmente. As parcelas pagas mantêm a descrição delas. Um novo cartão vale para todas as parcelas ainda sem pagamento.',
     scheduleSection: 'Valor e cronograma',
     amountMode: 'Valor informado como',
     amountModes: { total: 'Total', installment: 'Por parcela' },

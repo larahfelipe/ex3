@@ -3,6 +3,7 @@ import { z } from 'zod';
 // From the module, not the `@/config` barrel: the barrel is still initializing
 // when this schema loads, and `z.enum` reads the object right away.
 import {
+  CardBrands,
   ExpenseCategories,
   ExpenseKinds,
   ExpenseStatusFilters,
@@ -119,6 +120,10 @@ export const ExpenseStatusFilterSchema = upperCaseEnumSchema(
 );
 
 export const ExpenseKindSchema = upperCaseEnumSchema(ExpenseKinds, 'Kind');
+
+export const CardBrandSchema = upperCaseEnumSchema(CardBrands, 'Brand');
+
+export const CreditCardIdSchema = financeIdSchema('Credit card id');
 
 export const ExpenseDescriptionSchema = z.object({
   description: boundedTextSchema(

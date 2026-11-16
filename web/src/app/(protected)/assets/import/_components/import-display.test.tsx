@@ -222,6 +222,30 @@ describe('the rows of a preview', () => {
     assert.ok(!checkboxes[2]?.includes('checked'));
   });
 
+  it('filter through a segmented control from md up and a labelled select below it', () => {
+    const markup = rowsSection([rowWith(2, 'ready')], new Set(['key-2']));
+    const [, segmented = ''] =
+      /<fieldset class="[^"]*\bmax-md:hidden\b[^"]*">(.*?)<\/fieldset>/.exec(
+        markup
+      ) ?? [];
+    const [, phoneRow = ''] =
+      /<div class="[^"]*\bmd:hidden\b[^"]*">(.*?<\/button>)/.exec(markup) ?? [];
+    const labelFor = /<label [^>]*for="([^"]+)"/.exec(phoneRow)?.[1];
+
+    assert.equal(segmented.match(/<input type="radio"/g)?.length, 4);
+    assert.equal(
+      textOf(/<label[^>]*>(.*?)<\/label>/.exec(phoneRow)?.[1] ?? ''),
+      'Mostrar'
+    );
+    assert.ok(labelFor !== undefined);
+    assert.match(
+      phoneRow,
+      new RegExp(
+        `<button [^>]*role="combobox"[^>]*id="${labelFor}"|<button [^>]*id="${labelFor}"[^>]*role="combobox"`
+      )
+    );
+  });
+
   it('keep the original cells collapsed until asked for', () => {
     const markup = rowsSection([rowWith(2, 'ready')], new Set(['key-2']));
 

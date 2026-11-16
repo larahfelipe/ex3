@@ -78,6 +78,7 @@ export default {
       'O pagamento precisa quitar um valor ou um desconto maior que zero.',
     paymentInFuture: 'A data do pagamento não pode estar no futuro.',
     endBeforeStart: 'A data final não pode ser anterior à data inicial.',
+    endBeforeToday: 'A data final não pode ser anterior a hoje.',
     installmentSplitTooSmall:
       'O valor é pequeno demais para ser dividido em tantas parcelas.',
     seriesHasPayments:
@@ -85,6 +86,15 @@ export default {
     seriesCancelled: 'Esta despesa recorrente foi interrompida.',
     endBeforePaidOccurrence:
       'A data final removeria uma ocorrência que já tem pagamentos.',
+    creditCardNotFound:
+      'Este cartão não foi encontrado ou foi excluído. Escolha outro cartão.',
+    cardNeedsCreditPayment:
+      'Uma conta lançada em um cartão é paga com cartão de crédito. Remova o cartão para escolher outra forma de pagamento.',
+    cardSetByPlan:
+      'A parcela é lançada no cartão do parcelamento. Troque o cartão no parcelamento.',
+    cardSameDays:
+      'O dia de fechamento e o dia de vencimento devem ser diferentes.',
+    cardNameHasNumber: 'Não inclua o número do cartão no nome.',
     referenceDayOutOfRange:
       'A data deste dispositivo difere demais da data do servidor. Confira a data e a hora do dispositivo.',
     rangeReversed: 'A data final não pode ser anterior à data inicial.',

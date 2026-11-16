@@ -128,6 +128,7 @@ export const queryKeys = {
   financeAlerts: (today: string) =>
     [...financeScope(), 'alerts', today] as const,
   financeSettings: () => [...financeScope(), 'settings'] as const,
+  creditCards: () => [...financeScope(), 'credit-cards'] as const,
   expenses: (filters: ExpenseFilters, today: string) =>
     [...financeScope(), 'expenses', filters, today] as const,
   expense: (expenseId: string, today: string) =>

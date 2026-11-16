@@ -17,6 +17,7 @@ import type {
   ImportPreviewRow,
   ImportRowStatus
 } from '@/app/api/v1/transaction-imports';
+import { STATUS_TONES } from '@/common/constants';
 import type { Translator } from '@/i18n/translator';
 import { cn } from '@/lib/utils';
 
@@ -25,35 +26,35 @@ const STATUS_BADGES: Record<
   Record<'tone', string> & Record<'icon', LucideIcon>
 > = {
   ready: {
-    tone: 'border-positive/40 bg-positive/10 text-positive',
+    tone: STATUS_TONES.success,
     icon: CircleCheck
   },
   review: {
-    tone: 'border-warning/40 bg-warning/10 text-warning',
+    tone: STATUS_TONES.warning,
     icon: CircleHelp
   },
   'possible-duplicate': {
-    tone: 'border-warning/40 bg-warning/10 text-warning',
+    tone: STATUS_TONES.warning,
     icon: Copy
   },
   duplicate: {
-    tone: 'border-border bg-muted text-muted-foreground',
+    tone: STATUS_TONES.inactive,
     icon: CopyCheck
   },
   ignored: {
-    tone: 'border-border bg-muted text-muted-foreground',
+    tone: STATUS_TONES.inactive,
     icon: CircleMinus
   },
   unresolved: {
-    tone: 'border-negative/40 bg-negative/10 text-negative',
+    tone: STATUS_TONES.error,
     icon: CircleAlert
   },
   refused: {
-    tone: 'border-negative/40 bg-negative/10 text-negative',
+    tone: STATUS_TONES.error,
     icon: Ban
   },
   rejected: {
-    tone: 'border-negative/40 bg-negative/10 text-negative',
+    tone: STATUS_TONES.error,
     icon: CircleX
   }
 };

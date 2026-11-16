@@ -5,13 +5,14 @@ import {
   FinanceMessages,
   RecurringExpenseStatuses
 } from '@/config/Constants';
-import { addMonths, utcToday } from '@/domain/CalendarDay';
+import { addMonths, differenceInDays, utcToday } from '@/domain/CalendarDay';
 
 import { currencyCodeSchema } from '../CurrencyCodeSchema';
 import { positiveDecimalSchema } from '../DecimalSchema';
 import { PageQuerySchema } from '../PaginationQuerySchema';
 import {
   calendarDaySchema,
+  CreditCardIdSchema,
   ExpenseDescriptionPatchSchema,
   ExpenseDescriptionSchema,
   financeIdSchema,
@@ -45,6 +46,23 @@ const requireEndAfterStart = (
     });
 };
 
+/** A day of tolerance covers the client's time zone. */
+const requireEndFromToday = (
+  { endDate }: { endDate: Date | null },
+  ctx: z.RefinementCtx
+) => {
+  if (
+    endDate !== null &&
+    differenceInDays(endDate, utcToday()) <
+      -FinanceLimits.REFERENCE_DAY_TOLERANCE_DAYS
+  )
+    ctx.addIssue({
+      code: 'custom',
+      path: ['endDate'],
+      message: FinanceMessages.END_BEFORE_TODAY
+    });
+};
+
 const requireRecentStart = (
   { startDate }: { startDate: Date },
   ctx: z.RefinementCtx
@@ -68,9 +86,11 @@ export const CreateRecurringExpenseSchema = z
     currency: currencyCodeSchema('Currency'),
     frequency: RecurrenceFrequencySchema,
     startDate: calendarDaySchema('Start date'),
-    endDate: calendarDaySchema('End date').nullable().default(null)
+    endDate: calendarDaySchema('End date').nullable().default(null),
+    creditCardId: CreditCardIdSchema.nullable().default(null)
   })
   .superRefine(requireEndAfterStart)
+  .superRefine(requireEndFromToday)
   .superRefine(requireRecentStart)
   .superRefine(requireMinorUnits(['amount']));
 
@@ -80,6 +100,7 @@ export const UpdateRecurringExpenseSchema = z.object({
   amount: positiveDecimalSchema('Amount').optional(),
   isVariable: z.boolean('Variable must be a boolean').optional(),
   endDate: calendarDaySchema('End date').nullable().optional(),
+  creditCardId: CreditCardIdSchema.nullable().optional(),
   effectiveFrom: calendarDaySchema('Effective from').optional()
 });
 

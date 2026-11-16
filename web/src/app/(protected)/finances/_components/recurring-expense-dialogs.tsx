@@ -57,6 +57,7 @@ import { isNonzeroDecimal } from '@/lib/decimal';
 import { FIRST_PAGE } from '@/lib/pagination';
 import { cn } from '@/lib/utils';
 
+import { CardLabel } from './credit-card-display';
 import {
   CalendarDayText,
   dueDistanceOf,
@@ -329,6 +330,7 @@ const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
     category,
     subcategory,
     paymentMethod,
+    creditCard,
     account,
     notes,
     history
@@ -418,6 +420,12 @@ const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
               tFinances(`paymentMethods.${paymentMethod}`)
             )}
           </Metric>
+
+          {creditCard !== null && (
+            <Metric label={t('card')}>
+              <CardLabel card={creditCard} className="max-w-full" />
+            </Metric>
+          )}
 
           <Metric label={t('account')}>
             {account ?? <UnavailableValue />}

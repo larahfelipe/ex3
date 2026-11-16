@@ -3,6 +3,7 @@ import { utcToday } from '@/domain/CalendarDay';
 import type { ExpenseDescription, RecurrenceFrequency } from '@/domain/models';
 import type { RecurringExpenseRepository } from '@/infra/database';
 
+import { financeRefusalError } from './FinanceRefusalError';
 import { occurrenceHorizonOf } from './OccurrenceHorizon';
 
 export class CreateRecurringExpenseService {
@@ -24,12 +25,15 @@ export class CreateRecurringExpenseService {
   async execute(
     series: CreateRecurringExpenseService.DTO
   ): Promise<CreateRecurringExpenseService.Result> {
-    const id = await this.recurringExpenseRepository.add({
+    const write = await this.recurringExpenseRepository.add({
       ...series,
       through: occurrenceHorizonOf(utcToday())
     });
 
-    return { id, message: FinanceMessages.SERIES_CREATED };
+    if (write.outcome !== 'written')
+      throw financeRefusalError(write, 'RECURRING_EXPENSE');
+
+    return { id: write.id, message: FinanceMessages.SERIES_CREATED };
   }
 }
 
@@ -39,6 +43,7 @@ namespace CreateRecurringExpenseService {
     Record<'isVariable', boolean> &
     Record<'frequency', RecurrenceFrequency> &
     Record<'startDate', Date> &
-    Record<'endDate', Date | null>;
+    Record<'endDate', Date | null> &
+    Record<'creditCardId', string | null>;
   export type Result = Record<'id' | 'message', string>;
 }

@@ -44,6 +44,7 @@ import { apiErrorMessageOf } from '@/lib/api-error-message';
 import { isNonzeroDecimal } from '@/lib/decimal';
 import { cn } from '@/lib/utils';
 
+import { CardLabel } from './credit-card-display';
 import { expenseChangesOf, ExpenseFormDialog } from './expense-form-dialog';
 import {
   CalendarDayText,
@@ -165,10 +166,12 @@ const BillDetails: FC<BillDetailsProps> = ({
     outstandingAmount,
     settledAmount,
     dueDate,
+    originalDueDate,
     settledOn,
     category,
     subcategory,
     paymentMethod,
+    creditCard,
     account,
     notes,
     payments,
@@ -228,8 +231,16 @@ const BillDetails: FC<BillDetailsProps> = ({
             <Money value={settledAmount} currency={currency} />
           </Metric>
 
-          <Metric label={t('dueDate')}>
+          <Metric label={creditCard === null ? t('dueDate') : t('cardDueDate')}>
             <CalendarDayText day={dueDate} />
+
+            {originalDueDate !== null && (
+              <span className="block text-sm font-normal text-muted-foreground">
+                {t.rich('ownDueDate', {
+                  day: () => <CalendarDayText day={originalDueDate} />
+                })}
+              </span>
+            )}
 
             {dueDistance !== null && (
               <span
@@ -272,6 +283,12 @@ const BillDetails: FC<BillDetailsProps> = ({
               tFinances(`paymentMethods.${paymentMethod}`)
             )}
           </Metric>
+
+          {creditCard !== null && (
+            <Metric label={t('card')}>
+              <CardLabel card={creditCard} className="max-w-full" />
+            </Metric>
+          )}
 
           <Metric label={t('account')}>
             {account ?? <UnavailableValue />}
@@ -466,7 +483,7 @@ export const BillDialogs: FC<BillDialogsProps> = ({ expenseId, onClose }) => {
             onCancel={backToDetails}
             onSubmit={async (draft) => {
               await updateExpense({
-                ...expenseChangesOf(draft),
+                ...expenseChangesOf(draft, expense),
                 id: expense.id
               });
               backToDetails();

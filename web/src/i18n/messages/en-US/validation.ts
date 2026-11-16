@@ -71,6 +71,7 @@ export default {
   },
   recurring: {
     endBeforeStart: 'Choose a date on or after the first due date',
+    endBeforeToday: 'Choose today or a later date',
     startTooEarly:
       'Choose a date within the last {months, plural, one {# month} other {# months}} or later',
     effectiveFromTooLate: 'Choose {day} or an earlier date'
@@ -80,6 +81,13 @@ export default {
     daysWhole: 'Enter a whole number of days',
     daysMin: "The number of days can't be negative",
     daysMax: 'Enter at most {max, number} days'
+  },
+  card: {
+    nameHasNumber: "Don't include a card number in the name",
+    lastFourDigits: 'Enter exactly the last 4 digits',
+    dayRequired: 'Enter a day',
+    dayRange: 'Enter a day from 1 to 31',
+    sameDays: 'Choose a due day other than the closing day'
   },
   quantity: {
     required: 'Enter the quantity',

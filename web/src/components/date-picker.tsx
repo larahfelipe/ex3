@@ -17,16 +17,47 @@ import {
   calendarDayOf,
   calendarDayOfDate,
   currentInstant,
-  dateOfCalendarDay
+  dateOfCalendarDay,
+  shiftCalendarDayByMonths
 } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
-type DatePickerProps = Omit<FieldControlProps, 'required'> & {
-  ref?: Ref<HTMLButtonElement>;
-  name?: string;
-  value: string;
-  onValueChange: (day: string) => void;
-  onBlur?: VoidFunction;
+export type DayBounds = Partial<Record<'min' | 'max', string>>;
+
+type DatePickerProps = Omit<FieldControlProps, 'required'> &
+  DayBounds & {
+    ref?: Ref<HTMLButtonElement>;
+    name?: string;
+    value: string;
+    onValueChange: (day: string) => void;
+    onBlur?: VoidFunction;
+  };
+
+const OPEN_SIDE_MONTHS = 100 * 12;
+
+const dateOf = (day: string | null | undefined) =>
+  day === null || day === undefined ? undefined : dateOfCalendarDay(day);
+
+/**
+ * Without a range, DayPicker's year menu ends with the current year, so no
+ * later day could be reached.
+ */
+export const calendarBoundsOf = (today: string, { min, max }: DayBounds) => {
+  const before = dateOf(min);
+  const after = dateOf(max);
+
+  return {
+    startMonth:
+      before ?? dateOf(shiftCalendarDayByMonths(today, -OPEN_SIDE_MONTHS)),
+    endMonth:
+      after ?? dateOf(shiftCalendarDayByMonths(today, OPEN_SIDE_MONTHS)),
+    disabled: [
+      ...(before === undefined ? [] : [{ before }]),
+      ...(after === undefined ? [] : [{ after }])
+    ],
+    isTodayAllowed:
+      (min === undefined || today >= min) && (max === undefined || today <= max)
+  };
 };
 
 export const DatePicker: FC<DatePickerProps> = ({
@@ -34,6 +65,8 @@ export const DatePicker: FC<DatePickerProps> = ({
   ref,
   name,
   value,
+  min,
+  max,
   onValueChange,
   onBlur,
   'aria-invalid': isInvalid,
@@ -45,6 +78,8 @@ export const DatePicker: FC<DatePickerProps> = ({
 
   const [isOpen, setIsOpen] = useState(false);
 
+  const today = calendarDayOf(currentInstant());
+  const { isTodayAllowed, ...bounds } = calendarBoundsOf(today, { min, max });
   const selected = dateOfCalendarDay(value);
   const shownDay = formatCalendarDay(value);
 
@@ -88,6 +123,7 @@ export const DatePicker: FC<DatePickerProps> = ({
           required
           mode="single"
           captionLayout="dropdown"
+          {...bounds}
           selected={selected}
           defaultMonth={selected}
           onSelect={(date) => choose(calendarDayOfDate(date))}
@@ -99,7 +135,8 @@ export const DatePicker: FC<DatePickerProps> = ({
             variant="ghost"
             size="sm"
             className="w-full"
-            onClick={() => choose(calendarDayOf(currentInstant()))}
+            disabled={!isTodayAllowed}
+            onClick={() => choose(today)}
           >
             {t('calendar.today')}
           </Button>

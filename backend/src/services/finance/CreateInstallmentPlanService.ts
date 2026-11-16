@@ -48,13 +48,16 @@ export class CreateInstallmentPlanService {
         'INSTALLMENT_PLAN'
       );
 
-    const id = await this.installmentPlanRepository.add({
+    const write = await this.installmentPlanRepository.add({
       ...plan,
       entryDate: entryDate ?? utcToday(),
       installments
     });
 
-    return { id, message: FinanceMessages.PLAN_CREATED };
+    if (write.outcome !== 'written')
+      throw financeRefusalError(write, 'INSTALLMENT_PLAN');
+
+    return { id: write.id, message: FinanceMessages.PLAN_CREATED };
   }
 }
 
@@ -62,7 +65,7 @@ namespace CreateInstallmentPlanService {
   export type DTO = ExpenseDescription &
     Pick<InstallmentTerms, 'amount' | 'frequency'> &
     Record<'currency' | 'userId', string> &
-    Record<'principalAmount', string | null> &
+    Record<'principalAmount' | 'creditCardId', string | null> &
     Record<'installmentCount', number> &
     Record<'firstDueDate', Date> &
     Partial<Record<'entryDate', Date>>;

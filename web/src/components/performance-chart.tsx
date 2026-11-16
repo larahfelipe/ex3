@@ -473,10 +473,10 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
       errorMessage={t('loadFailed')}
       action={
         hasRangesToChoose && (
-          <fieldset>
+          <fieldset className="min-w-0 max-sm:w-full">
             <legend className="sr-only">{t('period')}</legend>
 
-            <SegmentedControl className="flex-wrap">
+            <SegmentedControl isFullWidthBelowSm>
               {PERFORMANCE_RANGES.map((range) => (
                 <SegmentedControlItem
                   key={range}

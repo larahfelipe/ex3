@@ -217,6 +217,11 @@ enum RecurrenceFrequency {
   YEARLY
 }
 
+enum CardBrand {
+  VISA
+  MASTERCARD
+}
+
 enum FinanceRecordType {
   EXPENSE
   INSTALLMENT_PLAN
@@ -256,6 +261,11 @@ model Expense {
   recurringExpenseId String?
   occurrenceDate     DateTime?         @db.Date
   isCustomized       Boolean           @default(false)
+  /// Set together with `creditCardId`: the bill's own due date, from which
+  /// `dueDate`, the day the card's statement is due, is computed.
+  originalDueDate    DateTime?         @db.Date
+  creditCard         CreditCard?       @relation(fields: [creditCardId], references: [id])
+  creditCardId       String?
   payments           ExpensePayment[]
   userId             String
   createdAt          DateTime          @default(now())
@@ -264,6 +274,7 @@ model Expense {
   @@unique([installmentPlanId, installmentNumber])
   @@unique([recurringExpenseId, occurrenceDate])
   @@index([userId, dueDate])
+  @@index([creditCardId])
   @@map("expenses")
 }
 
@@ -300,12 +311,15 @@ model InstallmentPlan {
   notes           String?
   entryDate       DateTime            @db.Date
   cancelledAt     DateTime?
+  creditCard      CreditCard?         @relation(fields: [creditCardId], references: [id])
+  creditCardId    String?
   installments    Expense[]
   userId          String
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
   @@index([userId])
+  @@index([creditCardId])
   @@map("installment_plans")
 }
 
@@ -325,13 +339,37 @@ model RecurringExpense {
   notes            String?
   generatedThrough DateTime            @db.Date
   cancelledAt      DateTime?
+  creditCard       CreditCard?         @relation(fields: [creditCardId], references: [id])
+  creditCardId     String?
   occurrences      Expense[]
   userId           String
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
 
   @@index([userId])
+  @@index([creditCardId])
   @@map("recurring_expenses")
+}
+
+model CreditCard {
+  id                String             @id @default(uuid())
+  name              String
+  lastFourDigits    String
+  brand             CardBrand
+  closingDay        Int
+  dueDay            Int
+  /// A deleted card stays for the bills, plans and series that name it, which
+  /// keep their dates; it is only left out of the list and cannot be chosen again.
+  deletedAt         DateTime?
+  expenses          Expense[]
+  installmentPlans  InstallmentPlan[]
+  recurringExpenses RecurringExpense[]
+  userId            String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([userId])
+  @@map("credit_cards")
 }
 
 model FinanceEvent {

@@ -1,6 +1,7 @@
 import { type ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies';
 
 import type {
+  CardBrand,
   ExpenseCategory,
   ExpenseKind,
   ExpenseStatus,
@@ -216,6 +217,8 @@ export const PAYMENT_METHODS: Array<PaymentMethod> = [
   'OTHER'
 ];
 
+export const CARD_BRANDS: Array<CardBrand> = ['VISA', 'MASTERCARD'];
+
 export const RECURRENCE_FREQUENCIES: Array<RecurrenceFrequency> = [
   'MONTHLY',
   'WEEKLY',
@@ -234,11 +237,20 @@ export const EXPENSE_STATUS_FILTERS: Array<ExpenseStatusFilter> = [
   ...EXPENSE_STATUSES
 ];
 
+/** The brand orange is kept out: in the light theme it is indistinguishable from the warning amber. */
+export const STATUS_TONES = {
+  success: 'border-positive/40 bg-positive/10 text-positive',
+  pending: 'border-info/40 bg-info/10 text-info',
+  warning: 'border-warning/40 bg-warning/10 text-warning',
+  error: 'border-negative/40 bg-negative/10 text-negative',
+  inactive: 'border-border bg-muted text-muted-foreground'
+} as const;
+
 export const EXPENSE_STATUS_TONES: Record<ExpenseStatus, string> = {
-  PENDING: 'border-warning/40 bg-warning/10 text-warning',
-  OVERDUE: 'border-negative/40 bg-negative/10 text-negative',
-  PAID: 'border-positive/40 bg-positive/10 text-positive',
-  CANCELLED: 'border-border bg-muted text-muted-foreground'
+  PENDING: STATUS_TONES.pending,
+  OVERDUE: STATUS_TONES.error,
+  PAID: STATUS_TONES.success,
+  CANCELLED: STATUS_TONES.inactive
 };
 
 export const EXPENSE_KINDS: Array<ExpenseKind> = [
@@ -257,9 +269,9 @@ export const INSTALLMENT_PLAN_STATUS_TONES: Record<
   InstallmentPlanStatus,
   string
 > = {
-  ACTIVE: 'border-primary/40 bg-primary/10 text-primary',
-  COMPLETED: 'border-positive/40 bg-positive/10 text-positive',
-  CANCELLED: 'border-border bg-muted text-muted-foreground'
+  ACTIVE: STATUS_TONES.success,
+  COMPLETED: STATUS_TONES.inactive,
+  CANCELLED: STATUS_TONES.inactive
 };
 
 export const RECURRING_EXPENSE_STATUSES: Array<RecurringExpenseStatus> = [
@@ -272,9 +284,9 @@ export const RECURRING_EXPENSE_STATUS_TONES: Record<
   RecurringExpenseStatus,
   string
 > = {
-  ACTIVE: 'border-primary/40 bg-primary/10 text-primary',
-  ENDED: 'border-border bg-muted text-muted-foreground',
-  CANCELLED: 'border-border bg-muted text-muted-foreground'
+  ACTIVE: STATUS_TONES.success,
+  ENDED: STATUS_TONES.inactive,
+  CANCELLED: STATUS_TONES.inactive
 };
 
 export const BILL_DETAIL_PARAM = 'expense';
@@ -308,5 +320,6 @@ export const FINANCE_LIMITS = {
   InstallmentMaxCount: 360,
   OccurrenceHorizonMonths: 12,
   ReportMaxMonths: 24,
-  ReminderMaxLeadDays: 30
+  ReminderMaxLeadDays: 30,
+  CardNameMaxLength: 40
 } as const;

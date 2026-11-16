@@ -8,6 +8,7 @@ import type { RecurrenceFrequency } from '@/app/api/v1/finances';
 import { FINANCE_LIMITS, RECURRENCE_FREQUENCIES } from '@/common/constants';
 import { ChoiceField } from '@/components/form-field';
 import { SegmentedControl, SegmentedControlItem } from '@/components/ui';
+import { useReferenceDay } from '@/hooks/use-finances';
 import { useFormat } from '@/i18n/format';
 import { shiftCalendarDay, shiftCalendarDayByMonths } from '@/lib/dates';
 
@@ -29,15 +30,26 @@ type RecurrenceInput = SeriesTerms &
 
 type StartFieldProps = Record<'startName', StartField>;
 
+type EndBounds = Record<'startDate' | 'today', string> &
+  Partial<Record<'currentEnd', string | null>>;
+
 export const AMOUNT_KINDS = ['fixed', 'variable'] as const;
 
 export const END_MODES = ['never', 'date'] as const;
 
 const PREVIEWED_OCCURRENCES = 3;
 
+export const earliestEndOf = (today: string, startDate: string) =>
+  startDate > today ? startDate : today;
+
+export const earliestStartOf = (today: string) =>
+  shiftCalendarDayByMonths(today, -FINANCE_LIMITS.OccurrenceHorizonMonths) ??
+  undefined;
+
+/** An end already saved may have passed; only a new one has to be today or later. */
 export const requireEndOf = (
   { endMode, endDate }: SeriesTerms,
-  startDate: string,
+  { startDate, today, currentEnd = null }: EndBounds,
   ctx: z.RefinementCtx,
   t: ValidationTranslator
 ) => {
@@ -55,19 +67,26 @@ export const requireEndOf = (
       path: ['endDate'],
       message: t('recurring.endBeforeStart')
     });
+  else if (endDate < today && endDate !== currentEnd)
+    ctx.addIssue({
+      code: 'custom',
+      path: ['endDate'],
+      message: t('recurring.endBeforeToday')
+    });
 };
 
 export const requireRecentStartOf = (
   today: string,
   t: ValidationTranslator
 ) => {
-  const earliestStart = shiftCalendarDayByMonths(
-    today,
-    -FINANCE_LIMITS.OccurrenceHorizonMonths
-  );
+  const earliestStart = earliestStartOf(today);
 
   return (startDate: string, path: StartField, ctx: z.RefinementCtx) => {
-    if (earliestStart !== null && startDate !== '' && startDate < earliestStart)
+    if (
+      earliestStart !== undefined &&
+      startDate !== '' &&
+      startDate < earliestStart
+    )
       ctx.addIssue({
         code: 'custom',
         path: [path],
@@ -165,7 +184,9 @@ export const AmountKindChoice: FC = () => {
   );
 };
 
-export const EndChoice: FC = () => {
+export const EndChoice: FC<Record<'earliestEnd', string>> = ({
+  earliestEnd
+}) => {
   const t = useTranslations('recurring.form');
   const { control, register } = useFormContext<SeriesTerms>();
   const endMode = useWatch({ control, name: 'endMode' });
@@ -187,7 +208,12 @@ export const EndChoice: FC = () => {
       </ChoiceField>
 
       {endMode === 'date' && (
-        <DayField name="endDate" label={t('endDate')} hint={t('endDateHint')} />
+        <DayField
+          name="endDate"
+          label={t('endDate')}
+          hint={t('endDateHint')}
+          min={earliestEnd}
+        />
       )}
     </div>
   );
@@ -215,6 +241,14 @@ const FrequencyChoice: FC = () => {
   );
 };
 
+const StartedEndChoice: FC<StartFieldProps> = ({ startName }) => {
+  const { control } = useFormContext<RecurrenceInput>();
+  const startDate = useWatch({ control, name: startName });
+  const today = useReferenceDay();
+
+  return <EndChoice earliestEnd={earliestEndOf(today, startDate)} />;
+};
+
 export const RecurrenceFields: FC<StartFieldProps> = ({ startName }) => (
   <>
     <div className="grid gap-4 sm:grid-cols-2">
@@ -223,7 +257,7 @@ export const RecurrenceFields: FC<StartFieldProps> = ({ startName }) => (
       <AmountKindChoice />
     </div>
 
-    <EndChoice />
+    <StartedEndChoice startName={startName} />
 
     <SeriesPreview startName={startName} />
   </>

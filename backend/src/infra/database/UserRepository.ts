@@ -158,6 +158,7 @@ export class UserRepository {
       await transactionClient.recurringExpense.deleteMany({
         where: { userId: id }
       });
+      await transactionClient.creditCard.deleteMany({ where: { userId: id } });
       await transactionClient.financeSettings.deleteMany({
         where: { userId: id }
       });

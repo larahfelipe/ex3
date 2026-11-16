@@ -95,6 +95,7 @@ const API_MESSAGE_KEYS: Readonly<Record<string, PlainErrorKey>> = {
     'api.paymentEmpty',
   'Payment date cannot be in the future': 'api.paymentInFuture',
   'End date must not be before the start date': 'api.endBeforeStart',
+  'End date must not be before today': 'api.endBeforeToday',
   'The amount is too small to split into that many installments':
     'api.installmentSplitTooSmall',
   'A recurring expense with payments cannot be deleted; cancel it to keep its history':
@@ -102,6 +103,13 @@ const API_MESSAGE_KEYS: Readonly<Record<string, PlainErrorKey>> = {
   'The recurring expense is cancelled': 'api.seriesCancelled',
   'The end date would remove an occurrence that already has payments':
     'api.endBeforePaidOccurrence',
+  'Credit card not found': 'api.creditCardNotFound',
+  'A bill charged to a credit card is paid by credit card; remove the card to choose another payment method':
+    'api.cardNeedsCreditPayment',
+  "An installment is charged to its plan's card; change the card on the plan":
+    'api.cardSetByPlan',
+  'The closing day and the due day must be different': 'api.cardSameDays',
+  'Card name must not include a card number': 'api.cardNameHasNumber',
   'The reference day must be within one day of the current date':
     'api.referenceDayOutOfRange',
   'To must not be before from': 'api.rangeReversed',

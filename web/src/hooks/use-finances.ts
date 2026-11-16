@@ -15,17 +15,21 @@ import { useTranslations } from 'use-intl';
 
 import type {
   CancelRecurringExpenseRequestPayload,
+  CreateCreditCardRequestPayload,
+  CreateCreditCardResponseData,
   CreateExpenseRequestPayload,
   CreateExpenseResponseData,
   CreateInstallmentPlanRequestPayload,
   CreateInstallmentPlanResponseData,
   CreateRecurringExpenseRequestPayload,
   CreateRecurringExpenseResponseData,
+  DeleteCreditCardResponseData,
   DeleteExpenseResponseData,
   ExpenseFilters,
   FinanceCalendarParams,
   FinanceReportParams,
   FinanceSummaryParams,
+  GetCreditCardsResponseData,
   GetExpenseResponseData,
   GetExpensesRequestParams,
   GetExpensesResponseData,
@@ -48,6 +52,8 @@ import type {
   RecurringExpenseFilters,
   ReferenceDayParams,
   RescheduleInstallmentPlanRequestPayload,
+  UpdateCreditCardRequestPayload,
+  UpdateCreditCardResponseData,
   UpdateExpenseRequestPayload,
   UpdateExpenseResponseData,
   UpdateFinanceSettingsRequestPayload,
@@ -151,6 +157,9 @@ const installmentPlanPath = (planId: string) =>
 const recurringExpensePath = (seriesId: string) =>
   `/v1/finances/recurring-expenses/${encodeURIComponent(seriesId)}`;
 
+const creditCardPath = (cardId: string) =>
+  `/v1/finances/credit-cards/${encodeURIComponent(cardId)}`;
+
 export const useFinanceSummary = (currency: Maybe<string>) => {
   const today = useReferenceDay();
   const params: FinanceSummaryParams = currency
@@ -180,6 +189,12 @@ export const useFinanceSettings = () =>
   useFinanceQuery<GetFinanceSettingsResponseData>({
     queryKey: queryKeys.financeSettings(),
     request: () => api.getInstance().get('/v1/finances/settings')
+  });
+
+export const useCreditCards = () =>
+  useFinanceQuery<GetCreditCardsResponseData>({
+    queryKey: queryKeys.creditCards(),
+    request: () => api.getInstance().get('/v1/finances/credit-cards')
   });
 
 export const useFinanceCalendar = (
@@ -475,6 +490,41 @@ export const useDeleteRecurringExpense = () =>
   useFinanceMutation<WithId, RecurringExpenseChangeResponseData>(
     ({ id }) => api.getInstance().delete(recurringExpensePath(id)),
     (t) => ({ title: t('seriesDeleted') })
+  );
+
+export const useCreateCreditCard = () =>
+  useFinanceMutation<
+    CreateCreditCardRequestPayload,
+    CreateCreditCardResponseData
+  >(
+    (payload) =>
+      api.getInstance().post('/v1/finances/credit-cards/create', payload),
+    (t, _data, { name }) => ({ title: t('cardAdded'), description: name })
+  );
+
+export const useUpdateCreditCard = () =>
+  useFinanceMutation<
+    UpdateCreditCardRequestPayload & WithId,
+    UpdateCreditCardResponseData
+  >(
+    ({ id, ...payload }) =>
+      api
+        .getInstance()
+        .patch(
+          creditCardPath(id),
+          payload satisfies UpdateCreditCardRequestPayload
+        ),
+    (t, { movedBills }) => ({
+      title: t('cardUpdated'),
+      description:
+        movedBills > 0 ? t('cardBillsMoved', { count: movedBills }) : undefined
+    })
+  );
+
+export const useDeleteCreditCard = () =>
+  useFinanceMutation<WithId, DeleteCreditCardResponseData>(
+    ({ id }) => api.getInstance().delete(creditCardPath(id)),
+    (t) => ({ title: t('cardDeleted') })
   );
 
 export const useUpdateFinanceSettings = () =>

@@ -15,7 +15,7 @@ import {
   PAYMENT_METHODS
 } from '@/common/constants';
 import { currencyFractionDigits } from '@/common/utils';
-import { DatePicker } from '@/components/date-picker';
+import { DatePicker, type DayBounds } from '@/components/date-picker';
 import {
   DeferredSection,
   FormField,
@@ -62,6 +62,7 @@ type MoneyFieldProps = Record<'name' | 'label' | 'currency', string> &
   Partial<Record<'deps', ReadonlyArray<string>>>;
 
 type DayFieldProps = Record<'name' | 'label', string> &
+  DayBounds &
   Partial<Record<'hint', ReactNode>> &
   Partial<Record<'className', string>> &
   Partial<Record<'isOptional', boolean>> &
@@ -326,6 +327,8 @@ export const DayField: FC<DayFieldProps> = ({
   name,
   label,
   hint,
+  min,
+  max,
   className,
   isOptional,
   shortcuts
@@ -351,6 +354,8 @@ export const DayField: FC<DayFieldProps> = ({
             ref={field.ref}
             name={field.name}
             value={field.value}
+            min={min}
+            max={max}
             aria-invalid={fieldControl['aria-invalid']}
             aria-describedby={fieldControl['aria-describedby']}
             onValueChange={field.onChange}
@@ -420,7 +425,14 @@ const MORE_DETAILS = [
   'notes'
 ] as const satisfies ReadonlyArray<keyof DescriptionFormInput>;
 
-export const MoreDetailsFields: FC = () => {
+/**
+ * An installment charged to its plan's card is paid by credit card until the
+ * plan lets go of the card, so its method is fixed.
+ */
+export const MoreDetailsFields: FC<
+  Partial<Record<'cardChoice', ReactNode>> &
+    Partial<Record<'isPaymentMethodFixed', boolean>>
+> = ({ cardChoice, isPaymentMethodFixed = false }) => {
   const t = useTranslations('finances');
   const { control, register, getValues, setFocus } =
     useFormContext<DescriptionFormInput>();
@@ -435,7 +447,11 @@ export const MoreDetailsFields: FC = () => {
     <DeferredSection
       title={t('form.moreDetailsSection')}
       revealLabel={t('form.addMoreDetails')}
-      revealHint={t('form.moreDetailsHint')}
+      revealHint={
+        cardChoice === undefined
+          ? t('form.moreDetailsHint')
+          : t('form.moreDetailsHintWithCard')
+      }
       isInitiallyRevealed={
         subcategory !== '' ||
         paymentMethod !== NO_PAYMENT_METHOD ||
@@ -471,6 +487,7 @@ export const MoreDetailsFields: FC = () => {
             <Select
               name={methodField.name}
               value={methodField.value}
+              disabled={isPaymentMethodFixed}
               onValueChange={methodField.onChange}
             >
               <SelectTrigger
@@ -495,6 +512,8 @@ export const MoreDetailsFields: FC = () => {
             </Select>
           )}
         </FormField>
+
+        {cardChoice}
 
         <FormField
           isOptional

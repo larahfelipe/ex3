@@ -1,4 +1,5 @@
 import type {
+  CardBrand,
   ExpenseCategory,
   ExpenseKind,
   ExpenseStatus,
@@ -374,6 +375,11 @@ export const PaymentMethods: Record<PaymentMethod, PaymentMethod> = {
   OTHER: 'OTHER'
 } as const;
 
+export const CardBrands: Record<CardBrand, CardBrand> = {
+  VISA: 'VISA',
+  MASTERCARD: 'MASTERCARD'
+} as const;
+
 export const RecurrenceFrequencies: Record<
   RecurrenceFrequency,
   RecurrenceFrequency
@@ -431,6 +437,7 @@ export const FinanceLimits = {
   SUBCATEGORY_MAX_LENGTH: 60,
   ACCOUNT_MAX_LENGTH: 60,
   NOTES_MAX_LENGTH: 500,
+  CARD_NAME_MAX_LENGTH: 40,
   SEARCH_MAX_LENGTH: 120,
   INSTALLMENT_MAX_COUNT: 360,
   OCCURRENCE_HORIZON_MONTHS: 12,
@@ -449,6 +456,13 @@ export const FinanceMessages = {
   PAYMENT_NOT_FOUND: 'Payment not found for this expense',
   INSTALLMENT_PLAN_NOT_FOUND: 'Installment plan not found',
   RECURRING_EXPENSE_NOT_FOUND: 'Recurring expense not found',
+  CREDIT_CARD_NOT_FOUND: 'Credit card not found',
+  CARD_NEEDS_CREDIT_PAYMENT:
+    'A bill charged to a credit card is paid by credit card; remove the card to choose another payment method',
+  CARD_SET_BY_PLAN:
+    "An installment is charged to its plan's card; change the card on the plan",
+  CARD_SAME_DAYS: 'The closing day and the due day must be different',
+  CARD_NAME_HAS_NUMBER: 'Card name must not include a card number',
   AMOUNT_PRECISION:
     'Amount has more decimal places than the currency has minor units',
   AMOUNT_BELOW_SETTLED:
@@ -471,6 +485,7 @@ export const FinanceMessages = {
   PAYMENT_EMPTY: 'A payment must settle an amount or a discount above zero',
   PAYMENT_IN_FUTURE: 'Payment date cannot be in the future',
   END_BEFORE_START: 'End date must not be before the start date',
+  END_BEFORE_TODAY: 'End date must not be before today',
   INSTALLMENT_SPLIT_TOO_SMALL:
     'The amount is too small to split into that many installments',
   SERIES_HAS_PAYMENTS:
@@ -496,7 +511,10 @@ export const FinanceMessages = {
   SERIES_UPDATED: 'Recurring expense updated successfully',
   SERIES_CANCELLED_SUCCESSFULLY: 'Recurring expense cancelled successfully',
   SERIES_DELETED: 'Recurring expense deleted successfully',
-  SETTINGS_UPDATED: 'Finance settings updated successfully'
+  SETTINGS_UPDATED: 'Finance settings updated successfully',
+  CARD_CREATED: 'Credit card created successfully',
+  CARD_UPDATED: 'Credit card updated successfully',
+  CARD_DELETED: 'Credit card deleted successfully'
 };
 
 export const DEFAULT_FINANCE_CURRENCY = 'BRL';

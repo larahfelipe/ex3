@@ -16,16 +16,21 @@ import type {
 import type { Page } from '@/interfaces';
 
 import {
+  billDatesOf,
+  cardPaymentMethodOf,
   changesOf,
+  chargedCardOf,
   deleteHistoryOf,
   historyOf,
   impreciseFieldOf,
   installmentCountsOf,
   kindWhere,
+  recordedCardOf,
   recordFinanceEvent,
   statusWhere,
   toExpense,
-  toPayment
+  toPayment,
+  WITH_CREDIT_CARD
 } from './FinanceRecords';
 import { PrismaClient } from './PrismaClient';
 
@@ -158,6 +163,7 @@ export class ExpenseRepository {
           { installmentNumber: SortOrderTypes.ASCENDENT },
           { id: SortOrderTypes.ASCENDENT }
         ],
+        include: WITH_CREDIT_CARD,
         skip: (page - 1) * pageSize,
         take: pageSize
       })
@@ -195,7 +201,7 @@ export class ExpenseRepository {
 
     const row = await this.prismaClient.expense.findFirst({
       where: { id, userId },
-      include: { payments: { orderBy: PAYMENT_ORDER } }
+      include: { payments: { orderBy: PAYMENT_ORDER }, ...WITH_CREDIT_CARD }
     });
 
     if (!row) return null;
@@ -224,30 +230,71 @@ export class ExpenseRepository {
     };
   }
 
-  async add(params: ExpenseRepository.AddParams) {
-    const { userId, ...expense } = params;
+  async add(
+    params: ExpenseRepository.AddParams
+  ): Promise<ExpenseRepository.AddWrite> {
+    const { userId, creditCardId, ...expense } = params;
 
-    return this.prismaClient.runSerializable(async (transactionClient) => {
-      const row = await transactionClient.expense.create({
-        data: { ...expense, userId }
-      });
+    return this.prismaClient.runSerializable<ExpenseRepository.AddWrite>(
+      async (transactionClient) => {
+        const card = await chargedCardOf(transactionClient, {
+          userId,
+          creditCardId,
+          current: null
+        });
 
-      await recordFinanceEvent(transactionClient, {
-        userId,
-        recordType: 'EXPENSE',
-        recordId: row.id,
-        type: 'CREATED',
-        changes: expense
-      });
+        if (card === 'card-not-found') return { outcome: card };
 
-      return row.id;
-    });
+        const paymentMethod =
+          card === null
+            ? expense.paymentMethod
+            : cardPaymentMethodOf(expense.paymentMethod);
+
+        if (paymentMethod === 'card-method-mismatch')
+          return { outcome: paymentMethod };
+
+        const { originalDueDate, ...dates } = billDatesOf(
+          card,
+          expense.dueDate
+        );
+        const recorded = {
+          ...expense,
+          ...dates,
+          paymentMethod,
+          ...(card !== null && {
+            originalDueDate,
+            creditCard: recordedCardOf(card)
+          })
+        };
+
+        const row = await transactionClient.expense.create({
+          data: {
+            ...expense,
+            ...dates,
+            originalDueDate,
+            paymentMethod,
+            creditCardId: card?.id ?? null,
+            userId
+          }
+        });
+
+        await recordFinanceEvent(transactionClient, {
+          userId,
+          recordType: 'EXPENSE',
+          recordId: row.id,
+          type: 'CREATED',
+          changes: recorded
+        });
+
+        return { outcome: 'written', id: row.id };
+      }
+    );
   }
 
   async update(
     params: ExpenseRepository.UpdateParams
   ): Promise<ExpenseRepository.Write> {
-    const { id, userId, cancelled, ...patch } = params;
+    const { id, userId, cancelled, creditCardId, ...patch } = params;
 
     return this.prismaClient.runSerializable<ExpenseRepository.Write>(
       async (transactionClient) => {
@@ -256,7 +303,8 @@ export class ExpenseRepository {
           include: {
             payments: { where: { voidedAt: null } },
             installmentPlan: { select: { cancelledAt: true } },
-            recurringExpense: { select: { cancelledAt: true } }
+            recurringExpense: { select: { cancelledAt: true } },
+            ...WITH_CREDIT_CARD
           }
         });
 
@@ -278,7 +326,58 @@ export class ExpenseRepository {
         if (settlement.outcome === 'over-settled')
           return { outcome: 'below-settled' };
 
-        const changes = changesOf(current, patch);
+        if (
+          current.installmentPlanId !== null &&
+          creditCardId !== undefined &&
+          creditCardId !== current.creditCardId
+        )
+          return { outcome: 'card-set-by-plan' };
+
+        const card = await chargedCardOf(transactionClient, {
+          userId,
+          creditCardId:
+            creditCardId === undefined ? current.creditCardId : creditCardId,
+          current: current.creditCard
+        });
+
+        if (card === 'card-not-found') return { outcome: card };
+
+        const requestedMethod =
+          patch.paymentMethod === undefined
+            ? current.paymentMethod
+            : patch.paymentMethod;
+        const paymentMethod =
+          card === null
+            ? requestedMethod
+            : cardPaymentMethodOf(requestedMethod);
+
+        if (paymentMethod === 'card-method-mismatch')
+          return { outcome: paymentMethod };
+
+        const { dueDate: billDueDate, ...described } = patch;
+        const ownDueDate = current.originalDueDate ?? current.dueDate;
+        const isChangingCard = (card?.id ?? null) !== current.creditCardId;
+        // A form sends the bill's own date back unchanged with any edit; only a
+        // new date or card works the card date out again, so a paid bill keeps
+        // the date its card's earlier days gave it.
+        const isMovingBill =
+          isChangingCard ||
+          (billDueDate !== undefined &&
+            billDueDate.getTime() !== ownDueDate.getTime());
+        const written = {
+          ...described,
+          paymentMethod,
+          ...(isMovingBill && billDatesOf(card, billDueDate ?? ownDueDate))
+        };
+        const changes = {
+          ...changesOf(current, written),
+          ...(isChangingCard && {
+            creditCard: {
+              from: recordedCardOf(current.creditCard),
+              to: recordedCardOf(card)
+            }
+          })
+        };
         const isCancelling = cancelled === true && current.cancelledAt === null;
         const isRestoring = cancelled === false && current.cancelledAt !== null;
 
@@ -299,7 +398,8 @@ export class ExpenseRepository {
         await transactionClient.expense.update({
           where: { id },
           data: {
-            ...patch,
+            ...written,
+            ...(isChangingCard && { creditCardId: card?.id ?? null }),
             settledAmount: settlement.settledAmount,
             settledOn: settlement.settledOn,
             ...(isCancelling && { cancelledAt: new Date() }),
@@ -601,14 +701,17 @@ export class ExpenseRepository {
 namespace ExpenseRepository {
   export type GetByIdParams = Record<'id' | 'userId', string>;
   export type AddParams = ExpenseDescription &
-    Pick<Expense, 'amount' | 'currency'> &
+    Pick<Expense, 'amount' | 'currency' | 'creditCardId'> &
     Record<'dueDate' | 'entryDate', Date> &
     Record<'userId', string>;
   export type UpdateParams = GetByIdParams &
     Partial<ExpenseDescription> &
-    Partial<Pick<Expense, 'amount'>> &
+    Partial<Pick<Expense, 'amount' | 'creditCardId'>> &
     Partial<Record<'dueDate' | 'entryDate', Date>> &
     Partial<Record<'cancelled', boolean>>;
+  export type CardRefusal =
+    { outcome: 'card-not-found' } | { outcome: 'card-method-mismatch' };
+  export type AddWrite = { outcome: 'written'; id: string } | CardRefusal;
   export type AddPaymentParams = PaymentEntry &
     Record<'expenseId' | 'userId', string>;
   export type PaymentParams = Record<
@@ -623,7 +726,9 @@ namespace ExpenseRepository {
     | { outcome: 'below-settled' }
     | { outcome: 'has-payments' }
     | { outcome: 'origin-cancelled' }
-    | { outcome: 'managed-by-origin' };
+    | { outcome: 'managed-by-origin' }
+    | { outcome: 'card-set-by-plan' }
+    | CardRefusal;
   export type PaymentWrite =
     | { outcome: 'written'; payment: ExpensePayment }
     | { outcome: 'not-found' }

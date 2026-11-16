@@ -36,6 +36,12 @@ import { shiftCalendarDay, shiftCalendarDayByMonths } from '@/lib/dates';
 import { presentSubmitError } from '@/lib/submit-error';
 
 import {
+  CardChoice,
+  cardChoiceOf,
+  chargedCardIdOf,
+  NO_CARD
+} from './credit-card-fields';
+import {
   DayField,
   DESCRIPTION_FORM_FIELDS,
   DescriptionFields,
@@ -55,6 +61,8 @@ import {
 import {
   AMOUNT_KINDS,
   AmountKindChoice,
+  earliestEndOf,
+  earliestStartOf,
   END_MODES,
   EndChoice,
   endDateOf,
@@ -86,7 +94,8 @@ const seriesTermsFieldsFor = (t: ValidationTranslator) =>
     amount: positiveMoneyFieldFor(t),
     amountKind: z.enum(AMOUNT_KINDS),
     endMode: z.enum(END_MODES),
-    endDate: z.string()
+    endDate: z.string(),
+    creditCardId: z.string()
   });
 
 const createSeriesFieldsFor = (t: ValidationTranslator) =>
@@ -111,7 +120,8 @@ const SERIES_TERMS_FIELDS = [
   'amount',
   'amountKind',
   'endMode',
-  'endDate'
+  'endDate',
+  'creditCardId'
 ] as const satisfies ReadonlyArray<
   keyof EditSeriesInput & keyof CreateSeriesInput
 >;
@@ -143,7 +153,7 @@ const createSeriesSchemaFor = (today: string, t: ValidationTranslator) => {
 
   return createSeriesFieldsFor(t).superRefine((series, ctx) => {
     requireSeriesMinorUnits(series, ctx);
-    requireEndOf(series, series.startDate, ctx, t);
+    requireEndOf(series, { startDate: series.startDate, today }, ctx, t);
     requireRecentStart(series.startDate, 'startDate', ctx);
   });
 };
@@ -176,7 +186,7 @@ const requireEffectiveFromBy = (
 };
 
 const editSeriesSchemaFor = (
-  { currency, startDate }: RecurringExpenseDetail,
+  { currency, startDate, endDate }: RecurringExpenseDetail,
   today: string,
   t: ValidationTranslator,
   format: Format
@@ -186,7 +196,7 @@ const editSeriesSchemaFor = (
 
   return editSeriesFieldsFor(t).superRefine((series, ctx) => {
     requireSeriesMinorUnits({ ...series, currency }, ctx);
-    requireEndOf(series, startDate, ctx, t);
+    requireEndOf(series, { startDate, today, currentEnd: endDate }, ctx, t);
     requireEffectiveFromBy(series, latest, ctx, t, format);
   });
 };
@@ -208,9 +218,14 @@ const createPayloadOf = ({
   amountKind,
   endMode,
   endDate,
+  creditCardId,
   ...series
 }: CreateSeriesDraft): CreateRecurringExpenseRequestPayload => ({
   ...series,
+  creditCardId: chargedCardIdOf({
+    paymentMethod: series.paymentMethod,
+    creditCardId
+  }),
   isVariable: amountKind === 'variable',
   endDate: endDateOf({ endMode, endDate })
 });
@@ -219,9 +234,14 @@ const editPayloadOf = ({
   amountKind,
   endMode,
   endDate,
+  creditCardId,
   ...changes
 }: EditSeriesDraft): UpdateRecurringExpenseRequestPayload => ({
   ...changes,
+  creditCardId: chargedCardIdOf({
+    paymentMethod: changes.paymentMethod,
+    creditCardId
+  }),
   isVariable: amountKind === 'variable',
   endDate: endDateOf({ endMode, endDate })
 });
@@ -251,7 +271,8 @@ export const CreateSeriesDialog: FC<
       frequency: 'MONTHLY',
       startDate: today,
       endMode: 'never',
-      endDate: ''
+      endDate: '',
+      creditCardId: NO_CARD
     }
   });
 
@@ -320,6 +341,7 @@ export const CreateSeriesDialog: FC<
                   hint={t('startDateHint', {
                     months: FINANCE_LIMITS.OccurrenceHorizonMonths
                   })}
+                  min={earliestStartOf(today)}
                 />
               </div>
 
@@ -327,7 +349,11 @@ export const CreateSeriesDialog: FC<
                 <RecurrenceFields startName="startDate" />
               </FormSection>
 
-              <MoreDetailsFields />
+              <MoreDetailsFields
+                cardChoice={
+                  <CardChoice dayName="startDate" schedule="series" />
+                }
+              />
 
               <FormRootError />
             </form>
@@ -373,6 +399,7 @@ export const EditSeriesDialog: FC<
       amountKind: series.isVariable ? 'variable' : 'fixed',
       endMode: series.endDate === null ? 'never' : 'date',
       endDate: series.endDate ?? '',
+      creditCardId: cardChoiceOf(series.creditCardId),
       effectiveFrom: series.startDate > today ? series.startDate : today
     }
   });
@@ -434,7 +461,11 @@ export const EditSeriesDialog: FC<
                   currency={series.currency}
                 />
 
-                <DayField name="effectiveFrom" label={t('effectiveFrom')} />
+                <DayField
+                  name="effectiveFrom"
+                  label={t('effectiveFrom')}
+                  max={latestEffectiveFromOf(today, series.startDate)}
+                />
               </div>
 
               <FormSection title={t('recurrenceSection')}>
@@ -442,10 +473,19 @@ export const EditSeriesDialog: FC<
                   <AmountKindChoice />
                 </div>
 
-                <EndChoice />
+                <EndChoice
+                  earliestEnd={earliestEndOf(today, series.startDate)}
+                />
               </FormSection>
 
-              <MoreDetailsFields />
+              <MoreDetailsFields
+                cardChoice={
+                  <CardChoice
+                    schedule="series"
+                    currentCard={series.creditCard}
+                  />
+                }
+              />
 
               <FormRootError />
             </form>
@@ -530,7 +570,11 @@ export const StopSeriesDialog: FC<
               className="grid gap-4"
               onSubmit={handleSubmit(submit)}
             >
-              <DayField name="effectiveFrom" label={t('effectiveFrom')} />
+              <DayField
+                name="effectiveFrom"
+                label={t('effectiveFrom')}
+                max={latestEffectiveFromOf(today, series.startDate)}
+              />
 
               <FormRootError />
             </form>

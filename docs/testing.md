@@ -1012,20 +1012,21 @@ leave behind.
 
 ## Personal finance
 
-Six unit files under `src/domain` cover, without a database, the rules the
+Seven unit files under `src/domain` cover, without a database, the rules the
 finance module computes: calendar days in UTC with month ends and 29 February,
 recurrence by frequency, the exact split of a plan's total and its schedule,
-settlement from the active payments, money at the currency's minor units, and
-the overview's and reports' aggregates. The reference day is a parameter, never
-`new Date()` inside the rule.
+settlement from the active payments, money at the currency's minor units, the
+overview's and reports' aggregates, and the card statement a charge lands on.
+The reference day is a parameter, never `new Date()` inside the rule.
 
 `src/routes/Finances.integration.ts` covers every `/v1/finances` route against
 the database: validation with 400, another user's records the same as
 non-existent ones, partial, corrected and voided payments, plans and their
 reschedules, series generation, edits from a date and stopping, the summary,
-calendar, reports, alerts and reminder settings, and account deletion removing
-the finance rows. Concurrency is exercised with `Promise.all` — two payments on
-the same bill, two reads generating the same series — and atomicity with
+calendar, reports, alerts and reminder settings, credit cards and the bills,
+series and plans charged to them, and account deletion removing the finance
+rows. Concurrency is exercised with `Promise.all` — two payments on the same
+bill, two reads generating the same series — and atomicity with
 `injectWriteFailure`, which fails one write inside the transaction and checks
 that nothing of it was kept. Dates are relative to `utcToday()`: plans start in
 a coming January, so no installment turns overdue as the calendar moves, and a
@@ -1200,8 +1201,9 @@ On the web, `lib/transaction-import.test.ts` covers the file checked before it
 is sent and encoded byte for byte, which rows may be selected and how they are
 filtered and counted, a selection matching a plan only with the same keys, and
 a row's costs summed at the finer scale. `import-display.test.tsx` renders
-every status, reason, warning and problem in both locales, checkboxes only for
-selectable rows, the original cells collapsed, a rejected row without invented
+every status, reason, warning and problem in both locales, the rows' filter
+as a segmented control from `md` up and a labelled select below it, checkboxes
+only for selectable rows, the original cells collapsed, a rejected row without invented
 values, an asset's figures beside their previous values with the refusal
 that cleared it, and the settlement-date note only for a file with a movement
 statement. `api-proxy.test.ts` covers the payload bound (counted in

@@ -45,6 +45,7 @@ export default {
     scheduleOpen: 'From <start></start>, with no end date',
     scheduleRange: 'From <start></start> to <end></end>',
     category: 'Category',
+    card: 'Card',
     paymentMethod: 'Payment method',
     account: 'Bank account or card',
     notes: 'Notes',

@@ -51,6 +51,7 @@ import { isNonzeroDecimal } from '@/lib/decimal';
 import { FIRST_PAGE, pageNumberFrom } from '@/lib/pagination';
 import { cn } from '@/lib/utils';
 
+import { CardLabel } from './credit-card-display';
 import {
   CalendarDayText,
   dueDistanceOf,
@@ -150,6 +151,13 @@ const PlanRow: FC<
         <span className="text-xs text-muted-foreground">
           {tFinances(`categories.${category}`)}
         </span>
+
+        {plan.creditCard !== null && (
+          <CardLabel
+            card={plan.creditCard}
+            className="max-w-full text-xs text-muted-foreground"
+          />
+        )}
 
         <span className="text-xs text-muted-foreground">
           <PlanProgressText plan={plan} today={today} />

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useTranslations } from 'use-intl';
 
 import type { Portfolio } from '@/app/api/v1/portfolios';
+import { STATUS_TONES } from '@/common/constants';
 import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
 import { EmptyState, LoadingState } from '@/components/data-state';
 import { InfoNote } from '@/components/info-note';
@@ -24,6 +25,7 @@ import {
   useUpdatePortfolio
 } from '@/hooks/use-portfolio';
 import { FIRST_PAGE } from '@/lib/pagination';
+import { cn } from '@/lib/utils';
 import type { Maybe } from '@/types';
 
 import { PortfolioFormDialog } from './_components/portfolio-form-dialog';
@@ -147,7 +149,12 @@ export default function Portfolios() {
                             {portfolio.name}
 
                             {isActive && (
-                              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                              <span
+                                className={cn(
+                                  'rounded-full border px-2 py-0.5 text-xs font-medium',
+                                  STATUS_TONES.success
+                                )}
+                              >
                                 {t('active')}
                               </span>
                             )}

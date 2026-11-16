@@ -21,14 +21,22 @@ import type {
 import type { Page } from '@/interfaces';
 
 import {
+  billDatesOf,
+  cardPaymentMethodOf,
   changesOf,
+  chargedCardOf,
   deleteHistoryOf,
   expenseDescriptionOf,
   historyOf,
   impreciseFieldOf,
   OPEN_EXPENSE_WHERE,
+  recordedCardOf,
   recordFinanceEvent,
-  toExpense
+  toCreditCardSummary,
+  toExpense,
+  UNPAID_EXPENSE_WHERE,
+  WITH_CREDIT_CARD,
+  type WithCreditCard
 } from './FinanceRecords';
 import { PrismaClient } from './PrismaClient';
 
@@ -116,8 +124,14 @@ const rescheduleSplitOf = <
   return { kept: rows.slice(0, rows.length - replaced.length), replaced };
 };
 
+const ownDueDateOf = ({
+  dueDate,
+  originalDueDate
+}: Record<'dueDate', Date> & Record<'originalDueDate', Date | null>) =>
+  originalDueDate ?? dueDate;
+
 const toInstallmentPlan = (
-  row: InstallmentPlanRow,
+  row: InstallmentPlanRow & WithCreditCard,
   installments: Parameters<typeof describeInstallmentPlan>[0]
 ): InstallmentPlan => ({
   id: row.id,
@@ -133,6 +147,9 @@ const toInstallmentPlan = (
   entryDate: formatCalendarDay(row.entryDate),
   cancelledAt: row.cancelledAt,
   ...describeInstallmentPlan(installments, row),
+  creditCardId: row.creditCardId,
+  creditCard:
+    row.creditCard === null ? null : toCreditCardSummary(row.creditCard),
   createdAt: row.createdAt,
   updatedAt: row.updatedAt
 });
@@ -165,7 +182,10 @@ export class InstallmentPlanRepository {
       this.prismaClient.installmentPlan.count({ where }),
       this.prismaClient.installmentPlan.findMany({
         where,
-        include: { installments: { select: PROGRESS_SELECT } },
+        include: {
+          installments: { select: PROGRESS_SELECT },
+          ...WITH_CREDIT_CARD
+        },
         orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         skip: (page - 1) * pageSize,
         take: pageSize
@@ -192,9 +212,10 @@ export class InstallmentPlanRepository {
       where: { id, userId },
       include: {
         installments: {
-          include: PAYMENT_COUNT_INCLUDE,
+          include: { ...PAYMENT_COUNT_INCLUDE, ...WITH_CREDIT_CARD },
           orderBy: { installmentNumber: 'asc' }
-        }
+        },
+        ...WITH_CREDIT_CARD
       }
     });
 
@@ -219,69 +240,132 @@ export class InstallmentPlanRepository {
     };
   }
 
-  async add(params: InstallmentPlanRepository.AddParams) {
-    const { userId, installments, ...plan } = params;
+  async add(
+    params: InstallmentPlanRepository.AddParams
+  ): Promise<InstallmentPlanRepository.AddWrite> {
+    const { userId, installments, creditCardId, ...requested } = params;
 
-    return this.prismaClient.runSerializable(async (transactionClient) => {
-      const row = await transactionClient.installmentPlan.create({
-        data: { ...plan, userId }
-      });
+    return this.prismaClient.runSerializable<InstallmentPlanRepository.AddWrite>(
+      async (transactionClient) => {
+        const card = await chargedCardOf(transactionClient, {
+          userId,
+          creditCardId,
+          current: null
+        });
 
-      await transactionClient.expense.createMany({
-        data: installments.map((installment) => ({
-          ...expenseDescriptionOf(plan),
-          ...installment,
-          currency: plan.currency,
-          entryDate: plan.entryDate,
-          installmentPlanId: row.id,
-          userId
-        }))
-      });
+        if (card === 'card-not-found') return { outcome: card };
 
-      await recordFinanceEvent(transactionClient, {
-        userId,
-        recordType: 'INSTALLMENT_PLAN',
-        recordId: row.id,
-        type: 'CREATED',
-        changes: {
-          ...plan,
-          installmentCount: installments.length,
-          firstDueDate: installments[0].dueDate
-        }
-      });
+        const paymentMethod =
+          card === null
+            ? requested.paymentMethod
+            : cardPaymentMethodOf(requested.paymentMethod);
 
-      return row.id;
-    });
+        if (paymentMethod === 'card-method-mismatch')
+          return { outcome: paymentMethod };
+
+        const plan = { ...requested, paymentMethod };
+        const row = await transactionClient.installmentPlan.create({
+          data: { ...plan, creditCardId: card?.id ?? null, userId }
+        });
+
+        await transactionClient.expense.createMany({
+          data: installments.map(({ dueDate, ...installment }) => ({
+            ...expenseDescriptionOf(plan),
+            ...installment,
+            ...billDatesOf(card, dueDate),
+            creditCardId: card?.id ?? null,
+            currency: plan.currency,
+            entryDate: plan.entryDate,
+            installmentPlanId: row.id,
+            userId
+          }))
+        });
+
+        await recordFinanceEvent(transactionClient, {
+          userId,
+          recordType: 'INSTALLMENT_PLAN',
+          recordId: row.id,
+          type: 'CREATED',
+          changes: {
+            ...plan,
+            installmentCount: installments.length,
+            firstDueDate: installments[0].dueDate,
+            ...(card !== null && { creditCard: recordedCardOf(card) })
+          }
+        });
+
+        return { outcome: 'written', id: row.id };
+      }
+    );
   }
 
   async update(
     params: InstallmentPlanRepository.UpdateParams
   ): Promise<InstallmentPlanRepository.Write> {
-    const { id, userId, ...patch } = params;
+    const { id, userId, creditCardId, ...requested } = params;
 
     return this.prismaClient.runSerializable<InstallmentPlanRepository.Write>(
       async (transactionClient) => {
         const current = await transactionClient.installmentPlan.findFirst({
-          where: { id, userId }
+          where: { id, userId },
+          include: WITH_CREDIT_CARD
         });
 
         if (!current) return { outcome: 'not-found' };
 
         const impreciseField = impreciseFieldOf(
-          { principalAmount: patch.principalAmount },
+          { principalAmount: requested.principalAmount },
           current.currency
         );
 
         if (impreciseField !== null)
           return { outcome: 'imprecise-amount', field: impreciseField };
 
-        const changes = changesOf(current, patch);
+        const card = await chargedCardOf(transactionClient, {
+          userId,
+          creditCardId:
+            creditCardId === undefined ? current.creditCardId : creditCardId,
+          current: current.creditCard
+        });
+
+        if (card === 'card-not-found') return { outcome: card };
+
+        const requestedMethod =
+          requested.paymentMethod === undefined
+            ? current.paymentMethod
+            : requested.paymentMethod;
+        const paymentMethod =
+          card === null
+            ? requestedMethod
+            : cardPaymentMethodOf(requestedMethod);
+
+        if (paymentMethod === 'card-method-mismatch')
+          return { outcome: paymentMethod };
+
+        const patch = {
+          ...requested,
+          ...((requested.paymentMethod !== undefined ||
+            paymentMethod !== current.paymentMethod) && { paymentMethod })
+        };
+        const isChangingCard = (card?.id ?? null) !== current.creditCardId;
+        const changes = {
+          ...changesOf(current, patch),
+          ...(isChangingCard && {
+            creditCard: {
+              from: recordedCardOf(current.creditCard),
+              to: recordedCardOf(card)
+            }
+          })
+        };
 
         if (Object.keys(changes).length === 0) return { outcome: 'written' };
 
         await transactionClient.installmentPlan.update({
           where: { id },
-          data: patch
+          data: {
+            ...patch,
+            ...(isChangingCard && { creditCardId: card?.id ?? null })
+          }
         });
 
         const { principalAmount: _, ...description } = patch;
@@ -295,6 +379,25 @@ export class InstallmentPlanRepository {
             },
             data: description
           });
+
+        // An installment's card is its plan's alone, so a customized one moves
+        // too; one with payments keeps the card and date it was paid against.
+        if (isChangingCard) {
+          const unpaid = await transactionClient.expense.findMany({
+            where: { installmentPlanId: id, ...UNPAID_EXPENSE_WHERE },
+            select: { id: true, dueDate: true, originalDueDate: true }
+          });
+
+          for (const installment of unpaid)
+            await transactionClient.expense.update({
+              where: { id: installment.id },
+              data: {
+                creditCardId: card?.id ?? null,
+                ...billDatesOf(card, ownDueDateOf(installment)),
+                ...(card !== null && { paymentMethod: 'CREDIT_CARD' })
+              }
+            });
+        }
 
         await recordFinanceEvent(transactionClient, {
           userId,
@@ -322,7 +425,8 @@ export class InstallmentPlanRepository {
             installments: {
               include: PAYMENT_COUNT_INCLUDE,
               orderBy: { installmentNumber: 'asc' }
-            }
+            },
+            ...WITH_CREDIT_CARD
           }
         });
 
@@ -339,14 +443,16 @@ export class InstallmentPlanRepository {
 
         const { kept, replaced } = rescheduleSplitOf(plan.installments);
         const lastKept = kept.at(-1);
+        const lastKeptDueDate =
+          lastKept === undefined ? undefined : ownDueDateOf(lastKept);
 
         if (
-          lastKept !== undefined &&
-          nextDueDate.getTime() < lastKept.dueDate.getTime()
+          lastKeptDueDate !== undefined &&
+          nextDueDate.getTime() < lastKeptDueDate.getTime()
         )
           return {
             outcome: 'due-before-kept',
-            lastKeptDueDate: formatCalendarDay(lastKept.dueDate)
+            lastKeptDueDate: formatCalendarDay(lastKeptDueDate)
           };
 
         const schedule = scheduleInstallments({
@@ -371,9 +477,11 @@ export class InstallmentPlanRepository {
           where: { id: { in: replacedIds } }
         });
         await transactionClient.expense.createMany({
-          data: schedule.map((installment) => ({
+          data: schedule.map(({ dueDate, ...installment }) => ({
             ...expenseDescriptionOf(plan),
             ...installment,
+            ...billDatesOf(plan.creditCard, dueDate),
+            creditCardId: plan.creditCardId,
             currency: plan.currency,
             entryDate: plan.entryDate,
             installmentPlanId: id,
@@ -516,6 +624,7 @@ namespace InstallmentPlanRepository {
   export type GetByIdParams = Record<'id' | 'userId', string>;
   export type AddParams = ExpenseDescription & {
     userId: string;
+    creditCardId: string | null;
     currency: string;
     frequency: RecurrenceFrequency;
     principalAmount: string | null;
@@ -524,7 +633,7 @@ namespace InstallmentPlanRepository {
   };
   export type UpdateParams = GetByIdParams &
     Partial<ExpenseDescription> &
-    Partial<Record<'principalAmount', string | null>>;
+    Partial<Record<'principalAmount' | 'creditCardId', string | null>>;
   export type RescheduleParams = GetByIdParams & {
     remainingAmount: string;
     remainingCount: number;
@@ -535,7 +644,11 @@ namespace InstallmentPlanRepository {
     | { outcome: 'not-found' }
     | { outcome: 'imprecise-amount'; field: string }
     | { outcome: 'cancelled' }
-    | { outcome: 'has-payments' };
+    | { outcome: 'has-payments' }
+    | CardRefusal;
+  export type CardRefusal =
+    { outcome: 'card-not-found' } | { outcome: 'card-method-mismatch' };
+  export type AddWrite = { outcome: 'written'; id: string } | CardRefusal;
   export type RescheduleWrite =
     | Write
     | { outcome: 'split-too-small' }
