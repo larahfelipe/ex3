@@ -3,12 +3,15 @@ import { Router, type Application } from 'express';
 import {
   cancelInstallmentPlanControllerHandler,
   cancelRecurringExpenseControllerHandler,
+  createCreditCardControllerHandler,
   createExpenseControllerHandler,
   createInstallmentPlanControllerHandler,
   createRecurringExpenseControllerHandler,
+  deleteCreditCardControllerHandler,
   deleteExpenseControllerHandler,
   deleteInstallmentPlanControllerHandler,
   deleteRecurringExpenseControllerHandler,
+  getAllCreditCardsControllerHandler,
   getAllExpensesControllerHandler,
   getAllInstallmentPlansControllerHandler,
   getAllPaymentsControllerHandler,
@@ -23,6 +26,7 @@ import {
   getRecurringExpenseControllerHandler,
   recordPaymentControllerHandler,
   rescheduleInstallmentPlanControllerHandler,
+  updateCreditCardControllerHandler,
   updateExpenseControllerHandler,
   updateFinanceSettingsControllerHandler,
   updateInstallmentPlanControllerHandler,
@@ -68,6 +72,30 @@ financeRouter.put(
   '/v1/finances/settings',
   authMiddleware,
   updateFinanceSettingsControllerHandler as Application
+);
+
+financeRouter.get(
+  '/v1/finances/credit-cards',
+  authMiddleware,
+  getAllCreditCardsControllerHandler as Application
+);
+
+financeRouter.post(
+  '/v1/finances/credit-cards',
+  authMiddleware,
+  createCreditCardControllerHandler as Application
+);
+
+financeRouter.patch(
+  '/v1/finances/credit-cards/:id',
+  authMiddleware,
+  updateCreditCardControllerHandler as Application
+);
+
+financeRouter.delete(
+  '/v1/finances/credit-cards/:id',
+  authMiddleware,
+  deleteCreditCardControllerHandler as Application
 );
 
 financeRouter.get(

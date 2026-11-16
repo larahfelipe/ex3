@@ -104,6 +104,7 @@ import { cn } from '@/lib/utils';
 import type { DecimalString } from '@/types';
 
 import { BillDialogs } from './bill-dialogs';
+import { CardLabel } from './credit-card-display';
 import { AddBillDialog } from './expense-form-dialog';
 import {
   CalendarDayText,
@@ -491,8 +492,9 @@ const AmountFilter: FC<AmountFilterProps> = ({
 const DayFilter: FC<
   Record<'label', string> &
     Record<'value', string | undefined> &
+    Partial<Record<'min' | 'max', string>> &
     Record<'onChange', (value: string | undefined) => void>
-> = ({ label, value, onChange }) => {
+> = ({ label, value, min, max, onChange }) => {
   const t = useTranslations('bills.filters');
   const pickerId = useId();
 
@@ -512,6 +514,8 @@ const DayFilter: FC<
           <DatePicker
             id={pickerId}
             value={value ?? ''}
+            min={min}
+            max={max}
             onValueChange={(day) => onChange(day)}
           />
         </div>
@@ -777,12 +781,14 @@ const BillFilters: FC<
         <DayFilter
           label={t('dueFrom')}
           value={listing.dueFrom}
+          max={listing.dueTo}
           onChange={(dueFrom) => refine({ dueFrom })}
         />
 
         <DayFilter
           label={t('dueTo')}
           value={listing.dueTo}
+          min={listing.dueFrom}
           onChange={(dueTo) => refine({ dueTo })}
         />
 
@@ -913,6 +919,13 @@ const BillRow: FC<
               category: tFinances(`categories.${category}`)
             })}
           </span>
+
+          {expense.creditCard !== null && (
+            <CardLabel
+              card={expense.creditCard}
+              className="max-w-full text-xs text-muted-foreground"
+            />
+          )}
 
           <span className="text-xs text-muted-foreground md:hidden">
             {t.rich('dueOn', { day: () => <CalendarDayText day={dueDate} /> })}

@@ -67,6 +67,13 @@ export default {
     detail:
       'Per month, across {count, plural, one {# active recurring expense} other {# active recurring expenses}}'
   },
+  cards: {
+    title: 'Credit cards',
+    manage: 'Manage',
+    none: 'Add your cards to have the bills charged to them fall due with their statements.',
+    add: 'Add card',
+    more: '{count, plural, one {and # more card} other {and # more cards}}'
+  },
   reminders: {
     title: 'Reminders',
     change: 'Change',

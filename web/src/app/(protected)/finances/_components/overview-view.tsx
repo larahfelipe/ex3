@@ -13,12 +13,24 @@ import type {
   GetFinanceSummaryResponseData
 } from '@/app/api/v1/finances';
 import { APP_ROUTES, billDetailRoute, billsRouteFor } from '@/common/constants';
-import { EmptyState, ErrorState, LoadingState } from '@/components/data-state';
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  StaleState
+} from '@/components/data-state';
 import { HEADLINE_VALUE_CLASS, Money } from '@/components/financial';
 import { PageHeader } from '@/components/page-header';
 import { SectionHeader } from '@/components/section-header';
-import { Button, Card, CardContent, DialogPresence } from '@/components/ui';
 import {
+  Button,
+  Card,
+  CardContent,
+  DialogPresence,
+  Skeleton
+} from '@/components/ui';
+import {
+  useCreditCards,
   useFinanceSettings,
   useFinanceSummary,
   useUpdateFinanceSettings
@@ -27,6 +39,8 @@ import { useFormat } from '@/i18n/format';
 import { daySpanOfCalendarMonth, shiftCalendarDay } from '@/lib/dates';
 import { isNonzeroDecimal } from '@/lib/decimal';
 
+import { CreditCardsDialog } from './credit-card-dialogs';
+import { CardLabel } from './credit-card-display';
 import { AddBillDialog } from './expense-form-dialog';
 import {
   CategoryBars,
@@ -279,9 +293,78 @@ const ChartCard: FC<
   </section>
 );
 
+const SHOWN_CARDS = 4;
+
+const CreditCardsSummary: FC<Record<'onManage', VoidFunction>> = ({
+  onManage
+}) => {
+  const t = useTranslations('financeOverview.cards');
+  const tCards = useTranslations('finances.cards');
+  const { data: cards, isError } = useCreditCards();
+
+  return (
+    <Card>
+      <SectionHeader
+        id="finance-cards"
+        title={t('title')}
+        action={
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto p-0"
+            onClick={onManage}
+          >
+            {cards?.length === 0 ? t('add') : t('manage')}
+          </Button>
+        }
+      />
+
+      <CardContent className="space-y-2">
+        {cards === undefined && isError && (
+          <p className="text-sm text-muted-foreground">
+            {tCards('manage.loadFailed')}
+          </p>
+        )}
+
+        {cards === undefined && !isError && (
+          <Skeleton className="h-10 w-full max-w-64" />
+        )}
+
+        {cards?.length === 0 && (
+          <p className="text-sm text-muted-foreground">{t('none')}</p>
+        )}
+
+        {cards !== undefined && cards.length > 0 && (
+          <ul className="space-y-2 text-sm">
+            {cards.slice(0, SHOWN_CARDS).map((card) => (
+              <li key={card.id} className="flex min-w-0 flex-col gap-0.5">
+                <CardLabel card={card} className="max-w-full font-medium" />
+
+                <span className="text-xs text-muted-foreground">
+                  {tCards('cycle', {
+                    closingDay: card.closingDay,
+                    dueDay: card.dueDay
+                  })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {cards !== undefined && cards.length > SHOWN_CARDS && (
+          <p className="text-xs text-muted-foreground">
+            {t('more', { count: cards.length - SHOWN_CARDS })}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
 const CommitmentSummaries: FC<
-  Record<'summary', Summary> & Record<'onEditReminders', VoidFunction>
-> = ({ summary, onEditReminders }) => {
+  Record<'summary', Summary> &
+    Record<'onEditReminders' | 'onManageCards', VoidFunction>
+> = ({ summary, onEditReminders, onManageCards }) => {
   const t = useTranslations('financeOverview');
   const tFinances = useTranslations('finances');
   const { formatList } = useFormat();
@@ -291,7 +374,7 @@ const CommitmentSummaries: FC<
   );
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <Card>
         <SectionHeader
           id="finance-installments"
@@ -420,13 +503,16 @@ const CommitmentSummaries: FC<
           </p>
         </CardContent>
       </Card>
+
+      <CreditCardsSummary onManage={onManageCards} />
     </div>
   );
 };
 
 const SummaryContent: FC<
-  Record<'summary', Summary> & Record<'onEditReminders', VoidFunction>
-> = ({ summary, onEditReminders }) => {
+  Record<'summary', Summary> &
+    Record<'onEditReminders' | 'onManageCards', VoidFunction>
+> = ({ summary, onEditReminders, onManageCards }) => {
   const t = useTranslations('financeOverview');
   const tAlerts = useTranslations('bills.alerts');
   const tFinances = useTranslations('finances');
@@ -605,6 +691,7 @@ const SummaryContent: FC<
       <CommitmentSummaries
         summary={summary}
         onEditReminders={onEditReminders}
+        onManageCards={onManageCards}
       />
     </div>
   );
@@ -618,6 +705,7 @@ export const OverviewView: FC = () => {
   const settingsQuery = useFinanceSettings();
   const [isAdding, setIsAdding] = useState(false);
   const [isEditingReminders, setIsEditingReminders] = useState(false);
+  const [isManagingCards, setIsManagingCards] = useState(false);
 
   const { mutateAsync: updateSettings } = useUpdateFinanceSettings();
 
@@ -673,6 +761,13 @@ export const OverviewView: FC = () => {
         />
       )}
 
+      {summaryQuery.isRefetchError && (
+        <StaleState
+          isRetrying={summaryQuery.isFetching}
+          onRetry={() => void summaryQuery.refetch()}
+        />
+      )}
+
       {summary !== undefined && isEmptySummary(summary) && (
         <EmptyState
           icon={ReceiptText}
@@ -692,6 +787,7 @@ export const OverviewView: FC = () => {
         <SummaryContent
           summary={summary}
           onEditReminders={() => setIsEditingReminders(true)}
+          onManageCards={() => setIsManagingCards(true)}
         />
       )}
 
@@ -709,6 +805,13 @@ export const OverviewView: FC = () => {
               await updateSettings(next);
               setIsEditingReminders(false);
             }}
+          />
+        )}
+
+        {isManagingCards && (
+          <CreditCardsDialog
+            key="cards"
+            onClose={() => setIsManagingCards(false)}
           />
         )}
       </DialogPresence>

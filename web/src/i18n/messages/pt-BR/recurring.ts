@@ -43,6 +43,7 @@ export default {
     scheduleOpen: 'A partir de <start></start>, sem data final',
     scheduleRange: 'De <start></start> a <end></end>',
     category: 'Categoria',
+    card: 'Cartão',
     paymentMethod: 'Forma de pagamento',
     account: 'Conta bancária ou cartão',
     notes: 'Observações',

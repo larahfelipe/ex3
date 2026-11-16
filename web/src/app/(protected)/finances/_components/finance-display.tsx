@@ -36,6 +36,8 @@ import { cn } from '@/lib/utils';
 
 type ChangeEntry = Record<'from' | 'to', unknown>;
 
+type RecordedCard = Record<'name' | 'lastFourDigits', string>;
+
 type FinancesTranslator = Translator<'finances'>;
 
 const CHANGED_FIELDS = [
@@ -47,6 +49,8 @@ const CHANGED_FIELDS = [
   'notes',
   'amount',
   'dueDate',
+  'originalDueDate',
+  'creditCard',
   'effectiveFrom',
   'entryDate',
   'principalAmount',
@@ -228,6 +232,7 @@ const MONEY_FIELDS = new Set([
 const DAY_FIELDS = new Set([
   'effectiveFrom',
   'dueDate',
+  'originalDueDate',
   'entryDate',
   'endDate',
   'paidOn',
@@ -262,6 +267,11 @@ const recordedTextOf = (
   if (typeof value === 'boolean')
     return value ? t('history.yes') : t('history.no');
   if (typeof value === 'number') return String(value);
+  if (field === 'creditCard' && isRecordedCard(value))
+    return t('history.card', {
+      name: value.name,
+      lastFour: value.lastFourDigits
+    });
   if (typeof value !== 'string') return JSON.stringify(value);
   if (MONEY_FIELDS.has(field) && isStorableDecimal(value))
     return formatMoney(value, currency);
@@ -275,6 +285,14 @@ const recordedTextOf = (
 
   return value;
 };
+
+const isRecordedCard = (value: unknown): value is RecordedCard =>
+  typeof value === 'object' &&
+  value !== null &&
+  'name' in value &&
+  typeof value.name === 'string' &&
+  'lastFourDigits' in value &&
+  typeof value.lastFourDigits === 'string';
 
 const isChangeEntry = (value: unknown): value is ChangeEntry =>
   typeof value === 'object' &&

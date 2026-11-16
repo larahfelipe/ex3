@@ -7,7 +7,12 @@ import { describe, it } from 'node:test';
 import { translatorOf } from '@/i18n/translator';
 import { renderWithIntl, textOf } from '@/test/intl';
 
-import { expenseFormSchemaFor, newBillOf } from './expense-form-dialog';
+import { NO_CARD } from './credit-card-fields';
+import {
+  expenseChangesOf,
+  expenseFormSchemaFor,
+  newBillOf
+} from './expense-form-dialog';
 import { EMPTY_DESCRIPTION_FORM } from './finance-form';
 import { PaidOnShortcuts } from './payment-form-dialog';
 
@@ -24,6 +29,7 @@ const BILL = {
   amount: '180.4',
   currency: 'BRL',
   dueDate: '2026-11-20',
+  creditCardId: NO_CARD,
   repeats: false,
   frequency: 'MONTHLY',
   amountKind: 'variable',
@@ -55,6 +61,16 @@ describe('a new bill', () => {
     );
   });
 
+  it('ends a repeating bill today or later, even when it started earlier', () => {
+    const repeating = { repeats: true, dueDate: '2026-11-01' };
+
+    assert.deepEqual(issuesOf({ ...repeating, endDate: '2026-11-10' }), [
+      ['endDate', 'Escolha hoje ou uma data posterior']
+    ]);
+    assert.deepEqual(issuesOf({ ...repeating, endDate: TODAY }), []);
+    assert.deepEqual(issuesOf({ ...repeating, endDate: '2031-03-31' }), []);
+  });
+
   it('is added as itself while it does not repeat', () => {
     const draft = schema.parse(BILL);
 
@@ -69,7 +85,8 @@ describe('a new bill', () => {
         notes: null,
         amount: '180.4',
         currency: 'BRL',
-        dueDate: '2026-11-20'
+        dueDate: '2026-11-20',
+        creditCardId: null
       }
     });
   });
@@ -89,6 +106,7 @@ describe('a new bill', () => {
         notes: null,
         amount: '180.4',
         currency: 'BRL',
+        creditCardId: null,
         frequency: 'MONTHLY',
         startDate: '2026-11-20',
         isVariable: true,
@@ -105,6 +123,73 @@ describe('a new bill', () => {
     assert.equal(open.kind, 'series');
     assert.equal(open.kind === 'series' && open.series.endDate, null);
     assert.equal(open.kind === 'series' && open.series.isVariable, false);
+  });
+
+  it('is charged to the card chosen while it is paid by credit card, repeating or not', () => {
+    const charged = (input: Partial<Record<keyof typeof BILL, unknown>>) =>
+      newBillOf(
+        schema.parse({
+          ...BILL,
+          paymentMethod: 'CREDIT_CARD',
+          creditCardId: 'card-1',
+          ...input
+        })
+      );
+    const cardOf = (newBill: ReturnType<typeof newBillOf>) =>
+      newBill.kind === 'bill'
+        ? newBill.bill.creditCardId
+        : newBill.series.creditCardId;
+
+    assert.equal(cardOf(charged({})), 'card-1');
+    assert.equal(
+      cardOf(charged({ repeats: true, endMode: 'never' })),
+      'card-1'
+    );
+    assert.equal(cardOf(charged({ creditCardId: NO_CARD })), null);
+    assert.equal(cardOf(charged({ paymentMethod: 'PIX' })), null);
+  });
+});
+
+describe('an edited bill', () => {
+  it('sends its own due date with the card, and lets the card go with another method', () => {
+    const changesOf = (input: Partial<Record<keyof typeof BILL, unknown>>) =>
+      expenseChangesOf(schema.parse({ ...BILL, ...input }), {
+        kind: 'ONE_TIME'
+      });
+
+    assert.deepEqual(
+      changesOf({ paymentMethod: 'CREDIT_CARD', creditCardId: 'card-1' }),
+      {
+        amount: '180.4',
+        dueDate: '2026-11-20',
+        creditCardId: 'card-1',
+        description: 'Conta de luz',
+        category: 'UTILITIES',
+        subcategory: null,
+        paymentMethod: 'CREDIT_CARD',
+        account: null,
+        notes: null
+      }
+    );
+    assert.equal(
+      changesOf({ paymentMethod: 'BOLETO', creditCardId: 'card-1' })
+        .creditCardId,
+      null
+    );
+  });
+
+  it('leaves the card of an installment to its plan', () => {
+    const changes = expenseChangesOf(
+      schema.parse({
+        ...BILL,
+        paymentMethod: 'CREDIT_CARD',
+        creditCardId: NO_CARD
+      }),
+      { kind: 'INSTALLMENT' }
+    );
+
+    assert.equal('creditCardId' in changes, false);
+    assert.equal(changes.paymentMethod, 'CREDIT_CARD');
   });
 });
 

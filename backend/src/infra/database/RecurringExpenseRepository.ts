@@ -25,13 +25,21 @@ import {
 import type { Page } from '@/interfaces';
 
 import {
+  billDatesOf,
+  cardPaymentMethodOf,
   changesOf,
+  chargedCardOf,
   deleteHistoryOf,
   expenseDescriptionOf,
   historyOf,
   impreciseFieldOf,
   OPEN_EXPENSE_WHERE,
-  recordFinanceEvent
+  recordedCardOf,
+  recordFinanceEvent,
+  toCreditCardSummary,
+  UNPAID_EXPENSE_WHERE,
+  WITH_CREDIT_CARD,
+  type WithCreditCard
 } from './FinanceRecords';
 import { PrismaClient } from './PrismaClient';
 
@@ -64,14 +72,19 @@ const statusWhere = (
 };
 
 const toRecurringExpense = (
-  row: RecurringExpenseRow,
+  row: RecurringExpenseRow & WithCreditCard,
   today: Date,
   earliestBills: ReadonlyMap<string, Date>
 ): RecurringExpense => {
   const status = recurringExpenseStatusOf(row, today);
   const next =
     status === 'ACTIVE'
-      ? nextBillDay(row, today, earliestBills.get(row.id) ?? null)
+      ? nextBillDay(
+          row,
+          today,
+          earliestBills.get(row.id) ?? null,
+          row.creditCard
+        )
       : null;
 
   return {
@@ -91,6 +104,9 @@ const toRecurringExpense = (
       row.currency
     ),
     nextDueDate: next === null ? null : formatCalendarDay(next),
+    creditCardId: row.creditCardId,
+    creditCard:
+      row.creditCard === null ? null : toCreditCardSummary(row.creditCard),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -107,6 +123,12 @@ const generateOccurrences = async (
     return row.generatedThrough;
 
   const days = occurrencesBetween(row, addDays(row.generatedThrough, 1), last);
+  const card =
+    days.length === 0 || row.creditCardId === null
+      ? null
+      : await transactionClient.creditCard.findUnique({
+          where: { id: row.creditCardId }
+        });
 
   if (days.length > 0)
     await transactionClient.expense.createMany({
@@ -115,9 +137,10 @@ const generateOccurrences = async (
         amount: row.amount,
         currency: row.currency,
         entryDate: day,
-        dueDate: day,
+        ...billDatesOf(card, day),
         occurrenceDate: day,
         recurringExpenseId: row.id,
+        creditCardId: card?.id ?? null,
         userId: row.userId
       })),
       skipDuplicates: true
@@ -229,6 +252,7 @@ export class RecurringExpenseRepository {
       this.prismaClient.recurringExpense.findMany({
         where,
         orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        include: WITH_CREDIT_CARD,
         skip: (page - 1) * pageSize,
         take: pageSize
       })
@@ -256,7 +280,8 @@ export class RecurringExpenseRepository {
 
     const rows = await this.prismaClient.recurringExpense.findMany({
       where: { userId, currency, ...statusWhere('ACTIVE', today) },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }]
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      include: WITH_CREDIT_CARD
     });
 
     const earliestBills = await earliestBillsOf(
@@ -274,7 +299,8 @@ export class RecurringExpenseRepository {
     const { id, userId, today } = params;
 
     const row = await this.prismaClient.recurringExpense.findFirst({
-      where: { id, userId }
+      where: { id, userId },
+      include: WITH_CREDIT_CARD
     });
 
     if (!row) return null;
@@ -291,30 +317,56 @@ export class RecurringExpenseRepository {
     return { ...toRecurringExpense(row, today, earliestBills), history };
   }
 
-  async add(params: RecurringExpenseRepository.AddParams) {
-    const { userId, through, ...series } = params;
+  async add(
+    params: RecurringExpenseRepository.AddParams
+  ): Promise<RecurringExpenseRepository.AddWrite> {
+    const { userId, through, creditCardId, ...series } = params;
 
-    return this.prismaClient.runSerializable(async (transactionClient) => {
-      const row = await transactionClient.recurringExpense.create({
-        data: {
-          ...series,
+    return this.prismaClient.runSerializable<RecurringExpenseRepository.AddWrite>(
+      async (transactionClient) => {
+        const card = await chargedCardOf(transactionClient, {
           userId,
-          generatedThrough: addDays(series.startDate, -1)
-        }
-      });
+          creditCardId,
+          current: null
+        });
 
-      await generateOccurrences(transactionClient, row, through);
+        if (card === 'card-not-found') return { outcome: card };
 
-      await recordFinanceEvent(transactionClient, {
-        userId,
-        recordType: 'RECURRING_EXPENSE',
-        recordId: row.id,
-        type: 'CREATED',
-        changes: series
-      });
+        const paymentMethod =
+          card === null
+            ? series.paymentMethod
+            : cardPaymentMethodOf(series.paymentMethod);
 
-      return row.id;
-    });
+        if (paymentMethod === 'card-method-mismatch')
+          return { outcome: paymentMethod };
+
+        const row = await transactionClient.recurringExpense.create({
+          data: {
+            ...series,
+            paymentMethod,
+            creditCardId: card?.id ?? null,
+            userId,
+            generatedThrough: addDays(series.startDate, -1)
+          }
+        });
+
+        await generateOccurrences(transactionClient, row, through);
+
+        await recordFinanceEvent(transactionClient, {
+          userId,
+          recordType: 'RECURRING_EXPENSE',
+          recordId: row.id,
+          type: 'CREATED',
+          changes: {
+            ...series,
+            paymentMethod,
+            ...(card !== null && { creditCard: recordedCardOf(card) })
+          }
+        });
+
+        return { outcome: 'written', id: row.id };
+      }
+    );
   }
 
   async update(
@@ -325,22 +377,25 @@ export class RecurringExpenseRepository {
       userId,
       effectiveFrom,
       through,
+      earliestEnd,
       endDate,
       isVariable,
-      ...patch
+      creditCardId,
+      ...requested
     } = params;
 
     return this.prismaClient.runSerializable<RecurringExpenseRepository.Write>(
       async (transactionClient) => {
         const current = await transactionClient.recurringExpense.findFirst({
-          where: { id, userId }
+          where: { id, userId },
+          include: WITH_CREDIT_CARD
         });
 
         if (!current) return { outcome: 'not-found' };
         if (current.cancelledAt !== null) return { outcome: 'cancelled' };
 
         const impreciseField = impreciseFieldOf(
-          { amount: patch.amount },
+          { amount: requested.amount },
           current.currency
         );
 
@@ -354,6 +409,15 @@ export class RecurringExpenseRepository {
         )
           return { outcome: 'end-before-start' };
 
+        // An end already saved may have passed; only a new one must be today or later.
+        if (
+          endDate !== undefined &&
+          endDate !== null &&
+          endDate.getTime() < earliestEnd.getTime() &&
+          endDate.getTime() !== current.endDate?.getTime()
+        )
+          return { outcome: 'end-before-today' };
+
         const latestEffectiveFrom = latestEffectiveFromOf(current, through);
 
         if (effectiveFrom.getTime() > latestEffectiveFrom.getTime())
@@ -362,7 +426,42 @@ export class RecurringExpenseRepository {
             latestEffectiveFrom: formatCalendarDay(latestEffectiveFrom)
           };
 
-        const changes = changesOf(current, { ...patch, isVariable, endDate });
+        const card = await chargedCardOf(transactionClient, {
+          userId,
+          creditCardId:
+            creditCardId === undefined ? current.creditCardId : creditCardId,
+          current: current.creditCard
+        });
+
+        if (card === 'card-not-found') return { outcome: card };
+
+        const requestedMethod =
+          requested.paymentMethod === undefined
+            ? current.paymentMethod
+            : requested.paymentMethod;
+        const paymentMethod =
+          card === null
+            ? requestedMethod
+            : cardPaymentMethodOf(requestedMethod);
+
+        if (paymentMethod === 'card-method-mismatch')
+          return { outcome: paymentMethod };
+
+        const patch = {
+          ...requested,
+          ...((requested.paymentMethod !== undefined ||
+            paymentMethod !== current.paymentMethod) && { paymentMethod })
+        };
+        const isChangingCard = (card?.id ?? null) !== current.creditCardId;
+        const changes = {
+          ...changesOf(current, { ...patch, isVariable, endDate }),
+          ...(isChangingCard && {
+            creditCard: {
+              from: recordedCardOf(current.creditCard),
+              to: recordedCardOf(card)
+            }
+          })
+        };
 
         if (Object.keys(changes).length === 0) return { outcome: 'written' };
 
@@ -402,6 +501,7 @@ export class RecurringExpenseRepository {
             ...patch,
             isVariable,
             endDate,
+            ...(isChangingCard && { creditCardId: card?.id ?? null }),
             ...(endDate !== undefined &&
               endDate !== null && {
                 generatedThrough: minDay(generatedThrough, endDate)
@@ -409,17 +509,35 @@ export class RecurringExpenseRepository {
           }
         });
 
+        const following = {
+          recurringExpenseId: id,
+          occurrenceDate: { gte: effectiveFrom },
+          isCustomized: false,
+          ...UNPAID_EXPENSE_WHERE
+        } satisfies Prisma.ExpenseWhereInput;
+
         if (Object.values(patch).some((value) => value !== undefined))
           await transactionClient.expense.updateMany({
-            where: {
-              recurringExpenseId: id,
-              occurrenceDate: { gte: effectiveFrom },
-              isCustomized: false,
-              ...OPEN_EXPENSE_WHERE,
-              payments: { none: { voidedAt: null } }
-            },
+            where: following,
             data: patch
           });
+
+        if (isChangingCard) {
+          const occurrences = await transactionClient.expense.findMany({
+            where: following,
+            select: { id: true, occurrenceDate: true }
+          });
+
+          for (const { id: occurrenceId, occurrenceDate } of occurrences)
+            if (occurrenceDate !== null)
+              await transactionClient.expense.update({
+                where: { id: occurrenceId },
+                data: {
+                  creditCardId: card?.id ?? null,
+                  ...billDatesOf(card, occurrenceDate)
+                }
+              });
+        }
 
         await generateOccurrences(transactionClient, updated, through);
 
@@ -580,6 +698,7 @@ namespace RecurringExpenseRepository {
   export type GetByIdParams = Record<'id' | 'userId', string>;
   export type AddParams = ExpenseDescription & {
     userId: string;
+    creditCardId: string | null;
     amount: string;
     isVariable: boolean;
     currency: string;
@@ -593,7 +712,8 @@ namespace RecurringExpenseRepository {
     Partial<Record<'amount', string>> &
     Partial<Record<'isVariable', boolean>> &
     Partial<Record<'endDate', Date | null>> &
-    Record<'effectiveFrom' | 'through', Date>;
+    Partial<Record<'creditCardId', string | null>> &
+    Record<'effectiveFrom' | 'through' | 'earliestEnd', Date>;
   export type CancelParams = GetByIdParams &
     Record<'effectiveFrom' | 'through', Date>;
   export type Write =
@@ -603,6 +723,11 @@ namespace RecurringExpenseRepository {
     | { outcome: 'cancelled' }
     | { outcome: 'has-payments' }
     | { outcome: 'end-before-start' }
+    | { outcome: 'end-before-today' }
     | { outcome: 'end-before-paid-occurrence' }
-    | { outcome: 'effective-after-horizon'; latestEffectiveFrom: string };
+    | { outcome: 'effective-after-horizon'; latestEffectiveFrom: string }
+    | CardRefusal;
+  export type CardRefusal =
+    { outcome: 'card-not-found' } | { outcome: 'card-method-mismatch' };
+  export type AddWrite = { outcome: 'written'; id: string } | CardRefusal;
 }

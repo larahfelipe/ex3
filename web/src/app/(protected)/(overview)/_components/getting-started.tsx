@@ -18,7 +18,7 @@ import { useTranslations } from 'use-intl';
 
 import type { GetPortfolioPositionsResponseData } from '@/app/api/v1/portfolio';
 import type { Portfolio } from '@/app/api/v1/portfolios';
-import { APP_ROUTES, APP_STORAGE_KEYS } from '@/common/constants';
+import { APP_ROUTES, APP_STORAGE_KEYS, STATUS_TONES } from '@/common/constants';
 import { SectionHeader } from '@/components/section-header';
 import { Button, Card, CardContent } from '@/components/ui';
 import { usePositions } from '@/hooks/use-portfolio';
@@ -67,7 +67,7 @@ const LEAVE_CLASS =
   'animate-out fade-out-0 fill-mode-forwards duration-200 ease-in motion-reduce:animate-none';
 
 const MARKER_CLASSES: Readonly<Record<StepStatus, string>> = {
-  done: 'border-positive/40 bg-positive/10 text-positive',
+  done: STATUS_TONES.success,
   current: 'border-primary/50 bg-primary/10 text-primary',
   upcoming: 'text-muted-foreground'
 };

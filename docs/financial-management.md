@@ -24,7 +24,7 @@ meant for it.
 | Web | TanStack Query with keys in `lib/react-query.ts`, one hook module per domain, React Hook Form with zod, Radix primitives, custom SVG/HTML charts, `QuerySection` states | Reused. The charts are the existing custom ones, with no new chart library |
 | Notifications | None: no email provider, no push, no scheduler or queue | Reminders are in-app only (see [Notifications](#notifications)) |
 | Income or cash balance | None. Portfolio value is invested wealth, not available cash | No projected balance: there is no compatible data to compute one from |
-| Accounts and cards | No entity | A free-text `account` field on each record |
+| Accounts and cards | No entity | A free-text `account` field on each record. Credit cards later became their own entity (see [Credit cards](#credit-cards)) |
 | Tests | `node:test` unit tests and integration tests against Postgres; no web test runner | Backend unit and integration tests; web unit tests of the module's wording, formats and charts (see [`i18n.md`](i18n.md#tests)); the web is also checked with `lint`, `typecheck`, `build` and by rendering it |
 
 ## Integration
@@ -60,15 +60,29 @@ row.
 
 | Table | Holds |
 | --- | --- |
-| `expenses` | Every bill: one-time, an installment of a plan (`installmentPlanId`, `installmentNumber`) or an occurrence of a series (`recurringExpenseId`, `occurrenceDate`). Holds `settledAmount` and `settledOn`, recomputed from the payments, `cancelledAt`, and `isCustomized` for an installment or occurrence edited on its own |
+| `expenses` | Every bill: one-time, an installment of a plan (`installmentPlanId`, `installmentNumber`) or an occurrence of a series (`recurringExpenseId`, `occurrenceDate`). Holds `settledAmount` and `settledOn`, recomputed from the payments, `cancelledAt`, and `isCustomized` for an installment or occurrence edited on its own. Charged to a card, it holds `creditCardId`, and `originalDueDate` keeps the bill's own due date while `dueDate` is the card's |
 | `expense_payments` | Payments: `amount` and `discount` settle the bill, `fees` are paid on top, and `voidedAt` keeps a voided payment as history |
-| `installment_plans` | The plan's description, `frequency` (`MONTHLY` by default) and optional cash price (`principalAmount`). Totals are computed from its installments |
-| `recurring_expenses` | The rule (`frequency`, `startDate`, `endDate`), the amount, `isVariable`, and `generatedThrough`, the last day generation covered |
+| `installment_plans` | The plan's description, `frequency` (`MONTHLY` by default), optional cash price (`principalAmount`) and the `creditCardId` its installments are charged to. Totals are computed from its installments |
+| `recurring_expenses` | The rule (`frequency`, `startDate`, `endDate`), the amount, `isVariable`, `generatedThrough`, the last day generation covered, and the `creditCardId` its bills are charged to |
+| `credit_cards` | A card to charge bills to: `name`, `lastFourDigits`, `brand` (`VISA` or `MASTERCARD`), the statement's `closingDay` and `dueDay`, and `deletedAt` once removed. No full number, security code or expiry is stored |
 | `finance_events` | Append-only history: `recordType`, `recordId`, `type`, and `changes` as each field's `from` and `to` |
 | `finance_settings` | One row per user: `reminderLeadDays`, and the switches `remindOverdue`, `remindUpcomingBills` and `remindUpcomingInstallments` (all on by default) |
 
 One bills table serves all three kinds. Listing, filtering, the calendar and
 every aggregate read one table, and a payment always targets a bill.
+
+Migration `20261115000000_credit_cards` adds the `CardBrand` enum and the
+`credit_cards` table. It also adds nullable columns: `creditCardId` and
+`originalDueDate` on `expenses`, and `creditCardId` on `recurring_expenses`.
+No existing row changes. Check constraints enforce three rules:
+
+* `lastFourDigits` is exactly four digits;
+* both days are from 1 to 31, and differ;
+* a bill's `creditCardId` and `originalDueDate` are set or empty together.
+
+Migration `20261115120000_installment_plan_cards` adds a nullable
+`creditCardId`, with its index, to `installment_plans`. No existing row
+changes.
 
 ### Categories
 
@@ -265,6 +279,10 @@ not go stale overnight. Creating a bill never records a payment.
   their values.
   * An earlier `endDate` removes the unpaid occurrences after it. It is
     refused (`409`) when one of those has a payment.
+  * A new `endDate` is *today* or later, with a day of tolerance for the
+    client's time zone, and not before the start (`400` on `endDate`). An end
+    already saved that has since passed can be sent back unchanged, so an
+    edit of anything else on an ended series still saves.
   * Frequency and start define which days the series falls on, so they
     cannot change.
 * **Stop** (`cancel`) from `effectiveFrom`:
@@ -282,6 +300,86 @@ not go stale overnight. Creating a bill never records a payment.
   the bills generated, whichever comes first. It used to come from the rule
   alone, so a bill moved or cancelled still showed its old day as the next
   bill.
+
+### Credit cards
+
+* **Identification only.** A card is a name (up to 40 characters), the last
+  four digits, the brand and the statement's closing and due days (1–31,
+  different).
+  * No full number, security code, expiry or other credential is asked for
+    or stored, and the module processes no payment.
+  * A name holding 12 or more digits, alone or grouped by spaces or dashes,
+    is refused, because that is the shape of a card number.
+* **Statement** (`domain/CardStatement.ts`).
+  * A statement is named by the month it falls due in, and is due on the due
+    day. It closes on the closing day of that same month when the closing
+    day comes first, otherwise of the month before.
+  * A charge made before a statement closes is on it. A charge made on the
+    closing day or after is on the next statement.
+  * A day past the end of a shorter month falls on its last day, as monthly
+    schedules do.
+  * Examples:
+    * closing 3, due 10: a bill due 2 March is paid on 10 March, and one due
+      3 March on 10 April;
+    * closing 25, due 5: a bill due 20 December is paid on 5 January, and one
+      due 26 December on 5 February;
+    * closing 30, due 7: a bill due 27 February 2027 is paid on 7 March,
+      since that statement closes on 28 February.
+* **A bill charged to a card** is charged on its own due date, which is kept
+  as `originalDueDate`.
+  * `dueDate` becomes the statement's due date. Status, overdue, alerts, the
+    calendar and every aggregate follow it, because it is the day the money
+    is due.
+  * The card's payment method is `CREDIT_CARD`. No method becomes it; any
+    other is refused (`400` on `paymentMethod`).
+  * On `PATCH`, `dueDate` is the bill's own date. The card's date is worked
+    out again only when the card or that date changes, so a form that sends
+    every field back moves nothing.
+  * `creditCardId: null` takes the bill off its card and returns `dueDate` to
+    the bill's own date. Like any edit, this applies to a paid bill too.
+* **A recurring expense charged to a card** charges each occurrence on its
+  occurrence date and makes it due on that statement's due date;
+  `nextDueDate` follows.
+  * A card change applies from `effectiveFrom` to the occurrences after it
+    with no payment that were not edited on their own. Earlier occurrences
+    keep their dates.
+  * *Add bill* with "Repeat this bill" creates the series on the card chosen.
+* **An installment plan charged to a card** charges each installment on its
+  own due date, as the plan's schedule gives it, and makes it due on that
+  statement's due date.
+  * The card is the plan's: every installment holds the plan's
+    `creditCardId`, and one installment cannot take another card or leave
+    it on its own (`400` on `creditCardId`).
+  * A card change on the plan moves every installment with no active
+    payment, edited on its own or not, to the new card's statements, or back
+    to its own date when the card is removed. Installments with payments keep
+    the card and date they were paid against.
+  * A reschedule creates the new installments on the plan's card.
+  * Edge case: in a short month, an installment's own date falls back to the
+    month's last day, which can put it on or past a closing day the others
+    fall before. With closing 30 and due 7, installments of a plan from 29
+    January are charged on 29 January, 28 February and 29 March. The first is
+    paid on 7 February and the next two on 7 April, so the March statement
+    has none. The form's preview gives the date the first installment is
+    paid on before saving, and the plan's installments show each one's.
+* **New days move the open bills.**
+  * Every bill on the card that is open and has no active payment is dated
+    again from its own due date, and each move is recorded in its history.
+  * Paid and partly paid bills keep their dates.
+  * The response's `movedBills` counts the bills moved. Occurrences a series
+    generates later follow the new days.
+* **Deletion keeps the bills.**
+  * A deleted card gets `deletedAt`, leaves the list and cannot be chosen
+    again.
+  * Bills and series charged to it keep it and their dates, and show it as
+    removed.
+  * Editing anything else on such a record keeps the card, and the card can
+    still be taken off it.
+  * A series on a deleted card keeps generating on the card's last days.
+* **History.** A card change is recorded as `creditCard`, with the card's
+  name, brand and last four digits, so it stays readable after the card is
+  edited or deleted. A change of the bill's own date is recorded as
+  `originalDueDate`, beside `dueDate`.
 
 ### History
 
@@ -322,32 +420,42 @@ that depend on *today* accept `today`.
 | GET | `/v1/finances/alerts` | query `today?` | `200` `{ reminders, overdue, dueSoon }` |
 | GET / PUT | `/v1/finances/settings` | body `{ reminderLeadDays, remindOverdue, remindUpcomingBills, remindUpcomingInstallments }`, every field required (lead days 0–30, the switches booleans) | `200` the settings / `{ settings, message }` |
 | GET | `/v1/finances/expenses` | query `page`, `pageSize`, `sortBy` (`dueDate`, `amount`, `description`, `createdAt`), `sortOrder`, `search`, `status` (a status, or `OPEN` for pending and overdue alike), `kind`, `category`, `currency`, `dueFrom`, `dueTo`, `minAmount`, `maxAmount`, `installmentPlanId`, `recurringExpenseId`, `today?` | `200` paginated `Expense` |
-| POST | `/v1/finances/expenses` | `{ description, category, subcategory?, amount, currency, dueDate, entryDate?, paymentMethod?, account?, notes? }` | `201` `{ id, message }` |
+| POST | `/v1/finances/expenses` | `{ description, category, subcategory?, amount, currency, dueDate, entryDate?, paymentMethod?, creditCardId?, account?, notes? }` (`dueDate` is the bill's own date; see [Credit cards](#credit-cards)) | `201` `{ id, message }` |
 | GET | `/v1/finances/expenses/:id` | query `today?` | `200` `Expense` with `payments` and `history` |
-| PATCH | `/v1/finances/expenses/:id` | any creation field except `currency`, plus `cancelled` | `200` `{ message }` |
+| PATCH | `/v1/finances/expenses/:id` | any creation field except `currency`, plus `cancelled`; `creditCardId: null` takes the bill off its card | `200` `{ message }` |
 | DELETE | `/v1/finances/expenses/:id` | — | `200` `{ message }` |
 | POST | `/v1/finances/expenses/:id/payments` | `{ amount, discount?, fees?, paidOn, method?, notes? }` | `201` `{ payment, message }` |
 | PATCH | `/v1/finances/expenses/:id/payments/:paymentId` | any payment field | `200` `{ payment, message }` |
 | DELETE | `/v1/finances/expenses/:id/payments/:paymentId` | — (voids the payment, which stays as history) | `200` `{ message }` |
 | GET | `/v1/finances/payments` | query `page`, `pageSize`, `currency`, `paidFrom`, `paidTo`, `includeVoided` | `200` paginated payments with the bill's `description`, `category` and `currency` |
 | GET | `/v1/finances/installment-plans` | query `page`, `pageSize`, `currency`, `status` | `200` paginated `InstallmentPlan` |
-| POST | `/v1/finances/installment-plans` | `{ description, category, …, currency, totalAmount` **or** `installmentAmount, installmentCount, firstDueDate, frequency?` (default `MONTHLY`), `principalAmount?, entryDate? }` | `201` `{ id, message }` |
+| POST | `/v1/finances/installment-plans` | `{ description, category, …, currency, creditCardId?, totalAmount` **or** `installmentAmount, installmentCount, firstDueDate, frequency?` (default `MONTHLY`), `principalAmount?, entryDate? }` | `201` `{ id, message }` |
 | GET | `/v1/finances/installment-plans/:id` | query `today?` | `200` plan with `installments`, `keptThroughInstallment` and `history` |
-| PATCH | `/v1/finances/installment-plans/:id` | descriptive fields, `principalAmount` | `200` `{ message }` |
+| PATCH | `/v1/finances/installment-plans/:id` | descriptive fields, `principalAmount`, `creditCardId` (`null` takes the plan off its card) | `200` `{ message }` |
 | POST | `/v1/finances/installment-plans/:id/reschedule` | `{ remainingAmount, remainingCount, nextDueDate }` | `200` `{ message }` |
 | POST | `/v1/finances/installment-plans/:id/cancel` | — | `200` `{ message }` |
 | DELETE | `/v1/finances/installment-plans/:id` | — | `200` `{ message }` |
 | GET | `/v1/finances/recurring-expenses` | query `page`, `pageSize`, `currency`, `status`, `today?` | `200` paginated `RecurringExpense` |
-| POST | `/v1/finances/recurring-expenses` | `{ description, category, …, amount, isVariable?, currency, frequency, startDate, endDate? }` | `201` `{ id, message }` |
+| POST | `/v1/finances/recurring-expenses` | `{ description, category, …, amount, isVariable?, currency, creditCardId?, frequency, startDate, endDate? }` | `201` `{ id, message }` |
 | GET | `/v1/finances/recurring-expenses/:id` | query `today?` | `200` series with `history` |
-| PATCH | `/v1/finances/recurring-expenses/:id` | descriptive fields, `amount`, `isVariable`, `endDate`, `effectiveFrom?` | `200` `{ message }` |
+| PATCH | `/v1/finances/recurring-expenses/:id` | descriptive fields, `amount`, `isVariable`, `creditCardId`, `endDate`, `effectiveFrom?` | `200` `{ message }` |
 | POST | `/v1/finances/recurring-expenses/:id/cancel` | `{ effectiveFrom? }` | `200` `{ message }` |
 | DELETE | `/v1/finances/recurring-expenses/:id` | — | `200` `{ message }` |
+| GET | `/v1/finances/credit-cards` | — | `200` the cards not deleted, by name, each with `unpaidBillCount` |
+| POST | `/v1/finances/credit-cards` | `{ name, lastFourDigits, brand, closingDay, dueDay }` | `201` `{ id, message }` |
+| PATCH | `/v1/finances/credit-cards/:id` | any creation field | `200` `{ message, movedBills }` |
+| DELETE | `/v1/finances/credit-cards/:id` | — (the card is kept for its bills, see [Credit cards](#credit-cards)) | `200` `{ message }` |
 
 Status codes for a refused write:
 
-* `400`: a refused field, including an `effectiveFrom` past the occurrences
-  generated ahead.
+* `400`: a refused field. This includes:
+  * an `effectiveFrom` past the occurrences generated ahead;
+  * a card that is missing, deleted or another user's, on `creditCardId`;
+  * a payment method other than credit card for a bill, series or plan on a
+    card;
+  * a card on an installment, which follows its plan, on `creditCardId`;
+  * an end date before today, or before the start, on `endDate`;
+  * a card's equal closing and due days, on `dueDay`.
 * `409`: the record's state forbids it (cancelled, has payments, already
   paid, origin cancelled, an end date over a paid occurrence).
 * `422`: a domain rule forbids it:
@@ -404,6 +512,47 @@ payment goes through `POST /api/v1/finances/expenses/[id]/payments/create`.
   payable, the first and last due dates and the difference from the cash
   price. The payment form dates the payment today, offers the due date in one
   tap once it has passed, and says what the payment leaves owed.
+* **Cards.** The overview's *Credit cards* card lists up to four cards with
+  their days, and opens *Manage cards*. There, cards are added, edited and
+  deleted.
+  * The card form asks only for the name, the last four digits, the brand
+    (Visa or Mastercard, each with its logo) and the two days, and says that
+    nothing else is stored.
+  * Editing the days of a card with open bills says how many follow the new
+    days. The toast then says how many moved.
+  * Deleting a card says that its bills keep it and their dates.
+* **Choosing a card.** A bill's, series' or plan's "More details" offers the
+  card once the payment method is a credit card. A new card can be added from
+  there and is chosen at once.
+  * With a card chosen, the bill's date is labelled as the bill's own due
+    date, and a live note gives the date the bill will be paid on and the
+    statement's closing day before anything is saved.
+  * For a series, the note gives the first bill's date and the card's days;
+    for a plan, the date the first installment is paid on and the card's
+    days, which each installment follows.
+  * Editing a plan offers its card, and says that a new one applies to every
+    installment not yet paid.
+  * Editing an installment on a card shows the plan's card read-only, with
+    the payment method fixed at credit card, and says to change it on the
+    plan. An installment with no card offers none.
+* **Showing the card.** Bill, series and plan rows and dialogs show the
+  card's logo, name and last four digits ("•••• 1234", read aloud as "ending in
+  1234"). A deleted card shows a *Removed* mark.
+  * A bill on a card shows the card's due date, with the bill's own date
+    beneath it.
+  * The history names the card by name and last four digits.
+* **Status badges** use one tone per meaning, from `STATUS_TONES`
+  (`web/src/common/constants.ts`), on every page:
+  * success (`--positive`): paid, an active plan or series, an active
+    portfolio, a finished import step;
+  * pending (`--info`): pending bills;
+  * warning (`--warning`): rows that need attention;
+  * error (`--negative`): overdue bills and failed rows;
+  * inactive (muted): cancelled, ended, completed and skipped.
+
+  The brand orange is never a status, because in the light theme it is
+  indistinguishable from the warning amber. A badge's name and icon still
+  carry the status without its colour.
 * The bills list keeps search, status and sort in view, folds the rarer
   filters into a panel, shows each filter in force as a removable chip, and
   offers *Pay* on each open bill.
@@ -437,7 +586,8 @@ The alerts endpoint already computes what such a job would send.
 1. Apply the migrations: `cd backend && pnpm exec prisma migrate deploy`.
    `20261111000000_streamlined_expense_categories` rewrites the category of
    existing rows (see [Categories](#categories)); take a backup first where
-   the data matters.
+   the data matters. `20261115000000_credit_cards` only adds a table and
+   nullable columns.
    Compose's `migrate` service does this.
 2. Start the API and the web as in the [README](../README.md#setup). Sign in.
    *Finances* is in the navigation.
@@ -463,18 +613,30 @@ A manual check that covers each rule:
 8. Pay an overdue bill with "Due date", and add interest and late
    fees through their button. The payment is dated on the due date and the
    fees do not reduce what is owed.
+9. Add a card closing on the 3rd and due on the 10th. Add a bill paid by
+   credit card on that card, due on the 2nd of next month. The note says it
+   is paid on the 10th of that month; set the bill's date to the 3rd, and
+   the note moves it a month on. Save it: the list shows the card's date and
+   the dialog both dates.
+10. Change the card's closing day to the 5th. The form says one open bill
+    follows the new days; after saving, the bill is due on the 10th of its
+    own month, and its history records the move. Pay another bill on the card, edit
+    the days again, and that bill keeps its date.
+11. Delete the card. Its bills keep their dates and show the card as
+    removed.
 
 ## Tests
 
 | File | Tests | Covers |
 | --- | --- | --- |
 | `domain/CalendarDay.test.ts` | 11 | Parsing, UTC arithmetic, month-end and leap years |
-| `domain/Recurrence.test.ts` | 11 | Occurrences by frequency, anchoring on the 31st and on 29 February, end date, next occurrence, status |
+| `domain/Recurrence.test.ts` | 15 | Occurrences by frequency, anchoring on the 31st and on 29 February, end date, next occurrence, including on a card, status |
+| `domain/CardStatement.test.ts` | 11 | The statement a charge lands on: before, on and after the closing day, a closing day after the due day, the turn of the year, short months, and a due date always after the charge |
 | `domain/InstallmentSchedule.test.ts` | 9 | Exact split, monthly, weekly and yearly schedules, plan totals and status, reschedulable installments |
 | `domain/ExpenseSettlement.test.ts` | 10 | Settling from active payments, over-settlement, the payment day, status by reference day |
 | `domain/FinanceMoney.test.ts` | 10 | Minor units, precision, split, monthly equivalent, ratios, sums |
 | `domain/FinanceAggregates.test.ts` | 12 | Totals, months, categories, kinds, commitments, change, calendar days, due soon and the reminder switch per kind |
-| `routes/Finances.integration.ts` | 59 | Every route against Postgres:<br>• validation;<br>• user isolation;<br>• partial, corrected, voided and concurrent payments;<br>• transaction rollback;<br>• plans by frequency and reschedules;<br>• series generation, its concurrency, edits, stop and delete, including edits and stops when generation lags or the day is past it;<br>• summary with the total outstanding, calendar, reports, alerts and the reminder switches;<br>• account deletion |
+| `routes/Finances.integration.ts` | 80 | Every route against Postgres:<br>• validation;<br>• user isolation;<br>• partial, corrected, voided and concurrent payments;<br>• transaction rollback;<br>• plans by frequency and reschedules;<br>• series generation, its concurrency, edits, stop and delete, including edits and stops when generation lags or the day is past it, and an end today or later, a passed end kept when sent back;<br>• summary with the total outstanding, calendar, reports, alerts and the reminder switches;<br>• cards: create, edit and delete, validation and isolation, the card's due date and overdue, changing a bill's card or own date, moving only unpaid bills when the days change, deleting a card, a series' bills;<br>• plans on a card: each installment on the statement of its own date, a card refused with another method or when deleted or someone else's, a card change moving the unpaid installments, customized ones too, a reschedule on the card, and an installment refused a card of its own;<br>• account deletion |
 
 The integration suite runs the investment suites in the same process. They
 are the regression check that the module left that behavior unchanged.
@@ -497,7 +659,12 @@ are the regression check that the module left that behavior unchanged.
 * **Interest** is modeled as the financing cost over the cash price, and as
   fees entered on each payment. No interest rate is computed.
 * **Categories** are a fixed list, plus a free-text subcategory.
-* **Accounts and cards** are free text, not entities.
+* **Accounts** are free text, not entities.
+* **Cards**:
+  * only Visa and Mastercard;
+  * plans are not charged to cards;
+  * the card's days are the same every month, with no statement edited on
+    its own and no holiday or weekend shift.
 * **Currencies** are never converted. Each currency is viewed on its own.
 * **Report span**: a report covers at most 24 months.
 * **Recurring start**: a series starts at most 12 months back.
@@ -510,7 +677,10 @@ are the regression check that the module left that behavior unchanged.
 * **Chart palette**: the existing dark-theme chart tokens exceed the
   validator's lightness band (`chart-2` at L 0.759). The palette is shared
   with the investment charts and was left unchanged.
-* **Web tests**: the web has no test runner (TD-058). The pages were checked
-  by rendering them at 1280 px and 390 px in the app's dark theme. The
+* **Web tests**: the web's unit tests (`pnpm test`) cover the module's
+  wording, formats, charts and form rules, not whole pages. The pages were
+  checked by rendering them at 1280 px and 390 px in the app's dark theme. The
   total outstanding, the reminder switches, the unpaid filter and the plan
-  frequency were rendered at 1440, 1024 and 390 px.
+  frequency were rendered at 1440, 1024 and 390 px. The card dialogs, the
+  card choice and the card labels were not rendered in a browser; only the
+  brand logos were rasterized, at 1× and 2× on both themes.

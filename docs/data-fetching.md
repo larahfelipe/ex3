@@ -55,6 +55,7 @@ arrived without a status and every error became a 500 on the client.
 | `useRecurringExpenses` / `useRecurringExpense` | `GET /v1/finances/recurring-expenses[/:id]` | `['finances', 'recurring-expenses', filters, today]` / `['finances', 'recurring-expense', id, today]` | `/finances/recurring`, and its dialog (`?series=`) | The list, then one series with its history |
 | `useFinanceCalendar` | `GET /v1/finances/calendar` | `['finances', 'calendar', params]` | `/finances/calendar` | The month's per-day counts; the chosen day's bills come from `useExpenses` |
 | `useFinanceReport` | `GET /v1/finances/reports` | `['finances', 'report', params]` | `/finances/reports` | Totals, months, categories and kinds of the span, compared with the previous span |
+| `useCreditCards` | `GET /v1/finances/credit-cards` | `['finances', 'credit-cards']` | The overview's *Credit cards* card and *Manage cards*; the card choice in the bill, series and plan forms | The user's cards with their days and open-bill count, shared by every place that names a card |
 
 Every finance query sends `today`, the browser's calendar day
 (`useReferenceDay`), because what is overdue depends on the person's day, not
@@ -68,6 +69,11 @@ mutation waits for that, so the form stays pending until the page shows the
 change; a reload that fails still lets the toast say the write was saved, and
 leaves its query to show the error. The rules behind the figures are in
 [`financial-management.md`](financial-management.md).
+
+A card's writes (`useCreateCreditCard`, `useUpdateCreditCard`,
+`useDeleteCreditCard`) follow the same rule, because new days can move bills,
+so every finance query reloads. A card added from a bill form is chosen once
+the list has reloaded with it.
 
 Every portfolio-scoped query uses `skipToken` until the portfolio has arrived:
 none of them fires with an undefined `portfolioId`.

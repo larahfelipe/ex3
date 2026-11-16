@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 
 import {
+  CreditCardRepository,
   ExpenseRepository,
   FinanceReportRepository,
   InstallmentPlanRepository,
@@ -9,12 +10,15 @@ import {
 import {
   CancelInstallmentPlanService,
   CancelRecurringExpenseService,
+  CreateCreditCardService,
   CreateExpenseService,
   CreateInstallmentPlanService,
   CreateRecurringExpenseService,
+  DeleteCreditCardService,
   DeleteExpenseService,
   DeleteInstallmentPlanService,
   DeleteRecurringExpenseService,
+  GetAllCreditCardsService,
   GetAllExpensesService,
   GetAllInstallmentPlansService,
   GetAllPaymentsService,
@@ -29,6 +33,7 @@ import {
   GetRecurringExpenseService,
   RecordPaymentService,
   RescheduleInstallmentPlanService,
+  UpdateCreditCardService,
   UpdateExpenseService,
   UpdateFinanceSettingsService,
   UpdateInstallmentPlanService,
@@ -39,12 +44,15 @@ import {
 
 import { CancelInstallmentPlanController } from './CancelInstallmentPlanController';
 import { CancelRecurringExpenseController } from './CancelRecurringExpenseController';
+import { CreateCreditCardController } from './CreateCreditCardController';
 import { CreateExpenseController } from './CreateExpenseController';
 import { CreateInstallmentPlanController } from './CreateInstallmentPlanController';
 import { CreateRecurringExpenseController } from './CreateRecurringExpenseController';
+import { DeleteCreditCardController } from './DeleteCreditCardController';
 import { DeleteExpenseController } from './DeleteExpenseController';
 import { DeleteInstallmentPlanController } from './DeleteInstallmentPlanController';
 import { DeleteRecurringExpenseController } from './DeleteRecurringExpenseController';
+import { GetAllCreditCardsController } from './GetAllCreditCardsController';
 import { GetAllExpensesController } from './GetAllExpensesController';
 import { GetAllInstallmentPlansController } from './GetAllInstallmentPlansController';
 import { GetAllPaymentsController } from './GetAllPaymentsController';
@@ -59,6 +67,7 @@ import { GetInstallmentPlanController } from './GetInstallmentPlanController';
 import { GetRecurringExpenseController } from './GetRecurringExpenseController';
 import { RecordPaymentController } from './RecordPaymentController';
 import { RescheduleInstallmentPlanController } from './RescheduleInstallmentPlanController';
+import { UpdateCreditCardController } from './UpdateCreditCardController';
 import { UpdateExpenseController } from './UpdateExpenseController';
 import { UpdateFinanceSettingsController } from './UpdateFinanceSettingsController';
 import { UpdateInstallmentPlanController } from './UpdateInstallmentPlanController';
@@ -95,6 +104,22 @@ export const cancelRecurringExpenseControllerHandler = (
     CancelRecurringExpenseController.getInstance(cancelRecurringExpenseService);
 
   return cancelRecurringExpenseController.handle(req, res);
+};
+
+export const createCreditCardControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const creditCardRepository = CreditCardRepository.getInstance();
+
+  const createCreditCardService =
+    CreateCreditCardService.getInstance(creditCardRepository);
+
+  const createCreditCardController = CreateCreditCardController.getInstance(
+    createCreditCardService
+  );
+
+  return createCreditCardController.handle(req, res);
 };
 
 export const createExpenseControllerHandler = (req: Request, res: Response) => {
@@ -140,6 +165,22 @@ export const createRecurringExpenseControllerHandler = (
   return createRecurringExpenseController.handle(req, res);
 };
 
+export const deleteCreditCardControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const creditCardRepository = CreditCardRepository.getInstance();
+
+  const deleteCreditCardService =
+    DeleteCreditCardService.getInstance(creditCardRepository);
+
+  const deleteCreditCardController = DeleteCreditCardController.getInstance(
+    deleteCreditCardService
+  );
+
+  return deleteCreditCardController.handle(req, res);
+};
+
 export const deleteExpenseControllerHandler = (req: Request, res: Response) => {
   const expenseRepository = ExpenseRepository.getInstance();
 
@@ -181,6 +222,22 @@ export const deleteRecurringExpenseControllerHandler = (
     DeleteRecurringExpenseController.getInstance(deleteRecurringExpenseService);
 
   return deleteRecurringExpenseController.handle(req, res);
+};
+
+export const getAllCreditCardsControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const creditCardRepository = CreditCardRepository.getInstance();
+
+  const getAllCreditCardsService =
+    GetAllCreditCardsService.getInstance(creditCardRepository);
+
+  const getAllCreditCardsController = GetAllCreditCardsController.getInstance(
+    getAllCreditCardsService
+  );
+
+  return getAllCreditCardsController.handle(req, res);
 };
 
 export const getAllExpensesControllerHandler = (
@@ -416,6 +473,22 @@ export const rescheduleInstallmentPlanControllerHandler = (
     );
 
   return rescheduleInstallmentPlanController.handle(req, res);
+};
+
+export const updateCreditCardControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const creditCardRepository = CreditCardRepository.getInstance();
+
+  const updateCreditCardService =
+    UpdateCreditCardService.getInstance(creditCardRepository);
+
+  const updateCreditCardController = UpdateCreditCardController.getInstance(
+    updateCreditCardService
+  );
+
+  return updateCreditCardController.handle(req, res);
 };
 
 export const updateExpenseControllerHandler = (req: Request, res: Response) => {

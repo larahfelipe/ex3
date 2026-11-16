@@ -1,5 +1,5 @@
-import { FinanceMessages } from '@/config/Constants';
-import { utcToday } from '@/domain/CalendarDay';
+import { FinanceLimits, FinanceMessages } from '@/config/Constants';
+import { addDays, utcToday } from '@/domain/CalendarDay';
 import type { ExpenseDescription } from '@/domain/models';
 import { NotFoundError } from '@/errors';
 import type { RecurringExpenseRepository } from '@/infra/database';
@@ -27,10 +27,12 @@ export class UpdateRecurringExpenseService {
     effectiveFrom,
     ...series
   }: UpdateRecurringExpenseService.DTO): Promise<UpdateRecurringExpenseService.Result> {
+    const today = utcToday();
     const write = await this.recurringExpenseRepository.update({
       ...series,
-      effectiveFrom: effectiveFrom ?? utcToday(),
-      through: occurrenceHorizonOf(utcToday())
+      effectiveFrom: effectiveFrom ?? today,
+      through: occurrenceHorizonOf(today),
+      earliestEnd: addDays(today, -FinanceLimits.REFERENCE_DAY_TOLERANCE_DAYS)
     });
 
     if (write.outcome === 'not-found')
@@ -49,6 +51,7 @@ namespace UpdateRecurringExpenseService {
     Partial<Record<'amount', string>> &
     Partial<Record<'isVariable', boolean>> &
     Partial<Record<'endDate', Date | null>> &
+    Partial<Record<'creditCardId', string | null>> &
     Partial<Record<'effectiveFrom', Date>>;
   export type Result = Record<'message', string>;
 }

@@ -23,6 +23,8 @@ export type PaymentMethod =
 
 export type RecurrenceFrequency = 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 
+export type CardBrand = 'VISA' | 'MASTERCARD';
+
 export type ExpenseStatus = 'PENDING' | 'OVERDUE' | 'PAID' | 'CANCELLED';
 
 export type ExpenseStatusFilter = ExpenseStatus | 'OPEN';
@@ -50,6 +52,22 @@ export type CalendarDay = string;
 
 export type CalendarMonth = string;
 
+export type CreditCardCycle = Record<'closingDay' | 'dueDay', number>;
+
+export type CreditCardSummary = CreditCardCycle & {
+  id: string;
+  name: string;
+  lastFourDigits: string;
+  brand: CardBrand;
+  deletedAt: Date | null;
+};
+
+export type CreditCard = Omit<CreditCardSummary, 'deletedAt'> & {
+  unpaidBillCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type Expense = {
   id: string;
   description: string;
@@ -74,6 +92,9 @@ export type Expense = {
   recurringExpenseId: string | null;
   occurrenceDate: CalendarDay | null;
   isCustomized: boolean;
+  originalDueDate: CalendarDay | null;
+  creditCardId: string | null;
+  creditCard: CreditCardSummary | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -130,6 +151,8 @@ export type InstallmentPlan = ExpenseDescription & {
   nextInstallmentNumber: number | null;
   firstDueDate: CalendarDay | null;
   lastDueDate: CalendarDay | null;
+  creditCardId: string | null;
+  creditCard: CreditCardSummary | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -146,6 +169,8 @@ export type RecurringExpense = ExpenseDescription & {
   status: RecurringExpenseStatus;
   monthlyEquivalent: string;
   nextDueDate: CalendarDay | null;
+  creditCardId: string | null;
+  creditCard: CreditCardSummary | null;
   createdAt: Date;
   updatedAt: Date;
 };

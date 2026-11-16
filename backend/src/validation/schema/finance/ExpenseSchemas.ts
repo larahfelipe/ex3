@@ -12,6 +12,7 @@ import { decimalSchema, positiveDecimalSchema } from '../DecimalSchema';
 import { PageQuerySchema } from '../PaginationQuerySchema';
 import {
   calendarDaySchema,
+  CreditCardIdSchema,
   ExpenseCategorySchema,
   ExpenseDescriptionPatchSchema,
   ExpenseDescriptionSchema,
@@ -40,7 +41,8 @@ export const CreateExpenseSchema = z
     amount: positiveDecimalSchema('Amount'),
     currency: currencyCodeSchema('Currency'),
     dueDate: calendarDaySchema('Due date'),
-    entryDate: calendarDaySchema('Entry date').optional()
+    entryDate: calendarDaySchema('Entry date').optional(),
+    creditCardId: CreditCardIdSchema.nullable().default(null)
   })
   .superRefine(requireMinorUnits(['amount']));
 
@@ -50,6 +52,7 @@ export const UpdateExpenseSchema = z.object({
   amount: positiveDecimalSchema('Amount').optional(),
   dueDate: calendarDaySchema('Due date').optional(),
   entryDate: calendarDaySchema('Entry date').optional(),
+  creditCardId: CreditCardIdSchema.nullable().optional(),
   cancelled: z.boolean('Cancelled must be a boolean').optional()
 });
 

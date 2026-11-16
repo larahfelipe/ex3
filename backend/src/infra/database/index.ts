@@ -1,4 +1,5 @@
 export * from './AssetRepository';
+export * from './CreditCardRepository';
 export * from './ExchangeRateRepository';
 export * from './ExpenseRepository';
 export * from './FinanceReportRepository';

@@ -40,6 +40,6 @@ export class UpdateInstallmentPlanService {
 namespace UpdateInstallmentPlanService {
   export type DTO = Record<'id' | 'userId', string> &
     Partial<ExpenseDescription> &
-    Partial<Record<'principalAmount', string | null>>;
+    Partial<Record<'principalAmount' | 'creditCardId', string | null>>;
   export type Result = Record<'message', string>;
 }

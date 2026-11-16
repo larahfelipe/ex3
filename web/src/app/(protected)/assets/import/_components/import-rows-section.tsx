@@ -13,8 +13,14 @@ import {
   Button,
   Card,
   CardContent,
+  Label,
   SegmentedControl,
   SegmentedControlItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Table,
   TableBody,
   TableCaption,
@@ -119,6 +125,7 @@ export const ImportRowsSection: FC<ImportRowsSectionProps> = ({
   const tTypes = useTranslations('transactions.types');
   const { formatCalendarDay } = useFormat();
   const headingId = useId();
+  const filterSelectId = useId();
   const [filter, setFilter] = useState<ImportRowFilter>('all');
   const [requestedPage, setRequestedPage] = useState(FIRST_PAGE);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
@@ -143,6 +150,11 @@ export const ImportRowsSection: FC<ImportRowsSectionProps> = ({
   const isEveryChecked =
     selectableKeys.length > 0 && checkedCount === selectableKeys.length;
 
+  const chooseFilter = (option: ImportRowFilter) => {
+    setFilter(option);
+    setRequestedPage(FIRST_PAGE);
+  };
+
   const changeSelection = (keys: ReadonlyArray<string>, isChecked: boolean) => {
     const next = new Set(selection);
 
@@ -163,27 +175,59 @@ export const ImportRowsSection: FC<ImportRowsSectionProps> = ({
         />
 
         <CardContent className="space-y-4">
-          <fieldset className="min-w-0">
+          {/* The four filters' labels need more than a row holds below `md`, so there they are a select. */}
+          <fieldset className="min-w-0 max-md:hidden">
             <legend className="sr-only">{t('filters.label')}</legend>
 
-            <SegmentedControl className="w-fit max-w-full overflow-x-auto">
+            <SegmentedControl className="w-fit">
               {IMPORT_ROW_FILTERS.map((option) => (
                 <SegmentedControlItem
                   key={option}
                   name={`${headingId}-filter`}
                   value={option}
                   checked={filter === option}
-                  className="shrink-0"
-                  onChange={() => {
-                    setFilter(option);
-                    setRequestedPage(FIRST_PAGE);
-                  }}
+                  onChange={() => chooseFilter(option)}
                 >
                   {t(`filters.${option}`)}
                 </SegmentedControlItem>
               ))}
             </SegmentedControl>
           </fieldset>
+
+          <div className="flex items-center gap-2 md:hidden">
+            <Label
+              htmlFor={filterSelectId}
+              className="shrink-0 text-sm font-normal text-muted-foreground"
+            >
+              {t('filters.label')}
+            </Label>
+
+            <Select
+              value={filter}
+              onValueChange={(value) => {
+                const option = IMPORT_ROW_FILTERS.find(
+                  (candidate) => candidate === value
+                );
+
+                if (option !== undefined) chooseFilter(option);
+              }}
+            >
+              <SelectTrigger
+                id={filterSelectId}
+                className="min-w-0 flex-1 sm:max-w-xs"
+              >
+                <SelectValue />
+              </SelectTrigger>
+
+              <SelectContent>
+                {IMPORT_ROW_FILTERS.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {t(`filters.${option}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {filteredRows.length === 0 ? (
             <EmptyState message={t('empty')} />

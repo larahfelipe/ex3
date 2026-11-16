@@ -144,7 +144,7 @@ const DayMarkers: FC<Record<'figures', CalendarDayFigures>> = ({ figures }) => {
 
       {due > 0 && (
         <span className="flex items-center gap-1 text-foreground">
-          <span className="mx-0.5 size-2 shrink-0 rounded-full bg-primary" />
+          <span className="mx-0.5 size-2 shrink-0 rounded-full bg-info" />
 
           {due}
 
@@ -154,7 +154,7 @@ const DayMarkers: FC<Record<'figures', CalendarDayFigures>> = ({ figures }) => {
 
       {paid > 0 && (
         <span className="flex items-center gap-1 text-muted-foreground">
-          <Check className="size-3 shrink-0" />
+          <Check className="size-3 shrink-0 text-positive" />
 
           {paid}
 
@@ -239,13 +239,13 @@ const Legend: FC = () => {
       </span>
 
       <span className="flex items-center gap-1">
-        <span className="mx-0.5 size-2 rounded-full bg-primary" />
+        <span className="mx-0.5 size-2 rounded-full bg-info" />
 
         {t('due')}
       </span>
 
       <span className="flex items-center gap-1">
-        <Check className="size-3" />
+        <Check className="size-3 text-positive" />
 
         {t('paid')}
       </span>

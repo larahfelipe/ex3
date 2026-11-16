@@ -65,6 +65,13 @@ export default {
     detail:
       'Por mês, somando {count, plural, one {# recorrência ativa} other {# recorrências ativas}}'
   },
+  cards: {
+    title: 'Cartões de crédito',
+    manage: 'Gerenciar',
+    none: 'Adicione seus cartões para que as contas lançadas neles vençam com as faturas.',
+    add: 'Adicionar cartão',
+    more: '{count, plural, one {e mais # cartão} other {e mais # cartões}}'
+  },
   reminders: {
     title: 'Lembretes',
     change: 'Alterar',

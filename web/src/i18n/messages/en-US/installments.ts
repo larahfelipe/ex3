@@ -41,6 +41,7 @@ export default {
     scheduleRange: '<first></first> to <last></last>',
     category: 'Category',
     paymentMethod: 'Payment method',
+    card: 'Card',
     account: 'Bank account or card',
     notes: 'Notes',
     installments: 'Installments',
@@ -84,7 +85,7 @@ export default {
     editDescription:
       'Amounts in {currency}. To change what is still outstanding, reschedule the plan.',
     editNote:
-      'The description applies to the outstanding installments, except the ones you edited individually. Paid installments keep their description.',
+      'The description applies to the outstanding installments, except the ones you edited individually. Paid installments keep their description. A new card applies to every installment not yet paid.',
     scheduleSection: 'Amount and schedule',
     amountMode: 'Amount entered as',
     amountModes: { total: 'Total', installment: 'Per installment' },

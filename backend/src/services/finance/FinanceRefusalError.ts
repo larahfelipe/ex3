@@ -11,9 +11,13 @@ export type FinanceRefusal =
         | 'already-settled'
         | 'below-settled'
         | 'cancelled'
+        | 'card-method-mismatch'
+        | 'card-not-found'
+        | 'card-set-by-plan'
         | 'empty-payment'
         | 'end-before-paid-occurrence'
         | 'end-before-start'
+        | 'end-before-today'
         | 'exceeds-outstanding'
         | 'has-payments'
         | 'managed-by-origin'
@@ -33,7 +37,7 @@ const HAS_PAYMENTS_MESSAGES = {
   RECURRING_EXPENSE: FinanceMessages.SERIES_HAS_PAYMENTS
 } satisfies Record<FinanceRecordType, string>;
 
-const fieldError = (path: string, message: string) =>
+export const fieldError = (path: string, message: string) =>
   new ValidationError(message, [{ path, message }]);
 
 export const financeRefusalError = (
@@ -47,6 +51,17 @@ export const financeRefusalError = (
       return fieldError('amount', FinanceMessages.PAYMENT_EMPTY);
     case 'end-before-start':
       return fieldError('endDate', FinanceMessages.END_BEFORE_START);
+    case 'end-before-today':
+      return fieldError('endDate', FinanceMessages.END_BEFORE_TODAY);
+    case 'card-not-found':
+      return fieldError('creditCardId', FinanceMessages.CREDIT_CARD_NOT_FOUND);
+    case 'card-set-by-plan':
+      return fieldError('creditCardId', FinanceMessages.CARD_SET_BY_PLAN);
+    case 'card-method-mismatch':
+      return fieldError(
+        'paymentMethod',
+        FinanceMessages.CARD_NEEDS_CREDIT_PAYMENT
+      );
     case 'effective-after-horizon':
       return fieldError(
         'effectiveFrom',

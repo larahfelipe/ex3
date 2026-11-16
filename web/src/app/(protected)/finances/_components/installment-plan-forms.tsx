@@ -55,6 +55,7 @@ import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-ch
 import { useFormat, type Format } from '@/i18n/format';
 import { srOnly } from '@/i18n/rich-text';
 import type { Translator } from '@/i18n/translator';
+import { ownDueDateOf } from '@/lib/card-statement';
 import {
   decimalOfUnits,
   decimalPlacesOf,
@@ -64,6 +65,12 @@ import {
 } from '@/lib/decimal';
 import { presentSubmitError } from '@/lib/submit-error';
 
+import {
+  CardChoice,
+  cardChoiceOf,
+  chargedCardIdOf,
+  NO_CARD
+} from './credit-card-fields';
 import {
   DayField,
   DESCRIPTION_FORM_FIELDS,
@@ -195,7 +202,7 @@ const tooSmallToSplitMessage = (
     amount: moneyOfUnits(1n, currency, format)
   });
 
-const planFormSchemaFor = (t: ValidationTranslator, format: Format) => {
+export const planFormSchemaFor = (t: ValidationTranslator, format: Format) => {
   const requirePlanMinorUnits = requireMinorUnitsOf(
     ['amount', 'principalAmount'],
     t
@@ -209,7 +216,8 @@ const planFormSchemaFor = (t: ValidationTranslator, format: Format) => {
       installmentCount: installmentCountFieldFor(t),
       frequency: z.enum(RECURRENCE_FREQUENCIES),
       firstDueDate: requiredDayFieldFor(t),
-      principalAmount: optionalPositiveMoneyFieldFor(t)
+      principalAmount: optionalPositiveMoneyFieldFor(t),
+      creditCardId: z.string()
     })
     .superRefine((plan, ctx) => {
       requirePlanMinorUnits(plan, ctx);
@@ -239,7 +247,8 @@ const PLAN_FORM_FIELDS = [
   'installmentCount',
   'frequency',
   'firstDueDate',
-  'principalAmount'
+  'principalAmount',
+  'creditCardId'
 ] as const satisfies ReadonlyArray<keyof PlanFormInput>;
 
 const planFieldOf = (path: string) =>
@@ -247,21 +256,35 @@ const planFieldOf = (path: string) =>
     ? 'amount'
     : fieldOfPath(PLAN_FORM_FIELDS)(path);
 
-const planPayloadOf = ({
+export const planPayloadOf = ({
   amountMode,
   amount,
-  ...plan
-}: PlanDraft): CreateInstallmentPlanRequestPayload =>
-  amountMode === 'total'
+  creditCardId,
+  ...terms
+}: PlanDraft): CreateInstallmentPlanRequestPayload => {
+  const plan = {
+    ...terms,
+    creditCardId: chargedCardIdOf({
+      paymentMethod: terms.paymentMethod,
+      creditCardId
+    })
+  };
+
+  return amountMode === 'total'
     ? { ...plan, totalAmount: amount }
     : { ...plan, installmentAmount: amount };
+};
 
 const planEditFieldsFor = (t: ValidationTranslator) =>
   descriptionFormFieldsFor(t).extend({
-    principalAmount: optionalPositiveMoneyFieldFor(t)
+    principalAmount: optionalPositiveMoneyFieldFor(t),
+    creditCardId: z.string()
   });
 
-const planEditSchemaFor = (t: ValidationTranslator, currency: string) => {
+export const planEditSchemaFor = (
+  t: ValidationTranslator,
+  currency: string
+) => {
   const requirePrincipalMinorUnits = requireMinorUnitsOf(
     ['principalAmount'],
     t
@@ -274,8 +297,20 @@ const planEditSchemaFor = (t: ValidationTranslator, currency: string) => {
 
 const planEditFieldOf = fieldOfPath([
   ...DESCRIPTION_FORM_FIELDS,
-  'principalAmount'
+  'principalAmount',
+  'creditCardId'
 ] as const satisfies ReadonlyArray<keyof PlanEditInput>);
+
+export const planChangesOf = ({
+  creditCardId,
+  ...changes
+}: PlanEditDraft): UpdateInstallmentPlanRequestPayload => ({
+  ...changes,
+  creditCardId: chargedCardIdOf({
+    paymentMethod: changes.paymentMethod,
+    creditCardId
+  })
+});
 
 const rescheduleFormFieldsFor = (t: ValidationTranslator) =>
   z.object({
@@ -318,12 +353,19 @@ const lastKeptNumberOf = (plan: InstallmentPlanDetail) => {
     : (lastKept.installmentNumber ?? plan.keptThroughInstallment ?? 0);
 };
 
+/** On a card, installments compare by the days they were charged, not by the card's dates. */
+const earliestNextDueDateOf = (plan: InstallmentPlanDetail) => {
+  const { lastKept } = rescheduleSplitOf(plan);
+
+  return lastKept === null ? undefined : ownDueDateOf(lastKept);
+};
+
 const rescheduleSchemaFor = (
   plan: InstallmentPlanDetail,
   t: ValidationTranslator,
   format: Format
 ) => {
-  const { lastKept } = rescheduleSplitOf(plan);
+  const earliest = earliestNextDueDateOf(plan);
   const lastKeptNumber = lastKeptNumberOf(plan);
   const requireRescheduleMinorUnits = requireMinorUnitsOf(
     ['remainingAmount'],
@@ -344,16 +386,16 @@ const rescheduleSchemaFor = (
       });
 
     if (
-      lastKept !== null &&
+      earliest !== undefined &&
       lastKeptNumber !== null &&
       terms.nextDueDate !== '' &&
-      terms.nextDueDate < lastKept.dueDate
+      terms.nextDueDate < earliest
     )
       ctx.addIssue({
         code: 'custom',
         path: ['nextDueDate'],
         message: t('installments.afterKept', {
-          day: format.formatCalendarDay(lastKept.dueDate) ?? lastKept.dueDate,
+          day: format.formatCalendarDay(earliest) ?? earliest,
           number: lastKeptNumber
         })
       });
@@ -375,10 +417,10 @@ const rescheduleDefaultsOf = (
     remainingAmount: owed === 0n ? '' : decimalOfUnits(owed, places),
     remainingCount: String(Math.max(replaced.length, 1)),
     nextDueDate:
-      replaced.at(0)?.dueDate ??
+      replaced.map(ownDueDateOf).at(0) ??
       (lastKept === null
         ? today
-        : (occurrenceDayAt(plan.frequency, lastKept.dueDate, 1) ?? today))
+        : (occurrenceDayAt(plan.frequency, ownDueDateOf(lastKept), 1) ?? today))
   };
 };
 
@@ -658,7 +700,8 @@ export const CreatePlanDialog: FC<
       installmentCount: '',
       frequency: 'MONTHLY',
       firstDueDate: today,
-      principalAmount: ''
+      principalAmount: '',
+      creditCardId: NO_CARD
     }
   });
 
@@ -794,7 +837,11 @@ export const CreatePlanDialog: FC<
                 <PlanScheduleSummary />
               </FormSection>
 
-              <MoreDetailsFields />
+              <MoreDetailsFields
+                cardChoice={
+                  <CardChoice dayName="firstDueDate" schedule="plan" />
+                }
+              />
 
               <FormRootError />
             </form>
@@ -900,7 +947,8 @@ export const EditPlanDialog: FC<
     resolver: zodResolver(schema),
     defaultValues: {
       ...toDescriptionFormValues(plan),
-      principalAmount: plan.principalAmount ?? ''
+      principalAmount: plan.principalAmount ?? '',
+      creditCardId: cardChoiceOf(plan.creditCardId)
     }
   });
 
@@ -912,16 +960,13 @@ export const EditPlanDialog: FC<
     formState: { isDirty, isSubmitting }
   } = methods;
 
-  const { isSaving, submit } = useSubmitter(
-    onSubmit,
-    (draft: PlanEditDraft) => draft,
-    (error) =>
-      presentSubmitError(error, {
-        setError,
-        fieldOf: planEditFieldOf,
-        t: tErrors,
-        fallbackMessage: t('failed')
-      })
+  const { isSaving, submit } = useSubmitter(onSubmit, planChangesOf, (error) =>
+    presentSubmitError(error, {
+      setError,
+      fieldOf: planEditFieldOf,
+      t: tErrors,
+      fallbackMessage: t('failed')
+    })
   );
 
   return (
@@ -956,7 +1001,11 @@ export const EditPlanDialog: FC<
 
               <PlanCashPriceDetail plan={plan} />
 
-              <MoreDetailsFields />
+              <MoreDetailsFields
+                cardChoice={
+                  <CardChoice schedule="plan" currentCard={plan.creditCard} />
+                }
+              />
 
               <FormRootError />
             </form>
@@ -1122,7 +1171,11 @@ export const ReschedulePlanDialog: FC<
                   )}
                 </FormField>
 
-                <DayField name="nextDueDate" label={t('nextDueDate')} />
+                <DayField
+                  name="nextDueDate"
+                  label={t('nextDueDate')}
+                  min={earliestNextDueDateOf(plan)}
+                />
               </div>
 
               <RescheduleScheduleSummary

@@ -42,6 +42,7 @@ namespace UpdateExpenseService {
     Partial<ExpenseDescription> &
     Partial<Record<'amount', string>> &
     Partial<Record<'dueDate' | 'entryDate', Date>> &
+    Partial<Record<'creditCardId', string | null>> &
     Partial<Record<'cancelled', boolean>>;
   export type Result = Record<'message', string>;
 }

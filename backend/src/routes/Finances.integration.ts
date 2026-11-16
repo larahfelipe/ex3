@@ -9,9 +9,11 @@ import {
   endOfMonth,
   formatCalendarDay,
   formatCalendarMonth,
+  parseCalendarDay,
   startOfMonth,
   utcToday
 } from '@/domain/CalendarDay';
+import { cardDueDateOf } from '@/domain/CardStatement';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 import { apiRequest, bearer, signInUser } from '@/test/ApiClient';
 import { FIXTURE_PASSWORD, MISSING_UUID } from '@/test/Fixtures';
@@ -27,6 +29,7 @@ const CALENDAR_ROUTE = '/v1/finances/calendar';
 const REPORTS_ROUTE = '/v1/finances/reports';
 const ALERTS_ROUTE = '/v1/finances/alerts';
 const SETTINGS_ROUTE = '/v1/finances/settings';
+const CARDS_ROUTE = '/v1/finances/credit-cards';
 const ACCOUNT_ROUTE = '/v1/user';
 
 const expenseRoute = (id: string) => `${EXPENSES_ROUTE}/${id}`;
@@ -35,6 +38,7 @@ const paymentRoute = (id: string, paymentId: string) =>
   `${paymentsRoute(id)}/${paymentId}`;
 const planRoute = (id: string) => `${PLANS_ROUTE}/${id}`;
 const seriesRoute = (id: string) => `${SERIES_ROUTE}/${id}`;
+const cardRoute = (id: string) => `${CARDS_ROUTE}/${id}`;
 
 const INTRUDER_EMAIL = 'intruder@ex3.app';
 
@@ -597,6 +601,9 @@ describe('finances', () => {
     return res.body;
   };
 
+  type CardInstallment = Record<'dueDate' | 'paymentMethod', string> &
+    Record<'originalDueDate' | 'creditCardId', string | null>;
+
   const installmentsOf = (plan: {
     installments: Array<Record<string, unknown>>;
   }) =>
@@ -1101,6 +1108,58 @@ describe('finances', () => {
       assert.equal(old.status, Errors.VALIDATION.status);
       assert.equal(reversed.status, Errors.VALIDATION.status);
       assert.equal(await prismaClient.recurringExpense.count(), 0);
+    });
+
+    it('ends a new series today or later, allowing a day for the client’s time zone', async () => {
+      const session = await signIn();
+      const started = { ...SERIES, startDate: monthsFrom(-3) };
+
+      const past = await session.post(SERIES_ROUTE, {
+        ...started,
+        endDate: dayFrom(-2)
+      });
+      const yesterday = await session.post(SERIES_ROUTE, {
+        ...started,
+        endDate: dayFrom(-1)
+      });
+      const today = await session.post(SERIES_ROUTE, {
+        ...started,
+        endDate: dayFrom(0)
+      });
+
+      assert.equal(past.status, Errors.VALIDATION.status);
+      assert.equal(past.body.message, FinanceMessages.END_BEFORE_TODAY);
+      assert.equal(yesterday.status, 201, JSON.stringify(yesterday.body));
+      assert.equal(today.status, 201, JSON.stringify(today.body));
+    });
+
+    it('keeps an end that has passed when it is sent back, but moves an end only to today or later', async () => {
+      const session = await signIn();
+      const id = await createSeries(session, { startDate: monthsFrom(-3) });
+      await prismaClient.recurringExpense.update({
+        where: { id },
+        data: { endDate: parseCalendarDay(dayFrom(-10)) }
+      });
+
+      const kept = await session.patch(seriesRoute(id), {
+        endDate: dayFrom(-10),
+        amount: '120'
+      });
+      const moved = await session.patch(seriesRoute(id), {
+        endDate: dayFrom(-5)
+      });
+      const reopened = await session.patch(seriesRoute(id), {
+        endDate: dayFrom(0)
+      });
+
+      assert.equal(kept.status, 200, JSON.stringify(kept.body));
+      assert.equal(moved.status, Errors.VALIDATION.status);
+      assert.equal(moved.body.message, FinanceMessages.END_BEFORE_TODAY);
+      assert.equal(reopened.status, 200, JSON.stringify(reopened.body));
+      assert.equal(
+        (await session.get(seriesRoute(id))).body.endDate,
+        dayFrom(0)
+      );
     });
 
     it('generates missing occurrences on read once, however many reads run at the same time', async () => {
@@ -1960,6 +2019,702 @@ describe('finances', () => {
     });
   });
 
+  const CARD = {
+    name: 'Nubank',
+    lastFourDigits: '1234',
+    brand: 'MASTERCARD',
+    closingDay: 3,
+    dueDay: 10
+  };
+
+  const createCard = async (session: Session, overrides: object = {}) => {
+    const res = await session.post(CARDS_ROUTE, { ...CARD, ...overrides });
+
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+
+    return res.body.id as string;
+  };
+
+  const assertFieldRefused = (
+    res: { status: number; body: { details?: Array<{ path: string }> } },
+    path: string
+  ) => {
+    assert.equal(res.status, Errors.VALIDATION.status, path);
+    assert.ok(
+      res.body.details?.some((detail) => detail.path === path),
+      JSON.stringify(res.body)
+    );
+  };
+
+  const cardDayFrom = (cycle: typeof CARD, day: string) =>
+    formatCalendarDay(cardDueDateOf(cycle, parseCalendarDay(day) as Date));
+
+  describe('credit cards', () => {
+    it('creates, lists, edits and deletes a card, keeping only its last four digits', async () => {
+      const session = await signIn();
+
+      const id = await createCard(session, {
+        cardNumber: '5555444433331234',
+        cvv: '123',
+        expiryDate: '12/30'
+      });
+      const created = await session.get(CARDS_ROUTE);
+      const edited = await session.patch(cardRoute(id), {
+        name: 'Nubank Ultravioleta',
+        lastFourDigits: '9876',
+        brand: 'VISA'
+      });
+      const listed = await session.get(CARDS_ROUTE);
+      const deleted = await session.remove(cardRoute(id));
+      const afterDelete = await session.get(CARDS_ROUTE);
+      const row = await prismaClient.creditCard.findUniqueOrThrow({
+        where: { id }
+      });
+
+      assert.equal(created.status, 200, JSON.stringify(created.body));
+      assert.deepEqual(Object.keys(created.body[0]).toSorted(), [
+        'brand',
+        'closingDay',
+        'createdAt',
+        'dueDay',
+        'id',
+        'lastFourDigits',
+        'name',
+        'unpaidBillCount',
+        'updatedAt'
+      ]);
+      assert.equal(created.body[0].unpaidBillCount, 0);
+      assert.equal(edited.status, 200, JSON.stringify(edited.body));
+      assert.equal(edited.body.movedBills, 0);
+      assert.deepEqual(
+        listed.body.map(({ name, lastFourDigits, brand }: typeof CARD) => ({
+          name,
+          lastFourDigits,
+          brand
+        })),
+        [{ name: 'Nubank Ultravioleta', lastFourDigits: '9876', brand: 'VISA' }]
+      );
+      assert.equal(deleted.status, 200, JSON.stringify(deleted.body));
+      assert.deepEqual(afterDelete.body, []);
+      assert.notEqual(row.deletedAt, null);
+      assert.equal((await session.remove(cardRoute(id))).status, 404);
+      assert.equal(
+        (await session.patch(cardRoute(id), { name: 'Back' })).status,
+        404
+      );
+    });
+
+    it('refuses invalid card input field by field, and a name holding a card number', async () => {
+      const session = await signIn();
+      const id = await createCard(session);
+
+      const cases: Array<[object, string]> = [
+        [{ name: '' }, 'name'],
+        [{ name: 'x'.repeat(41) }, 'name'],
+        [{ name: 'Visa 4111 1111 1111 1111' }, 'name'],
+        [{ name: '4111-1111-1111-1111' }, 'name'],
+        [{ lastFourDigits: '123' }, 'lastFourDigits'],
+        [{ lastFourDigits: '12345' }, 'lastFourDigits'],
+        [{ lastFourDigits: '12a4' }, 'lastFourDigits'],
+        [{ brand: 'AMEX' }, 'brand'],
+        [{ closingDay: 0 }, 'closingDay'],
+        [{ closingDay: 32 }, 'closingDay'],
+        [{ closingDay: 1.5 }, 'closingDay'],
+        [{ dueDay: 3 }, 'dueDay']
+      ];
+
+      for (const [overrides, path] of cases)
+        assertFieldRefused(
+          await session.post(CARDS_ROUTE, { ...CARD, ...overrides }),
+          path
+        );
+
+      assertFieldRefused(
+        await session.patch(cardRoute(id), { closingDay: 10 }),
+        'dueDay'
+      );
+      assertFieldRefused(
+        await session.patch(cardRoute(id), { lastFourDigits: '1' }),
+        'lastFourDigits'
+      );
+      assert.equal(await prismaClient.creditCard.count(), 1);
+    });
+
+    it("keeps each user's cards to them, for listing, editing, deleting and charging", async () => {
+      const owner = await signIn();
+      const intruder = await signIn(INTRUDER_EMAIL);
+      const id = await createCard(owner);
+
+      const listed = await intruder.get(CARDS_ROUTE);
+      const edited = await intruder.patch(cardRoute(id), { name: 'Mine' });
+      const deleted = await intruder.remove(cardRoute(id));
+      const charged = await intruder.post(EXPENSES_ROUTE, {
+        ...EXPENSE,
+        creditCardId: id
+      });
+      const missing = await owner.post(EXPENSES_ROUTE, {
+        ...EXPENSE,
+        creditCardId: MISSING_UUID
+      });
+
+      assert.deepEqual(listed.body, []);
+      assert.equal(edited.status, 404);
+      assert.equal(deleted.status, 404);
+      assertFieldRefused(charged, 'creditCardId');
+      assertFieldRefused(missing, 'creditCardId');
+      assert.equal(
+        (await owner.get(CARDS_ROUTE)).body[0].name,
+        CARD.name,
+        'the card is unchanged'
+      );
+      assert.equal(await prismaClient.expense.count(), 0);
+    });
+
+    it("moves a bill charged to a card to its statement's due date, keeping the bill's own", async () => {
+      const session = await signIn();
+      const card = await createCard(session);
+      const shortMonths = await createCard(session, {
+        name: 'Itaú',
+        closingDay: 24,
+        dueDay: 31
+      });
+
+      const cases: Array<[string, string, string]> = [
+        [card, planDay('11-02'), planDay('11-10')],
+        [card, planDay('11-03'), planDay('12-10')],
+        [card, planDay('11-05'), planDay('12-10')],
+        [card, planDay('12-15'), `${PLAN_YEAR + 1}-01-10`],
+        [shortMonths, planDay('02-10'), planDay('02-28')],
+        [shortMonths, planDay('04-01'), planDay('04-30')]
+      ];
+
+      for (const [creditCardId, dueDate, cardDueDate] of cases) {
+        const id = await createExpense(session, { dueDate, creditCardId });
+        const expense = await readExpense(session, id);
+
+        assert.equal(expense.dueDate, cardDueDate, dueDate);
+        assert.equal(expense.originalDueDate, dueDate);
+        assert.equal(expense.creditCardId, creditCardId);
+        assert.equal(expense.paymentMethod, 'CREDIT_CARD');
+        assert.equal(expense.status, 'PENDING');
+      }
+
+      const plain = await readExpense(session, await createExpense(session));
+
+      assert.equal(plain.dueDate, EXPENSE.dueDate);
+      assert.equal(plain.originalDueDate, null);
+      assert.equal(plain.creditCard, null);
+    });
+
+    it('is overdue only once the card payment date has passed', async () => {
+      const session = await signIn();
+      const card = await createCard(session);
+
+      const id = await createExpense(session, {
+        dueDate: dayFrom(-2),
+        creditCardId: card
+      });
+      const expense = await readExpense(session, id);
+
+      assert.equal(expense.dueDate, cardDayFrom(CARD, dayFrom(-2)));
+      assert.ok(expense.dueDate > dayFrom(0), expense.dueDate);
+      assert.equal(expense.status, 'PENDING');
+    });
+
+    it('refuses a card with another payment method, and a deleted card', async () => {
+      const session = await signIn();
+      const card = await createCard(session);
+      const deleted = await createCard(session, { name: 'Old' });
+      await session.remove(cardRoute(deleted));
+      const bill = await createExpense(session, { creditCardId: card });
+
+      const pix = await session.post(EXPENSES_ROUTE, {
+        ...EXPENSE,
+        paymentMethod: 'PIX',
+        creditCardId: card
+      });
+      const toDeleted = await session.post(EXPENSES_ROUTE, {
+        ...EXPENSE,
+        creditCardId: deleted
+      });
+      const switchToPix = await session.patch(expenseRoute(bill), {
+        paymentMethod: 'PIX'
+      });
+      const switchToDeleted = await session.patch(expenseRoute(bill), {
+        creditCardId: deleted
+      });
+
+      assertFieldRefused(pix, 'paymentMethod');
+      assertFieldRefused(toDeleted, 'creditCardId');
+      assertFieldRefused(switchToPix, 'paymentMethod');
+      assertFieldRefused(switchToDeleted, 'creditCardId');
+      assert.equal((await readExpense(session, bill)).creditCardId, card);
+    });
+
+    it("recomputes a bill's dates from its own due date when its card or that date changes, and records each change", async () => {
+      const session = await signIn();
+      const nubank = await createCard(session);
+      const itau = await createCard(session, {
+        name: 'Itaú',
+        lastFourDigits: '4321',
+        brand: 'VISA',
+        closingDay: 25,
+        dueDay: 5
+      });
+      const id = await createExpense(session, {
+        dueDate: planDay('11-20'),
+        creditCardId: nubank
+      });
+
+      const switched = await session.patch(expenseRoute(id), {
+        creditCardId: itau
+      });
+      const afterSwitch = await readExpense(session, id);
+      await session.patch(expenseRoute(id), { dueDate: planDay('11-26') });
+      const afterDate = await readExpense(session, id);
+      await session.patch(expenseRoute(id), {
+        creditCardId: null,
+        paymentMethod: 'PIX'
+      });
+      const afterRemoval = await readExpense(session, id);
+      await session.patch(expenseRoute(id), {
+        creditCardId: nubank,
+        paymentMethod: null
+      });
+      const afterReadd = await readExpense(session, id);
+
+      assert.equal(switched.status, 200, JSON.stringify(switched.body));
+      assert.equal(afterSwitch.dueDate, planDay('12-05'));
+      assert.equal(afterSwitch.originalDueDate, planDay('11-20'));
+      assert.equal(afterSwitch.creditCard.name, 'Itaú');
+      assert.equal(afterDate.dueDate, `${PLAN_YEAR + 1}-01-05`);
+      assert.equal(afterDate.originalDueDate, planDay('11-26'));
+      assert.equal(afterRemoval.dueDate, planDay('11-26'));
+      assert.equal(afterRemoval.originalDueDate, null);
+      assert.equal(afterRemoval.creditCard, null);
+      assert.equal(afterRemoval.paymentMethod, 'PIX');
+      assert.equal(afterReadd.dueDate, planDay('12-10'));
+      assert.equal(afterReadd.paymentMethod, 'CREDIT_CARD');
+      assert.deepEqual(afterSwitch.history[0].changes, {
+        dueDate: { from: planDay('12-10'), to: planDay('12-05') },
+        creditCard: {
+          from: { name: 'Nubank', brand: 'MASTERCARD', lastFourDigits: '1234' },
+          to: { name: 'Itaú', brand: 'VISA', lastFourDigits: '4321' }
+        }
+      });
+      assert.deepEqual(afterRemoval.history[0].changes, {
+        paymentMethod: { from: 'CREDIT_CARD', to: 'PIX' },
+        dueDate: { from: `${PLAN_YEAR + 1}-01-05`, to: planDay('11-26') },
+        originalDueDate: { from: planDay('11-26'), to: null },
+        creditCard: {
+          from: { name: 'Itaú', brand: 'VISA', lastFourDigits: '4321' },
+          to: null
+        }
+      });
+    });
+
+    it('moves only the unpaid bills on a card when its days change, recording each move', async () => {
+      const session = await signIn();
+      const card = await createCard(session);
+      const other = await createCard(session, { name: 'Other' });
+      const unpaid = await createExpense(session, {
+        dueDate: planDay('11-05'),
+        creditCardId: card
+      });
+      const partlyPaid = await createExpense(session, {
+        dueDate: planDay('11-05'),
+        creditCardId: card
+      });
+      const paid = await createExpense(session, {
+        dueDate: planDay('11-05'),
+        creditCardId: card
+      });
+      const cancelled = await createExpense(session, {
+        dueDate: planDay('11-05'),
+        creditCardId: card
+      });
+      const elsewhere = await createExpense(session, {
+        dueDate: planDay('11-05'),
+        creditCardId: other
+      });
+      await pay(session, partlyPaid);
+      await pay(session, paid, { amount: '100.00' });
+      await session.patch(expenseRoute(cancelled), { cancelled: true });
+
+      const listed = await session.get(CARDS_ROUTE);
+      const renamed = await session.patch(cardRoute(card), { name: 'Renamed' });
+      const res = await session.patch(cardRoute(card), {
+        closingDay: 8,
+        dueDay: 15
+      });
+      const dueDates = await Promise.all(
+        [unpaid, partlyPaid, paid, cancelled, elsewhere].map(
+          async (id) => (await readExpense(session, id)).dueDate
+        )
+      );
+      const moved = await readExpense(session, unpaid);
+      const resaved = await session.patch(expenseRoute(paid), {
+        dueDate: planDay('11-05'),
+        notes: 'Paid before the card changed'
+      });
+      const paidAfterEdit = await readExpense(session, paid);
+
+      assert.equal(
+        listed.body.find(({ id }: { id: string }) => id === card)
+          .unpaidBillCount,
+        1
+      );
+      assert.equal(resaved.status, 200, JSON.stringify(resaved.body));
+      assert.equal(paidAfterEdit.dueDate, planDay('12-10'));
+      assert.deepEqual(Object.keys(paidAfterEdit.history[0].changes), [
+        'notes'
+      ]);
+      assert.equal(renamed.body.movedBills, 0);
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.equal(res.body.movedBills, 1);
+      assert.deepEqual(dueDates, [
+        planDay('11-15'),
+        planDay('12-10'),
+        planDay('12-10'),
+        planDay('12-10'),
+        planDay('12-10')
+      ]);
+      assert.equal(moved.originalDueDate, planDay('11-05'));
+      assert.equal(moved.isCustomized, false);
+      assert.deepEqual(moved.history[0], {
+        ...moved.history[0],
+        type: 'UPDATED',
+        changes: { dueDate: { from: planDay('12-10'), to: planDay('11-15') } }
+      });
+    });
+
+    it('keeps a deleted card on the bills and series charged to it, with their dates', async () => {
+      const session = await signIn();
+      const card = await createCard(session);
+      const bill = await createExpense(session, {
+        dueDate: planDay('11-05'),
+        creditCardId: card
+      });
+      const series = await createSeries(session, { creditCardId: card });
+      const before = await occurrencesOf(session, series);
+
+      await session.remove(cardRoute(card));
+      const edited = await session.patch(expenseRoute(bill), {
+        notes: 'Still on the card',
+        dueDate: planDay('11-02')
+      });
+      const expense = await readExpense(session, bill);
+      const seriesRead = await session.get(seriesRoute(series));
+      const after = await occurrencesOf(session, series);
+
+      assert.equal(edited.status, 200, JSON.stringify(edited.body));
+      assert.equal(expense.creditCardId, card);
+      assert.notEqual(expense.creditCard.deletedAt, null);
+      assert.equal(expense.dueDate, planDay('11-10'));
+      assert.equal(seriesRead.body.creditCardId, card);
+      assert.notEqual(seriesRead.body.creditCard.deletedAt, null);
+      assert.deepEqual(
+        after.map(({ dueDate }) => dueDate),
+        before.map(({ dueDate }) => dueDate)
+      );
+    });
+
+    it("charges a recurring expense's bills to its card and moves the following unpaid ones when the card changes", async () => {
+      const session = await signIn();
+      const card = await createCard(session);
+      const other = await createCard(session, {
+        name: 'Other',
+        closingDay: 20,
+        dueDay: 1
+      });
+      const cycleOf = { ...CARD, closingDay: 20, dueDay: 1 };
+      const id = await createSeries(session, {
+        frequency: 'WEEKLY',
+        startDate: dayFrom(0),
+        endDate: dayFrom(28),
+        creditCardId: card
+      });
+      const created = (await occurrencesOf(session, id)).toSorted((a, b) =>
+        a.occurrenceDate.localeCompare(b.occurrenceDate)
+      );
+      const series = await session.get(seriesRoute(id));
+      const [first, second] = created;
+      await pay(session, first.id, { amount: '100.00' });
+      await session.patch(expenseRoute(second.id), { notes: 'Customized' });
+
+      const inOrder = async () =>
+        (await occurrencesOf(session, id)).toSorted((a, b) =>
+          a.occurrenceDate.localeCompare(b.occurrenceDate)
+        );
+
+      const switched = await session.patch(seriesRoute(id), {
+        creditCardId: other
+      });
+      const afterSwitch = await inOrder();
+      const removed = await session.patch(seriesRoute(id), {
+        creditCardId: null
+      });
+      const afterRemoval = await inOrder();
+      const history = (await session.get(seriesRoute(id))).body.history;
+
+      assert.deepEqual(
+        created.map(({ occurrenceDate, dueDate }) => [occurrenceDate, dueDate]),
+        created.map(({ occurrenceDate }) => [
+          occurrenceDate,
+          cardDayFrom(CARD, occurrenceDate)
+        ])
+      );
+      assert.equal(series.body.nextDueDate, cardDayFrom(CARD, dayFrom(0)));
+      assert.equal(series.body.paymentMethod, 'CREDIT_CARD');
+      assert.equal(switched.status, 200, JSON.stringify(switched.body));
+      assert.deepEqual(
+        afterSwitch.map(({ dueDate }) => dueDate),
+        afterSwitch.map(({ occurrenceDate }, index) =>
+          index < 2
+            ? cardDayFrom(CARD, occurrenceDate)
+            : cardDayFrom(cycleOf, occurrenceDate)
+        )
+      );
+      assert.equal(removed.status, 200, JSON.stringify(removed.body));
+      assert.deepEqual(
+        afterRemoval.map(({ dueDate }) => dueDate),
+        afterRemoval.map(({ occurrenceDate }, index) =>
+          index < 2 ? cardDayFrom(CARD, occurrenceDate) : occurrenceDate
+        )
+      );
+      assert.deepEqual(history[0].changes.creditCard, {
+        from: { name: 'Other', brand: 'MASTERCARD', lastFourDigits: '1234' },
+        to: null
+      });
+    });
+
+    it("charges every installment of a plan to its card, each on the statement of its own date, and moves them with the card's days", async () => {
+      const session = await signIn();
+      const card = await createCard(session);
+      const id = await createPlan(session, { creditCardId: card });
+      const ownDays = [planDay('01-31'), planDay('02-28'), planDay('03-31')];
+
+      const plan = await readPlan(session, id);
+      const listed = await session.get(PLANS_ROUTE);
+      const edited = await session.patch(cardRoute(card), {
+        closingDay: 25,
+        dueDay: 5
+      });
+      const moved = await readPlan(session, id);
+      const later = { ...CARD, closingDay: 25, dueDay: 5 };
+
+      assert.equal(plan.creditCardId, card);
+      assert.deepEqual(
+        [plan.creditCard.name, plan.creditCard.lastFourDigits],
+        [CARD.name, CARD.lastFourDigits]
+      );
+      assert.equal(plan.paymentMethod, 'CREDIT_CARD');
+      assert.deepEqual(
+        plan.installments.map(
+          ({
+            dueDate,
+            originalDueDate,
+            creditCardId,
+            paymentMethod
+          }: CardInstallment) => [
+            dueDate,
+            originalDueDate,
+            creditCardId,
+            paymentMethod
+          ]
+        ),
+        ownDays.map((day) => [cardDayFrom(CARD, day), day, card, 'CREDIT_CARD'])
+      );
+      assert.equal(plan.nextDueDate, cardDayFrom(CARD, ownDays[0]));
+      assert.deepEqual(plan.history[0].changes.creditCard, {
+        name: CARD.name,
+        brand: CARD.brand,
+        lastFourDigits: CARD.lastFourDigits
+      });
+      assert.equal(listed.body.items[0].creditCard.id, card);
+      assert.equal(edited.status, 200, JSON.stringify(edited.body));
+      assert.equal(edited.body.movedBills, 3);
+      assert.deepEqual(
+        moved.installments.map(({ dueDate }: CardInstallment) => dueDate),
+        ownDays.map((day) => cardDayFrom(later, day))
+      );
+    });
+
+    it("refuses a plan on a card with another payment method, or on a card that is deleted or someone else's", async () => {
+      const session = await signIn();
+      const intruder = await signIn(INTRUDER_EMAIL);
+      const card = await createCard(session);
+      const deleted = await createCard(session, { name: 'Old' });
+      await session.remove(cardRoute(deleted));
+
+      assertFieldRefused(
+        await session.post(PLANS_ROUTE, {
+          ...PLAN,
+          paymentMethod: 'PIX',
+          creditCardId: card
+        }),
+        'paymentMethod'
+      );
+      assertFieldRefused(
+        await session.post(PLANS_ROUTE, { ...PLAN, creditCardId: deleted }),
+        'creditCardId'
+      );
+      assertFieldRefused(
+        await intruder.post(PLANS_ROUTE, { ...PLAN, creditCardId: card }),
+        'creditCardId'
+      );
+      assert.equal(await prismaClient.installmentPlan.count(), 0);
+      assert.equal(await prismaClient.expense.count(), 0);
+    });
+
+    it("moves a plan's unpaid installments when its card changes, customized ones too, keeping paid ones and recording the change", async () => {
+      const session = await signIn();
+      const card = await createCard(session);
+      const other = await createCard(session, {
+        name: 'Other',
+        closingDay: 20,
+        dueDay: 1
+      });
+      const otherCycle = { ...CARD, closingDay: 20, dueDay: 1 };
+      const id = await createPlan(session);
+      const ownDays = [planDay('01-31'), planDay('02-28'), planDay('03-31')];
+      const [first, second] = (await readPlan(session, id)).installments;
+      await pay(session, first.id, { amount: first.amount });
+      await session.patch(expenseRoute(second.id), { notes: 'Customized' });
+
+      const added = await session.patch(planRoute(id), { creditCardId: card });
+      const afterAdding = await readPlan(session, id);
+      const switched = await session.patch(planRoute(id), {
+        creditCardId: other
+      });
+      const afterSwitch = await readPlan(session, id);
+      const removed = await session.patch(planRoute(id), {
+        creditCardId: null
+      });
+      const afterRemoval = await readPlan(session, id);
+
+      assert.equal(added.status, 200, JSON.stringify(added.body));
+      assert.equal(afterAdding.paymentMethod, 'CREDIT_CARD');
+      assert.deepEqual(
+        afterAdding.installments.map(({ dueDate }: CardInstallment) => dueDate),
+        [
+          ownDays[0],
+          cardDayFrom(CARD, ownDays[1]),
+          cardDayFrom(CARD, ownDays[2])
+        ]
+      );
+      assert.equal(afterAdding.installments[0].creditCardId, null);
+      assert.equal(switched.status, 200, JSON.stringify(switched.body));
+      assert.deepEqual(
+        afterSwitch.installments.map(
+          ({ dueDate, creditCardId }: CardInstallment) => [
+            dueDate,
+            creditCardId
+          ]
+        ),
+        [
+          [ownDays[0], null],
+          [cardDayFrom(otherCycle, ownDays[1]), other],
+          [cardDayFrom(otherCycle, ownDays[2]), other]
+        ]
+      );
+      assert.equal(afterSwitch.installments[1].notes, 'Customized');
+      assert.equal(removed.status, 200, JSON.stringify(removed.body));
+      assert.deepEqual(
+        afterRemoval.installments.map(
+          ({ dueDate, originalDueDate }: CardInstallment) => [
+            dueDate,
+            originalDueDate
+          ]
+        ),
+        ownDays.map((day) => [day, null])
+      );
+      assert.equal(afterRemoval.creditCard, null);
+      assert.deepEqual(afterRemoval.history[0].changes.creditCard, {
+        from: { name: 'Other', brand: 'MASTERCARD', lastFourDigits: '1234' },
+        to: null
+      });
+    });
+
+    it("reschedules a plan on a card from its installments' own dates, charging the new ones to the card", async () => {
+      const session = await signIn();
+      const card = await createCard(session);
+      const id = await createPlan(session, { creditCardId: card });
+      const [first] = (await readPlan(session, id)).installments;
+      await pay(session, first.id, { amount: first.amount });
+
+      const beforeKept = await session.post(`${planRoute(id)}/reschedule`, {
+        remainingAmount: '600.00',
+        remainingCount: 2,
+        nextDueDate: planDay('01-30')
+      });
+      const res = await session.post(`${planRoute(id)}/reschedule`, {
+        remainingAmount: '600.00',
+        remainingCount: 2,
+        nextDueDate: planDay('02-05')
+      });
+      const plan = await readPlan(session, id);
+
+      assert.equal(first.dueDate, cardDayFrom(CARD, planDay('01-31')));
+      assert.ok(planDay('02-05') < first.dueDate);
+      assert.equal(beforeKept.status, Errors.DOMAIN.status);
+      assert.match(beforeKept.body.message, new RegExp(planDay('01-31')));
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.deepEqual(
+        plan.installments
+          .slice(1)
+          .map(
+            ({ dueDate, originalDueDate, creditCardId }: CardInstallment) => [
+              dueDate,
+              originalDueDate,
+              creditCardId
+            ]
+          ),
+        [planDay('02-05'), planDay('03-05')].map((day) => [
+          cardDayFrom(CARD, day),
+          day,
+          card
+        ])
+      );
+    });
+
+    it("keeps each installment on its plan's card, refusing a card of its own", async () => {
+      const session = await signIn();
+      const card = await createCard(session);
+      const plain = await createPlan(session);
+      const charged = await createPlan(session, { creditCardId: card });
+      const [plainFirst] = (await readPlan(session, plain)).installments;
+      const [chargedFirst] = (await readPlan(session, charged)).installments;
+
+      assertFieldRefused(
+        await session.patch(expenseRoute(plainFirst.id), {
+          creditCardId: card
+        }),
+        'creditCardId'
+      );
+      assertFieldRefused(
+        await session.patch(expenseRoute(chargedFirst.id), {
+          creditCardId: null
+        }),
+        'creditCardId'
+      );
+
+      const kept = await session.patch(expenseRoute(chargedFirst.id), {
+        notes: 'Same card',
+        creditCardId: card
+      });
+      const [after] = (await readPlan(session, plain)).installments;
+
+      assert.equal(kept.status, 200, JSON.stringify(kept.body));
+      assert.equal(after.creditCard, null);
+      assert.equal(after.dueDate, plainFirst.dueDate);
+      assert.equal(
+        (await readExpense(session, chargedFirst.id)).creditCardId,
+        card
+      );
+    });
+  });
+
   describe('account deletion', () => {
     it("removes the user's finance records and leaves other users' records", async () => {
       const session = await signIn();
@@ -1967,7 +2722,7 @@ describe('finances', () => {
       const expense = await createExpense(session);
       await pay(session, expense);
       await createPlan(session);
-      await createSeries(session);
+      await createSeries(session, { creditCardId: await createCard(session) });
       await session.put(SETTINGS_ROUTE, {
         ...DEFAULT_SETTINGS,
         reminderLeadDays: 5
@@ -1985,11 +2740,12 @@ describe('finances', () => {
         prismaClient.installmentPlan.count(where),
         prismaClient.recurringExpense.count(where),
         prismaClient.financeEvent.count(where),
-        prismaClient.financeSettings.count(where)
+        prismaClient.financeSettings.count(where),
+        prismaClient.creditCard.count(where)
       ]);
 
       assert.equal(res.status, 200, JSON.stringify(res.body));
-      assert.deepEqual(remaining, [0, 0, 0, 0, 0, 0]);
+      assert.deepEqual(remaining, [0, 0, 0, 0, 0, 0, 0]);
       assert.equal(
         await prismaClient.expense.count({ where: { userId: other.user.id } }),
         1

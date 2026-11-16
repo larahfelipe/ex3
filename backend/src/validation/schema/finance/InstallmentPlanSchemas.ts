@@ -11,6 +11,7 @@ import { positiveDecimalSchema } from '../DecimalSchema';
 import { PageQuerySchema } from '../PaginationQuerySchema';
 import {
   calendarDaySchema,
+  CreditCardIdSchema,
   ExpenseDescriptionPatchSchema,
   ExpenseDescriptionSchema,
   financeIdSchema,
@@ -72,7 +73,8 @@ export const CreateInstallmentPlanSchema = z
     installmentCount: installmentCountSchema('Installment count'),
     firstDueDate: calendarDaySchema('First due date'),
     frequency: RecurrenceFrequencySchema.default(RecurrenceFrequencies.MONTHLY),
-    entryDate: calendarDaySchema('Entry date').optional()
+    entryDate: calendarDaySchema('Entry date').optional(),
+    creditCardId: CreditCardIdSchema.nullable().default(null)
   })
   .superRefine(requireOneAmount)
   .superRefine(
@@ -95,7 +97,8 @@ export const CreateInstallmentPlanSchema = z
 export const UpdateInstallmentPlanSchema = z.object({
   ...ExpenseDescriptionPatchSchema.shape,
   id: InstallmentPlanIdSchema,
-  principalAmount: positiveDecimalSchema('Cash price').nullable().optional()
+  principalAmount: positiveDecimalSchema('Cash price').nullable().optional(),
+  creditCardId: CreditCardIdSchema.nullable().optional()
 });
 
 export const RescheduleInstallmentPlanSchema = z.object({

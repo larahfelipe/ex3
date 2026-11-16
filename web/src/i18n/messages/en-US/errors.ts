@@ -78,6 +78,7 @@ export default {
       'The payment must settle an amount or a discount greater than zero.',
     paymentInFuture: "The payment date can't be in the future.",
     endBeforeStart: "The end date can't be before the start date.",
+    endBeforeToday: "The end date can't be before today.",
     installmentSplitTooSmall:
       'The amount is too small to split into that many installments.',
     seriesHasPayments:
@@ -85,6 +86,14 @@ export default {
     seriesCancelled: 'This recurring expense was stopped.',
     endBeforePaidOccurrence:
       'The end date would remove an occurrence that already has payments.',
+    creditCardNotFound:
+      'This card was not found or was deleted. Choose another card.',
+    cardNeedsCreditPayment:
+      'A bill charged to a card is paid by credit card. Remove the card to choose another payment method.',
+    cardSetByPlan:
+      "An installment is charged to its plan's card. Change the card on the plan.",
+    cardSameDays: 'The closing day and the due day must be different.',
+    cardNameHasNumber: "Don't include a card number in the name.",
     referenceDayOutOfRange:
       "This device's date differs too much from the server's. Check the device's date and time.",
     rangeReversed: "The end date can't be before the start date.",

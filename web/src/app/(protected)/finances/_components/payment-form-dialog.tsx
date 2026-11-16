@@ -403,6 +403,7 @@ export const PaymentFormDialog: FC<PaymentFormDialogProps> = ({
                   name="paidOn"
                   label={t('paidOn')}
                   hint={t('paidOnHint')}
+                  max={today}
                   shortcuts={
                     <PaidOnShortcuts dueDate={expense.dueDate} today={today} />
                   }

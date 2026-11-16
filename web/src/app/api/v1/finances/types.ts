@@ -32,6 +32,8 @@ export type PaymentMethod =
 
 export type RecurrenceFrequency = 'WEEKLY' | 'MONTHLY' | 'YEARLY';
 
+export type CardBrand = 'VISA' | 'MASTERCARD';
+
 export type ExpenseStatus = 'PENDING' | 'OVERDUE' | 'PAID' | 'CANCELLED';
 
 export type ExpenseStatusFilter = ExpenseStatus | 'OPEN';
@@ -63,6 +65,24 @@ export type CalendarMonth = string;
 
 export type ReferenceDayParams = Record<'today', CalendarDay>;
 
+export type CreditCardCycle = Record<'closingDay' | 'dueDay', number>;
+
+export type CreditCardFields = Record<'name' | 'lastFourDigits', string> &
+  Record<'brand', CardBrand> &
+  CreditCardCycle;
+
+export type CreditCardSummary = WithId &
+  CreditCardFields &
+  Record<'deletedAt', string | null>;
+
+export type CreditCard = WithId &
+  WithTimestamps &
+  CreditCardFields &
+  Record<'unpaidBillCount', number>;
+
+type CardCharge = Record<'creditCardId', string | null> &
+  Record<'creditCard', CreditCardSummary | null>;
+
 export type ExpenseDescription = {
   description: string;
   category: ExpenseCategory;
@@ -91,7 +111,8 @@ export type Expense = WithId &
     recurringExpenseId: string | null;
     occurrenceDate: CalendarDay | null;
     isCustomized: boolean;
-  };
+    originalDueDate: CalendarDay | null;
+  } & CardCharge;
 
 export type ExpensePayment = WithId &
   WithTimestamps & {
@@ -140,7 +161,7 @@ export type InstallmentPlan = WithId &
     nextInstallmentNumber: number | null;
     firstDueDate: CalendarDay | null;
     lastDueDate: CalendarDay | null;
-  };
+  } & CardCharge;
 
 export type InstallmentPlanDetail = InstallmentPlan &
   Record<'installments', Array<Expense>> &
@@ -160,7 +181,7 @@ export type RecurringExpense = WithId &
     status: RecurringExpenseStatus;
     monthlyEquivalent: DecimalString;
     nextDueDate: CalendarDay | null;
-  };
+  } & CardCharge;
 
 export type RecurringExpenseDetail = RecurringExpense &
   Record<'history', Array<FinanceEvent>>;
@@ -233,13 +254,15 @@ export type GetExpensesResponseData = Page<Expense>;
 export type GetExpenseResponseData = ExpenseDetail;
 
 export type CreateExpenseRequestPayload = ExpenseDescription &
-  Record<'amount' | 'currency' | 'dueDate', string>;
+  Record<'amount' | 'currency' | 'dueDate', string> &
+  Partial<Record<'creditCardId', string | null>>;
 
 export type CreateExpenseResponseData = WithId & WithMessage;
 
 export type UpdateExpenseRequestPayload = Partial<
   ExpenseDescription &
     Record<'amount' | 'dueDate', string> &
+    Record<'creditCardId', string | null> &
     Record<'cancelled', boolean>
 >;
 
@@ -285,13 +308,13 @@ export type CreateInstallmentPlanRequestPayload = ExpenseDescription &
   Record<'currency' | 'firstDueDate', string> &
   Record<'frequency', RecurrenceFrequency> &
   Record<'installmentCount', number> &
-  Record<'principalAmount', string | null> &
+  Record<'principalAmount' | 'creditCardId', string | null> &
   (Record<'totalAmount', string> | Record<'installmentAmount', string>);
 
 export type CreateInstallmentPlanResponseData = WithId & WithMessage;
 
 export type UpdateInstallmentPlanRequestPayload = Partial<
-  ExpenseDescription & Record<'principalAmount', string | null>
+  ExpenseDescription & Record<'principalAmount' | 'creditCardId', string | null>
 >;
 
 export type RescheduleInstallmentPlanRequestPayload = Record<
@@ -315,7 +338,8 @@ export type CreateRecurringExpenseRequestPayload = ExpenseDescription &
   Record<'amount' | 'currency' | 'startDate', string> &
   Record<'isVariable', boolean> &
   Record<'frequency', RecurrenceFrequency> &
-  Record<'endDate', string | null>;
+  Record<'endDate', string | null> &
+  Partial<Record<'creditCardId', string | null>>;
 
 export type CreateRecurringExpenseResponseData = WithId & WithMessage;
 
@@ -323,7 +347,8 @@ export type UpdateRecurringExpenseRequestPayload = Partial<
   ExpenseDescription &
     Record<'amount' | 'effectiveFrom', string> &
     Record<'isVariable', boolean> &
-    Record<'endDate', string | null>
+    Record<'endDate', string | null> &
+    Record<'creditCardId', string | null>
 >;
 
 export type CancelRecurringExpenseRequestPayload = Partial<
@@ -394,3 +419,16 @@ export type UpdateFinanceSettingsRequestPayload = FinanceSettings;
 
 export type UpdateFinanceSettingsResponseData = WithMessage &
   Record<'settings', FinanceSettings>;
+
+export type GetCreditCardsResponseData = Array<CreditCard>;
+
+export type CreateCreditCardRequestPayload = CreditCardFields;
+
+export type CreateCreditCardResponseData = WithId & WithMessage;
+
+export type UpdateCreditCardRequestPayload = Partial<CreditCardFields>;
+
+export type UpdateCreditCardResponseData = WithMessage &
+  Record<'movedBills', number>;
+
+export type DeleteCreditCardResponseData = WithMessage;

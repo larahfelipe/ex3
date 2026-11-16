@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import {
+  EXPENSE_STATUS_TONES,
+  INSTALLMENT_PLAN_STATUS_TONES,
+  RECURRING_EXPENSE_STATUS_TONES,
+  STATUS_TONES
+} from '@/common/constants';
 import { formatOf } from '@/i18n/format';
 import { translatorOf } from '@/i18n/translator';
 import { nbsp, renderWithIntl, textOf } from '@/test/intl';
 
+import { CardLabel } from './credit-card-display';
 import { CategoryBars, MonthColumnChart } from './finance-charts';
 import {
   describeEvent,
@@ -140,6 +147,32 @@ describe('finance history', () => {
       'Interrompida a partir de 01/11/2026; 2 ocorrências não pagas removidas'
     );
   });
+
+  it('names a card by its name and last digits, and the bill’s own date apart from the card’s', () => {
+    assert.equal(
+      describeEvent(
+        {
+          type: 'UPDATED',
+          changes: {
+            dueDate: { from: '2026-11-20', to: '2026-12-10' },
+            originalDueDate: { from: null, to: '2026-11-20' },
+            creditCard: {
+              from: null,
+              to: {
+                name: 'Nubank',
+                brand: 'MASTERCARD',
+                lastFourDigits: '1234'
+              }
+            }
+          }
+        },
+        'BRL',
+        t,
+        format
+      ),
+      'vencimento: 20/11/2026 → 10/12/2026; vencimento da conta: nenhum → 20/11/2026; cartão: nenhum → Nubank final 1234'
+    );
+  });
 });
 
 describe('finance labels', () => {
@@ -233,6 +266,43 @@ describe('finance labels', () => {
       textsOf(renderWithIntl(<SeriesStatusBadge status="CANCELLED" />)),
       'Interrompida'
     );
+  });
+
+  it('gives statuses that mean the same one tone in every section', () => {
+    assert.equal(EXPENSE_STATUS_TONES.PAID, STATUS_TONES.success);
+    assert.equal(INSTALLMENT_PLAN_STATUS_TONES.ACTIVE, STATUS_TONES.success);
+    assert.equal(RECURRING_EXPENSE_STATUS_TONES.ACTIVE, STATUS_TONES.success);
+    assert.equal(EXPENSE_STATUS_TONES.PENDING, STATUS_TONES.pending);
+    assert.equal(EXPENSE_STATUS_TONES.OVERDUE, STATUS_TONES.error);
+
+    for (const tone of [
+      EXPENSE_STATUS_TONES.CANCELLED,
+      INSTALLMENT_PLAN_STATUS_TONES.COMPLETED,
+      INSTALLMENT_PLAN_STATUS_TONES.CANCELLED,
+      RECURRING_EXPENSE_STATUS_TONES.ENDED,
+      RECURRING_EXPENSE_STATUS_TONES.CANCELLED
+    ])
+      assert.equal(tone, STATUS_TONES.inactive);
+  });
+
+  it('names a card by brand, name and last digits, and reads the mask as words', () => {
+    const markup = renderWithIntl(
+      <CardLabel
+        card={{
+          name: 'Nubank',
+          brand: 'MASTERCARD',
+          lastFourDigits: '1234',
+          deletedAt: '2026-11-14T12:00:00.000Z'
+        }}
+      />
+    );
+
+    assert.match(markup, /role="img" aria-label="Mastercard"/);
+    assert.match(
+      markup,
+      /<span aria-hidden="true">•••• <\/span><span class="sr-only">final <\/span>1234/
+    );
+    assert.equal(textOf(markup), 'Nubank•••• final 1234Excluído');
   });
 
   it('reads the installments paid as progress', () => {

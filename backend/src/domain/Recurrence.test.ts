@@ -135,12 +135,14 @@ describe('nextBillDay', () => {
   const today = day('2026-11-11');
   const nextOf = (
     rule: Parameters<typeof nextBillDay>[0],
-    earliestCreated: string | null
+    earliestCreated: string | null,
+    card: Parameters<typeof nextBillDay>[3] = null
   ) => {
     const next = nextBillDay(
       rule,
       today,
-      earliestCreated === null ? null : day(earliestCreated)
+      earliestCreated === null ? null : day(earliestCreated),
+      card
     );
 
     return next === null ? null : formatCalendarDay(next);
@@ -163,6 +165,20 @@ describe('nextBillDay', () => {
     assert.equal(
       nextOf({ ...series, generatedThrough: day('2026-11-01') }, null),
       '2026-11-20'
+    );
+  });
+
+  it('is due when the card’s statement is, for an occurrence not created yet', () => {
+    const generatedThroughNovember = {
+      ...series,
+      generatedThrough: day('2026-11-30')
+    };
+    const card = { closingDay: 3, dueDay: 10 };
+
+    assert.equal(nextOf(generatedThroughNovember, null, card), '2027-01-10');
+    assert.equal(
+      nextOf(generatedThroughNovember, '2026-12-10', card),
+      '2026-12-10'
     );
   });
 

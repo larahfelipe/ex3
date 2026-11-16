@@ -50,6 +50,7 @@ import { useFormat } from '@/i18n/format';
 import { FIRST_PAGE, pageNumberFrom } from '@/lib/pagination';
 import { cn } from '@/lib/utils';
 
+import { CardLabel } from './credit-card-display';
 import {
   CalendarDayText,
   dueDistanceOf,
@@ -126,6 +127,13 @@ const SeriesRow: FC<
             frequency: tFinances(`frequencies.${frequency}`)
           })}
         </span>
+
+        {series.creditCard !== null && (
+          <CardLabel
+            card={series.creditCard}
+            className="max-w-full text-xs text-muted-foreground"
+          />
+        )}
 
         <span className="text-xs text-muted-foreground">
           <NextBillText series={series} today={today} />

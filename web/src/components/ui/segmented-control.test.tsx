@@ -5,9 +5,9 @@ import { describe, it } from 'node:test';
 
 import { SegmentedControl, SegmentedControlItem } from './segmented-control';
 
-const renderControl = (checked: string) =>
+const renderControl = (checked: string, isFullWidthBelowSm = false) =>
   renderToStaticMarkup(
-    <SegmentedControl>
+    <SegmentedControl isFullWidthBelowSm={isFullWidthBelowSm}>
       {['1M', '6M', '1A'].map((range) => (
         <SegmentedControlItem
           key={range}
@@ -36,5 +36,24 @@ describe('segmented control', () => {
 
     assert.match(markup, /^<div class="group\/segmented relative /);
     assert.equal(markup.match(/<span class="relative flex h-full/g)?.length, 3);
+  });
+
+  it('keeps within its container, and spans a phone’s row only when asked', () => {
+    const inline = renderControl('1M');
+    const fullWidth = renderControl('1M', true);
+
+    assert.match(inline, /^<div class="[^"]*\bmax-w-full\b/);
+    assert.doesNotMatch(inline, /data-full-width=|\bmax-sm:w-full\b/);
+    assert.match(
+      fullWidth,
+      /^<div data-full-width="true" class="[^"]*\bmax-sm:w-full\b/
+    );
+    for (const option of ['grow', 'px-1', 'whitespace-nowrap'] as const)
+      assert.equal(
+        fullWidth.match(
+          new RegExp(`max-sm:group-data-full-width/segmented:${option}\\b`, 'g')
+        )?.length,
+        3
+      );
   });
 });

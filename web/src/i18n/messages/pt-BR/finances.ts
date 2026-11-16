@@ -43,6 +43,10 @@ export default {
     DIRECT_DEBIT: 'Débito automático',
     OTHER: 'Outra'
   },
+  cardBrands: {
+    VISA: 'Visa',
+    MASTERCARD: 'Mastercard'
+  },
   frequencies: {
     WEEKLY: 'Semanal',
     MONTHLY: 'Mensal',
@@ -108,7 +112,9 @@ export default {
     discount: 'desconto',
     fees: 'juros e multas',
     paidOn: 'data do pagamento',
-    method: 'forma de pagamento'
+    method: 'forma de pagamento',
+    originalDueDate: 'vencimento da conta',
+    creditCard: 'cartão'
   },
   display: {
     installmentsPaid: 'Parcelas pagas',
@@ -124,6 +130,7 @@ export default {
     yes: 'sim',
     no: 'não',
     change: '{field}: {from} → {to}',
+    card: '{name} final {lastFour}',
     changesFrom: '{changes}, a partir de {day}',
     paid: '{amount} pago',
     paidOn: '{amount} pago em {day}',
@@ -164,11 +171,76 @@ export default {
     moreDetailsSection: 'Mais detalhes',
     addMoreDetails: 'Mais detalhes',
     moreDetailsHint: 'Subcategoria, forma de pagamento, conta e observações',
+    moreDetailsHintWithCard:
+      'Subcategoria, forma de pagamento e cartão, conta e observações',
     subcategory: 'Subcategoria',
     paymentMethod: 'Forma de pagamento',
     noPaymentMethod: 'Não informada',
     account: 'Conta bancária ou cartão',
-    notes: 'Observações'
+    notes: 'Observações',
+    card: 'Cartão',
+    noCard: 'Nenhum cartão específico',
+    newCard: 'Novo cartão',
+    cardHint: 'Escolha um para que a conta vença com a fatura',
+    cardHintInstallments: 'Escolha um para que as parcelas vençam com a fatura',
+    cardSetByPlan:
+      'Definido no parcelamento: para trocar, edite o parcelamento.',
+    billDueDate: 'Vencimento da conta'
+  },
+  cardPreview: {
+    due: 'Pagamento no cartão em {day}',
+    statement:
+      'Na fatura que fecha em {closing}. A conta mantém o próprio vencimento, {bill}.',
+    firstDue: 'Primeiro pagamento no cartão em {day}',
+    each: 'Cada conta vence com a fatura em que cai, que fecha no dia {closingDay, number} e vence no dia {dueDay, number}.',
+    eachInstallment:
+      'Cada parcela vence com a fatura em que cai, que fecha no dia {closingDay, number} e vence no dia {dueDay, number}.'
+  },
+  cards: {
+    digits: '<mask>•••• </mask><hidden>final </hidden>{lastFour}',
+    removed: 'Excluído',
+    cycle: 'Fecha no dia {closingDay, number} · vence no dia {dueDay, number}',
+    openBills:
+      '{count, plural, =0 {Nenhuma conta em aberto} one {# conta em aberto} other {# contas em aberto}}',
+    manage: {
+      title: 'Cartões de crédito',
+      description:
+        'As contas lançadas em um cartão vencem na data de pagamento da fatura em que caem.',
+      empty:
+        'Nenhum cartão ainda. Adicione um para escolhê-lo nas suas contas.',
+      add: 'Adicionar cartão',
+      edit: 'Editar<hidden> {name}</hidden>',
+      delete: 'Excluir<hidden> {name}</hidden>',
+      loading: 'Carregando os cartões',
+      loadFailed: 'Não foi possível carregar os cartões'
+    },
+    form: {
+      addTitle: 'Adicionar cartão',
+      editTitle: 'Editar cartão',
+      description:
+        'As contas lançadas nele vencem na data de pagamento da fatura.',
+      privacy:
+        'Nunca informe o número completo do cartão, o código de segurança nem a validade: os quatro últimos dígitos bastam para diferenciar seus cartões.',
+      name: 'Nome',
+      namePlaceholder: 'Ex.: Nubank',
+      lastFourDigits: 'Últimos quatro dígitos',
+      brand: 'Bandeira',
+      closingDay: 'Dia de fechamento',
+      closingDayHint: 'Compras a partir deste dia entram na fatura seguinte',
+      dueDay: 'Dia de vencimento',
+      dueDayHint: 'O dia em que cada fatura é paga',
+      followsNewDays:
+        '{count, plural, one {A conta em aberto neste cartão seguirá os novos dias.} other {As # contas em aberto neste cartão seguirão os novos dias.}} Contas com pagamentos mantêm suas datas.',
+      submitAdd: 'Adicionar cartão',
+      failed: 'Não foi possível salvar o cartão'
+    },
+    delete: {
+      title: 'Excluir {name}?',
+      description:
+        'As contas e despesas recorrentes lançadas nele mantêm suas datas e mostram o cartão como excluído. Ele não poderá mais ser escolhido para uma conta.',
+      confirm: 'Excluir cartão',
+      failed: 'Não foi possível excluir o cartão'
+    }
   },
   notifications: {
     billAdded: 'Conta adicionada',
@@ -195,6 +267,11 @@ export default {
     remindersOverdueOnly: 'Somente as contas vencidas são sinalizadas',
     remindersOnDueDay: 'As contas são sinalizadas no dia do vencimento',
     remindersLeadDays:
-      'As contas são sinalizadas {days, plural, one {# dia} other {# dias}} antes do vencimento'
+      'As contas são sinalizadas {days, plural, one {# dia} other {# dias}} antes do vencimento',
+    cardAdded: 'Cartão adicionado',
+    cardUpdated: 'Cartão atualizado',
+    cardBillsMoved:
+      '{count, plural, one {# conta em aberto passou para a nova data de pagamento} other {# contas em aberto passaram para as novas datas de pagamento}}',
+    cardDeleted: 'Cartão excluído'
   }
 } as const;
