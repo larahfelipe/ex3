@@ -91,7 +91,6 @@ const statusWhere = (
   return {};
 };
 
-/** The table's check pairs every installment of a plan with its number. */
 const numbered = <Row extends { installmentNumber: number | null }>(
   rows: ReadonlyArray<Row>
 ) =>
@@ -380,8 +379,6 @@ export class InstallmentPlanRepository {
             data: description
           });
 
-        // An installment's card is its plan's alone, so a customized one moves
-        // too; one with payments keeps the card and date it was paid against.
         if (isChangingCard) {
           const unpaid = await transactionClient.expense.findMany({
             where: { installmentPlanId: id, ...UNPAID_EXPENSE_WHERE },

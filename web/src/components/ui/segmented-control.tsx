@@ -26,12 +26,6 @@ const CHECKED_OPTION_SELECTOR = 'input[type="radio"]:checked + span';
 
 const readNothingChecked = () => null;
 
-/**
- * Reads the checked radio from the DOM rather than from props: a radio
- * registered with a form is uncontrolled, a click reports only the radio that
- * became checked, and a form reset checks one without any event. The store
- * listens for `change` and is read again on every render, which a reset causes.
- */
 const useCheckedValue = (groupRef: React.RefObject<Maybe<HTMLElement>>) => {
   const subscribe = React.useCallback(
     (onCheckedChange: VoidFunction) => {
@@ -58,11 +52,6 @@ const useCheckedValue = (groupRef: React.RefObject<Maybe<HTMLElement>>) => {
   );
 };
 
-/**
- * The group's computed size, its border box under the preflight's `border-box`,
- * is its size before any transform, and unlike `offsetWidth` is not rounded, so
- * a group of fractional width is not taken for a scaled one.
- */
 const checkedOptionBoxOf = (group: HTMLElement) => {
   const option = group.querySelector<HTMLElement>(CHECKED_OPTION_SELECTOR);
 
@@ -108,7 +97,6 @@ const useIndicatorPlacement = (
 
     place('selection');
 
-    /** Committed before paint, so a frame never shows the old place over the new layout. */
     const observer = new ResizeObserver(() => flushSync(() => place('resize')));
 
     observer.observe(group);
@@ -119,10 +107,6 @@ const useIndicatorPlacement = (
     return () => observer.disconnect();
   });
 
-  /**
-   * Each property ends on its own, and a slide retargeted by a newer one ends
-   * only with it, so the slide is over once nothing is left running.
-   */
   const settle = React.useCallback(
     ({ currentTarget }: React.TransitionEvent<HTMLElement>) => {
       if (currentTarget.getAnimations().length === 0)
@@ -137,12 +121,6 @@ const useIndicatorPlacement = (
 type SegmentedControlProps = React.ComponentProps<'div'> &
   Partial<Record<'isFullWidthBelowSm', boolean>>;
 
-/**
- * `isFullWidthBelowSm` is for a control that drops below its title on a phone:
- * it then spans the row, each option its label on one line with 4 px either
- * side plus an equal share of the room left, so the labels stay evenly spaced
- * and seven short ones fit the 254 px a card leaves at 320 px.
- */
 const SegmentedControl = ({
   className,
   isFullWidthBelowSm = false,

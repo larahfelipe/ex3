@@ -58,11 +58,6 @@ export class TurnstileVerifier {
     this.logEntry = logEntry;
   }
 
-  /**
-   * Cloudflare's test secrets answer a fixed action and hostname, so those are
-   * checked only against a real secret, the one production accepts. The widget
-   * runs on the web, whose origins are the ones the API allows.
-   */
   static getInstance() {
     if (!TurnstileVerifier.INSTANCE)
       TurnstileVerifier.INSTANCE = new TurnstileVerifier({

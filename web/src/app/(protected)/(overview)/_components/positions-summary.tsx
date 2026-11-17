@@ -24,7 +24,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TableRowHeader
+  TableRowHeader,
+  TruncatedText
 } from '@/components/ui';
 import { usePageParam } from '@/hooks/use-page-param';
 import { usePositions } from '@/hooks/use-portfolio';
@@ -131,9 +132,9 @@ export const PositionsSummary: FC<PositionsSummaryProps> = ({
                           </Link>
                         </Button>
 
-                        <span className="line-clamp-1 text-xs text-muted-foreground">
+                        <TruncatedText className="line-clamp-1 text-xs text-muted-foreground">
                           {position.name}
-                        </span>
+                        </TruncatedText>
 
                         <span className="text-xs text-muted-foreground tabular-nums sm:hidden">
                           {t.rich('positions.held', {

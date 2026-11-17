@@ -79,11 +79,6 @@ export class InstrumentRepository {
     return this.prismaClient.instrument.findUnique({ where: { id } });
   }
 
-  /**
-   * The instrument a symbol names for a user: the private one they registered,
-   * else the catalog one. Nulls sort last, so a private instrument shadows the
-   * catalog instrument of its symbol.
-   */
   async getVisibleBySymbol(params: InstrumentRepository.GetVisibleParams) {
     const { symbol, userId } = params;
 
@@ -93,12 +88,6 @@ export class InstrumentRepository {
     });
   }
 
-  /**
-   * The unique index on owner and symbol, which counts every catalog instrument
-   * as one owner, is the only authority on whether the symbol is free, so of
-   * concurrent registrations of one symbol exactly one succeeds and the others
-   * resolve to null.
-   */
   async add(params: InstrumentRepository.AddParams) {
     try {
       return await this.prismaClient.instrument.create({ data: params });

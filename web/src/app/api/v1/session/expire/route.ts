@@ -5,12 +5,6 @@ import { APP_STORAGE_KEYS, COOKIE_OPTIONS } from '@/common/constants';
 
 import type { ExpireSessionResponseData } from '../types';
 
-/**
- * Called once the API has rejected the session's token. The token cookie goes,
- * so the proxy stops letting a revoked token through, and the marker stays, so
- * a later redirect still tells an expiry apart from a sign-out. With neither
- * cookie left, the user ended the session, here or in another tab.
- */
 export const POST = async () => {
   const cookieStore = await cookies();
 

@@ -445,6 +445,8 @@ that depend on *today* accept `today`.
 | POST | `/v1/finances/credit-cards` | `{ name, lastFourDigits, brand, closingDay, dueDay }` | `201` `{ id, message }` |
 | PATCH | `/v1/finances/credit-cards/:id` | any creation field | `200` `{ message, movedBills }` |
 | DELETE | `/v1/finances/credit-cards/:id` | — (the card is kept for its bills, see [Credit cards](#credit-cards)) | `200` `{ message }` |
+| GET | `/v1/finances/notifications` | query `today?` | `200` `{ notifications, unreadCount, total }`, see [Notifications](#notifications) |
+| POST | `/v1/finances/notifications/marks` | `{ action, keys?, today? }`: `action` `READ` or `DISMISS`; `keys` 1–50 notification keys, or none for every active notification | `200` the feed after the change |
 
 Status codes for a refused write:
 
@@ -556,6 +558,25 @@ payment goes through `POST /api/v1/finances/expenses/[id]/payments/create`.
 * The bills list keeps search, status and sort in view, folds the rarer
   filters into a panel, shows each filter in force as a removable chip, and
   offers *Pay* on each open bill.
+* **A bill's dialog** leads with a summary panel: the amount, with what is
+  still owed and what was paid when partly paid, or the day it was paid in
+  full; and the due date, with how far it is (red when overdue) and, on a
+  card, the bill's own date. *Details* follows, with the payment method (a
+  dash when none), the card, the category and subcategory, and the account and
+  notes only when given. Payments and history come after.
+* **Actions on a record** follow one layout in the bill, plan, series and
+  transaction dialogs (`DialogActionFooter`): edit and delete as icon buttons
+  at the start, each with a tooltip and a name that says what it acts on; the
+  worded actions — record a payment, cancel, restore, reschedule, stop — at the
+  end, the main one last and, below `sm`, on top of a full-width stack. Delete
+  is red only in its icon and hover, and still asks for confirmation. The
+  dialog's ✕ closes it, so there is no *Close* button. A payment's correct and
+  void, a card's edit and delete under *Manage cards*, and a portfolio's edit
+  and delete are icon buttons the same way; *Use* on a portfolio keeps its
+  word.
+* **Clipped text** — a row's title, a card's name, an asset's name, a
+  navigation label — shows whole in a tooltip, only while it is clipped: on
+  hover, on keyboard focus and on a tap (`TruncatedText`).
 * Hooks live in `web/src/hooks/use-finances.ts`, with the query list in
   [`data-fetching.md`](data-fetching.md).
 
@@ -572,6 +593,50 @@ no push service and no scheduler. Reminders are therefore **in-app only**:
   overview and the bills list show both groups. The overview's *Overdue*
   figure stays, because it is a total, not a reminder.
 
+**The notification feed** (`GET /v1/finances/notifications`) turns the same
+conditions into notices with a read state. The notices are derived from the
+bills on every read rather than stored (`domain/FinanceNotifications.ts`):
+
+* **What raises one.** An open bill that is overdue, while overdue reminders
+  are on, or due within the lead days, while the switch for its kind — bills
+  or installments — is on. Recurring bills due by then are generated first, as
+  for the alerts, so the feed and the overdue badge agree. One bill raises at
+  most one notice: an overdue bill is no longer due soon.
+* **Identity.** A notice's key is its condition, its bill and the bill's due
+  date (`overdue:<id>:<day>` or `due-soon:<id>:<day>`). Paying, cancelling or
+  deleting the bill ends the notice with no write of its own. Moving the due
+  date, or a reminder turning overdue, is a new key and so a new, unread
+  notice. Editing anything else keeps it.
+* **Date and order.** `notifiedOn` is the day the condition began: the day
+  after the due date, or the first day of the lead window. It is never before
+  the bill was recorded and never after today. The feed is newest first, with
+  overdue before due soon on the same day. It returns at most 50
+  (`NOTIFICATION_ITEMS_LIMIT`), with `unreadCount` and `total` counted over
+  all of them.
+* **Read and dismissed.** `finance_notification_marks` keeps, per user and
+  key, when a notice was first read and when it was dismissed.
+  * A mark is only ever added: reading a dismissed notice keeps it dismissed.
+  * Marks whose key no longer applies are deleted on the next read. A
+    condition that ends and comes back, such as a voided payment or a
+    restored bill, is therefore unread again.
+  * Marking a key that has ended meanwhile is skipped, not refused.
+  * Deleting the account deletes the marks.
+* **Web.** The navigation's *Notifications* item opens a popover instead of a page.
+  From `sm` it is in the rail's footer; on a phone it sits beside the wordmark
+  in a top bar.
+  * Its badge counts the unread notices in the primary tone, apart from the
+    Finances item's overdue badge in the negative tone.
+  * Each notice shows its kind's icon and tone, the bill, when it was
+    raised, how far the due date is and what is still owed. An unread notice
+    is bold with a dot, and is announced as unread.
+  * Each notice can be marked read or dismissed. Opening one marks it read
+    and opens the bill's dialog. The header marks all read; the footer opens
+    the bills page and clears all.
+  * Marks show at once and are rolled back, with a toast, if the API refuses
+    them.
+  * The feed refreshes when the window regains focus, and after every
+    finance write because its query sits under the finance scope.
+
 Nothing is sent outside the app, and the interface says so. An external
 channel would need:
 
@@ -587,7 +652,8 @@ The alerts endpoint already computes what such a job would send.
    `20261111000000_streamlined_expense_categories` rewrites the category of
    existing rows (see [Categories](#categories)); take a backup first where
    the data matters. `20261115000000_credit_cards` only adds a table and
-   nullable columns.
+   nullable columns, and `20261116000000_finance_notification_marks` only adds
+   a table.
    Compose's `migrate` service does this.
 2. Start the API and the web as in the [README](../README.md#setup). Sign in.
    *Finances* is in the navigation.
@@ -624,6 +690,14 @@ A manual check that covers each rule:
     the days again, and that bill keeps its date.
 11. Delete the card. Its bills keep their dates and show the card as
     removed.
+12. With a bill due yesterday and another due tomorrow, open *Notifications*: two
+    unread notices, the overdue one first, and a badge of 2. Mark one read and
+    dismiss the other; reload, and both marks hold. Move the dismissed bill's
+    due date to the day after tomorrow: it returns as a new, unread notice.
+    Pay it, and it leaves the feed.
+13. Open a bill: the amount and due date lead, and edit and delete are icons
+    at the footer's start with their tooltips. Narrow the window until a
+    bill's title clips in the list; hovering or tapping it shows it whole.
 
 ## Tests
 
@@ -636,14 +710,17 @@ A manual check that covers each rule:
 | `domain/ExpenseSettlement.test.ts` | 10 | Settling from active payments, over-settlement, the payment day, status by reference day |
 | `domain/FinanceMoney.test.ts` | 10 | Minor units, precision, split, monthly equivalent, ratios, sums |
 | `domain/FinanceAggregates.test.ts` | 12 | Totals, months, categories, kinds, commitments, change, calendar days, due soon and the reminder switch per kind |
-| `routes/Finances.integration.ts` | 80 | Every route against Postgres:<br>• validation;<br>• user isolation;<br>• partial, corrected, voided and concurrent payments;<br>• transaction rollback;<br>• plans by frequency and reschedules;<br>• series generation, its concurrency, edits, stop and delete, including edits and stops when generation lags or the day is past it, and an end today or later, a passed end kept when sent back;<br>• summary with the total outstanding, calendar, reports, alerts and the reminder switches;<br>• cards: create, edit and delete, validation and isolation, the card's due date and overdue, changing a bill's card or own date, moving only unpaid bills when the days change, deleting a card, a series' bills;<br>• plans on a card: each installment on the statement of its own date, a card refused with another method or when deleted or someone else's, a card change moving the unpaid installments, customized ones too, a reschedule on the card, and an installment refused a card of its own;<br>• account deletion |
+| `domain/FinanceNotifications.test.ts` | 8 | The notices the switches allow, one per bill, keys by condition and due date, the day each began, newest first, read and dismissed marks |
+| `routes/Finances.integration.ts` | 87 | Every route against Postgres:<br>• validation;<br>• user isolation;<br>• partial, corrected, voided and concurrent payments;<br>• transaction rollback;<br>• plans by frequency and reschedules;<br>• series generation, its concurrency, edits, stop and delete, including edits and stops when generation lags or the day is past it, and an end today or later, a passed end kept when sent back;<br>• summary with the total outstanding, calendar, reports, alerts and the reminder switches;<br>• cards: create, edit and delete, validation and isolation, the card's due date and overdue, changing a bill's card or own date, moving only unpaid bills when the days change, deleting a card, a series' bills;<br>• plans on a card: each installment on the statement of its own date, a card refused with another method or when deleted or someone else's, a card change moving the unpaid installments, customized ones too, a reschedule on the card, and an installment refused a card of its own;<br>• notifications: derivation, order and no repeats, read and dismissed marks one by one and all at once, their persistence, a paid, cancelled, voided or moved bill, the reminder switches, user isolation and validation;<br>• account deletion, the notification marks included |
 
 The integration suite runs the investment suites in the same process. They
 are the regression check that the module left that behavior unchanged.
 
 ## Known limitations
 
-* **Notifications** are in-app only (see above).
+* **Notifications** are in-app only (see above). Each bill raises its own
+  notice: the bills on one card's statement are not grouped into one. The
+  feed shows the 50 newest, and says how many more there are.
 * **Recurring series**:
   * frequency and start date are fixed once created;
   * a stopped series cannot be resumed;
@@ -662,7 +739,6 @@ are the regression check that the module left that behavior unchanged.
 * **Accounts** are free text, not entities.
 * **Cards**:
   * only Visa and Mastercard;
-  * plans are not charged to cards;
   * the card's days are the same every month, with no statement edited on
     its own and no holiday or weekend shift.
 * **Currencies** are never converted. Each currency is viewed on its own.

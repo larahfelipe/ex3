@@ -20,44 +20,46 @@
   background-color: hsl(var(--brand-glow-base));
   background-image:
     radial-gradient(
-      66% 36% at 68% 113%,
-      hsl(var(--brand-glow-highlight) / 0.95),
-      hsl(var(--brand-glow-warm) / 0.8) 25%,
-      hsl(var(--brand-glow-warm) / 0.48) 50%,
-      hsl(var(--brand-glow-rose) / 0.15) 75%,
+      58% 14% at 68% 103%,
+      hsl(var(--brand-glow-core) / 0.75),
+      hsl(var(--brand-glow-highlight) / 0.5) 25%,
+      hsl(var(--brand-glow-highlight) / 0.2) 50%,
+      hsl(var(--brand-glow-warm) / 0.05) 75%,
       transparent
     ),
     radial-gradient(
-      110% 56% at 62% 110%,
-      hsl(var(--brand-glow-rose) / 0.32),
-      hsl(var(--brand-glow-rose) / 0.27) 25%,
-      hsl(var(--brand-glow-rose) / 0.16) 50%,
-      hsl(var(--brand-glow-rose) / 0.05) 75%,
+      78% 66% at 68% 104%,
+      hsl(var(--brand-glow-warm) / 0.85),
+      hsl(var(--brand-glow-warm) / 0.6) 25%,
+      hsl(var(--brand-glow-warm) / 0.3) 50%,
+      hsl(var(--brand-glow-warm) / 0.08) 75%,
       transparent
     ),
     radial-gradient(
-      170% 100% at 42% 106%,
-      hsl(var(--brand-glow-cool) / 0.4),
-      hsl(var(--brand-glow-cool) / 0.34) 25%,
-      hsl(var(--brand-glow-cool) / 0.2) 50%,
-      hsl(var(--brand-glow-cool) / 0.06) 75%,
-      transparent
-    ),
-    radial-gradient(
-      85% 50% at 6% -8%,
-      hsl(var(--brand-glow-cool) / 0.12),
-      hsl(var(--brand-glow-cool) / 0.1) 25%,
-      hsl(var(--brand-glow-cool) / 0.06) 50%,
-      hsl(var(--brand-glow-cool) / 0.02) 75%,
+      110% 80% at 64% 110%,
+      hsl(var(--brand-glow-rose) / 0.08),
+      hsl(var(--brand-glow-rose) / 0.06) 25%,
+      hsl(var(--brand-glow-rose) / 0.03) 50%,
+      hsl(var(--brand-glow-rose) / 0.01) 75%,
       transparent
     );
 }
 
-/*
- * Fine grain over the glow: a dark gradient shows its 8-bit steps as bands,
- * and noise breaks them up so the gradient reads as smooth. The tile is a
- * fixed size, so the grain stays as fine on a wide panel as on a narrow one.
- */
+@utility fluted-glass {
+  background-image: linear-gradient(
+    90deg,
+    hsl(var(--brand-glow-core) / 0.12),
+    hsl(var(--brand-glow-core) / 0.03) 4%,
+    transparent 14%,
+    hsl(var(--brand-glow-core) / 0.035) 30%,
+    transparent 46% 52%,
+    hsl(var(--brand-glow-base) / 0.22) 82%,
+    hsl(var(--brand-glow-base) / 0.4)
+  );
+  background-size: 4rem 100%;
+  mask-image: linear-gradient(to top, black 35%, rgb(0 0 0 / 0.3));
+}
+
 @utility bg-grain {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
   background-size: 180px;
@@ -132,12 +134,18 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
 
-  --shadow-surface:
-    inset 0 1px 0 0 hsl(var(--surface-highlight)),
-    0 1px 2px 0 hsl(var(--surface-shade));
+  --shadow-surface: 0 1px 2px 0 hsl(var(--surface-shade));
   --shadow-elevated:
     inset 0 1px 0 0 hsl(var(--surface-highlight)),
     0 12px 32px -12px hsl(0 0% 0% / 0.55);
+
+  --animate-ring-sweep: ring-sweep 900ms cubic-bezier(0.33, 1, 0.68, 1) both;
+
+  @keyframes ring-sweep {
+    from {
+      stroke-dasharray: 0 var(--ring-length);
+    }
+  }
 }
 
 @layer base {
@@ -187,17 +195,17 @@
     --chart-9: 85 85% 35%;
     --chart-10: 293 69% 49%;
     --brand-glow-base: 240 40% 98%;
+    --brand-glow-core: 40 100% 99%;
     --brand-glow-highlight: 36 100% 70%;
     --brand-glow-warm: 21 100% 62%;
     --brand-glow-rose: 347 85% 70%;
-    --brand-glow-cool: 255 85% 75%;
   }
 
   .dark {
     color-scheme: dark;
-    --background: 0 0% 5.5%;
+    --background: 0 0% 3.9%;
     --foreground: 0 0% 98%;
-    --surface: 0 0% 8.8%;
+    --surface: 0 0% 9%;
     --surface-foreground: 0 0% 98%;
     --surface-elevated: 0 0% 11.6%;
     --surface-elevated-foreground: 0 0% 98%;
@@ -222,7 +230,7 @@
     --warning-foreground: 0 0% 9%;
     --info: 198 93% 60%;
     --info-foreground: 0 0% 9%;
-    --border: 0 0% 20%;
+    --border: 0 0% 18%;
     --input: 0 0% 32%;
     --input-hover: 0 0% 42%;
     --focus: 21 100% 50%;
@@ -237,11 +245,11 @@
     --chart-8: 234 89% 74%;
     --chart-9: 82 85% 67%;
     --chart-10: 292 91% 73%;
-    --brand-glow-base: 246 40% 6%;
+    --brand-glow-base: 0 0% 3.9%;
+    --brand-glow-core: 40 100% 96%;
     --brand-glow-highlight: 32 100% 62%;
     --brand-glow-warm: 21 100% 50%;
     --brand-glow-rose: 347 85% 60%;
-    --brand-glow-cool: 255 85% 65%;
   }
 
   :root,
@@ -283,15 +291,6 @@
   }
 }
 
-/*
- * The toast's bottom edge is its countdown: a bar in the status tone that
- * empties over the toast's lifetime, above a faint track of the same tone. It
- * pauses whenever sonner holds the toast's timer — the list expanded by the
- * pointer or the hotkey, pressed, or the document hidden — so what it shows is
- * the time left. sonner's styles are unlayered and come later, so these are
- * unlayered and more specific. A toast swiping out gives its animation back to
- * sonner, and a loading toast, which has no lifetime, keeps the plain border.
- */
 @keyframes toast-countdown {
   from {
     background-size:
@@ -358,12 +357,6 @@
   animation-play-state: paused;
 }
 
-/*
- * A list in a popover scrolls behind a thin scrollbar rather than scroll
- * buttons, and keeps the page behind it still. Radix hides the scrollbar of
- * its select lists from an unlayered style of its own, so this is unlayered
- * and more specific.
- */
 .popover-list,
 .popover-list[data-radix-select-viewport] {
   overscroll-behavior: contain;
@@ -394,13 +387,11 @@
     transition-duration: 0.01ms !important;
   }
 
-  /* The busy indicator is the one animation that carries state, so it keeps turning, slower. */
   .animate-spin {
     animation-duration: 1.5s !important;
     animation-iteration-count: infinite !important;
   }
 
-  /* The toast's countdown carries state as well: it is the time the toast stays. */
   [data-sonner-toaster] [data-sonner-toast][data-swipe-out='false'] {
     animation-duration: var(--toast-lifetime) !important;
   }

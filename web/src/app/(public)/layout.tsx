@@ -12,7 +12,9 @@ export default function Layout({ children }: Children) {
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-96 -scale-y-100 bg-brand-glow mask-t-from-0% lg:hidden"
-        />
+        >
+          <div className="absolute inset-0 fluted-glass" />
+        </div>
 
         <header className="max-lg:mx-auto max-lg:w-full max-lg:max-w-100">
           <p className="text-center text-[clamp(3rem,14vw,4rem)] leading-none tracking-tighter text-foreground/40 lg:sr-only">
@@ -29,7 +31,9 @@ export default function Layout({ children }: Children) {
         aria-hidden="true"
         className="relative m-3 flex items-end overflow-hidden rounded-[1.75rem] bg-brand-glow p-12 after:absolute after:inset-0 after:rounded-[inherit] after:ring-1 after:ring-foreground/10 after:ring-inset max-lg:hidden lg:sticky lg:top-3 lg:h-[calc(100dvh-1.5rem)] lg:self-start"
       >
-        <p className="text-[clamp(5rem,10vw,10rem)] leading-none tracking-tighter text-foreground/40 select-none">
+        <div className="absolute inset-0 fluted-glass" />
+
+        <p className="relative text-[clamp(5rem,10vw,10rem)] leading-none tracking-tighter text-foreground/40 select-none">
           <Wordmark />
         </p>
 

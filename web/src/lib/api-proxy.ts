@@ -42,12 +42,6 @@ const PROXY_SECRET_HEADER = 'x-api-proxy-secret';
 const clientAddressOf = (forwardedFor: string | null) =>
   forwardedFor?.split(',').at(-1)?.trim() ?? '';
 
-/**
- * Every request reaches the API from this server, so a request that carries no
- * session names the client it serves, which the API believes only beside the
- * secret both share. Without it the API would count every visitor as one, so
- * production refuses to forward instead.
- */
 export const clientAddressHeaders = async (): Promise<
   Record<string, string>
 > => {

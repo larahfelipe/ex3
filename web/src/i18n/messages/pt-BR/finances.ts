@@ -209,8 +209,8 @@ export default {
       empty:
         'Nenhum cartão ainda. Adicione um para escolhê-lo nas suas contas.',
       add: 'Adicionar cartão',
-      edit: 'Editar<hidden> {name}</hidden>',
-      delete: 'Excluir<hidden> {name}</hidden>',
+      editNamed: 'Editar {name}',
+      deleteNamed: 'Excluir {name}',
       loading: 'Carregando os cartões',
       loadFailed: 'Não foi possível carregar os cartões'
     },

@@ -1,6 +1,6 @@
 import * as React from 'react';
 
-import { Eye, EyeClosed } from 'lucide-react';
+import { Eye, EyeClosed, KeyRound, Mail, type LucideIcon } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
 import { cn } from '@/lib/utils';
@@ -10,6 +10,11 @@ import { FIELD_CLASS } from './field';
 
 export type InputProps = React.ComponentProps<'input'> &
   Partial<Record<'leftElement', React.JSX.Element>>;
+
+const TYPE_ICONS: Partial<Record<React.HTMLInputTypeAttribute, LucideIcon>> = {
+  email: Mail,
+  password: KeyRound
+};
 
 const Input = ({
   className,
@@ -26,11 +31,22 @@ const Input = ({
 
   const togglePasswordVisibility = () => setShowPassword((prev) => !prev);
 
+  const TypeIcon = type === undefined ? undefined : TYPE_ICONS[type];
+  const leadingElement =
+    leftElement ??
+    (TypeIcon === undefined ? undefined : (
+      <TypeIcon
+        aria-hidden="true"
+        size={16}
+        className="text-muted-foreground"
+      />
+    ));
+
   return (
     <div className="flex items-center relative">
-      {leftElement && (
+      {leadingElement && (
         <div className="pointer-events-none absolute left-2.5 flex">
-          {leftElement}
+          {leadingElement}
         </div>
       )}
 
@@ -39,7 +55,7 @@ const Input = ({
         className={cn(
           FIELD_CLASS,
           'flex h-(--field-height) w-full px-3 py-1 text-base md:text-sm',
-          leftElement && 'pl-8',
+          leadingElement && 'pl-8',
           isPasswordType && 'pr-11 sm:pr-10',
           className
         )}
@@ -58,9 +74,9 @@ const Input = ({
           onClick={togglePasswordVisibility}
         >
           {showPassword ? (
-            <Eye size={16} aria-hidden="true" />
-          ) : (
             <EyeClosed size={16} aria-hidden="true" />
+          ) : (
+            <Eye size={16} aria-hidden="true" />
           )}
         </Button>
       )}

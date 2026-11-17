@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import {
   CreditCardRepository,
   ExpenseRepository,
+  FinanceNotificationRepository,
   FinanceReportRepository,
   InstallmentPlanRepository,
   RecurringExpenseRepository
@@ -26,11 +27,13 @@ import {
   GetExpenseService,
   GetFinanceAlertsService,
   GetFinanceCalendarService,
+  GetFinanceNotificationsService,
   GetFinanceReportService,
   GetFinanceSettingsService,
   GetFinanceSummaryService,
   GetInstallmentPlanService,
   GetRecurringExpenseService,
+  MarkFinanceNotificationsService,
   RecordPaymentService,
   RescheduleInstallmentPlanService,
   UpdateCreditCardService,
@@ -60,11 +63,13 @@ import { GetAllRecurringExpensesController } from './GetAllRecurringExpensesCont
 import { GetExpenseController } from './GetExpenseController';
 import { GetFinanceAlertsController } from './GetFinanceAlertsController';
 import { GetFinanceCalendarController } from './GetFinanceCalendarController';
+import { GetFinanceNotificationsController } from './GetFinanceNotificationsController';
 import { GetFinanceReportController } from './GetFinanceReportController';
 import { GetFinanceSettingsController } from './GetFinanceSettingsController';
 import { GetFinanceSummaryController } from './GetFinanceSummaryController';
 import { GetInstallmentPlanController } from './GetInstallmentPlanController';
 import { GetRecurringExpenseController } from './GetRecurringExpenseController';
+import { MarkFinanceNotificationsController } from './MarkFinanceNotificationsController';
 import { RecordPaymentController } from './RecordPaymentController';
 import { RescheduleInstallmentPlanController } from './RescheduleInstallmentPlanController';
 import { UpdateCreditCardController } from './UpdateCreditCardController';
@@ -335,6 +340,42 @@ export const getFinanceAlertsControllerHandler = (
   );
 
   return getFinanceAlertsController.handle(req, res);
+};
+
+const notificationSources = () => ({
+  financeReportRepository: FinanceReportRepository.getInstance(),
+  recurringExpenseRepository: RecurringExpenseRepository.getInstance(),
+  financeNotificationRepository: FinanceNotificationRepository.getInstance()
+});
+
+export const getFinanceNotificationsControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const getFinanceNotificationsService =
+    GetFinanceNotificationsService.getInstance(notificationSources());
+
+  const getFinanceNotificationsController =
+    GetFinanceNotificationsController.getInstance(
+      getFinanceNotificationsService
+    );
+
+  return getFinanceNotificationsController.handle(req, res);
+};
+
+export const markFinanceNotificationsControllerHandler = (
+  req: Request,
+  res: Response
+) => {
+  const markFinanceNotificationsService =
+    MarkFinanceNotificationsService.getInstance(notificationSources());
+
+  const markFinanceNotificationsController =
+    MarkFinanceNotificationsController.getInstance(
+      markFinanceNotificationsService
+    );
+
+  return markFinanceNotificationsController.handle(req, res);
 };
 
 export const getFinanceCalendarControllerHandler = (

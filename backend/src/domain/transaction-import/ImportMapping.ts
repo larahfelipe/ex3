@@ -21,7 +21,6 @@ import {
   type ImportCell
 } from './ImportValues';
 
-/** Wide enough that no product or difference of two column values rounds. */
 const ImportDecimal = Prisma.Decimal.clone({
   precision: 2 * DecimalColumn.PRECISION + 1
 });

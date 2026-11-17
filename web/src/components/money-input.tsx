@@ -62,7 +62,6 @@ const LEADING_ZEROS = /^0+/;
 
 const AFFIX_CHARACTER = /[\p{Sc}\p{L}\s]/u;
 
-/** Above twenty integer digits, eighteen decimals, their separators and a currency sign. */
 const PASTED_AMOUNT_MAX_LENGTH = 64;
 
 const DELETION_INPUT_TYPE_PREFIX = 'delete';

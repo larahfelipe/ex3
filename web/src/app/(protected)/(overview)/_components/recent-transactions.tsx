@@ -11,7 +11,6 @@ import { useTransactions } from '@/hooks/use-transactions';
 
 type RecentTransactionsProps = Record<'portfolio', Portfolio>;
 
-/** Also read by the overview to tell whether the portfolio has any transaction, from the same cached page. */
 export const RECENT_TRANSACTIONS_PAGE: TransactionFilters = {
   page: 1,
   pageSize: 5

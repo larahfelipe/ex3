@@ -413,6 +413,28 @@ export type GetFinanceAlertsResponseData = Record<
 > &
   Record<'overdue' | 'dueSoon', AlertGroup>;
 
+export type FinanceNotificationKind = 'OVERDUE' | 'DUE_SOON';
+
+export type FinanceNotificationMarkAction = 'READ' | 'DISMISS';
+
+export type FinanceNotification = Record<'key' | 'notifiedOn', string> &
+  Record<'kind', FinanceNotificationKind> &
+  Record<'isRead', boolean> &
+  Record<'expense', Expense>;
+
+export type GetFinanceNotificationsResponseData = Record<
+  'notifications',
+  Array<FinanceNotification>
+> &
+  Record<'unreadCount' | 'total', number>;
+
+export type MarkFinanceNotificationsRequestPayload = ReferenceDayParams &
+  Record<'action', FinanceNotificationMarkAction> &
+  Partial<Record<'keys', Array<string>>>;
+
+export type MarkFinanceNotificationsResponseData =
+  GetFinanceNotificationsResponseData;
+
 export type GetFinanceSettingsResponseData = FinanceSettings;
 
 export type UpdateFinanceSettingsRequestPayload = FinanceSettings;

@@ -357,9 +357,6 @@ export class ExpenseRepository {
         const { dueDate: billDueDate, ...described } = patch;
         const ownDueDate = current.originalDueDate ?? current.dueDate;
         const isChangingCard = (card?.id ?? null) !== current.creditCardId;
-        // A form sends the bill's own date back unchanged with any edit; only a
-        // new date or card works the card date out again, so a paid bill keeps
-        // the date its card's earlier days gave it.
         const isMovingBill =
           isChangingCard ||
           (billDueDate !== undefined &&

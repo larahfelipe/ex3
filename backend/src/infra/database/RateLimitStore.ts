@@ -29,17 +29,6 @@ const toRateLimitInfo = ({ hits, resetAt }: CounterRow) => ({
 const reasonOf = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
-/**
- * Keeps an `express-rate-limit` budget in Postgres, so every API process counts
- * against the same counters. A window opens with the first hit of a key and
- * closes `windowMs` later on the database clock, which every process shares; an
- * insert that meets an existing key takes its row lock, so concurrent hits are
- * counted one after another and none is lost.
- *
- * A store that cannot count refuses the request with 503 instead of letting it
- * through uncounted. The one exception is giving back a hit: a failed
- * decrement leaves the attempt counted, which errs against the caller.
- */
 export class RateLimitStore implements Store {
   readonly localKeys = false;
   readonly prefix: string;
@@ -170,7 +159,6 @@ export class RateLimitStore implements Store {
 
 export namespace RateLimitStore {
   export type Options = {
-    /** Unique per limiter: two limiters that share one count each other's hits. */
     prefix: string;
     prismaClient?: PrismaClient;
     logEntry?: LogSink;

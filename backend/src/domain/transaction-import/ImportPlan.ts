@@ -137,11 +137,6 @@ const REFUSAL_REASONS = {
   'out-of-range': 'out-of-range'
 } as const satisfies Record<string, RefusalReason>;
 
-/**
- * B3 reports days, not times, so trades of one day are recorded acquisitions
- * first: a position opened and closed the same day is then never sold before
- * it is bought. Income comes last, as it changes no position.
- */
 const RECORDING_RANK: Partial<Record<TransactionType, number>> = {
   BUY: 0,
   BONUS: 0,
@@ -155,13 +150,6 @@ const recordingRankOf = (type: TransactionType) =>
 const canonicalOf = (value: Prisma.Decimal | string) =>
   new PlanDecimal(value).toFixed();
 
-/**
- * The key of a row is a digest of what it records, not of where it sits in
- * the file, so the same statement exported again, over a longer period or
- * with its rows in another order, yields the same keys. Rows that record the
- * same thing, as two equal trades in one day, are told apart by their count
- * among the rows like them.
- */
 const keyTupleOf = (namespace: string, entry: ImportedEntry) =>
   [
     namespace,

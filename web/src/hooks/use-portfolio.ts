@@ -54,7 +54,6 @@ import { isReloadable, queryKeys } from '@/lib/react-query';
 import { toastLifetimeOf } from '@/lib/toast-lifetime';
 import type { Maybe } from '@/types';
 
-/** Portfolios are listed in creation order, so this page holds the one the account was created with. */
 const PRIMARY_PORTFOLIO_PAGE: GetPortfoliosRequestParams = {
   page: FIRST_PAGE,
   limit: 1
@@ -242,12 +241,6 @@ export const listedPortfolioOf = (
   return undefined;
 };
 
-/**
- * The server snapshot is `undefined`, not the `null` of no stored choice, so no
- * portfolio is requested before the choice is read on the client. A portfolio
- * picked from a list shows as listed while the API confirms it, so the page
- * keeps its controls, and the focus on them, instead of loading again.
- */
 export const useActivePortfolio = () => {
   const queryClient = useQueryClient();
   const activePortfolioId = useSyncExternalStore(

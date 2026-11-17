@@ -11,6 +11,7 @@ import imports from './imports';
 import installments from './installments';
 import investments from './investments';
 import navigation from './navigation';
+import notifications from './notifications';
 import portfolios from './portfolios';
 import recurring from './recurring';
 import reports from './reports';
@@ -20,6 +21,7 @@ import validation from './validation';
 export default {
   common,
   navigation,
+  notifications,
   auth,
   account,
   portfolios,

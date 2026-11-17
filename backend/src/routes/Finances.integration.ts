@@ -29,6 +29,8 @@ const CALENDAR_ROUTE = '/v1/finances/calendar';
 const REPORTS_ROUTE = '/v1/finances/reports';
 const ALERTS_ROUTE = '/v1/finances/alerts';
 const SETTINGS_ROUTE = '/v1/finances/settings';
+const NOTIFICATIONS_ROUTE = '/v1/finances/notifications';
+const NOTIFICATION_MARKS_ROUTE = '/v1/finances/notifications/marks';
 const CARDS_ROUTE = '/v1/finances/credit-cards';
 const ACCOUNT_ROUTE = '/v1/user';
 
@@ -1019,11 +1021,6 @@ describe('finances', () => {
     startDate: dayFrom(0)
   };
 
-  /**
-   * Weekly, so exactly one occurrence falls before the current day and the next
-   * on it: a monthly series started a month back would anchor on a shorter
-   * month's end and put a second one before the 29th to 31st.
-   */
   const ONE_PAST_OCCURRENCE = { frequency: 'WEEKLY', startDate: dayFrom(-7) };
 
   const createSeries = async (session: Session, overrides: object = {}) => {
@@ -2049,6 +2046,219 @@ describe('finances', () => {
   const cardDayFrom = (cycle: typeof CARD, day: string) =>
     formatCalendarDay(cardDueDateOf(cycle, parseCalendarDay(day) as Date));
 
+  describe('notifications', () => {
+    type FeedItem = Record<'key' | 'kind' | 'notifiedOn', string> &
+      Record<'isRead', boolean> &
+      Record<'expense', Record<'id', string>>;
+
+    const feedOf = async (session: Session) => {
+      const res = await session.get(NOTIFICATIONS_ROUTE);
+
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+
+      return res.body as Record<'notifications', Array<FeedItem>> &
+        Record<'unreadCount' | 'total', number>;
+    };
+
+    const mark = async (
+      session: Session,
+      action: 'READ' | 'DISMISS',
+      keys?: Array<string>
+    ) => {
+      const res = await session.post(NOTIFICATION_MARKS_ROUTE, {
+        action,
+        ...(keys && { keys })
+      });
+
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+
+      return res.body as Awaited<ReturnType<typeof feedOf>>;
+    };
+
+    const entriesOf = ({ notifications }: Awaited<ReturnType<typeof feedOf>>) =>
+      notifications.map(({ kind, isRead, expense }) => [
+        kind,
+        expense.id,
+        isRead
+      ]);
+
+    const keyOf = (feed: Awaited<ReturnType<typeof feedOf>>, id: string) =>
+      String(feed.notifications.find(({ expense }) => expense.id === id)?.key);
+
+    it('derives one unread notification per overdue or soon-due bill, overdue first on the same day, and never repeats one', async () => {
+      const session = await signIn();
+      const overdue = await createExpense(session, { dueDate: dayFrom(-2) });
+      const soon = await createExpense(session, { dueDate: dayFrom(1) });
+      await createExpense(session, { dueDate: dayFrom(10) });
+      const settled = await createExpense(session, {
+        amount: '7',
+        dueDate: dayFrom(-3)
+      });
+      await pay(session, settled, { amount: '7' });
+
+      const first = await feedOf(session);
+      const second = await feedOf(session);
+
+      assert.deepEqual(entriesOf(first), [
+        ['OVERDUE', overdue, false],
+        ['DUE_SOON', soon, false]
+      ]);
+      assert.deepEqual(
+        first.notifications.map(({ key, notifiedOn }) => [key, notifiedOn]),
+        [
+          [`overdue:${overdue}:${dayFrom(-2)}`, dayFrom(0)],
+          [`due-soon:${soon}:${dayFrom(1)}`, dayFrom(0)]
+        ]
+      );
+      assert.equal(first.unreadCount, 2);
+      assert.equal(first.total, 2);
+      assert.deepEqual(second, first);
+    });
+
+    it('marks one read and dismisses another, keeping both marks across reads', async () => {
+      const session = await signIn();
+      const overdue = await createExpense(session, { dueDate: dayFrom(-2) });
+      const soon = await createExpense(session, { dueDate: dayFrom(1) });
+      const feed = await feedOf(session);
+
+      const read = await mark(session, 'READ', [keyOf(feed, overdue)]);
+      const dismissed = await mark(session, 'DISMISS', [keyOf(feed, soon)]);
+      const reread = await mark(session, 'READ', [keyOf(feed, soon)]);
+
+      assert.deepEqual(entriesOf(read), [
+        ['OVERDUE', overdue, true],
+        ['DUE_SOON', soon, false]
+      ]);
+      assert.equal(read.unreadCount, 1);
+      assert.deepEqual(entriesOf(dismissed), [['OVERDUE', overdue, true]]);
+      assert.equal(dismissed.unreadCount, 0);
+      assert.deepEqual(reread, dismissed);
+      assert.deepEqual(await feedOf(session), dismissed);
+    });
+
+    it('marks every active notification when no key is given', async () => {
+      const session = await signIn();
+      await createExpense(session, { dueDate: dayFrom(-2) });
+      await createExpense(session, { dueDate: dayFrom(0) });
+
+      const allRead = await mark(session, 'READ');
+      const cleared = await mark(session, 'DISMISS');
+
+      assert.equal(allRead.total, 2);
+      assert.equal(allRead.unreadCount, 0);
+      assert.deepEqual(cleared, {
+        notifications: [],
+        unreadCount: 0,
+        total: 0
+      });
+    });
+
+    it('resolves a notification with its bill and raises it anew, unread, when the condition returns or the due date moves', async () => {
+      const session = await signIn();
+      const overdue = await createExpense(session, { dueDate: dayFrom(-2) });
+      const moved = await createExpense(session, { dueDate: dayFrom(1) });
+      const cancelled = await createExpense(session, { dueDate: dayFrom(2) });
+      const feed = await feedOf(session);
+      await mark(session, 'READ', [keyOf(feed, overdue)]);
+      await mark(session, 'DISMISS', [keyOf(feed, moved)]);
+
+      const paymentId = await pay(session, overdue, { amount: '100.00' });
+      await session.patch(expenseRoute(cancelled), { cancelled: true });
+      await session.patch(expenseRoute(moved), { dueDate: dayFrom(2) });
+      const resolved = await feedOf(session);
+      await session.remove(paymentRoute(overdue, paymentId));
+      const returned = await feedOf(session);
+
+      assert.deepEqual(entriesOf(resolved), [['DUE_SOON', moved, false]]);
+      assert.equal(keyOf(resolved, moved), `due-soon:${moved}:${dayFrom(2)}`);
+      assert.deepEqual(entriesOf(returned), [
+        ['OVERDUE', overdue, false],
+        ['DUE_SOON', moved, false]
+      ]);
+    });
+
+    it('follows the reminder switches', async () => {
+      const session = await signIn();
+      await createExpense(session, { dueDate: dayFrom(-2) });
+      const later = await createExpense(session, { dueDate: dayFrom(6) });
+      await session.put(SETTINGS_ROUTE, {
+        ...DEFAULT_SETTINGS,
+        reminderLeadDays: 7,
+        remindOverdue: false
+      });
+
+      assert.deepEqual(entriesOf(await feedOf(session)), [
+        ['DUE_SOON', later, false]
+      ]);
+    });
+
+    it("keeps notifications and marks per user, skipping keys that are not the user's own", async () => {
+      const session = await signIn();
+      const intruder = await signIn(INTRUDER_EMAIL);
+      const overdue = await createExpense(session, { dueDate: dayFrom(-2) });
+      const key = keyOf(await feedOf(session), overdue);
+
+      const foreign = await mark(intruder, 'DISMISS', [key]);
+
+      assert.deepEqual(foreign, {
+        notifications: [],
+        unreadCount: 0,
+        total: 0
+      });
+      assert.deepEqual(entriesOf(await feedOf(session)), [
+        ['OVERDUE', overdue, false]
+      ]);
+      assert.equal(
+        await prismaClient.financeNotificationMark.count({
+          where: { userId: intruder.user.id }
+        }),
+        0
+      );
+    });
+
+    it('refuses an unknown action, malformed keys, an empty or oversized list and a far-off day', async () => {
+      const session = await signIn();
+      const key = `overdue:${MISSING_UUID}:${dayFrom(-2)}`;
+      const invalid: Array<[object, string]> = [
+        [{ action: 'ARCHIVE' }, 'action'],
+        [{}, 'action'],
+        [{ action: 'READ', keys: [] }, 'keys'],
+        [{ action: 'READ', keys: 'all' }, 'keys'],
+        [{ action: 'READ', keys: ['overdue:1:2026-01-01'] }, 'keys.0'],
+        [
+          { action: 'READ', keys: Array.from({ length: 51 }, () => key) },
+          'keys'
+        ],
+        [{ action: 'READ', today: dayFrom(5) }, 'today']
+      ];
+
+      for (const [body, path] of invalid) {
+        const res = await session.post(NOTIFICATION_MARKS_ROUTE, body);
+
+        assert.equal(
+          res.status,
+          Errors.VALIDATION.status,
+          JSON.stringify(body)
+        );
+        assert.ok(
+          res.body.details?.some(
+            (detail: Record<'path', string>) => detail.path === path
+          ),
+          JSON.stringify(res.body)
+        );
+      }
+
+      assert.equal(
+        (await session.get(NOTIFICATIONS_ROUTE, { today: dayFrom(-5) })).status,
+        Errors.VALIDATION.status
+      );
+      assert.equal(
+        (await client.get(NOTIFICATIONS_ROUTE)).status,
+        Errors.AUTHENTICATION.status
+      );
+    });
+  });
+
   describe('credit cards', () => {
     it('creates, lists, edits and deletes a card, keeping only its last four digits', async () => {
       const session = await signIn();
@@ -2727,6 +2937,8 @@ describe('finances', () => {
         ...DEFAULT_SETTINGS,
         reminderLeadDays: 5
       });
+      await createExpense(session, { dueDate: dayFrom(-1) });
+      await session.post(NOTIFICATION_MARKS_ROUTE, { action: 'DISMISS' });
       await createExpense(other);
 
       const res = await client
@@ -2741,11 +2953,12 @@ describe('finances', () => {
         prismaClient.recurringExpense.count(where),
         prismaClient.financeEvent.count(where),
         prismaClient.financeSettings.count(where),
-        prismaClient.creditCard.count(where)
+        prismaClient.creditCard.count(where),
+        prismaClient.financeNotificationMark.count(where)
       ]);
 
       assert.equal(res.status, 200, JSON.stringify(res.body));
-      assert.deepEqual(remaining, [0, 0, 0, 0, 0, 0, 0]);
+      assert.deepEqual(remaining, [0, 0, 0, 0, 0, 0, 0, 0]);
       assert.equal(
         await prismaClient.expense.count({ where: { userId: other.user.id } }),
         1

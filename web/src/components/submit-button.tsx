@@ -12,12 +12,6 @@ type SubmitButtonProps = Pick<
   Record<'isPending', boolean> &
   Record<'children', ReactNode>;
 
-/**
- * A pending submit stays focusable through `aria-disabled` and cancels its
- * click, which also cancels implicit submission from a field: disabling the
- * button that has focus drops that focus to `<body>`, and after a failed submit
- * the next Tab would start over from the top of the page.
- */
 export const SubmitButton: FC<SubmitButtonProps> = ({
   isPending,
   className,

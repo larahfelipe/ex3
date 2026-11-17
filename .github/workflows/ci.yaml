@@ -12,7 +12,6 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  # A run on `master` gates the production migration, so it is never cancelled.
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 permissions:
@@ -29,8 +28,6 @@ jobs:
     services:
       postgres:
         image: postgres:17.6-alpine
-        # Credentials match backend/.env.test, which is the only connection
-        # string the test suite reads.
         env:
           POSTGRES_USER: ex3
           POSTGRES_PASSWORD: ex3
@@ -71,8 +68,6 @@ jobs:
       - name: Build
         run: pnpm build
 
-      # Last so that a newly published advisory, which the commit under test did
-      # not introduce, never masks a lint, type or test failure.
       - name: Audit dependencies
         run: pnpm audit --audit-level=high
 

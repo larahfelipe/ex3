@@ -1,11 +1,5 @@
 import type { CalendarDay, CalendarMonth } from './models';
 
-/**
- * A calendar day is handled as the `Date` Prisma reads and writes a `DATE`
- * column with: the UTC midnight that starts it. Every function here works in
- * UTC, so no server or client time zone moves a day.
- */
-
 const CALENDAR_DAY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const CALENDAR_MONTH_PATTERN = /^(\d{4})-(\d{2})$/;
 const DAY_MS = 24 * 60 * 60 * 1000;

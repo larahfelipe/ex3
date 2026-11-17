@@ -44,10 +44,6 @@ const serverApi = axios.create({
   baseURL: process.env.API_URL
 });
 
-/**
- * A 401 from these endpoints means the submitted credentials were rejected, not
- * that a session expired, so it must reach the form instead of signing out.
- */
 const CREDENTIAL_ENDPOINTS: ReadonlySet<string> = new Set([
   '/v1/sign-in',
   '/v1/sign-up'
@@ -56,12 +52,6 @@ const CREDENTIAL_ENDPOINTS: ReadonlySet<string> = new Set([
 /** Exempt from the 401 handling too, so expiring a session cannot recurse. */
 const EXPIRE_SESSION_ENDPOINT = '/v1/session/expire';
 
-/**
- * Concurrent requests that fail with 401 share one expiry, so the rejected
- * token is dropped once and the user is redirected once. The expiry notice is
- * shown only when the user did not end the session themselves: a request still
- * in flight after a sign-out, here or in another tab, fails with 401 too.
- */
 let pendingSessionExpiry: Promise<void> | null = null;
 
 proxyApi.interceptors.response.use(
@@ -95,8 +85,6 @@ proxyApi.interceptors.response.use(
       statusText: err.response?.statusText
     });
 
-    // A request that got no answer keeps why, so the interface can tell a
-    // timeout or a lost connection from a failure of the server.
     if (err.response === undefined) error.code = err.code;
 
     return Promise.reject(error);

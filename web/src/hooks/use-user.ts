@@ -43,7 +43,6 @@ export const useCurrentUser = () =>
     select: ({ data }) => data.user
   });
 
-/** The public layout drops the cached queries once the protected pages have unmounted. */
 const useLeaveSession = () => {
   const router = useRouter();
 
@@ -107,13 +106,6 @@ export const useSignOut = () => {
 
 type CurrentUserResponse = AxiosResponse<GetCurrentUserResponseData>;
 
-/**
- * The new name shows everywhere as soon as it is submitted: the form checks it
- * by the API's own rule, so a refusal is rare, and renaming again undoes it.
- * A failure restores the name the cache held and asks the API for the one it
- * kept, since a request that timed out may still have applied. On success the
- * response already carries the saved profile, so nothing is fetched again.
- */
 export const useUpdateProfile = () => {
   const queryClient = useQueryClient();
   const currentUserKey = queryKeys.currentUser();
@@ -166,7 +158,6 @@ export const useUpdateProfile = () => {
   });
 };
 
-/** The API revokes the session that changed the password, and the proxy clears its cookie in the same response. */
 export const useChangePassword = () => {
   const leaveSession = useLeaveSession();
   const t = useTranslations('account.security');

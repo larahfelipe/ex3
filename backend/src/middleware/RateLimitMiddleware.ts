@@ -31,11 +31,6 @@ const USER_NAMESPACE = 'user';
 
 const digestOf = (value: string) => createHash('sha256').update(value).digest();
 
-/**
- * The counter is keyed by a digest and never by the credential itself: the
- * store outlives the request, and a limiter is not a place to keep access
- * tokens or an address book of registered e-mails.
- */
 const fingerprintOf = (namespace: string, value: string) =>
   `${namespace}:${digestOf(value).toString('base64url')}`;
 
@@ -56,12 +51,6 @@ const isVouchedByWeb = (req: Request) => {
   );
 };
 
-/**
- * Every browser request reaches the API from the web server, so the socket
- * names the web and not the person. The web names the client in a header the
- * API believes only beside the secret both share; any other caller is counted
- * under the address it connects from, which a header cannot change.
- */
 export const clientAddressOf = (req: Request) => {
   const vouchedAddress = req.get(ProxyHeaders.CLIENT_ADDRESS);
 
@@ -72,7 +61,6 @@ export const clientAddressOf = (req: Request) => {
     : (req.ip ?? '');
 };
 
-/** An IPv6 address counts by its /56 prefix, which one subscriber holds whole. */
 export const addressRateLimitKey = (address: string) =>
   `${ADDRESS_NAMESPACE}:${ipKeyGenerator(address)}`;
 
@@ -87,7 +75,6 @@ const submittedSessionOf = (req: Request) => {
     : null;
 };
 
-/** Normalized as the schemas normalize it, so both name the same account. */
 export const accountRateLimitKey = (email: string) =>
   fingerprintOf(ACCOUNT_NAMESPACE, email.trim().toLowerCase());
 
@@ -117,14 +104,6 @@ const accountAndAddressKey: KeyGenerator = (req) =>
 const signedInUserKey: KeyGenerator = (req) =>
   `${USER_NAMESPACE}:${req.user.id}`;
 
-/**
- * The limiter answers on its own, without reaching the error boundary, so the
- * envelope and the code the request log reports are written here. The generic
- * message and `Retry-After` are all a throttled caller learns: nothing says
- * which budget ran out, or whether the account exists. The limiter writes
- * `Retry-After` only beside the budget headers, so a limiter that keeps its
- * budget undisclosed has it written here.
- */
 const rejectThrottledRequest: RateLimitExceededEventHandler = (req, res) => {
   req.errorCode = Errors.THROTTLED.code;
 
@@ -191,12 +170,6 @@ export const signInPerAccountRateLimitMiddleware = limiterOf(
   CREDENTIAL_ATTEMPTS
 );
 
-/**
- * The sign-in layers of `RateLimits`, in the order they count: a request one
- * of them turns away is not counted by those after it. The daily budget comes
- * first, so a host that keeps trying while throttled spends it. The route puts
- * the bot challenge between the address and the account layers.
- */
 export const signInAddressRateLimitMiddleware = [
   limiterOf('SIGN_IN_PER_ADDRESS_DAILY', clientAddressKey, CREDENTIAL_ATTEMPTS),
   limiterOf('SIGN_IN_PER_ADDRESS', clientAddressKey, CREDENTIAL_ATTEMPTS)

@@ -1,4 +1,4 @@
-import { useId, useState, type FC } from 'react';
+import { useId, useState, type CSSProperties, type FC } from 'react';
 
 import Link from 'next/link';
 
@@ -11,7 +11,7 @@ import type {
 import type { Portfolio } from '@/app/api/v1/portfolios';
 import { assetDetailRoute } from '@/common/constants';
 import { EmptyState, LoadingState } from '@/components/data-state';
-import { Money, Percentage } from '@/components/financial';
+import { Money, Percentage, UnavailableValue } from '@/components/financial';
 import { InfoNote } from '@/components/info-note';
 import { QuerySection } from '@/components/query-section';
 import { SlideTransition } from '@/components/slide-transition';
@@ -82,7 +82,6 @@ const ALLOCATION_COLORS: AllocationColor[] = [
   { arc: 'stroke-chart-10', swatch: 'bg-chart-10' }
 ];
 
-/** Past the palette, the smallest groups share one neutral tone: cycling the palette would put two arcs of one color on the ring, read as one group. */
 const ALLOCATION_TAIL_COLOR: AllocationColor = {
   arc: 'stroke-muted-foreground',
   swatch: 'bg-muted-foreground'
@@ -92,9 +91,15 @@ export const TOP_POSITIONS_COUNT = 3;
 
 const RING_CIRCUMFERENCE = 100;
 const RING_RADIUS = RING_CIRCUMFERENCE / (2 * Math.PI);
-const RING_THICKNESS = 5;
+const RING_THICKNESS = 4.5;
+const RING_CAP = RING_THICKNESS / 2;
 const RING_CENTER = RING_RADIUS + RING_THICKNESS / 2;
-const RING_VIEW_BOX = `0 0 ${2 * RING_CENTER} ${2 * RING_CENTER}`;
+const RING_SIZE = 2 * RING_CENTER;
+const RING_VIEW_BOX = `0 0 ${RING_SIZE} ${RING_SIZE}`;
+const RING_MASK_STROKES = [
+  { strokeWidth: RING_THICKNESS, strokeLinecap: 'round' },
+  { strokeWidth: RING_THICKNESS + 0.5, strokeLinecap: 'butt' }
+] as const;
 
 const CHART_LAYOUT_CLASS_NAME =
   'flex flex-col items-center gap-6 @md:flex-row @md:items-start';
@@ -200,60 +205,141 @@ export const concentrationOf = (
   };
 };
 
-const AllocationRing: FC<Record<'groups', AllocationGroup[]>> = ({
-  groups
+export const ringArcsOf = (
+  groups: Array<Pick<AllocationGroup, 'key' | 'allocation' | 'color'>>
+): RingArc[] =>
+  groups.reduce<RingArc[]>((ringArcs, { key, allocation, color }) => {
+    const length = Number(allocation ?? 0) * RING_CIRCUMFERENCE;
+
+    if (length <= 0) return ringArcs;
+
+    const previousArc = ringArcs.at(-1);
+
+    return [
+      ...ringArcs,
+      {
+        key,
+        className: color.arc,
+        start:
+          previousArc === undefined
+            ? 0
+            : previousArc.start + previousArc.length,
+        length
+      }
+    ];
+  }, []);
+
+type AllocationRingProps = Record<'groups', AllocationGroup[]> &
+  Pick<PortfolioAllocation, 'totalValue' | 'baseCurrency'>;
+
+const AllocationRing: FC<AllocationRingProps> = ({
+  groups,
+  totalValue,
+  baseCurrency
 }) => {
-  const arcs = groups.reduce<RingArc[]>(
-    (ringArcs, { key, allocation, color }) => {
-      if (allocation === undefined) return ringArcs;
-
-      const previousArc = ringArcs.at(-1);
-
-      return [
-        ...ringArcs,
-        {
-          key,
-          className: color.arc,
-          start:
-            previousArc === undefined
-              ? 0
-              : previousArc.start + previousArc.length,
-          length: Number(allocation) * RING_CIRCUMFERENCE
-        }
-      ];
-    },
-    []
-  );
+  const t = useTranslations('investments.metrics');
+  const { formatCompactMoney } = useFormat();
+  const maskId = useId();
+  const arcs = ringArcsOf(groups);
+  const [firstArc] = arcs;
+  const leadLength =
+    firstArc === undefined
+      ? 0
+      : Math.max(0, Math.min(RING_CAP, firstArc.length - RING_THICKNESS));
 
   return (
-    <svg
-      aria-hidden="true"
-      viewBox={RING_VIEW_BOX}
-      className="size-40 shrink-0 -rotate-90"
-    >
-      <circle
-        cx={RING_CENTER}
-        cy={RING_CENTER}
-        r={RING_RADIUS}
-        fill="none"
-        strokeWidth={RING_THICKNESS}
-        className="stroke-muted"
-      />
+    <div className="relative size-48 shrink-0">
+      <svg
+        aria-hidden="true"
+        viewBox={RING_VIEW_BOX}
+        className="size-full -rotate-90"
+      >
+        <mask
+          id={maskId}
+          maskUnits="userSpaceOnUse"
+          x={0}
+          y={0}
+          width={RING_SIZE}
+          height={RING_SIZE}
+        >
+          {RING_MASK_STROKES.map(({ strokeWidth, strokeLinecap }) => (
+            <circle
+              key={strokeLinecap}
+              cx={RING_CENTER}
+              cy={RING_CENTER}
+              r={RING_RADIUS}
+              fill="none"
+              stroke="white"
+              strokeWidth={strokeWidth}
+              strokeLinecap={strokeLinecap}
+              strokeDasharray={`${RING_CIRCUMFERENCE} 0`}
+              strokeDashoffset={-RING_CAP}
+              className="animate-ring-sweep"
+              style={{ '--ring-length': RING_CIRCUMFERENCE } as CSSProperties}
+            />
+          ))}
+        </mask>
 
-      {arcs.map(({ key, className, start, length }) => (
         <circle
-          key={key}
           cx={RING_CENTER}
           cy={RING_CENTER}
           r={RING_RADIUS}
           fill="none"
           strokeWidth={RING_THICKNESS}
-          strokeDasharray={`${length} ${RING_CIRCUMFERENCE - length}`}
-          strokeDashoffset={-start}
-          className={className}
+          className="stroke-muted"
         />
-      ))}
-    </svg>
+
+        <g
+          mask={`url(#${maskId})`}
+          fill="none"
+          strokeWidth={RING_THICKNESS}
+          strokeLinecap="round"
+        >
+          {arcs.map(({ key, className, start, length }) => (
+            <circle
+              key={key}
+              cx={RING_CENTER}
+              cy={RING_CENTER}
+              r={RING_RADIUS}
+              strokeDasharray={`${length} ${RING_CIRCUMFERENCE - length}`}
+              strokeDashoffset={-(start + RING_CAP)}
+              className={className}
+            />
+          ))}
+
+          {firstArc !== undefined && (
+            <circle
+              cx={RING_CENTER}
+              cy={RING_CENTER}
+              r={RING_RADIUS}
+              strokeDasharray={`${leadLength} ${RING_CIRCUMFERENCE - leadLength}`}
+              strokeDashoffset={-RING_CAP}
+              className={firstArc.className}
+            />
+          )}
+        </g>
+      </svg>
+
+      <p className="absolute inset-0 flex animate-in flex-col items-center justify-center px-6 text-center duration-500 ease-out fade-in-0 zoom-in-95">
+        <span className="text-xs text-muted-foreground">{t('totalValue')}</span>
+
+        <span className="text-xl font-semibold tracking-tight tabular-nums">
+          {totalValue === undefined ? (
+            <UnavailableValue />
+          ) : (
+            <>
+              <span aria-hidden="true">
+                {formatCompactMoney(totalValue, baseCurrency)}
+              </span>
+
+              <span className="sr-only">
+                <Money value={totalValue} currency={baseCurrency} />
+              </span>
+            </>
+          )}
+        </span>
+      </p>
+    </div>
   );
 };
 
@@ -318,7 +404,7 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
             <div className={CHART_LAYOUT_CLASS_NAME}>
               <Skeleton
                 aria-hidden="true"
-                className="size-40 shrink-0 rounded-full"
+                className="size-48 shrink-0 rounded-full"
               />
 
               <Skeleton aria-hidden="true" className="h-40 w-full" />
@@ -355,7 +441,11 @@ export const AllocationChart: FC<AllocationChartProps> = ({ portfolio }) => {
           >
             <div className="space-y-4 @container">
               <div className={CHART_LAYOUT_CLASS_NAME}>
-                <AllocationRing groups={groups} />
+                <AllocationRing
+                  groups={groups}
+                  totalValue={portfolioAllocation.totalValue}
+                  baseCurrency={portfolioAllocation.baseCurrency}
+                />
 
                 <Table label={caption} regionClassName="lg:max-h-96">
                   <TableCaption className="sr-only">{caption}</TableCaption>

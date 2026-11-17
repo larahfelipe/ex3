@@ -50,14 +50,6 @@ const requireWithin = (bytes: Buffer, offset: number, length: number) => {
     throw malformed('The archive points outside itself');
 };
 
-/**
- * Reads only what the central directory declares, so a local header cannot
- * point at another entry's bytes unnoticed: every entry is inflated against its
- * declared size, under the per-entry and total budgets, and checked against its
- * CRC. Encrypted entries, ZIP64 archives and methods other than stored and
- * deflate are refused; none of them is written by a spreadsheet application
- * for a file this small.
- */
 export const openZipArchive = (
   bytes: Buffer,
   { maxEntries, maxEntryBytes, maxTotalBytes }: ZipLimits

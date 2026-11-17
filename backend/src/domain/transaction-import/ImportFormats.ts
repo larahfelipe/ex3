@@ -501,7 +501,6 @@ export const Ex3Template: ImportFormat<TemplateField> = {
   }
 };
 
-/** The template last: its aliases are the broadest, so a header a B3 format recognizes is read by that format. */
 export const IMPORT_FORMATS: ReadonlyArray<ImportFormat> = [
   B3TradingStatement,
   B3IncomeStatement,

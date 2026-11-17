@@ -41,10 +41,6 @@ export class GetPortfolioPositionService {
     return GetPortfolioPositionService.INSTANCE;
   }
 
-  /**
-   * Allocation is a fraction of the whole portfolio, so every position with
-   * units is quoted besides this one.
-   */
   async execute({
     userId,
     portfolioId,

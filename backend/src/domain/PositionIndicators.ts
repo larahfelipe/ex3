@@ -109,10 +109,6 @@ const priceChangeOf = (
       };
 };
 
-/**
- * A day observed by more than one source has more than one close (TD-028); the
- * one read is the latest, by the ascending order the closes come in.
- */
 const lastClosePerDayOf = (ascending: ReadonlyArray<DailyClose>) =>
   ascending.filter(({ timestamp }, index) => {
     const next = ascending.at(index + 1);

@@ -38,8 +38,6 @@ FROM base AS dev
 ARG HOST_UID=1000
 ARG HOST_GID=1000
 
-# The code is mounted with the host's ownership, so `node` takes the host user's
-# ids to write into it. A gid the image already uses keeps that group's name.
 RUN deluser --remove-home node \
   && { getent group "$HOST_GID" >/dev/null || addgroup -g "$HOST_GID" node; } \
   && adduser -D -u "$HOST_UID" -G "$(getent group "$HOST_GID" | cut -d: -f1)" node \

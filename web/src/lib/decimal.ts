@@ -1,12 +1,6 @@
 import type { Locale } from '@/i18n/config';
 import type { DecimalString } from '@/types';
 
-/**
- * Amounts stay decimal strings from the API to the form and back. Arithmetic
- * on them counts units of 10^-scale in a `bigint`, so no value ever passes
- * through binary floating point.
- */
-
 export const DECIMAL_COLUMN = { PRECISION: 38, SCALE: 18 } as const;
 
 export const INTEGER_DIGITS = DECIMAL_COLUMN.PRECISION - DECIMAL_COLUMN.SCALE;
@@ -54,11 +48,6 @@ const separatorsOf = (locale: Locale): LocaleSeparators => {
   const separators = {
     decimal,
     group,
-    /**
-     * The language's group separator alone before exactly three digits, after
-     * a nonzero lead, separates the decimals in the other convention, so it is
-     * refused, not guessed: "1.500" in pt-BR, "1,500" in en-US.
-     */
     ambiguousGroup: new RegExp(
       `^[1-9]\\d{0,2}${escapeForPattern(group)}\\d{3}$`
     )
@@ -114,7 +103,6 @@ const interpretSeparators = (
       ? { outcome: 'read', value: withoutSeparator(compact, separator) }
       : UNREADABLE;
 
-  // The pattern keeps both readings within the column: six digits at most.
   if (separator === group && ambiguousGroup.test(compact))
     return {
       outcome: 'ambiguous',
@@ -149,7 +137,6 @@ export const isNonzeroDecimal = (value: string) => NONZERO_DIGIT.test(value);
 export const decimalPlacesOf = (value: string) =>
   value.split('.').at(1)?.length ?? 0;
 
-/** Exact only for a storable `value` with at most `scale` decimal places. */
 export const unitsOf = (value: string, scale: number) => {
   const [whole, fraction = ''] = value.split('.');
 

@@ -59,7 +59,6 @@ const COLUMN_COUNT = 9;
 const CHECKBOX_CLASS =
   'size-4 shrink-0 cursor-pointer accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:cursor-not-allowed disabled:opacity-40';
 
-/** The header checkbox stands for some rows checked, which only a property sets. */
 const SelectAllCheckbox: FC<
   Record<'label', string> &
     Record<'checked' | 'indeterminate' | 'disabled', boolean> &
@@ -175,7 +174,6 @@ export const ImportRowsSection: FC<ImportRowsSectionProps> = ({
         />
 
         <CardContent className="space-y-4">
-          {/* The four filters' labels need more than a row holds below `md`, so there they are a select. */}
           <fieldset className="min-w-0 max-md:hidden">
             <legend className="sr-only">{t('filters.label')}</legend>
 

@@ -34,7 +34,6 @@ const BASELINE_DASH = '4 4';
 
 const COMPARISON_DASH = '8 5';
 
-/** Two points closer than one unit of the drawing box land on the same pixel. */
 export const MAX_PLOTTED_POINTS = CHART_WIDTH;
 
 const PAGE_FRACTION = 0.1;
@@ -62,10 +61,6 @@ const TONE_CLASSES: Record<
   }
 };
 
-/**
- * Amounts become numbers here only to be scaled into the drawing box: every
- * value the reader sees is formatted from the decimal string the API sent.
- */
 const verticalScaleOf = (amounts: ReadonlyArray<number>) => {
   const lowest = Math.min(...amounts);
   const highest = Math.max(...amounts);
@@ -120,10 +115,6 @@ const areaPathOf = (points: ReadonlyArray<ChartPoint>) => {
   return `${linePathOf(points)} L${last.x} ${CHART_HEIGHT} L${first.x} ${CHART_HEIGHT} Z`;
 };
 
-/**
- * The paths are rebuilt only when `values`, `comparison` or `baseline` change,
- * so they must keep their identity across renders.
- */
 export const SeriesChart: FC<SeriesChartProps> = ({
   values,
   activeIndex,

@@ -9,8 +9,6 @@ datasource db {
 
 model User {
   id             String      @id @default(uuid())
-  /// The full name: `fullName(firstName, lastName)`, in
-  /// `src/domain/PersonName.ts`, written together with them.
   name           String?
   firstName      String?
   lastName       String?
@@ -28,8 +26,6 @@ model User {
 model Portfolio {
   id           String              @id @default(uuid())
   name         String
-  /// The name as the unique index compares it: `portfolioNameKey(name)`, in
-  /// `src/domain/PortfolioName.ts`.
   nameKey      String
   baseCurrency String
   positions    Position[]
@@ -261,8 +257,6 @@ model Expense {
   recurringExpenseId String?
   occurrenceDate     DateTime?         @db.Date
   isCustomized       Boolean           @default(false)
-  /// Set together with `creditCardId`: the bill's own due date, from which
-  /// `dueDate`, the day the card's statement is due, is computed.
   originalDueDate    DateTime?         @db.Date
   creditCard         CreditCard?       @relation(fields: [creditCardId], references: [id])
   creditCardId       String?
@@ -358,8 +352,6 @@ model CreditCard {
   brand             CardBrand
   closingDay        Int
   dueDay            Int
-  /// A deleted card stays for the bills, plans and series that name it, which
-  /// keep their dates; it is only left out of the list and cannot be chosen again.
   deletedAt         DateTime?
   expenses          Expense[]
   installmentPlans  InstallmentPlan[]
@@ -397,6 +389,18 @@ model FinanceSettings {
   updatedAt                  DateTime @updatedAt
 
   @@map("finance_settings")
+}
+
+model FinanceNotificationMark {
+  userId      String
+  key         String
+  readAt      DateTime?
+  dismissedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@id([userId, key])
+  @@map("finance_notification_marks")
 }
 
 model RateLimitCounter {

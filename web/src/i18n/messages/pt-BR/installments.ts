@@ -53,7 +53,9 @@ export default {
     },
     history: 'Histórico',
     cancel: 'Cancelar parcelamento',
-    reschedule: 'Reagendar'
+    reschedule: 'Reagendar',
+    edit: 'Editar parcelamento',
+    delete: 'Excluir parcelamento'
   },
   installment: {
     position: '{number, number} de {count, number}',

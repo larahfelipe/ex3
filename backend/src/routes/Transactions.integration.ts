@@ -627,7 +627,6 @@ describe('transactions', () => {
   });
 
   describe('ledger', () => {
-    /** Below the API rate limit; enough to pass a holdings check together. */
     const CONCURRENT_SELLS = 3;
 
     const REPLAY_SYMBOL = 'SOL';

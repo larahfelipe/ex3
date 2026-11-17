@@ -1,4 +1,6 @@
-import type { FC } from 'react';
+import type { ComponentProps, FC } from 'react';
+
+import Link from 'next/link';
 
 import {
   Ban,
@@ -28,6 +30,7 @@ import {
   RECURRING_EXPENSE_STATUS_TONES,
   RETIRED_EXPENSE_CATEGORIES
 } from '@/common/constants';
+import { TruncatedText } from '@/components/ui';
 import { useFormat, type Format } from '@/i18n/format';
 import type { Translator } from '@/i18n/translator';
 import { daysBetween } from '@/lib/dates';
@@ -214,6 +217,20 @@ export const dueDistanceOf = (
 
 export const isOpenExpense = ({ status }: Pick<Expense, 'status'>) =>
   status === 'PENDING' || status === 'OVERDUE';
+
+const ROW_LINK_CLASS =
+  'block rounded-sm font-semibold ring-offset-background wrap-anywhere after:absolute after:inset-0 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2';
+
+export const RowLink: FC<
+  Omit<ComponentProps<typeof Link>, 'children' | 'className'> &
+    Record<'children', string>
+> = ({ children, ...props }) => (
+  <Link className={ROW_LINK_CLASS} {...props}>
+    <TruncatedText className="relative z-10 line-clamp-2">
+      {children}
+    </TruncatedText>
+  </Link>
+);
 
 export const CalendarDayText: FC<Record<'day', string>> = ({ day }) => {
   const { formatCalendarDay } = useFormat();

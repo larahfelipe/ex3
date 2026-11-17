@@ -141,7 +141,6 @@ const expenseFieldOf = (path: string) => {
   return fieldOfPath(EXPENSE_FORM_FIELDS)(path);
 };
 
-/** An installment is charged to its plan's card, so an edit of one leaves the card alone. */
 export const expenseChangesOf = (
   {
     amount,

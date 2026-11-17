@@ -68,10 +68,8 @@ type DayFieldProps = Record<'name' | 'label', string> &
   Partial<Record<'isOptional', boolean>> &
   Partial<Record<'shortcuts', ReactNode>>;
 
-/** A Radix select item cannot carry an empty value, so "not specified" has its own. */
 export const NO_PAYMENT_METHOD = 'NONE';
 
-/** A button takes no `required`: a select's trigger keeps only what names and describes it. */
 export const triggerPropsOf = ({
   id,
   'aria-invalid': isInvalid,
@@ -425,10 +423,6 @@ const MORE_DETAILS = [
   'notes'
 ] as const satisfies ReadonlyArray<keyof DescriptionFormInput>;
 
-/**
- * An installment charged to its plan's card is paid by credit card until the
- * plan lets go of the card, so its method is fixed.
- */
 export const MoreDetailsFields: FC<
   Partial<Record<'cardChoice', ReactNode>> &
     Partial<Record<'isPaymentMethodFixed', boolean>>

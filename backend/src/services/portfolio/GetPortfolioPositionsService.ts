@@ -47,12 +47,6 @@ export class GetPortfolioPositionsService {
     return GetPortfolioPositionsService.INSTANCE;
   }
 
-  /**
-   * Positions come in symbol order, and a sort by a value keeps it for ties.
-   * Allocation is a fraction of the whole portfolio, so every position with
-   * units is quoted, not only those listed, and a sort by a value quotes every
-   * position the filter matches, since the page is cut after valuing them.
-   */
   async execute({
     userId,
     portfolioId,

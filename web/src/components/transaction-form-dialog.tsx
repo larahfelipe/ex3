@@ -131,10 +131,6 @@ const QUANTITY_STEP = 1;
 
 const INITIAL_QUANTITY = '1';
 
-/**
- * Side by side, the unit price and the quantity start their inputs at the same
- * height: a label row may hold an `xxs` action, so both rows take its height.
- */
 const PAIRED_FIELD_CLASS =
   '[&>:first-child]:flex [&>:first-child]:min-h-6 [&>:first-child]:items-center';
 

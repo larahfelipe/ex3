@@ -55,7 +55,9 @@ export default {
     },
     history: 'History',
     cancel: 'Cancel installment plan',
-    reschedule: 'Reschedule'
+    reschedule: 'Reschedule',
+    edit: 'Edit installment plan',
+    delete: 'Delete installment plan'
   },
   installment: {
     position: '{number, number} of {count, number}',

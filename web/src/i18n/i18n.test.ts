@@ -221,7 +221,6 @@ describe('catalogs', () => {
       for (const [key, message] of messages) {
         assert.notEqual(message.trim(), '', `${locale}: ${key}`);
         assert.equal(message, message.trim(), `${locale}: ${key}`);
-        // An apostrophe before syntax starts a quoted, literal span in ICU.
         assert.doesNotMatch(message, /'[{}#|<']/, `${locale}: ${key}`);
       }
   });
@@ -285,7 +284,6 @@ describe('translator', () => {
     const reported = context.mock.method(console, 'error', () => undefined);
     const t = translatorOf('pt-BR', 'common.actions');
 
-    // A key built at run time escapes the compiler's check.
     const key = ['not', 'there'].join('');
 
     assert.equal(t(key as never), 'common.actions.notthere');

@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 
 import { APP_STORAGE_KEYS, NAVIGATION_STATES } from '@/common/constants';
-import { Sidebar } from '@/components/sidebar';
+import { NavigationHeader, Sidebar } from '@/components/sidebar';
 import { getServerTranslator } from '@/i18n/server';
 import type { Children } from '@/types';
 
@@ -29,6 +29,8 @@ export default async function Layout({ children }: Children) {
             : NAVIGATION_STATES.Expanded
         }
       />
+
+      <NavigationHeader />
 
       <main
         id={MAIN_CONTENT_ID}

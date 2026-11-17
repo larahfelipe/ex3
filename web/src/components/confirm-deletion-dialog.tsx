@@ -47,7 +47,6 @@ export const ConfirmDeletionDialog: FC<ConfirmDeletionDialogProps> = ({
   const t = useTranslations('common');
   const tErrors = useTranslations('errors');
 
-  /** NFC on both sides, so a name typed with decomposed accents still matches what it looks like. */
   const isPhraseTyped =
     confirmationPhrase === undefined ||
     typedPhrase.normalize() === confirmationPhrase.normalize();

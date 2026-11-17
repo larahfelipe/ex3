@@ -46,7 +46,6 @@ export const earliestStartOf = (today: string) =>
   shiftCalendarDayByMonths(today, -FINANCE_LIMITS.OccurrenceHorizonMonths) ??
   undefined;
 
-/** An end already saved may have passed; only a new one has to be today or later. */
 export const requireEndOf = (
   { endMode, endDate }: SeriesTerms,
   { startDate, today, currentEnd = null }: EndBounds,

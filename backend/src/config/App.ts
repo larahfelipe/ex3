@@ -52,11 +52,6 @@ app.use((_req, res, next) => {
 });
 app.use(cors(corsOptions));
 app.use(jsonBodyMiddleware);
-/**
- * The probes answer before the limiter, whose counters are in the database: a
- * database outage must fail readiness, not liveness, and an orchestrator that
- * polls them is not a client to throttle.
- */
 app.use(healthRouter);
 app.use(apiRateLimitMiddleware);
 app.use(router);

@@ -48,7 +48,9 @@ export default {
     account: 'Conta bancária ou cartão',
     notes: 'Observações',
     history: 'Histórico',
-    stop: 'Interromper recorrência'
+    stop: 'Interromper recorrência',
+    edit: 'Editar despesa recorrente',
+    delete: 'Excluir despesa recorrente'
   },
   occurrences: {
     title: 'Contas',

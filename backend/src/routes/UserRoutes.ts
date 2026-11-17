@@ -54,10 +54,6 @@ userRouter.post(
   signOutUserControllerHandler as Application
 );
 
-/**
- * Both routes verify the account password, so they are throttled like sign-in:
- * a stolen session must not become an unthrottled password-guessing oracle.
- */
 userRouter.patch(
   '/v1/user',
   accountChangeRateLimitMiddleware,

@@ -76,7 +76,6 @@ export type Format = {
 
 const formats = new Map<Locale, Format>();
 
-/** The same object for the same locale, so it can sit in a hook's dependencies. */
 export const formatOf = (locale: Locale): Format => {
   const cached = formats.get(locale);
 

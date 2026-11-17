@@ -113,7 +113,6 @@ export const PortfolioFormDialog: FC<PortfolioFormDialogProps> = ({
     formState: { errors, isDirty, isSubmitting }
   } = useForm<PortfolioFormInput, unknown, PortfolioDraft>({
     mode: 'onChange',
-    /** `useForm` takes its options anew on every render, so validation always sees the latest taken names. */
     resolver: zodResolver(
       portfolioFormSchema.refine(
         ({ name }) => !takenNameKeys.has(portfolioNameKey(name)),

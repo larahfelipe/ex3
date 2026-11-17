@@ -31,8 +31,6 @@ const Table = ({ className, label, regionClassName, ...props }: TableProps) => {
     return () => observer.disconnect();
   }, []);
 
-  // Only a region that actually scrolls is named and focusable: otherwise every
-  // table would add a landmark and a tab stop that lead nowhere.
   return (
     <section
       ref={regionRef}

@@ -1,9 +1,9 @@
-import type { FC, ReactNode } from 'react';
+import type { FC } from 'react';
 
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, type LucideIcon } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
-import { Button } from '@/components/ui';
+import { IconButton } from '@/components/ui';
 import { FIRST_PAGE } from '@/lib/pagination';
 
 type PageNavigationProps = Record<'label', string> &
@@ -14,31 +14,24 @@ type PageNavigationProps = Record<'label', string> &
 type PageStepButtonProps = Record<'label', string> &
   Record<'isUnavailable', boolean> &
   Record<'onStep', VoidFunction> &
-  Record<'children', ReactNode>;
+  Record<'icon', LucideIcon>;
 
-/**
- * `aria-disabled` instead of `disabled`: reaching the first or the last page
- * would disable the button that has focus, and the browser drops that focus to
- * `<body>`.
- */
 const PageStepButton: FC<PageStepButtonProps> = ({
   label,
   isUnavailable,
   onStep,
-  children
+  icon
 }) => (
-  <Button
+  <IconButton
+    icon={icon}
     variant="outline"
     size="icon"
-    aria-label={label}
-    title={label}
+    label={label}
     aria-disabled={isUnavailable}
     onClick={() => {
       if (!isUnavailable) onStep();
     }}
-  >
-    {children}
-  </Button>
+  />
 );
 
 export const PageNavigation: FC<PageNavigationProps> = ({
@@ -60,20 +53,18 @@ export const PageNavigation: FC<PageNavigationProps> = ({
 
       <div className="flex shrink-0 items-center gap-2">
         <PageStepButton
+          icon={ChevronLeft}
           label={t('previous')}
           isUnavailable={page <= FIRST_PAGE}
           onStep={() => onPageChange(page - 1)}
-        >
-          <ChevronLeft aria-hidden="true" className="size-4" />
-        </PageStepButton>
+        />
 
         <PageStepButton
+          icon={ChevronRight}
           label={t('next')}
           isUnavailable={page >= totalPages}
           onStep={() => onPageChange(page + 1)}
-        >
-          <ChevronRight aria-hidden="true" className="size-4" />
-        </PageStepButton>
+        />
       </div>
     </nav>
   );

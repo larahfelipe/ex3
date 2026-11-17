@@ -70,11 +70,6 @@ const symbolsOf = (rows: ReadonlyArray<ReadRow>) => [
   )
 ];
 
-/**
- * A private instrument shadows the catalog one of its symbol, for the
- * positions of a portfolio as for the instruments a person sees, so of two
- * rows of one symbol the private one, sorted first, is kept.
- */
 const bySymbol = <Row extends Record<'symbol', string>>(
   rows: ReadonlyArray<Row>
 ) => {

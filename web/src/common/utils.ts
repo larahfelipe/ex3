@@ -6,12 +6,6 @@ const PERCENT_FRACTION_DIGITS = 2;
 
 const UNIT_AMOUNT_SIGNIFICANT_DIGITS = 4;
 
-/**
- * Building a number formatter costs about forty times more than formatting with
- * one, and a table row builds several. The locale and the options are the
- * cache key, and the distinct keys are bounded by the locales, the styles, the
- * currencies and the digit counts the formatters below ask for.
- */
 const numberFormats = new Map<string, Intl.NumberFormat>();
 
 const numberFormatOf = (locale: Locale, options?: Intl.NumberFormatOptions) => {

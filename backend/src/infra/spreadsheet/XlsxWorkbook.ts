@@ -23,7 +23,6 @@ const MAX_NUMBER_LENGTH = 64;
 const malformed = (message: string) =>
   new SheetFormatError('malformed', message);
 
-/** Spreadsheet applications write a character XML cannot hold, such as a carriage return, as `_xHHHH_`. */
 const decodeEscapedCharacters = (text: string) =>
   text.includes('_x')
     ? text.replace(/_x([0-9a-f]{4})_/gi, (_, code: string) =>

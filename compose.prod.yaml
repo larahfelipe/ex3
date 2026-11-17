@@ -65,8 +65,6 @@ services:
       - /tmp
       - /usr/src/app/web/build/cache
     mem_limit: 768m
-    # No route to the internet: the browser loads Turnstile itself, and the
-    # server talks only to the backend.
     networks: [edge, api]
     healthcheck:
       <<: *app-healthcheck
@@ -87,8 +85,6 @@ services:
     command: ['tunnel', 'run']
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
-      # Bound to the container's loopback, so no other container reaches it;
-      # `tunnel ready` reads the same variable.
       TUNNEL_METRICS: 127.0.0.1:20241
     mem_limit: 256m
     networks: [edge, egress]
@@ -100,8 +96,6 @@ services:
         condition: service_healthy
 
 secrets:
-  # Supabase's CA certificate, which `sslrootcert` in DATABASE_URL names, so
-  # the backend verifies the database it connects to.
   database_ca:
     file: ${DATABASE_CA_CERT:?Set DATABASE_CA_CERT to the path of Supabase's CA certificate}
 

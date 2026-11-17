@@ -72,7 +72,7 @@ Automation covers part of the set; no item below counts as met merely because
 | --- | --- | --- |
 | C1 | Normal text ≥ 4.5:1 and large text ≥ 3:1 against its own background | 1.4.3 · measured per token/surface pair |
 | C2 | A border, a state and the focus indicator ≥ 3:1 against what is adjacent; a field's border at rest is the one accepted exception, in the dark palette (§Palette revision — 2026-11-12) | 1.4.11 · `--border`, `--focus`, `--input`, `--input-hover` |
-| C3 | Colour is the only vector of no information: a sign, a label or an icon accompanies the tone | 1.4.1 · `signedValueTone`, `Trend`, `ProfitLoss`; the benchmark line is dashed and named in a legend, and the market-data warning carries an icon and text |
+| C3 | Colour is the only vector of no information: a sign, a label or an icon accompanies the tone | 1.4.1 · `signedValueTone`, `Trend`, `ProfitLoss`, which also lead a gain with a rising arrow and a loss with a falling one (`TrendingUp`/`TrendingDown`, `aria-hidden`, since the sign already says it; none for zero), except in the asset detail's range options, too narrow for it at 320 px and around `sm` (`hasArrow={false}`); the benchmark line is dashed and named in a legend, and the market-data warning carries an icon and text |
 | C4 | No literal colour in the code: everything comes from the tokens in `globals.css` | 1.4.3 · sweep for `#`, `rgb(` and `hsl(` outside `globals.css`; the single exception, `APP_THEME_COLOR`, the theme's `--background` in hex for `theme-color`, which the browser reads without resolving a token. The icons in `app/` (`icon.svg`, `favicon.ico`, `apple-icon.png`) are images, outside the sweep: the browser draws them with no stylesheet, so they carry the dark tokens' values |
 | C5 | Text resizable to 200% and reflow at 320 px with no loss of content | 1.4.4, 1.4.10 · relative units; verified alongside PHASE 15 |
 
@@ -116,7 +116,7 @@ browser's default. The measured ratios are in §Measured contrast.
 | N3 | Count, pagination and total change inside `aria-live="polite"` | 4.1.3 · `PageNavigation`, in `page-navigation.tsx`, in the four paginated listings |
 | N4 | A toast is never the only channel of an error that blocks the task | 4.1.3 · the state also appears in the affected region |
 | N5 | Stale data displayed during a refetch is marked with `aria-busy` on the container | 4.1.3 · `isPlaceholderData` in `positions-table.tsx` and `performance-chart.tsx` |
-| N6 | Under `prefers-reduced-motion`, non-essential animation and transition are neutralized in `globals.css`; the busy indicator keeps spinning, more slowly. framer-motion follows the same preference: `MotionScope` (`MotionConfig reducedMotion="user"`) turns off the slide of the panels, which merely change place, and keeps the fade; the `SegmentedControl`'s indicator slides by a CSS transition, which that block cuts to 0.01 ms, so it lands at once and its `transitionend` still ends the slide; the panel's height, which is not a transform, changes with no transition through `useReducedMotion`, and otherwise animates only on a switch of panel, never while a panel grows on its own. Under `prefers-reduced-transparency`, the dialogs' overlay loses the blur and becomes more opaque | 2.3.3 · the `@media (prefers-reduced-motion: reduce)` block; touch transform under `motion-safe:`; `MotionScope` and `SlideTransition` |
+| N6 | Under `prefers-reduced-motion`, non-essential animation and transition are neutralized in `globals.css`; the busy indicator keeps spinning, more slowly. framer-motion follows the same preference: `MotionScope` (`MotionConfig reducedMotion="user"`) turns off the slide of the panels, which merely change place, and keeps the fade; the `SegmentedControl`'s indicator slides by a CSS transition, which that block cuts to 0.01 ms, so it lands at once and its `transitionend` still ends the slide; the panel's height, which is not a transform, changes with no transition through `useReducedMotion`, and otherwise animates only on a switch of panel, never while a panel grows on its own. `PasswordStrength`'s transitions drop with that block too, and its cells' stagger is `motion-safe:` only, so they change together. Under `prefers-reduced-transparency`, the dialogs' overlay loses the blur and becomes more opaque | 2.3.3 · the `@media (prefers-reduced-motion: reduce)` block; touch transform under `motion-safe:`; `MotionScope` and `SlideTransition` |
 | N7 | No automatic content update outside the user's control | 2.2.2 · a refetch is fired by an action or by a mutation's invalidation |
 
 ## Known gaps at capture
@@ -167,16 +167,18 @@ current ones, with the pre-TD-053 ones in parentheses:
 | Pair | Where it appears | Light (was) | Dark (was) | Threshold |
 | --- | --- | --- | --- | --- |
 | `--destructive` as text | the deletion item of `positions-table.tsx`'s row menu at rest | 5.75:1 (3.76:1) | 7.02:1, 5.65:1 over `--popover`, the menu's (2.01:1) | 4.5:1 |
-| `--destructive` over `bg-destructive/10` | the `destructive-subtle` button — the deletion action of the transaction detail, the portfolio list and the bill, plan and series dialogs — and the focused deletion item in `positions-table.tsx`'s row menu; `/12` on hover, `/14` when pressed | 4.88:1, 4.72:1 on hover, 4.56:1 pressed (new) | over `--surface-elevated`: 5.27:1, 5.09:1, 4.89:1; over `--surface`: 5.76:1, 5.58:1, 5.38:1; the focused menu item over `--popover`: 4.87:1 (new) | 4.5:1 |
-| `--primary` over `bg-primary/10` | the number of the getting-started guide's current step, over the card | 5.01:1 | 5.15:1 | 4.5:1 |
+| `--destructive` over `bg-destructive/10` | the `destructive-subtle` button — the deletion action of the transaction detail, the portfolio list and the bill, plan and series dialogs — and the focused deletion item in `positions-table.tsx`'s row menu; `/12` on hover, `/14` when pressed | 4.88:1, 4.72:1 on hover, 4.56:1 pressed (new) | over `--surface-elevated`: 5.27:1, 5.09:1, 4.89:1; over `--surface`: 5.69:1, 5.51:1, 5.31:1; the focused menu item over `--popover`: 4.87:1 (new) | 4.5:1 |
+| `--primary` over `bg-primary/10` | the number of the getting-started guide's current step, over the card | 5.01:1 | 5.09:1 | 4.5:1 |
 | `--secondary-foreground` over `--secondary` | a toast's action, inside the toast's `--surface-elevated`; `/0.8` on hover | 16.12:1, 16.43:1 on hover | 12.97:1, 13.52:1 on hover | 4.5:1 |
 | `--primary-foreground` over `--primary` | the label of every primary button; `/0.9` on hover | 5.57:1, 4.66:1 on hover (16.95:1, with the navy `--primary`) | 5.71:1, 4.78:1 on hover (3.49:1) | 4.5:1 |
-| `--border`/`--input` over `--background` | field border at rest; `--input-hover` under the pointer | `--input` 4.83:1, `--input-hover` 7.02:1 (1.24:1) | `--input` 2.47:1, 2.32:1 over `--surface`, 2.13:1 over `--surface-elevated`, below the threshold by decision; `--input-hover` 3.62:1, 3.40:1 and 3.13:1 (1.33:1) | 3:1 |
+| `--border`/`--input` over `--background` | field border at rest; `--input-hover` under the pointer | `--input` 4.83:1, `--input-hover` 7.02:1 (1.24:1) | `--input` 2.53:1, 2.29:1 over `--surface`, 2.13:1 over `--surface-elevated`, below the threshold by decision; `--input-hover` 3.72:1, 3.36:1 and 3.13:1 (1.33:1) | 3:1 |
 | `--destructive-foreground` over `--destructive` | solid deletion button; `/0.9` on hover | 5.50:1, 4.84:1 on hover (3.60:1) | 6.53:1, 5.44:1 on hover (9.59:1) | 4.5:1 |
 | `--muted-foreground` over `--muted` | secondary text on a highlight surface | 4.91:1 (4.39:1) | 5.37:1 (6.00:1) | 4.5:1 |
 | `--warning` over `bg-warning/10` | alert chip | 5.00:1 (4.40:1) | 9.63:1 (10.28:1) | 4.5:1 |
+| `--negative`, `--warning`, `--positive` as text and as a fill over `--muted` | `PasswordStrength`'s level over the card, and its filled cells over the empty ones | text 5.42:1, 5.77:1, 5.96:1; fill 4.93:1, 5.24:1, 5.42:1 | text 6.53:1, 10.61:1, 9.34:1; fill 4.93:1, 8.02:1, 7.05:1 | 4.5:1 text, 3:1 fill |
+| `--positive-foreground` over `--positive` | `PasswordStrength`'s check in a met requirement's box | 5.70:1 | 9.34:1 | 3:1 |
 
-`--border` remains below 3:1 in both palettes (1.30:1 light, 1.53:1 dark) by
+`--border` remains below 3:1 in both palettes (1.30:1 light, 1.46:1 dark) by
 decision: since the correction it is a decorative separator only, and every
 interactive control — input, select, segmented control — uses `--input` for the
 border. In the light palette `--input` passes with room to spare. In the dark
@@ -218,7 +220,7 @@ taste alone.
 | Light: `--primary` navy → `21 100% 35%` | orange is the identity colour, the one in the dark theme and in the lines of the sign-in image; the blue was shadcn's default. It is the lightest orange of that hue at which the button's label passes 4.5:1 on hover as well; the dark palette's `21 100% 50%` would give 3.14:1 as text over white |
 | Light: `--positive` 24% → 23% and `--negative` 51% → 47% | they failed in pairs the code produces: the `success` button's label on hover, 4.40:1, and negative text over `bg-negative/10`, in the authentication notice and in the "Sign out" hover, 4.11:1 |
 | `ring-offset-background` on the sort button of `positions-table.tsx` and on the `summary` of `performance-chart.tsx` | Tailwind 4.3 paints the `ring-offset-2` gap with `--tw-ring-offset-color`, `#fff` by default: both painted a white band between the control and the orange ring in the dark theme |
-| `theme-color` from `#070707` to `APP_THEME_COLOR` (`#0e0e0e`) | follows the new `--background`; the name and the comment tie the literal to the token |
+| `theme-color` from `#070707` to `APP_THEME_COLOR` (`#0e0e0e`) | follows the new `--background`; the name ties the literal to the token (the comment beside it was removed on 2026-11-17) |
 
 ### Palette revision — 2026-10-29
 
@@ -252,10 +254,30 @@ wordmark in one colour.
 | Light: `--input` 50% → 46%, `--input-hover` 36% | the same firmer border on white, 4.83:1 and 7.02:1 instead of 4.20:1; unreachable while TD-048 stands |
 | `--border` 18.1% → 20% dark and 91% → 89% light | a card's and a divider's edge a step firmer next to the darker fields, 1.53:1 and 1.30:1; still a decorative separator, outside C2 |
 | `::selection` at `--primary` / 0.35 | selected text in the identity colour instead of the browser's blue: the foreground over it measures 11.01:1 dark and 11.46:1 light, and `--muted-foreground` 4.56:1 dark |
-| The wordmark in the text colour: `--foreground` in the sidebar, at 40% on the authentication pages, with no colour of its own | a logotype is exempt from 1.4.3, which is what allows it: at 40% over the glow it measures no less than 2.5:1 on the panel and 2.6:1 above the form below `lg`, centred under the warm light, from mock-ups of the gradient, before the grain, below the 3:1 that large text would need. The owner chose 40% for a recessive mark; the brand is still named in full to assistive technology, and the screen's `<h1>` and the form carry its purpose. It is plain text, so a screen reader reads one word and `forced-colors` gives it `CanvasText` |
+| The wordmark in the text colour: `--foreground` in the sidebar, at 40% on the authentication pages, with no colour of its own | a logotype is exempt from 1.4.3, which is what allows it: at 40% over the glow it measures no less than 2.5:1 on the panel and 2.3:1 above the form below `lg`, centred under the warm light, from mock-ups of the gradient, before the grain, below the 3:1 that large text would need (2.6:1 above the form before the fluted glow of 2026-11-17, whose brighter core reaches higher). The owner chose 40% for a recessive mark; the brand is still named in full to assistive technology, and the screen's `<h1>` and the form carry its purpose. It is plain text, so a screen reader reads one word and `forced-colors` gives it `CanvasText` |
 
 The resting border was compared in mock-ups of the fields at 42%, 32% and 28%
 over a card and a dialog, drawn from the tokens; no browser rendered it.
+
+### Palette revision — 2026-11-16
+
+Cards set off from the page as in a reference the owner gave: a darker page,
+the card's fill and its edge sampled from it.
+
+| Change | Reason |
+| --- | --- |
+| Dark: `--background` 5.5% → 3.9% (`#0a0a0a`) and `--surface` 8.8% → 9% (`#171717`), in L* 2.7 and 7.7 | the card stood 3.2 L* above the page and now stands 5; the owner's reference has the page and card at these values. The levels above the card are unchanged, the dialog at 11.3 and the popover at 14.2, so the steps over it stay about 3.5 L*. The September revision left near-absolute black because the card sat only 2.4 L* above it; at 2.7 against 7.7 that gap is twice as wide |
+| Dark: `--border` 20% → 18% (`#2e2e2e`) | the reference's edge, for cards, dividers and table rules alike: 1.46:1 over the page and 1.32:1 over a card, still a decorative separator outside C2. The dialog's footer divider measures 1.23:1, about where it stood at 18.1% before the 2026-11-12 revision |
+| `--shadow-surface` without the 1 px highlight inside the top edge | the reference's cards are flat; with lightness setting the card off from the page, the highlight only doubled the top edge. `--shadow-elevated` keeps it, so a dialog and a toast still catch the light |
+| `APP_THEME_COLOR` `#0e0e0e` → `#0a0a0a` | follows `--background` |
+| The navigation (`sidebar.tsx`): `bg-background` → `bg-surface`, on the rail, the expanded sidebar, the bottom bar and the collapse toggle — 2026-11-17 | the owner asked for the sidebar in the card's colour. Over it, muted labels measure 7.11:1, the active icon in `--primary` over `bg-primary/15` 4.76:1 (5.41:1 over the page), the active side indicator 5.71:1 and Sign out's `--negative` 6.53:1, or 5.70:1 over `bg-negative/10`. `NavigationHeader`, the phone's top bar, stays on `--background`, the colour `APP_THEME_COLOR` gives the browser's own bar |
+
+The resting field border, `--input` at 32%, measures 2.53:1 over the page and
+2.29:1 over a card, inside the exception C2 records; under the pointer
+`--input-hover` gives 3.72:1 and 3.36:1. Muted text measures 7.11:1 over a
+card, the focus ring 5.70:1 and the first chart colour 4.71:1. The figures in
+the contrast table above are updated to match. The values were sampled from the
+screenshot and checked by calculation; no browser rendered the palette.
 
 ## Automated audit — TASK 20.6
 
@@ -423,9 +445,9 @@ is still the `aria-label` of the icon-only control.
 | Sign-in and sign-up disabled each field during submission, and Enter in a field disabled it with focus on it — the same defect as the `fieldset disabled` already fixed in the dialogs (F4) | the fields stay enabled; what prevents resubmission is the button |
 | Every form's submit became `disabled` during submission: activated from the keyboard, it lost focus to the `body`, and the next `Tab` after a refused submission restarted from the top (F4, 2.4.3) | `SubmitButton`, with `aria-disabled` and the click cancelled while sending, which also cancels implicit submission by Enter in a field |
 | Account screen: name and email in a `disabled` `Input`, out of the `Tab` order and announced as unavailable fields, and a password form that accepted typing beside an always-disabled "Update", with no route to serve it | an editable name and the email as text in a definition list; a password change with current password, new one and confirmation, through the new `PATCH /api/v1/user`. A wrong current password goes to its own field, with focus, and the section's description warns that the change ends the session |
-| The password policy only appeared after the error (3.3.2) | a hint with the requirements linked through `aria-describedby` to sign-up's password and to the account's new password; today it is the `PasswordRequirements` list. On the account screen it checks off each requirement met and states it in text; on sign-up it only lists the requirements, because there the password is judged on submit |
+| The password policy only appeared after the error (3.3.2) | a hint with the requirements linked through `aria-describedby` to sign-up's password and to the account's new password; today it is `PasswordStrength`, on both screens: a meter (`role="meter"`, the level as `aria-valuetext`) and the requirements, each checked off as it is met and stated in text, and a polite live region that states the level, a guessable pattern and what is missing 700 ms after the typing pauses, so it does not speak on every key. The visible level and the "Commonly guessed" hint are `aria-hidden`, since the meter and the announcement carry them. On sign-up the field's error still waits for the step to advance |
 | Sign-in and sign-up validated on `onChange`, with an error on every keystroke before the field was left | `onTouched`, as in the dialogs. Reverted on 2026-09-23 at the user's request: every form validates on `onChange`, so that a field only shows an error after receiving a value, and not when left empty. The error follows every keystroke, but it is not a live region — it reaches the screen reader through the field's `aria-describedby` — so it is not announced on every keystroke. On 2026-09-24, also at the user's request, the sign-in and sign-up password fields moved to validating on submit only (on sign-up, when the step advances), with no revalidation while typing, so that the layout does not move during typing. An invalid submission focuses the first field with an error, which carries `aria-invalid` and the message in `aria-describedby` |
-| "Login", "Register", "Login instead", "Logged in as", "Logged out successfully" and two toasts on sign-up, beside "Sign out" in the menu | "Sign in", "Create account", "Sign in instead", "Signed in as", "Signed out" and a single toast; an account with no name is greeted by its email; the page titles, "Sign In" and "Sign Up", became "Sign in" and "Create account" |
+| "Login", "Register", "Login instead", "Logged in as", "Logged out successfully" and two toasts on sign-up, beside "Sign out" in the menu | "Sign in", "Create account", "Sign in instead", "Signed in as", "Signed out" and a single toast; an account with no name is greeted by its email; the page titles, "Sign In" and "Sign Up", became "Sign in" and "Create account". On 2026-11-17, at the owner's request, sign-in's link to sign-up became "Sign up" in English; Portuguese keeps "Criar conta" |
 
 The proxy's contract was exercised with `curl` against the local `compose`: a
 name saved with the cookie kept, a wrong current password in `400` `VALIDATION`
@@ -504,3 +526,16 @@ browser.
 
 Not verified in a browser either: no browser runs on this machine, and the
 tests render static markup.
+
+## Icon actions, tooltips and notifications — 2026-11-16
+
+| Change | Accessibility |
+| --- | --- |
+| Edit, delete, correct, void, page steps, month steps, sort order and clear-day are `IconButton`s | the label is the accessible name and the tooltip, so what is seen is what is announced (2.5.3); a name that adds the item starts with the label ("Delete Nubank"); the icon is `aria-hidden`; a deletion is told apart by its icon and colour, never colour alone, and still confirms (3.3.4) |
+| Tooltips replace every `title` attribute on a control | a `title` never shows on touch or keyboard focus; the tooltip shows on hover and on `:focus-visible`, and never after focus returns from a dialog the pointer opened |
+| Clipped text shows whole in a tooltip while clipped (`TruncatedText`) | on hover, on keyboard focus — clipped text outside a control becomes a tab stop — and on a tap; a screen reader reads the whole text regardless (1.4.10, 1.4.13: the tooltip is hoverable and dismissed with Escape, from Radix) |
+| The *Notifications* popover | a button with `aria-haspopup="dialog"`, its name carrying the unread count ("Notifications, 3 unread"); the panel is labelled by its title and takes focus on open, so Tab leads into the list; an unread notice says "Unread" before its bill; mark-read and dismiss are named with the bill; Escape and a press outside close it, returning focus to the trigger |
+| The phone's top bar | a `header` with the wordmark link and the bell, 44 px targets; the bottom bar stays navigation only |
+
+Not verified in a browser either, for the reason above; the static tests
+check the names, the popover trigger and the notice markup.

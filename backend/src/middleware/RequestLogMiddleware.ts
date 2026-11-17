@@ -13,10 +13,6 @@ const REQUEST_ID_HEADER = 'x-request-id';
 
 const PROBE_ROUTES: ReadonlySet<string> = new Set(Object.values(ProbeRoutes));
 
-/**
- * An id that arrives with the request is echoed back and written to every line
- * it produces, so it is only reused in the shape this service itself generates.
- */
 const PROPAGATED_REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
 
 const UNMATCHED_ROUTE = 'unmatched';

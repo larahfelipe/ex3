@@ -12,11 +12,6 @@ import type {
   TransactionType
 } from '@/domain/models';
 
-/**
- * The categories an API failure is classified into. The category name is the
- * `code` on the wire: stable across releases, so a client branches on it and a
- * log groups by it.
- */
 export const ErrorCategories = {
   VALIDATION: 'VALIDATION',
   AUTHENTICATION: 'AUTHENTICATION',
@@ -122,10 +117,6 @@ export const BotChallenge = {
   SIGN_UP_ACTION: 'sign-up'
 } as const;
 
-/**
- * `UPLOAD_BODY_SIZE` holds a file of `ImportLimits.FILE_BYTES` in base64, four
- * bytes for every three, with room for the selection sent along with it.
- */
 export const RequestLimits = {
   JSON_BODY_SIZE: '100kb',
   UPLOAD_BODY_SIZE: '4mb'
@@ -270,11 +261,6 @@ export const IncomeTransactionTypes = {
   INTEREST: 'INTEREST'
 } as const satisfies Partial<Record<TransactionType, TransactionType>>;
 
-/**
- * Mirrors `@db.Decimal(38, 18)`, the type of every quantity and monetary column
- * in `schema.prisma`. Input limits and the range a rebuilt position must fit
- * derive from it.
- */
 export const DecimalColumn = {
   PRECISION: 38,
   SCALE: 18
@@ -322,10 +308,6 @@ export const Pagination = {
   MAX_SIZE: 100
 } as const;
 
-/**
- * Letters and digits only, so a symbol can neither change the path or query of
- * a provider URL nor carry a pattern wildcard into a search.
- */
 export const INSTRUMENT_SYMBOL_PATTERN = /^[A-Z0-9]+$/;
 
 export const MarketSearchStatuses = {
@@ -448,6 +430,7 @@ export const FinanceLimits = {
   SUMMARY_TREND_MONTHS: 6,
   SUMMARY_COMMITMENT_MONTHS: 6,
   ALERT_ITEMS_LIMIT: 10,
+  NOTIFICATION_ITEMS_LIMIT: 50,
   REFERENCE_DAY_TOLERANCE_DAYS: 1
 } as const;
 

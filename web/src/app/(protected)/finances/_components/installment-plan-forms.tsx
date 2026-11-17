@@ -123,7 +123,6 @@ type PlanDialogProps<Payload> = FormDialogProps<Payload> &
 
 const AMOUNT_MODES = ['total', 'installment'] as const;
 
-/** The API schedules a day past the 28th on the last day of a shorter month. */
 const LAST_SHARED_DAY_OF_MONTH = 28;
 
 const COUNT_MAX_LENGTH = String(FINANCE_LIMITS.InstallmentMaxCount).length;
@@ -168,11 +167,6 @@ const minorUnitsOf = (amount: string, currency: string) => {
     : null;
 };
 
-/**
- * The API's split: each installment the total divided evenly and truncated to
- * the minor unit, the first one taking what is left. Null when an installment
- * would owe nothing.
- */
 const splitOf = (total: bigint, count: number): InstallmentSplit | null => {
   const rest = total / BigInt(count);
 
@@ -353,7 +347,6 @@ const lastKeptNumberOf = (plan: InstallmentPlanDetail) => {
     : (lastKept.installmentNumber ?? plan.keptThroughInstallment ?? 0);
 };
 
-/** On a card, installments compare by the days they were charged, not by the card's dates. */
 const earliestNextDueDateOf = (plan: InstallmentPlanDetail) => {
   const { lastKept } = rescheduleSplitOf(plan);
 

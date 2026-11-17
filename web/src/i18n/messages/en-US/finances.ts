@@ -209,8 +209,8 @@ export default {
         'Bills charged to a card fall due on the payment date of the statement they land on.',
       empty: 'No cards yet. Add one to choose it on your bills.',
       add: 'Add card',
-      edit: 'Edit<hidden> {name}</hidden>',
-      delete: 'Delete<hidden> {name}</hidden>',
+      editNamed: 'Edit {name}',
+      deleteNamed: 'Delete {name}',
       loading: 'Loading the cards',
       loadFailed: "Couldn't load the cards"
     },

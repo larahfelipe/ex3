@@ -16,13 +16,6 @@ type PlainErrorKey =
   | 'throttledLater'
   | 'unexpected';
 
-/**
- * The API answers in English and names no reason beyond the category in
- * `code`, so its messages are the contract: each one it sends is worded here by
- * the catalog key that says the same to the user. A message missing from this
- * table falls back to its category, never to the English text. Mirrors the
- * messages in the API's `config/Constants.ts`.
- */
 const API_MESSAGE_KEYS: Readonly<Record<string, PlainErrorKey>> = {
   'Invalid or corrupted request': 'categories.VALIDATION',
   'Authentication required': 'categories.AUTHENTICATION',

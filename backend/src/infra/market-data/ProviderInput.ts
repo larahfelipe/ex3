@@ -19,7 +19,6 @@ export const SectorSchema = z
   .min(1)
   .max(InstrumentLimits.SECTOR_MAX_LENGTH);
 
-/** Bounded by code points, so a surrogate pair is never split. */
 export const toListingName = (name: string) =>
   [...name.replace(/\s+/g, ' ')]
     .slice(0, InstrumentLimits.NAME_MAX_LENGTH)

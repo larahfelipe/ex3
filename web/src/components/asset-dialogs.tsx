@@ -22,12 +22,6 @@ type AssetDialogsProps = Record<'portfolio', Portfolio> &
   Partial<Record<'offersTransaction', boolean>> &
   Partial<Record<'onAssetDeleted', VoidFunction>>;
 
-/**
- * Only page state holds the open dialog: the router's search params trail a
- * `replaceState` by a render, so a dialog also mirrored in the URL reopens as
- * the user closes it. The toast for an added asset offers its first
- * transaction unless `offersTransaction` is false, where the page offers it.
- */
 export const AssetDialogs: FC<AssetDialogsProps> = ({
   portfolio,
   dialog,

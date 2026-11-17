@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { IntlProvider } from 'use-intl';
 import type { IntlError } from 'use-intl/core';
 
+import { TooltipProvider } from '@/components/ui';
 import { APP_TIME_ZONE, DEFAULT_LOCALE, type Locale } from '@/i18n/config';
 import { messageFallbackOf } from '@/i18n/errors';
 import { MESSAGES } from '@/i18n/messages';
@@ -30,7 +31,7 @@ export const renderWithIntl = (
       onError={(error) => errors.push(error)}
       getMessageFallback={messageFallbackOf}
     >
-      {node}
+      <TooltipProvider>{node}</TooltipProvider>
     </IntlProvider>
   );
 
@@ -45,5 +46,4 @@ export const textOf = (markup: string) =>
     .replace(/<[^>]+>/g, '')
     .replace(/&[#\w]+;/g, (entity) => ENTITIES[entity] ?? entity);
 
-/** `Intl` separates a currency or a unit from its figures with a no-break space. */
 export const nbsp = (text: string) => text.replaceAll(' ', ' ');

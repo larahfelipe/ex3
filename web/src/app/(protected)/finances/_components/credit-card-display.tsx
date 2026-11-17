@@ -4,6 +4,7 @@ import { useTranslations } from 'use-intl';
 
 import type { CardBrand, CreditCardSummary } from '@/app/api/v1/finances';
 import { STATUS_TONES } from '@/common/constants';
+import { TruncatedText } from '@/components/ui';
 import { srOnly } from '@/i18n/rich-text';
 import { cn } from '@/lib/utils';
 
@@ -51,11 +52,6 @@ const MastercardMark: FC = () => (
   </>
 );
 
-/**
- * A drawn mark in each network's colours, on the white chip both networks ask
- * for, so it reads the same on either theme. Without a label it is decoration
- * beside text that already names the brand.
- */
 export const CardBrandLogo: FC<CardBrandLogoProps> = ({
   brand,
   label,
@@ -81,7 +77,6 @@ export const CardBrandLogo: FC<CardBrandLogoProps> = ({
   </svg>
 );
 
-/** The digits read as "ending in 1234": dots read aloud would be noise. */
 export const CardDigits: FC<Record<'lastFourDigits', string>> = ({
   lastFourDigits
 }) => {
@@ -105,7 +100,9 @@ export const CardLabel: FC<CardLabelProps> = ({ card, className }) => {
     <span className={cn('inline-flex min-w-0 items-center gap-1.5', className)}>
       <CardBrandLogo brand={card.brand} label={t(`cardBrands.${card.brand}`)} />
 
-      <span className="min-w-0 truncate">{card.name}</span>
+      <TruncatedText className="min-w-0 truncate data-truncated:relative data-truncated:z-10">
+        {card.name}
+      </TruncatedText>
 
       <CardDigits lastFourDigits={card.lastFourDigits} />
 

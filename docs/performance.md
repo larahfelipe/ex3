@@ -446,7 +446,9 @@ None of this was verified in a browser in that session.
 * **The artwork is gone.** `public/login-hero.jpeg` (2,020,657 bytes, the
   largest file served at `≥ lg`) was replaced by a panel painted with
   radial gradients from the theme's tokens (`bg-brand-glow` and the
-  `--brand-glow-*` tokens in `globals.css`), with no drawing or blur; its only
+  `--brand-glow-*` tokens in `globals.css`), with no drawing or blur; since
+  2026-11-17 a repeated linear gradient over them (`fluted-glass`) draws the
+  ribs of fluted glass, still with no filter or `backdrop-filter`; its only
   text is the wordmark, set in the already-loaded display font. No
   image is requested at any width, which closes TD-056 by removal rather than
   by re-encoding, and the LCP candidate on sign-in and sign-up is text at every

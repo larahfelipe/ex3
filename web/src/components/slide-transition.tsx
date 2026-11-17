@@ -36,16 +36,6 @@ const LeavingPanelGuard: FC<Children> = ({ children }) => {
   return <div inert={!isPresent}>{children}</div>;
 };
 
-/**
- * One panel at a time, keyed by `panelKey`. The leaving panel is popped out of
- * the flow and made inert while it slides away, the arriving one slides in from
- * `direction`, and the frame animates to the arriving panel's measured height
- * instead of jumping to it and moving what sits below. Only a switch animates
- * the height: a panel that grows or shrinks on its own, or with the window,
- * takes its new height at once rather than lagging clipped behind it. The
- * frame clips the slide; the negative margin and the padding keep focus rings
- * inside the clip.
- */
 export const SlideTransition: FC<SlideTransitionProps> = ({
   panelKey,
   direction,

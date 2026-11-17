@@ -35,13 +35,8 @@ const PERSON_NAME_MAX_LENGTH = 255;
 
 const PORTFOLIO_NAME_MAX_LENGTH = 60;
 
-/**
- * Enough requests to pass an existence check together; below the sign-up rate
- * limit, which would otherwise decide the outcome instead of the database.
- */
 const CONCURRENT_SIGN_UPS = 3;
 
-/** Mirror `NewPasswordSchema`: the minimum counts code points, the maximum UTF-8 bytes. */
 const PASSWORD_MIN_CODE_POINTS = 8;
 const PASSWORD_MAX_BYTES = 72;
 
@@ -71,11 +66,6 @@ const LEGACY_BCRYPT_COST = 4;
 
 const TIMING_SAMPLES = 15;
 
-/**
- * Generous on purpose: verifying a digest at the minimum cost takes tens of
- * milliseconds, so a branch that skipped it would answer in a fraction of the
- * other's time, far below this ratio, while scheduling noise stays above it.
- */
 const MIN_TIMING_RATIO = 0.6;
 
 const TIMING_NETWORK = '198.51.100';

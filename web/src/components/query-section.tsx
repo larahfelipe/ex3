@@ -44,12 +44,6 @@ export const QuerySection = <Content,>({
   const shownContent = data !== undefined && !isEmpty(data) ? data : undefined;
   const previousShownContent = useRef(shownContent);
 
-  /**
-   * Content that replaces the focused element, such as the empty state after
-   * deleting the last row, drops focus to `<body>`. Focus events bubble through
-   * portals in the React tree, so a dialog opened from this section still
-   * counts as focus within it.
-   */
   useEffect(() => {
     const previous = previousShownContent.current;
     previousShownContent.current = shownContent;

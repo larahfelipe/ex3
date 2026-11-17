@@ -10,21 +10,22 @@ Record of the pinned versions and of the decisions that cannot be deduced from
 | Node | 24.15 (`.nvmrc`, `.node-version`, `engines`, the Dockerfiles' base image) | same |
 | pnpm | 11.18.0 (`packageManager`) | same |
 | TypeScript | 6.0.3 (`~6.0.3`) | same |
-| Prettier | 3.9.10 | 3.9.10 |
-| ESLint | 10.13.0 | 10.13.0 |
-| `typescript-eslint` | 8.72.1 | 8.72.1 |
+| Prettier | 3.10.1 | 3.10.1 |
+| ESLint | 10.15.0 | 10.15.0 |
+| `typescript-eslint` | 8.72.2 | 8.72.2 |
 | `eslint-config-prettier` | 10.1.8 | 10.1.8 |
 | `eslint-plugin-prettier` | 5.5.7 | 5.5.7 |
-| `eslint-plugin-perfectionist` | 5.13.0 | 5.13.0 |
-| `@next/eslint-plugin-next` | — | 16.4.3 |
+| `eslint-plugin-perfectionist` | 5.14.0 | 5.14.0 |
+| `@next/eslint-plugin-next` | — | 16.4.6 |
 | `eslint-plugin-react` | — | 7.37.5 |
 | `eslint-plugin-react-hooks` | — | 7.1.1 |
 | `eslint-plugin-jsx-a11y` | — | 6.10.2 |
 
 Everything above is on the latest stable, with one deliberate exception:
-`typescript`, held on the 6.0 line by a tilde range.
+`typescript`, held on the 6.0 line by a tilde range. `@types/node` stays on
+24, the runtime's major, rather than 26.
 
-The web's i18n library, `use-intl` 4.14.9, and `intl-messageformat` 11.2.15,
+The web's i18n library, `use-intl` 4.15.1, and `intl-messageformat` 11.2.15,
 the version it bundles, which the catalog test parses with, are pinned exactly
 so that the two stay the same; [`i18n.md`](i18n.md#library) explains both.
 
@@ -54,7 +55,7 @@ The repository's whole toolchain at the time depended on that API:
 Both packages therefore stay on the latest stable line that keeps the JS API:
 **6.0.3**, which still ships `lib/typescript.js`. It needed no change to either
 `tsconfig.json`. The range is `~6.0.3`, not a caret, because
-`typescript-eslint@8.72.1` declares `typescript >=4.8.4 <6.1.0` as a peer: a
+`typescript-eslint@8.72.2` declares `typescript >=4.8.4 <6.1.0` as a peer: a
 6.1 release would satisfy `^6.0.3` and fall outside what the linter supports.
 
 Migrating to 7.x remains blocked for the same reason. Re-evaluate once
@@ -301,6 +302,36 @@ with a published advisory (fixed in 3.1.9). The web now pins it through
 does for its own transitive advisories below. Neither package needs a
 `minimumReleaseAgeExclude` entry any more.
 
+## Dependency update — 2026-11-16
+
+Both packages were taken to the latest stable within the ranges above. Both
+`pnpm audit`s report no known vulnerability, and both lockfiles install with
+`--frozen-lockfile`. Before the update, the web's audit reported two moderate
+Next.js advisories (GHSA-g3hv-75wg-m249, GHSA-mfr8-8qww-v76h), fixed by
+`next@16.4.6`. Both audits also reported a moderate `minimatch` denial of
+service through glob-part amplification, reached through
+`@typescript-eslint/typescript-estree`'s `minimatch@10`.
+
+| Change | From | To | Why |
+| --- | --- | --- | --- |
+| `next`, `@next/eslint-plugin-next` (web) | 16.4.3 | 16.4.6 | The two advisories |
+| `@hookform/resolvers` (web) | 6.0.2 | 7.0.6 | Its only breaking change is the TypeBox resolver; `zodResolver` and its import path are unchanged |
+| `@radix-ui/react-tooltip` (web) | — | 1.4.1 | Back for `Tooltip`, `IconButton` and `TruncatedText` (see [`component-inventory.md`](component-inventory.md)) |
+| `framer-motion` (web, exact) | 14.7.1 | 14.14.0 | Minor releases |
+| `use-intl` (web, exact) | 4.14.9 | 4.15.1 | Minor release; it still resolves `intl-messageformat` 11.2.15, so the catalog test's pin stays |
+| Every other dependency | | the latest patch or minor | |
+
+The `minimatch` fix is an override in both `pnpm-workspace.yaml`s,
+`'minimatch@>=7.0.0 <11.0.1': ^11.0.1`. It is scoped to the affected range, so
+the `minimatch@3` that older tools keep is left alone. The one call it serves,
+`minimatch(filePath, pattern, { dot: true })` in `typescript-estree`, is
+exported unchanged by version 11, and lint passes in both packages with it. Drop the override once `typescript-eslint` depends on
+`minimatch@11` itself.
+
+Left behind on purpose: `typescript` 7 (above), `@types/node` 26 (the runtime
+is Node 24), `intl-messageformat` 12 (it must match what `use-intl` resolves)
+and `prisma` 8, which is only a prerelease (`8.1.0-dev`).
+
 ## Dependency audit — TASK 20.3
 
 `pnpm audit` answers **"No known vulnerabilities found"** in both packages.
@@ -374,7 +405,7 @@ for `import` does not reach: `@types/*` (ambient types), `tsc-alias` (the
 
 `pnpm peers check` reports `eslint-plugin-jsx-a11y@6.10.2` and
 `eslint-plugin-react@7.37.5` declaring `eslint` up to 9, with 10.10.0
-installed (10.13.0 since the 2026-10-29 update). The rules load and `pnpm lint` passes with `--max-warnings=0` in both
+installed (10.15.0 since the 2026-11-16 update). The rules load and `pnpm lint` passes with `--max-warnings=0` in both
 packages; it is a lag in the plugins' declarations, not an observed
 incompatibility.
 

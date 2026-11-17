@@ -2,7 +2,6 @@
 
 import { useId, useMemo, useState, type FC, type ReactNode } from 'react';
 
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 import { useTranslations } from 'use-intl';
@@ -73,7 +72,7 @@ import {
   useAdoptedCurrency,
   useCurrencyParam
 } from './finance-currency';
-import { CalendarDayText } from './finance-display';
+import { CalendarDayText, RowLink } from './finance-display';
 import { changeTextOf, LinkedMetric } from './finance-summary';
 
 type Report = GetFinanceReportResponseData;
@@ -265,12 +264,7 @@ const PaymentRow: FC<Record<'payment', ListedPayment>> = ({ payment }) => {
     <TableRow>
       <TableRowHeader className="relative py-3">
         <div className="flex min-w-0 flex-col items-start gap-0.5">
-          <Link
-            href={billDetailRoute(expenseId)}
-            className="line-clamp-2 rounded-sm font-semibold ring-offset-background wrap-anywhere after:absolute after:inset-0 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
-          >
-            {description}
-          </Link>
+          <RowLink href={billDetailRoute(expenseId)}>{description}</RowLink>
 
           <span className="text-xs text-muted-foreground">
             {tFinances(`categories.${category}`)}

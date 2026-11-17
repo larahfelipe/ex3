@@ -140,8 +140,6 @@ const Calendar = ({
         root: defaultClassNames.root,
         months: 'relative flex flex-col gap-4',
         month: 'flex w-full flex-col gap-3',
-        // The nav spans the caption row, over the month and year triggers, so
-        // only its arrows take the pointer.
         nav: 'pointer-events-none absolute inset-x-0 top-0 flex h-10 items-center justify-between sm:h-9',
         button_previous: cn(
           buttonVariants({ variant: 'ghost', size: 'icon' }),

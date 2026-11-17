@@ -36,10 +36,25 @@ export default {
     submit: 'Criar conta',
     welcome: 'Conta criada. Você entrou como {name}'
   },
-  passwordRequirements: {
+  passwordStrength: {
+    label: 'Força da senha',
+    levels: {
+      empty: 'Vazia',
+      weak: 'Fraca',
+      fair: 'Razoável',
+      good: 'Boa',
+      strong: 'Forte'
+    },
+    guessable: 'Fácil de adivinhar',
     minLength: 'Pelo menos {min, number} caracteres',
     notEmail: 'Não contém seu e-mail',
-    item: '<hidden>{status, select, met {Atendido:} other {Não atendido:}} </hidden>{requirement}'
+    item: '<hidden>{status, select, met {Atendido:} other {Não atendido:}} </hidden>{requirement}',
+    announcement: {
+      level: 'Força da senha: {level}.',
+      guessable: 'É um padrão fácil de adivinhar.',
+      allMet: 'Todos os requisitos atendidos.',
+      missing: 'Requisitos não atendidos: {requirements}.'
+    }
   },
   signOut: {
     done: 'Você saiu da sua conta',

@@ -25,10 +25,6 @@ const dayOfMonth = (monthIndex: number, anchorDay: number) => {
   ].join('-');
 };
 
-/**
- * The backend's `cardStatementOf`, on calendar days, to show the card payment
- * date before saving; the two must agree.
- */
 export const cardStatementOf = (
   { closingDay, dueDay }: CreditCardCycle,
   chargeDay: string

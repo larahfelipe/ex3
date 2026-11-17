@@ -1,5 +1,6 @@
 import type { FC } from 'react';
 
+import { Pencil, Trash2 } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
 import type { ListedTransaction } from '@/app/api/v1/transactions';
@@ -12,15 +13,14 @@ import {
   UnavailableValue
 } from '@/components/financial';
 import {
-  Button,
   Dialog,
+  DialogActionFooter,
   DialogBody,
-  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
+  IconButton
 } from '@/components/ui';
 import { useFormat } from '@/i18n/format';
 
@@ -36,7 +36,6 @@ const TransactionDetails: FC<
   Record<'transaction', ListedTransaction> & TransactionActions
 > = ({ transaction, onEdit, onDelete }) => {
   const t = useTranslations('transactions');
-  const tActions = useTranslations('common.actions');
   const { formatExecutionDay } = useFormat();
   const {
     type,
@@ -100,21 +99,24 @@ const TransactionDetails: FC<
         </dl>
       </DialogBody>
 
-      <DialogFooter>
-        <Button
-          variant="destructive-subtle"
-          className="sm:mr-auto"
-          onClick={() => onDelete(transaction)}
-        >
-          {tActions('delete')}
-        </Button>
+      <DialogActionFooter
+        tools={
+          <>
+            <IconButton
+              icon={Pencil}
+              label={t('details.edit')}
+              onClick={() => onEdit(transaction)}
+            />
 
-        <DialogClose asChild>
-          <Button variant="secondary">{tActions('close')}</Button>
-        </DialogClose>
-
-        <Button onClick={() => onEdit(transaction)}>{tActions('edit')}</Button>
-      </DialogFooter>
+            <IconButton
+              icon={Trash2}
+              variant="ghost-destructive"
+              label={t('details.delete')}
+              onClick={() => onDelete(transaction)}
+            />
+          </>
+        }
+      />
     </>
   );
 };

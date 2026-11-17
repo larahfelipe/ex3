@@ -27,7 +27,8 @@ import {
   Card,
   CardContent,
   DialogPresence,
-  Skeleton
+  Skeleton,
+  TruncatedText
 } from '@/components/ui';
 import {
   useCreditCards,
@@ -202,9 +203,9 @@ const UpcomingBill: FC<
         className="flex items-start justify-between gap-3 rounded-md px-2 py-2.5 ring-offset-background outline-hidden hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-focus"
       >
         <span className="min-w-0 space-y-0.5">
-          <span className="line-clamp-2 text-sm font-medium wrap-anywhere">
+          <TruncatedText className="line-clamp-2 text-sm font-medium wrap-anywhere">
             {expense.description}
-          </span>
+          </TruncatedText>
 
           <span className="block text-xs text-muted-foreground">
             <CalendarDayText day={expense.dueDate} />
@@ -437,7 +438,7 @@ const CommitmentSummaries: FC<
                   key={series.id}
                   className="flex items-baseline justify-between gap-3"
                 >
-                  <span className="min-w-0 truncate">
+                  <TruncatedText className="min-w-0 truncate">
                     {series.description}
 
                     <span className="text-xs text-muted-foreground">
@@ -445,7 +446,7 @@ const CommitmentSummaries: FC<
 
                       {tFinances(`frequencies.${series.frequency}`)}
                     </span>
-                  </span>
+                  </TruncatedText>
 
                   <span className="shrink-0 tabular-nums">
                     <Money value={series.amount} currency={series.currency} />

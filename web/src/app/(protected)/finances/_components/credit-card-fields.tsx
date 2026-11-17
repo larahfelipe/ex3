@@ -45,7 +45,6 @@ type CardPreviewProps = Record<'card', CreditCardCycle> &
   Partial<Record<'day', string>> &
   Record<'schedule', CardSchedule>;
 
-/** A Radix select item cannot carry an empty value, so "no card" has its own. */
 export const NO_CARD = 'NONE';
 
 export const chargedCardIdOf = ({
@@ -59,7 +58,6 @@ export const chargedCardIdOf = ({
 export const cardChoiceOf = (creditCardId: string | null) =>
   creditCardId ?? NO_CARD;
 
-/** The record's own card stays a choice once deleted, when the list leaves it out. */
 const useChosenCard = (currentCard: CreditCardSummary | null = null) => {
   const { control } = useFormContext<CardChoiceInput>();
   const [paymentMethod, creditCardId] = useWatch({

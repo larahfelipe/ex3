@@ -5,8 +5,6 @@ import { FinanceLimits, FinanceMessages } from '@/config/Constants';
 import { boundedTextSchema } from '../BoundedTextSchema';
 import { CardBrandSchema, CreditCardIdSchema } from './FinanceFieldSchemas';
 
-// Twelve or more digits, alone or in groups split by a space or a dash: the
-// shape of a card number, which is never stored.
 const CARD_NUMBER_PATTERN = /(?:\d[ -]?){12,}/;
 
 const cardDaySchema = (field: string) =>
