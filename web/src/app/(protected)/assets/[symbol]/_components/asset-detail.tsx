@@ -126,10 +126,6 @@ const DetailSection: FC<DetailSectionProps> = ({ title, children }) => {
   );
 };
 
-/**
- * The prices become numbers here only to place the close on the bar: every
- * price the reader sees is formatted from the decimal string the API sent.
- */
 const closePlacementOf = ({ close, yearLow, yearHigh }: PriceIndicators) => {
   const low = Number(yearLow);
   const span = Number(yearHigh) - low;
@@ -171,10 +167,6 @@ const YearRange: FC<PriceIndicatorsProps> = ({ prices }) => {
   );
 };
 
-/**
- * The window that opens earliest, one year whenever the history reaches it.
- * ISO instants in UTC, as the API sends them, order as text.
- */
 const longestChangeOf = (changes: ReadonlyArray<PriceChange>) =>
   changes.reduce<OpenedPriceChange | undefined>(
     (longest, change) =>
@@ -298,7 +290,7 @@ const PriceMovement: FC<PriceIndicatorsProps> = ({ prices }) => {
                 </span>
 
                 <span className="block font-semibold">
-                  <Trend value={change} />
+                  <Trend value={change} hasArrow={false} />
                 </span>
               </label>
             ))}

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import {
+  Bell,
   ChartCandlestick,
   ChevronLeft,
   CircleUserRound,
@@ -26,6 +27,13 @@ import {
   PREFERENCE_MAX_AGE_SECONDS
 } from '@/common/constants';
 import { LanguageSelect } from '@/components/language-select';
+import { NotificationsPopover } from '@/components/notifications-popover';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TruncatedText
+} from '@/components/ui';
 import { Wordmark } from '@/components/wordmark';
 import { useFinanceAlerts } from '@/hooks/use-finances';
 import { useCurrentUser, useSignOut } from '@/hooks/use-user';
@@ -48,6 +56,10 @@ type NavigationLinkProps = NavigationSection &
   Partial<Record<'alertCount', number>>;
 
 type SidebarProps = Record<'initialState', NavigationState>;
+
+type CountBadgeProps = Record<'count', number> &
+  Record<'tone', 'negative' | 'primary'> &
+  Partial<Record<'className', string>>;
 
 const PORTFOLIO_SECTIONS: Array<NavigationSection> = [
   {
@@ -88,13 +100,34 @@ const NAVIGATION_ICON_CLASS =
   'flex h-7 w-12 shrink-0 items-center justify-center rounded-full transition-colors group-hover/item:bg-accent group-aria-[current=page]/item:bg-primary/15 group-aria-[current=page]/item:text-primary navigation-expanded:h-auto navigation-expanded:w-auto navigation-expanded:bg-transparent navigation-expanded:group-hover/item:bg-transparent navigation-expanded:group-aria-[current=page]/item:bg-transparent';
 
 const NAVIGATION_TOGGLE_CLASS =
-  'absolute top-3.5 right-0 z-10 hidden size-6 translate-x-1/2 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-surface ring-offset-background transition-colors before:absolute before:-inset-2.5 hover:border-input hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-90 lg:flex';
+  'absolute top-3.5 right-0 z-10 hidden size-6 translate-x-1/2 items-center justify-center rounded-full border bg-surface text-muted-foreground shadow-surface ring-offset-background transition-colors before:absolute before:-inset-2.5 hover:border-input hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-90 lg:flex';
 
 const BRAND_LINK_CLASS =
   'relative -my-0.5 flex h-8 items-center rounded-md px-2 text-lg outline-hidden ring-offset-background transition-colors before:absolute before:-inset-x-1 before:-inset-y-1.5 hover:bg-accent focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-95';
 
+const COUNT_BADGE_TONES: Record<CountBadgeProps['tone'], string> = {
+  negative: 'bg-negative text-negative-foreground',
+  primary: 'bg-primary text-primary-foreground'
+};
+
 const isCurrentPath = (pathname: string, path: string) =>
   pathname === path || pathname.startsWith(`${path}/`);
+
+const CountBadge: FC<CountBadgeProps> = ({ count, tone, className }) =>
+  count > 0 && (
+    <span
+      className={cn(
+        'absolute flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[0.625rem] leading-none font-semibold tabular-nums',
+        COUNT_BADGE_TONES[tone],
+        className
+      )}
+    >
+      {count > ALERT_BADGE_MAX ? `${ALERT_BADGE_MAX}+` : count}
+    </span>
+  );
+
+const NAVIGATION_BADGE_CLASS =
+  '-top-1 right-1.5 navigation-expanded:-top-2 navigation-expanded:-right-2.5';
 
 const NavigationLink: FC<NavigationLinkProps> = ({
   name,
@@ -125,15 +158,15 @@ const NavigationLink: FC<NavigationLinkProps> = ({
       >
         {icon}
 
-        {alertCount !== undefined && alertCount > 0 && (
-          <span className="absolute -top-1 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-negative px-1 text-[0.625rem] leading-none font-semibold text-negative-foreground navigation-expanded:-top-2 navigation-expanded:-right-2.5">
-            {alertCount > ALERT_BADGE_MAX ? `${ALERT_BADGE_MAX}+` : alertCount}
-          </span>
-        )}
+        <CountBadge
+          count={alertCount ?? 0}
+          tone="negative"
+          className={NAVIGATION_BADGE_CLASS}
+        />
       </span>
 
       <span className="flex max-w-full min-w-0 flex-col items-center navigation-expanded:items-start">
-        <span className="max-w-full truncate">
+        <TruncatedText className="max-w-full truncate">
           {t(name)}
 
           {alertCount !== undefined && alertCount > 0 && (
@@ -141,12 +174,12 @@ const NavigationLink: FC<NavigationLinkProps> = ({
               {t('overdueCount', { count: alertCount })}
             </span>
           )}
-        </span>
+        </TruncatedText>
 
         {detail !== undefined && (
-          <span className="hidden max-w-full truncate text-xs font-normal text-muted-foreground navigation-expanded:block">
+          <TruncatedText className="hidden max-w-full truncate text-xs font-normal text-muted-foreground navigation-expanded:block">
             {detail}
-          </span>
+          </TruncatedText>
         )}
       </span>
     </Link>
@@ -157,6 +190,7 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
   const pathname = usePathname();
   const t = useTranslations('navigation');
   const tLanguage = useTranslations('common.language');
+  const tNotifications = useTranslations('notifications');
 
   const [navigationState, setNavigationState] = useState(initialState);
 
@@ -180,35 +214,45 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
     <nav
       aria-label={t('main')}
       data-navigation-state={navigationState}
-      className="fixed inset-x-0 bottom-0 z-40 flex h-(--navigation-bar) border-t bg-background px-1 sm:sticky sm:inset-auto sm:top-0 sm:h-dvh sm:w-(--navigation-rail) sm:shrink-0 sm:self-start sm:border-t-0 sm:border-r sm:px-0 sm:transition-colors lg:has-[>button:hover]:border-input navigation-expanded:w-(--navigation-sidebar)"
+      className="fixed inset-x-0 bottom-0 z-40 flex h-(--navigation-bar) border-t bg-surface px-1 sm:sticky sm:inset-auto sm:top-0 sm:h-dvh sm:w-(--navigation-rail) sm:shrink-0 sm:self-start sm:border-t-0 sm:border-r sm:px-0 sm:transition-colors lg:has-[>button:hover]:border-input navigation-expanded:w-(--navigation-sidebar)"
     >
-      <button
-        type="button"
-        className={NAVIGATION_TOGGLE_CLASS}
-        aria-label={toggleLabel}
-        title={toggleLabel}
-        onClick={toggleNavigation}
-      >
-        <ChevronLeft
-          size={14}
-          aria-hidden="true"
-          className={cn(
-            'motion-safe:transition-transform',
-            !isExpanded && 'rotate-180'
-          )}
-        />
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className={NAVIGATION_TOGGLE_CLASS}
+            aria-label={toggleLabel}
+            onClick={toggleNavigation}
+          >
+            <ChevronLeft
+              size={14}
+              aria-hidden="true"
+              className={cn(
+                'motion-safe:transition-transform',
+                !isExpanded && 'rotate-180'
+              )}
+            />
+          </button>
+        </TooltipTrigger>
+
+        <TooltipContent side="right">{toggleLabel}</TooltipContent>
+      </Tooltip>
 
       <div className="contents sm:flex sm:min-h-0 sm:flex-1 sm:flex-col sm:overflow-y-auto sm:px-2 sm:py-3 navigation-expanded:px-3">
         <div className="hidden sm:flex sm:justify-center navigation-expanded:justify-start navigation-expanded:pl-1">
-          <Link
-            href={APP_ROUTES.Protected.Overview}
-            aria-label={t('brand', { title: APP_TITLE })}
-            title={t('overview')}
-            className={BRAND_LINK_CLASS}
-          >
-            <Wordmark />
-          </Link>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href={APP_ROUTES.Protected.Overview}
+                aria-label={t('brand', { title: APP_TITLE })}
+                className={BRAND_LINK_CLASS}
+              >
+                <Wordmark />
+              </Link>
+            </TooltipTrigger>
+
+            <TooltipContent side="right">{t('overview')}</TooltipContent>
+          </Tooltip>
         </div>
 
         <ul className="flex flex-3 sm:mt-6 sm:flex-none sm:flex-col sm:gap-1">
@@ -233,6 +277,46 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
         </ul>
 
         <ul className="flex flex-1 sm:mt-auto sm:flex-none sm:flex-col sm:gap-1 sm:border-t sm:pt-3">
+          <li className="flex flex-1 max-sm:hidden">
+            <NotificationsPopover
+              side="right"
+              align="end"
+              renderTrigger={(unreadCount) => (
+                <button
+                  type="button"
+                  className={cn(
+                    NAVIGATION_ITEM_CLASS,
+                    'data-[state=open]:text-foreground navigation-expanded:data-[state=open]:bg-accent'
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      NAVIGATION_ICON_CLASS,
+                      'relative group-data-[state=open]/item:bg-accent navigation-expanded:group-data-[state=open]/item:bg-transparent'
+                    )}
+                  >
+                    <Bell size={18} />
+
+                    <CountBadge
+                      count={unreadCount}
+                      tone="primary"
+                      className={NAVIGATION_BADGE_CLASS}
+                    />
+                  </span>
+
+                  <TruncatedText className="max-w-full truncate">
+                    {tNotifications('label')}
+
+                    <span className="sr-only">
+                      {tNotifications('unreadCount', { count: unreadCount })}
+                    </span>
+                  </TruncatedText>
+                </button>
+              )}
+            />
+          </li>
+
           <li className="flex flex-1">
             <NavigationLink
               {...ACCOUNT_SECTION}
@@ -313,11 +397,57 @@ export const Sidebar: FC<SidebarProps> = ({ initialState }) => {
                 )}
               </span>
 
-              <span className="max-w-full truncate">{t('signOut')}</span>
+              <TruncatedText className="max-w-full truncate">
+                {t('signOut')}
+              </TruncatedText>
             </button>
           </li>
         </ul>
       </div>
     </nav>
+  );
+};
+
+export const NavigationHeader: FC = () => {
+  const t = useTranslations('navigation');
+  const tNotifications = useTranslations('notifications');
+
+  return (
+    <header className="flex h-14 items-center justify-between gap-2 border-b bg-background px-2 sm:hidden">
+      <Link
+        href={APP_ROUTES.Protected.Overview}
+        aria-label={t('brand', { title: APP_TITLE })}
+        className={BRAND_LINK_CLASS}
+      >
+        <Wordmark />
+      </Link>
+
+      <NotificationsPopover
+        side="bottom"
+        align="end"
+        renderTrigger={(unreadCount) => (
+          <button
+            type="button"
+            className="flex size-11 items-center justify-center rounded-md text-muted-foreground ring-offset-background transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 data-[state=open]:bg-accent data-[state=open]:text-foreground motion-safe:active:scale-95"
+          >
+            <span aria-hidden="true" className="relative">
+              <Bell size={20} />
+
+              <CountBadge
+                count={unreadCount}
+                tone="primary"
+                className="-top-1.5 -right-2"
+              />
+            </span>
+
+            <span className="sr-only">
+              {tNotifications('label')}
+
+              {tNotifications('unreadCount', { count: unreadCount })}
+            </span>
+          </button>
+        )}
+      />
+    </header>
   );
 };

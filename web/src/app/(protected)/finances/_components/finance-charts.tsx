@@ -46,11 +46,6 @@ export type CategoryBar = Record<'key' | 'label', string> &
   Record<'share', DecimalString | null> &
   Partial<Record<'href' | 'detail', string>>;
 
-/**
- * The order the finance charts take their hues in. The app's own palette,
- * validated for these slots: blue and green never touch, so the one pair
- * readers with color blindness see as close is split by the orange.
- */
 export const FINANCE_SERIES_COLORS: ReadonlyArray<SeriesColor> = [
   { bar: 'bg-chart-2', swatch: 'bg-chart-2' },
   { bar: 'bg-chart-1', swatch: 'bg-chart-1' },
@@ -73,15 +68,9 @@ const DENSE_MONTH_LABEL_CLASSES = {
   narrow: '@min-[0.875rem]:hidden'
 };
 
-/**
- * The tooltip's left edge sits at the column's centre, as a share of the plot,
- * and moves back by the same share of its own width. No wider than the plot,
- * it then stays over its column and never leaves the plot, at either end.
- */
 const columnCentreOf = (index: number, count: number) =>
   `${((index + 0.5) / count) * 100}%`;
 
-/** Amounts become numbers only to be scaled: every value read is formatted from the API's decimal. */
 const scaleOf = (amounts: ReadonlyArray<number>) => {
   const highest = Math.max(0, ...amounts);
 

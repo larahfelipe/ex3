@@ -55,11 +55,6 @@ declare global {
 
 let turnstileLoad: Promise<Turnstile> | null = null;
 
-/**
- * Loaded once per page, and only by a form that asks for it. Turnstile stamps
- * what it adds to the page with its own script's nonce. A failed load is
- * forgotten, so the next attempt tries again.
- */
 const loadTurnstile = (nonce: string | undefined) =>
   (turnstileLoad ??= new Promise<Turnstile>((resolve, reject) => {
     const script = document.createElement('script');

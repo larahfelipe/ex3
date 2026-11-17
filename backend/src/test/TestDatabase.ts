@@ -4,10 +4,6 @@ import type { TestContext } from 'node:test';
 import { envs } from '@/config';
 import { PrismaClient } from '@/infra/database/PrismaClient';
 
-/**
- * Prisma's own bookkeeping table records which migrations were applied. Wiping
- * it would make every run reapply the whole history against a populated schema.
- */
 const MIGRATIONS_TABLE = '_prisma_migrations';
 
 const TEST_ENVIRONMENT = 'test';
@@ -36,15 +32,6 @@ const listDataTables = async () => {
   return rows.map(({ tablename }) => tablename);
 };
 
-/**
- * Empties every data table so each test observes the rows it created and
- * nothing else. The table list is read from the catalog rather than hardcoded,
- * so tables added by later migrations are covered without editing this file.
- *
- * Identifiers cannot be bound as query parameters, hence the interpolated
- * statement: the names come from the test database's own catalog, never from
- * test input.
- */
 export const resetDatabase = async () => {
   if (envs.nodeEnv !== TEST_ENVIRONMENT) throw new NonTestDatabaseResetError();
 
@@ -67,13 +54,6 @@ export const assertDatabaseReachable = async () => {
 
 export const disconnectDatabase = () => prismaClient.$disconnect();
 
-/**
- * Until the test ends, `model.action` rejects inside `runSerializable` after the
- * steps before it have written, so whatever a failed request leaves behind is
- * what the transaction did not undo. Every other query runs as usual. The
- * prototype is mocked because the client instance is a proxy on which
- * `mock.method` does not find the method.
- */
 export const injectWriteFailure = <
   Model extends Uncapitalize<Prisma.ModelName>
 >(

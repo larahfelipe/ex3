@@ -45,10 +45,6 @@ const formatInstant = (
   options: Intl.DateTimeFormatOptions
 ) => dateFormatOf(locale, options).format(instant.toDate());
 
-/**
- * A calendar day or month has no zone: it is written at its UTC midnight and
- * read back in UTC, so no offset can name the day before or after it.
- */
 const formatUtcDay = (
   locale: Locale,
   utcStart: dayjs.Dayjs,
@@ -74,7 +70,6 @@ export const formatQuoteTime = (locale: Locale, timestamp: string) =>
 export const formatExecutionDay = (locale: Locale, timestamp: string) =>
   formatInstant(locale, dayjs(timestamp), DAY_FORMAT);
 
-/** A series day is a calendar day at midnight UTC, and a local zone would name the day before it. */
 export const formatSeriesDay = (locale: Locale, timestamp: string) =>
   formatUtcDay(locale, dayjs.utc(timestamp), DAY_FORMAT);
 
@@ -94,7 +89,6 @@ export const formatCalendarDay = (locale: Locale, day: string) =>
 export const utcDateOfCalendarDay = (day: string) =>
   utcCalendarDayOrNull(day)?.toDate() ?? null;
 
-/** The calendar's own months are local midnights, so the month is read in the browser's zone. */
 export const formatShortMonth = (locale: Locale, month: Date) =>
   formatInstant(locale, dayjs(month), SHORT_MONTH_FORMAT);
 
@@ -103,7 +97,6 @@ export const currentInstant = () => dayjs().toISOString();
 export const calendarDayOf = (instant: string) =>
   dayjs(instant).format(CALENDAR_DAY_FORMAT);
 
-/** The calendar's own value: the local midnight that starts the day. */
 export const dateOfCalendarDay = (day: string) =>
   calendarDayOrNull(day)?.toDate();
 
@@ -116,12 +109,6 @@ export const startOfMonthNumbered = (shown: Date, month: number) =>
 export const startOfMonthInYear = (shown: Date, year: number) =>
   dayjs(shown).startOf('month').year(year).toDate();
 
-/**
- * The instant recorded for a day picked in the browser's zone: the later of
- * the day's local and UTC midnights, the first instant on that day in both. The
- * web shows an execution in the browser's zone and the performance series
- * counts it in its UTC day, so both name the day picked, whatever the offset.
- */
 export const instantOfCalendarDay = (day: string) => {
   const localStart = calendarDayOrNull(day);
   const utcStart = dayjs.utc(day, CALENDAR_DAY_FORMAT, true);
@@ -223,7 +210,6 @@ export const weekdayNames = (
   format: 'narrow' | 'short' | 'long'
 ) =>
   Array.from({ length: 7 }, (_, weekday) =>
-    // 2023-01-01 was a Sunday.
     formatUtcDay(locale, dayjs.utc('2023-01-01').add(weekday, 'day'), {
       weekday: format
     })

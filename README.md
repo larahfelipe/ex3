@@ -121,8 +121,8 @@ tickers from brapi's catalog instead of spending the YH Finance quota on them;
 without it, imports look every ticker up in YH Finance.
 
 Finances need no configuration or seed: every user starts with an empty
-section, and the reminders show inside the application only — no email or push
-is sent (see
+section, and the reminders show inside the application only, as notices under
+*Notifications* in the navigation — no email or push is sent (see
 [`docs/financial-management.md`](docs/financial-management.md#notifications)).
 
 ## Environment variables

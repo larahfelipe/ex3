@@ -10,12 +10,6 @@ const SESSION_EXPIRY_NOTICE_MS = 7 * MILLISECONDS_PER_DAY;
 
 const SESSION_MARKER_VALUE = '1';
 
-/**
- * The token cookie is given the token's own lifetime so the browser stops
- * sending a credential the API would reject anyway. That leaves the proxy with
- * no cookie to tell an expired session from a sign-out, so a marker outlives
- * it, and only a sign-out or a password change clears the marker early.
- */
 export const setSessionCookies = async (accessToken: string) => {
   const cookieStore = await cookies();
   const expiresAt = getAccessTokenExpiration(accessToken);

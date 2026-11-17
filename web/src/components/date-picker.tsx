@@ -38,10 +38,6 @@ const OPEN_SIDE_MONTHS = 100 * 12;
 const dateOf = (day: string | null | undefined) =>
   day === null || day === undefined ? undefined : dateOfCalendarDay(day);
 
-/**
- * Without a range, DayPicker's year menu ends with the current year, so no
- * later day could be reached.
- */
 export const calendarBoundsOf = (today: string, { min, max }: DayBounds) => {
   const before = dateOf(min);
   const after = dateOf(max);

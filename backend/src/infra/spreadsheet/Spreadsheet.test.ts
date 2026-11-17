@@ -191,8 +191,6 @@ describe('refusing a workbook', () => {
     const centralAt = bytes.lastIndexOf('xl/sharedStrings.xml');
     const tampered = Buffer.from(bytes);
 
-    // The central directory entry starts 46 bytes before its name; its
-    // uncompressed size is at offset 24.
     tampered.writeUInt32LE(3, centralAt - 46 + 24);
 
     assert.equal(refusalOf(tampered), 'malformed');

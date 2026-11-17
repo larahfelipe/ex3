@@ -26,8 +26,6 @@ export default defineConfig(
       '@typescript-eslint/no-deprecated': 'error',
       '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-namespace': 'off',
-      // An async method that satisfies a promise-returning contract turns a
-      // throw into a rejection, which its callers rely on.
       '@typescript-eslint/require-await': 'off',
       '@typescript-eslint/no-floating-promises': [
         'error',
@@ -87,8 +85,6 @@ export default defineConfig(
     }
   },
   {
-    // supertest hands a response body over as `any`; the assertions are what
-    // check its shape.
     files: ['src/**/*.test.ts', 'src/**/*.integration.ts', 'src/test/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-argument': 'off',

@@ -27,12 +27,6 @@ export const COOKIE_OPTIONS: Partial<ResponseCookie> = {
   path: '/'
 };
 
-/**
- * A browser keeps a `__Host-` cookie only when this host set it over HTTPS for
- * every path, so no sibling subdomain or plain-HTTP response can plant or
- * overwrite the session. Development is served over plain HTTP, where neither
- * `Secure` nor the prefix can be set.
- */
 const SESSION_COOKIE_PREFIX = isProduction ? '__Host-' : '';
 
 export const APP_STORAGE_KEYS = {
@@ -88,8 +82,7 @@ export const APP_TITLE = 'EX3';
 
 export const APP_THEME = 'dark';
 
-/** `--background` of the `APP_THEME` palette in hex, for the browser's own chrome, which reads no CSS token. */
-export const APP_THEME_COLOR = '#0e0e0e';
+export const APP_THEME_COLOR = '#0a0a0a';
 
 export const APP_TITLE_TEMPLATE = `${APP_TITLE} | %s`;
 
@@ -198,7 +191,6 @@ export const EXPENSE_CATEGORIES: Array<ExpenseCategory> = [
   'OTHER'
 ];
 
-/** Categories no bill has any more, which only the history of a change still names. */
 export const RETIRED_EXPENSE_CATEGORIES = [
   'INSURANCE',
   'TAXES',
@@ -237,7 +229,6 @@ export const EXPENSE_STATUS_FILTERS: Array<ExpenseStatusFilter> = [
   ...EXPENSE_STATUSES
 ];
 
-/** The brand orange is kept out: in the light theme it is indistinguishable from the warning amber. */
 export const STATUS_TONES = {
   success: 'border-positive/40 bg-positive/10 text-positive',
   pending: 'border-info/40 bg-info/10 text-info',

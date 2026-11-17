@@ -11,11 +11,6 @@ export const POST = async () => {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get(APP_STORAGE_KEYS.Token)?.value;
 
-  /**
-   * The cookies are cleared whatever the API answers: a client that cannot reach
-   * the API must still be able to end its own session locally. A token the API
-   * failed to revoke stops being accepted once it expires.
-   */
   if (accessToken)
     await api
       .getInstance()

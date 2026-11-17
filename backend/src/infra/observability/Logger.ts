@@ -73,10 +73,6 @@ export const severityOfStatus = (status: number): LogSeverity => {
     : LogSeverities.INFO;
 };
 
-/**
- * One JSON object per line: `JSON.stringify` escapes the newlines and control
- * characters that request data can carry, so no input can forge a second entry.
- */
 export const formatLogEntry = (entry: LogEntry, occurredAt: Date) =>
   JSON.stringify({ timestamp: occurredAt.toISOString(), ...entry });
 

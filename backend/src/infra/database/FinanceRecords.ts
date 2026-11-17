@@ -131,10 +131,6 @@ export const UNPAID_EXPENSE_WHERE = {
   payments: { none: { voidedAt: null } }
 } as const satisfies Prisma.ExpenseWhereInput;
 
-/**
- * The card a record already names stays chosen after its deletion, so editing
- * anything else on the record keeps it.
- */
 export const chargedCardOf = async (
   client: Prisma.TransactionClient,
   params: {
@@ -171,7 +167,6 @@ export const billDatesOf = (
         originalDueDate: billDueDate
       };
 
-/** The card as a history entry records it, readable after the card changes or is deleted. */
 export const recordedCardOf = (card: CreditCardRow | null) =>
   card === null
     ? null
@@ -196,11 +191,6 @@ export const recordedValuesOf = (values: Record<string, unknown>) =>
       .map(([field, value]) => [field, recordedValueOf(value)])
   );
 
-/**
- * `{ field: { from, to } }` for each field of `patch` whose recorded value
- * differs from `current`'s. A decimal string in the patch is compared by value
- * with a decimal column, so `10.50` over `10.5` is no change.
- */
 export const changesOf = (
   current: Record<string, unknown>,
   patch: Record<string, unknown>
@@ -308,7 +298,6 @@ export const statusWhere = (
   return {};
 };
 
-/** The highest installment number of each plan, which is its count: numbers run without gaps. */
 export const installmentCountsOf = async (
   client: Prisma.TransactionClient,
   planIds: Array<string>

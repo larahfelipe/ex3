@@ -58,7 +58,6 @@ const FIRST_ASSETS = { page: FIRST_PAGE, pageSize: 1 };
 
 const COMPLETION_HOLD_MS = 1600;
 
-/** The leaving card's `duration-200`. */
 const LEAVE_MS = 200;
 
 const STEP_CASCADE_MS = 150;

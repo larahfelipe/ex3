@@ -6,7 +6,6 @@ on:
     types: [completed]
     branches: [master]
 
-# Cancelling `prisma migrate deploy` part-way leaves the database partly migrated.
 concurrency:
   group: migrate-production
   cancel-in-progress: false

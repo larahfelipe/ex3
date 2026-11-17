@@ -19,16 +19,6 @@ class TestDatabaseSetupError extends Error {
   }
 }
 
-/**
- * The CLI is spawned instead of imported because Prisma exposes migration
- * deployment only as a command. It reads the connection string through
- * `prisma.config.ts`, which prefers `DIRECT_URL` and falls back to whatever the
- * environment holds: both are pinned to the test database here, or a developer
- * `.env` naming a deployed database would receive these migrations.
- *
- * Output is captured and surfaced only on failure, so a successful run adds
- * nothing to the test output.
- */
 const applyMigrations = () => {
   const cliEntry = createRequire(__filename).resolve(PRISMA_CLI_ENTRY);
 
@@ -51,11 +41,6 @@ const applyMigrations = () => {
     );
 };
 
-/**
- * Brings the test database to the schema the suite expects. Runs as its own
- * process before the test runner: `--test-global-setup` resolves its module
- * synchronously, which bypasses the TypeScript loader hooks.
- */
 const prepare = async () => {
   try {
     await assertDatabaseReachable();

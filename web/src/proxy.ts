@@ -10,10 +10,6 @@ import {
 } from './common/constants';
 import { isAccessTokenActive } from './lib/access-token';
 
-/**
- * Drawn fresh from a CSPRNG for every response: a nonce an attacker can predict
- * authorizes their script. 16 bytes is the 128-bit floor the CSP spec asks for.
- */
 const CSP_NONCE_BYTES = 16;
 
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -28,16 +24,6 @@ export const TOASTER_STYLESHEET_HASH =
 
 const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com';
 
-/**
- * A script runs only if Next.js stamped it with this response's nonce or a
- * stamped script loaded it ('strict-dynamic'), so injected markup cannot run
- * code. A `<style>` element needs the nonce too, or to be the toaster's, so
- * injected markup cannot restyle the page or read it back through selectors.
- * Style attributes stay allowed: components size bars and charts from data,
- * which neither a nonce nor a hash can authorize. A browser too old for the
- * `-elem` and `-attr` directives falls back to `style-src`. React's and
- * Next.js's development tooling needs eval and inline styles.
- */
 const contentSecurityPolicyWith = (nonce: string) =>
   [
     "default-src 'self'",
@@ -128,8 +114,6 @@ export const proxy = (req: NextRequest) => {
   ).toString('base64');
   const contentSecurityPolicy = contentSecurityPolicyWith(nonce);
 
-  // Next.js reads the nonce from the request's policy while rendering, and
-  // the layout hands it to the components that add their own styles.
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('Content-Security-Policy', contentSecurityPolicy);
   requestHeaders.set(NONCE_HEADER, nonce);

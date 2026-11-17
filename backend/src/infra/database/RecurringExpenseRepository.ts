@@ -409,7 +409,6 @@ export class RecurringExpenseRepository {
         )
           return { outcome: 'end-before-start' };
 
-        // An end already saved may have passed; only a new one must be today or later.
         if (
           endDate !== undefined &&
           endDate !== null &&

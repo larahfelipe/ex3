@@ -20,9 +20,4 @@ export const isSupportedLocale = (value: unknown): value is Locale =>
 export const resolveLocale = (candidate: unknown): Locale =>
   isSupportedLocale(candidate) ? candidate : DEFAULT_LOCALE;
 
-/**
- * Messages take dates already written by `lib/dates`, so this zone applies
- * only to a date a message formats itself, such as a calendar day at its UTC
- * midnight. It is fixed, so the server and the browser write the same day.
- */
 export const APP_TIME_ZONE = 'UTC';

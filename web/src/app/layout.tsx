@@ -22,10 +22,6 @@ export const generateMetadata = async (): Promise<Metadata> => ({
   description: (await getServerTranslator('navigation'))('appDescription')
 });
 
-/**
- * `resizes-content` shrinks the layout viewport — and with it every `dvh` — when
- * the virtual keyboard opens, so a focused field is never left behind it.
- */
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,

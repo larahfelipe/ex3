@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 import { FormField } from '@/components/form-field';
 import { InfoNote } from '@/components/info-note';
-import { PasswordRequirements } from '@/components/password-requirements';
+import { PasswordStrength } from '@/components/password-strength';
 import { SubmitButton } from '@/components/submit-button';
 import { CardContent, CardFooter, Input } from '@/components/ui';
 import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
@@ -41,7 +41,6 @@ const FIELDS_BY_API_PATH = new Map<string, PasswordFormField>([
   ['newPassword', 'newPassword']
 ]);
 
-/** `PATCH /v1/user` answers a wrong current password with a validation error that names no field. */
 const isWrongCurrentPassword = (error: unknown) =>
   error instanceof ApiProxyError &&
   isValidationError(error) &&
@@ -127,7 +126,7 @@ export const PasswordForm: FC<PasswordFormProps> = ({ email }) => {
 
         <FormField
           label={t('newPassword')}
-          hint={<PasswordRequirements password={newPassword} email={email} />}
+          hint={<PasswordStrength password={newPassword} email={email} />}
           error={errors.newPassword?.message}
         >
           {(control) => (

@@ -36,7 +36,9 @@ export default {
   },
   details: {
     title: '<tone>{type}</tone> {symbol}',
-    executedOn: 'Executed on <executed>{date}</executed>'
+    executedOn: 'Executed on <executed>{date}</executed>',
+    edit: 'Edit transaction',
+    delete: 'Delete transaction'
   },
   deletion: {
     title: 'Delete this transaction?',

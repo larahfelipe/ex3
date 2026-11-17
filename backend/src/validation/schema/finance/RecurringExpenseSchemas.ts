@@ -46,7 +46,6 @@ const requireEndAfterStart = (
     });
 };
 
-/** A day of tolerance covers the client's time zone. */
 const requireEndFromToday = (
   { endDate }: { endDate: Date | null },
   ctx: z.RefinementCtx

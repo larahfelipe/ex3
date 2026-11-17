@@ -1,8 +1,9 @@
 import type { FC, ReactNode } from 'react';
 
+import { TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
-import { signedValueTone } from '@/common/utils';
+import { signedValueTone, signOf, type ValueSign } from '@/common/utils';
 import { InfoTip } from '@/components/info-tip';
 import { useFormat } from '@/i18n/format';
 import { cn } from '@/lib/utils';
@@ -15,6 +16,8 @@ type CurrencyValueProps = ValueProps & Partial<Record<'currency', string>>;
 type MoneyProps = CurrencyValueProps & Partial<Record<'signed', boolean>>;
 
 type PriceProps = CurrencyValueProps & Partial<Record<'exact', boolean>>;
+
+type TrendProps = ValueProps & Partial<Record<'hasArrow', boolean>>;
 
 type ProfitLossProps = CurrencyValueProps &
   Partial<Record<'percent', DecimalString>>;
@@ -31,6 +34,25 @@ export const HEADLINE_VALUE_CLASS = 'text-3xl font-bold';
 export const PROMINENT_VALUE_CLASS = 'text-lg font-semibold';
 
 const SIGNED_FORMAT: Intl.NumberFormatOptions = { signDisplay: 'exceptZero' };
+
+const CHANGE_ARROWS: Record<ValueSign, LucideIcon | undefined> = {
+  negative: TrendingDown,
+  zero: undefined,
+  positive: TrendingUp
+};
+
+const ChangeArrow: FC<Record<'value', DecimalString>> = ({ value }) => {
+  const Arrow = CHANGE_ARROWS[signOf(value)];
+
+  return (
+    Arrow && (
+      <Arrow
+        aria-hidden="true"
+        className="mr-1 inline size-[0.8em] align-[-0.05em]"
+      />
+    )
+  );
+};
 
 export const UnavailableValue: FC = () => {
   const t = useTranslations('common.states');
@@ -76,13 +98,15 @@ export const Percentage: FC<ValueProps> = ({ value }) => {
   return value === undefined ? <UnavailableValue /> : formatPercent(value);
 };
 
-export const Trend: FC<ValueProps> = ({ value }) => {
+export const Trend: FC<TrendProps> = ({ value, hasArrow = true }) => {
   const { formatPercent } = useFormat();
 
   if (value === undefined) return <UnavailableValue />;
 
   return (
-    <span className={signedValueTone(value)}>
+    <span className={cn('whitespace-nowrap', signedValueTone(value))}>
+      {hasArrow && <ChangeArrow value={value} />}
+
       {formatPercent(value, SIGNED_FORMAT)}
     </span>
   );
@@ -105,7 +129,11 @@ export const ProfitLoss: FC<ProfitLossProps> = ({
         signedValueTone(value)
       )}
     >
-      <span>{formatMoney(value, currency, SIGNED_FORMAT)}</span>
+      <span className="whitespace-nowrap">
+        <ChangeArrow value={value} />
+
+        {formatMoney(value, currency, SIGNED_FORMAT)}
+      </span>
 
       {percent !== undefined && (
         <span className="text-xs">{formatPercent(percent, SIGNED_FORMAT)}</span>

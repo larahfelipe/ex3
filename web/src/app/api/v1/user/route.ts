@@ -14,12 +14,6 @@ export const GET = () =>
     path: '/v1/user'
   });
 
-/**
- * The API accepts `newPassword` only with the correct `oldPassword`, and a
- * password change revokes the session that made it, so the cookie holding the
- * revoked token is cleared in the same response, along with the marker, since
- * the user ended this session.
- */
 export const PATCH = async (req: NextRequest) => {
   const res = await forwardToApi<UpdateCurrentUserResponseData>({
     method: 'patch',

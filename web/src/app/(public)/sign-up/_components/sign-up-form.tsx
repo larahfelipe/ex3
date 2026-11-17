@@ -30,7 +30,7 @@ import {
   type BotChallengeHandle
 } from '@/components/bot-challenge';
 import { ChoiceField, FormField } from '@/components/form-field';
-import { PasswordRequirements } from '@/components/password-requirements';
+import { PasswordStrength } from '@/components/password-strength';
 import { PersonNameFields } from '@/components/person-name-fields';
 import { SlideTransition } from '@/components/slide-transition';
 import { SubmitButton } from '@/components/submit-button';
@@ -147,16 +147,13 @@ export const SignUpForm: FC<SignUpFormProps> = ({ challengeSiteKey }) => {
   });
 
   const email = useWatch({ control: formControl, name: 'email' });
+  const password = useWatch({ control: formControl, name: 'password' });
 
   const { title, fields } = SIGN_UP_STEPS[step];
   const stepNumber = step + 1;
   const stepCount = SIGN_UP_STEPS.length;
   const isLastStep = step === LAST_STEP;
 
-  /**
-   * The step's fields mount in `flushSync`, so the one to focus is registered
-   * when `setFocus` looks it up.
-   */
   const goToStep = (nextStep: number, field?: SignUpField) => {
     flushSync(() => {
       setStepDirection(nextStep > step ? 1 : -1);
@@ -326,7 +323,7 @@ export const SignUpForm: FC<SignUpFormProps> = ({ challengeSiteKey }) => {
 
                 <FormField
                   label={t('fields.password')}
-                  hint={<PasswordRequirements />}
+                  hint={<PasswordStrength password={password} email={email} />}
                   error={errors.password?.message}
                 >
                   {(control) => (

@@ -1,4 +1,3 @@
-/** What a spreadsheet keeps of a number: Excel stores and shows 15 significant digits. */
 const SIGNIFICANT_DIGITS = 15;
 
 export const plainDecimalOf = (value: number): string | null => {

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 
-import { Plus, Wallet } from 'lucide-react';
+import { Pencil, Plus, Trash2, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'use-intl';
 
@@ -14,7 +14,7 @@ import { InfoNote } from '@/components/info-note';
 import { PageHeader } from '@/components/page-header';
 import { PageNavigation } from '@/components/page-navigation';
 import { QuerySection } from '@/components/query-section';
-import { Button, DialogPresence } from '@/components/ui';
+import { Button, DialogPresence, IconButton } from '@/components/ui';
 import { usePageParam } from '@/hooks/use-page-param';
 import {
   selectActivePortfolio,
@@ -169,12 +169,12 @@ export default function Portfolios() {
 
                         <PortfolioTotalValue portfolio={portfolio} />
 
-                        <div className="flex flex-wrap gap-2 max-sm:w-full sm:justify-end">
+                        <div className="flex items-center justify-end gap-1 max-sm:w-full">
                           {!isActive && (
                             <Button
                               variant="secondary"
                               size="sm"
-                              className="max-sm:flex-1"
+                              className="mr-1 max-sm:flex-1"
                               aria-label={t('useNamed', {
                                 name: portfolio.name
                               })}
@@ -184,24 +184,21 @@ export default function Portfolios() {
                             </Button>
                           )}
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="max-sm:flex-1"
+                          <IconButton
+                            icon={Pencil}
+                            label={tActions('edit')}
                             aria-label={t('editNamed', {
                               name: portfolio.name
                             })}
                             onClick={() =>
                               setDialog({ kind: 'edit', portfolio })
                             }
-                          >
-                            {tActions('edit')}
-                          </Button>
+                          />
 
-                          <Button
-                            variant="destructive-subtle"
-                            size="sm"
-                            className="max-sm:flex-1"
+                          <IconButton
+                            icon={Trash2}
+                            variant="ghost-destructive"
+                            label={tActions('delete')}
                             aria-disabled={total === 1}
                             aria-describedby={
                               total === 1 ? solePortfolioNoteId : undefined
@@ -213,9 +210,7 @@ export default function Portfolios() {
                               if (total > 1)
                                 setDialog({ kind: 'delete', portfolio });
                             }}
-                          >
-                            {tActions('delete')}
-                          </Button>
+                          />
                         </div>
                       </li>
                     );

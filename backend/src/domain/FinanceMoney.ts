@@ -4,10 +4,6 @@ import { DecimalColumn } from '@/config/Constants';
 
 import type { RecurrenceFrequency } from './models';
 
-/**
- * No sum or product of personal finance rounds at this precision: every value
- * fits `DECIMAL(38,18)`, and a total adds at most a few digits of carry.
- */
 export const FinanceDecimal = Prisma.Decimal.clone({
   precision: 2 * DecimalColumn.PRECISION
 });

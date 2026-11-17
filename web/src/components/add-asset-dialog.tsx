@@ -27,7 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  Label
+  Label,
+  TruncatedText
 } from '@/components/ui';
 import { useInstrumentSearch } from '@/hooks/use-instruments';
 import type { Translator } from '@/i18n/translator';
@@ -50,17 +51,8 @@ type AddAssetTranslator = Translator<'investments.assets.add'>;
 
 const SEARCH_MAX_LENGTH = 120;
 
-/**
- * Every search may reach the quote provider, and the API grants a user 30 a
- * minute. Keystrokes come under 300 ms apart while a word is typed, so a pause
- * this long means the user stopped, and a term costs about one request.
- */
 const SEARCH_DEBOUNCE_MS = 500;
 
-/**
- * Rewrites the input's own value before React reads it, so the caret stays
- * where the person was typing or pasting instead of jumping to the end.
- */
 const upperCaseInPlace = (input: HTMLInputElement) => {
   const { value, selectionStart, selectionEnd } = input;
   const upperCased = value.toUpperCase();
@@ -73,7 +65,6 @@ const upperCaseInPlace = (input: HTMLInputElement) => {
   return upperCased;
 };
 
-/** A composition in progress (an accent or an IME) is left alone until it ends, or its pending text would be replaced mid-way. */
 const isComposing = (event: Event) =>
   event instanceof InputEvent && event.isComposing;
 
@@ -364,9 +355,9 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
 
                         <span className="font-medium">{choice.symbol}</span>
 
-                        <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                        <TruncatedText className="min-w-0 flex-1 truncate text-muted-foreground">
                           {choice.name}
-                        </span>
+                        </TruncatedText>
 
                         {choice.badge !== null && (
                           <span className="shrink-0 rounded-sm border px-1.5 text-xs text-muted-foreground">

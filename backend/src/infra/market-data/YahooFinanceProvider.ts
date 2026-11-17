@@ -52,12 +52,6 @@ const REQUEST_TIMEOUT_MS = 5_000;
 
 const QUOTE_BATCH_SIZE = 10;
 
-/**
- * Seen on this account, not documented: an import looking listings up four at
- * a time was answered throughout, while a first performance read, which asked
- * for the history of every instrument at once, had 22 requests refused with
- * 429. Past this many, a request waits for one of them to finish.
- */
 const MAX_CONCURRENT_REQUESTS = 4;
 
 const PRIORITY_PATHS: ReadonlySet<string> = new Set([QUOTE_PATH]);
@@ -91,19 +85,12 @@ const LOOKBACK_DAYS: ReadonlyMap<PriceInterval, number> = new Map([
 
 const DAILY_RATE_INTERVAL: PriceInterval = '1d';
 
-/**
- * Assumed, not documented: the key goes in the header an AWS API Gateway
- * reads, and such a gateway refuses with one of these messages a request sent
- * too fast and one past the plan's quota. Only which limit it was is logged,
- * never the body, which comes from the provider.
- */
 const LIMIT_BY_THROTTLE_MESSAGE: ReadonlyMap<string, 'rate' | 'quota'> =
   new Map([
     ['Too Many Requests', 'rate'],
     ['Limit Exceeded', 'quota']
   ]);
 
-/** Letters and digits only, so neither can change the path or query of the provider URL. */
 const QUOTABLE_SYMBOL_PATTERN = /^[A-Z0-9]+$/;
 const CURRENCY_CODE_PATTERN = /^[A-Z]{3}$/;
 
@@ -155,11 +142,6 @@ const FUNDAMENTALS_MODULE_BY_METRIC: Record<
   freeCashFlow: FINANCIAL_DATA_MODULE
 };
 
-/**
- * B3 lists its real estate funds (FII) as equities, and only the legal name,
- * "Fundo de Investimento Imobiliário", or the `FII` abbreviation tells them
- * apart from stocks.
- */
 const REAL_ESTATE_FUND_NAME_PATTERN = /\bFII\b|imobili[aá]ri/i;
 
 const PRICE_UPPER_BOUND = 10 ** (DecimalColumn.PRECISION - DecimalColumn.SCALE);
@@ -213,11 +195,6 @@ const ProfileSchema = z.object({
   })
 });
 
-/**
- * The API wraps a number as `{ raw, fmt }` and answers `{}` for a figure it does
- * not report; a bare number is read as well. A figure outside either shape is
- * not reported, so it never takes the other figures down with it.
- */
 const ReportedNumberSchema = z
   .union([
     z.number(),
@@ -414,7 +391,6 @@ const toExchangeRateSymbol = (currency: string, baseCurrency: string) =>
     ? `${currency}${baseCurrency}=X`
     : null;
 
-/** Rounds away the binary noise of the provider's floating point, e.g. 47.11000061035156 at 2 places. */
 const toDecimalPrice = (
   price: number,
   decimalPlaces: number = DecimalColumn.SCALE
@@ -423,13 +399,6 @@ const toDecimalPrice = (
 const decimalOf = (value: number | undefined) =>
   value === undefined ? undefined : new Prisma.Decimal(value);
 
-/**
- * Yahoo reports debt to equity in percent, as `150.2` for 1.502 times, so it is
- * answered as the multiple the price to earnings is. A fund reports its yield
- * as `yield` and a company as `trailingAnnualDividendYield`, both what the last
- * 12 months paid over the price. Free cash flow is in the currency of the
- * statements, which may not be the quote's, so it is left out without one.
- */
 const toReportedFundamentals = (
   { financialData, summaryDetail }: FundamentalsModules,
   metrics: ReadonlyArray<FundamentalMetric>
@@ -1072,7 +1041,6 @@ export class YahooFinanceProvider implements MarketDataProvider {
     return lookups;
   }
 
-  /** A pause that starts while a request waits for its turn is kept too, without sending it. */
   private async request(
     path: string,
     query: Record<string, string>,

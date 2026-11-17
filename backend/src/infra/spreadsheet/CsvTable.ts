@@ -11,11 +11,6 @@ const DELIMITERS: ReadonlyArray<CsvDelimiter> = [';', ',', '\t'];
 const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);
 const UTF16LE_BOM = Buffer.from([0xff, 0xfe]);
 
-/**
- * UTF-8 when the bytes are valid UTF-8, Windows-1252 otherwise: the encoding a
- * Brazilian spreadsheet application saves a CSV in when it is not told
- * otherwise. Excel's "Unicode text" is UTF-16 with a byte order mark.
- */
 const decodeText = (bytes: Buffer) => {
   if (bytes.subarray(0, 2).equals(UTF16LE_BOM))
     return new TextDecoder('utf-16le').decode(bytes.subarray(2));

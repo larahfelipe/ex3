@@ -5,11 +5,6 @@ import { isDriverAdapterError } from '@prisma/driver-adapter-utils';
 import { envs } from '@/config/Envs';
 import { log, LogSeverities } from '@/infra/observability';
 
-/**
- * Prisma's code, and the driver adapter's error kind, for a transaction Postgres
- * aborted over a write conflict or a deadlock. Which of the two surfaces depends
- * on the statement the abort interrupts.
- */
 const TRANSACTION_WRITE_CONFLICT = 'P2034';
 const ADAPTER_WRITE_CONFLICT = 'TransactionWriteConflict';
 
@@ -54,13 +49,6 @@ export class PrismaClient extends _PrismaClient {
     return this._isConnected;
   }
 
-  /**
-   * Runs `operation` in a serializable transaction: a check it makes against the
-   * rows it read cannot be invalidated by a concurrent write before it commits.
-   * Postgres resolves a conflict by aborting one side, which is rerun from the
-   * start, so `operation` must touch nothing but the transaction client.
-   * `timeout` raises Prisma's default for an operation that writes many rows.
-   */
   async runSerializable<Result>(
     operation: (transactionClient: Prisma.TransactionClient) => Promise<Result>,
     { timeout }: Partial<Record<'timeout', number>> = {}
@@ -81,11 +69,6 @@ export class PrismaClient extends _PrismaClient {
     }
   }
 
-  /**
-   * With a driver adapter `$connect` only sets the pool up, so it resolves even
-   * when the database is unreachable. The probe query is what makes the startup
-   * check fail fast.
-   */
   async makeConnection() {
     await this.$connect();
     await this.$queryRaw`SELECT 1`;

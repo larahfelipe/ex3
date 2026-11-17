@@ -2,7 +2,6 @@
 
 import { useId, useState, type FC } from 'react';
 
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 import { CreditCard, Plus } from 'lucide-react';
@@ -56,7 +55,8 @@ import {
   CalendarDayText,
   dueDistanceOf,
   InstallmentProgress,
-  PlanStatusBadge
+  PlanStatusBadge,
+  RowLink
 } from './finance-display';
 import { InstallmentPlanDialogs } from './installment-plan-dialogs';
 import { CreatePlanDialog } from './installment-plan-forms';
@@ -140,13 +140,9 @@ const PlanRow: FC<
   return (
     <li className="relative grid gap-x-6 gap-y-3 py-3 sm:col-span-3 sm:grid-cols-subgrid sm:items-center">
       <div className="flex min-w-0 flex-col items-start gap-0.5">
-        <Link
-          href={href}
-          scroll={false}
-          className="line-clamp-2 rounded-sm font-semibold ring-offset-background wrap-anywhere after:absolute after:inset-0 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
-        >
+        <RowLink href={href} scroll={false}>
           {description}
-        </Link>
+        </RowLink>
 
         <span className="text-xs text-muted-foreground">
           {tFinances(`categories.${category}`)}

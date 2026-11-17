@@ -23,14 +23,6 @@ export type PositionValuation =
     }
   | MarketDataFailure;
 
-/**
- * No operation of a valuation rounds at this precision. A product of a
- * quantity, a price and an exchange rate, each fitting the columns, has at most
- * 3 × PRECISION significant digits, and a sum of fewer than 10^PRECISION such
- * products at most PRECISION more; a quotient of the difference of two such
- * sums, truncated at the column scale, by a divisor of at least one unit of the
- * scale keeps every digit down to the column scale when rounded towards zero.
- */
 const VALUATION_ARITHMETIC_PRECISION = 4 * DecimalColumn.PRECISION;
 
 export const ValuationDecimal = Prisma.Decimal.clone({

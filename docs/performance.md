@@ -446,7 +446,9 @@ None of this was verified in a browser in that session.
 * **The artwork is gone.** `public/login-hero.jpeg` (2,020,657 bytes, the
   largest file served at `≥ lg`) was replaced by a panel painted with
   radial gradients from the theme's tokens (`bg-brand-glow` and the
-  `--brand-glow-*` tokens in `globals.css`), with no drawing or blur; its only
+  `--brand-glow-*` tokens in `globals.css`), with no drawing or blur; since
+  2026-11-17 a repeated linear gradient over them (`fluted-glass`) draws the
+  ribs of fluted glass, still with no filter or `backdrop-filter`; its only
   text is the wordmark, set in the already-loaded display font. No
   image is requested at any width, which closes TD-056 by removal rather than
   by re-encoding, and the LCP candidate on sign-in and sign-up is text at every
@@ -555,8 +557,8 @@ As in the sections above, nothing here was measured in a browser.
   own. `Wordmark` has no state or effect;
   the sidebar, a client component, takes it into its bundle as a few lines of
   JSX, which the route totals above were not measured again for.
-* **Icons as file conventions.** `app/favicon.ico` (8,406 bytes: 16, 32 and
-  48 px), `app/icon.svg` (3,447) and `app/apple-icon.png` (7,046) are built as
+* **Icons as file conventions.** `app/favicon.ico` (7,116 bytes: 16, 32 and
+  48 px), `app/icon.svg` (2,812) and `app/apple-icon.png` (7,089) are built as
   static routes, in place of `public/favicon.png` (7,894 bytes, linked
   relatively, so it missed on nested routes); a browser that takes SVG icons
   can skip the ICO. The tile's gradient is what weighs: the touch icon is a

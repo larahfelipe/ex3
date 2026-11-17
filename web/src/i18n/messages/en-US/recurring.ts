@@ -50,7 +50,9 @@ export default {
     account: 'Bank account or card',
     notes: 'Notes',
     history: 'History',
-    stop: 'Stop recurrence'
+    stop: 'Stop recurrence',
+    edit: 'Edit recurring expense',
+    delete: 'Delete recurring expense'
   },
   occurrences: {
     title: 'Bills',

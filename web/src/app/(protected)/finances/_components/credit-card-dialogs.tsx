@@ -2,7 +2,12 @@ import { useId, useMemo, useState, type FC } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CreditCard as CreditCardIcon, Plus } from 'lucide-react';
+import {
+  CreditCard as CreditCardIcon,
+  Pencil,
+  Plus,
+  Trash2
+} from 'lucide-react';
 import { useTranslations } from 'use-intl';
 import { z } from 'zod';
 
@@ -24,6 +29,7 @@ import {
   DialogHeader,
   DialogPresence,
   DialogTitle,
+  IconButton,
   Input,
   SegmentedControl,
   SegmentedControlItem
@@ -35,7 +41,6 @@ import {
   useUpdateCreditCard
 } from '@/hooks/use-finances';
 import { useRevalidateOnLocaleChange } from '@/hooks/use-revalidate-on-locale-change';
-import { srOnly } from '@/i18n/rich-text';
 import { presentSubmitError } from '@/lib/submit-error';
 
 import { CardBrandLogo, CardLabel } from './credit-card-display';
@@ -63,8 +68,6 @@ type CardAction =
   | Record<'kind', 'list' | 'add'>
   | (Record<'kind', 'edit' | 'delete'> & Record<'card', CreditCard>);
 
-// Twelve or more digits, alone or in groups split by a space or a dash: the
-// shape of a card number, which the API refuses to store in a name.
 const CARD_NUMBER_PATTERN = /(?:\d[ -]?){12,}/;
 
 const DAY_MAX_LENGTH = 2;
@@ -352,10 +355,11 @@ const CardRow: FC<
   Record<'card', CreditCard> & Record<'onAction', (action: CardAction) => void>
 > = ({ card, onAction }) => {
   const t = useTranslations('finances.cards');
+  const tActions = useTranslations('common.actions');
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
-      <div className="min-w-0 space-y-0.5">
+    <li className="flex items-center gap-3 py-3">
+      <div className="min-w-0 flex-1 space-y-0.5">
         <CardLabel card={card} className="max-w-full text-sm font-medium" />
 
         <p className="text-sm text-muted-foreground">
@@ -367,22 +371,21 @@ const CardRow: FC<
         </p>
       </div>
 
-      <div className="flex gap-1">
-        <Button
-          variant="ghost"
-          size="xs"
+      <div className="-mr-2 flex shrink-0 sm:-mr-1.5">
+        <IconButton
+          icon={Pencil}
+          label={tActions('edit')}
+          aria-label={t('manage.editNamed', { name: card.name })}
           onClick={() => onAction({ kind: 'edit', card })}
-        >
-          {t.rich('manage.edit', { name: card.name, hidden: srOnly })}
-        </Button>
+        />
 
-        <Button
-          variant="destructive-subtle"
-          size="xs"
+        <IconButton
+          icon={Trash2}
+          variant="ghost-destructive"
+          label={tActions('delete')}
+          aria-label={t('manage.deleteNamed', { name: card.name })}
           onClick={() => onAction({ kind: 'delete', card })}
-        >
-          {t.rich('manage.delete', { name: card.name, hidden: srOnly })}
-        </Button>
+        />
       </div>
     </li>
   );

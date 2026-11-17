@@ -92,10 +92,6 @@ const RETURN_TICK_FORMAT: Intl.NumberFormatOptions = {
   maximumFractionDigits: 1
 };
 
-/**
- * Keeps the last point whatever the stride: it is the current value, the one
- * the headline reads while the pointer is away.
- */
 const plottedSeriesOf = (
   series: ReadonlyArray<PerformancePoint>
 ): ReadonlyArray<PerformancePoint> => {
@@ -411,11 +407,6 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
   const [isTableOpen, setIsTableOpen] = useState(false);
   const t = useTranslations('investments.performance');
 
-  /**
-   * The benchmark is asked for in both views, so switching between them reads
-   * the same response. A catalog without it answers 404, and the series is then
-   * asked for alone, with a note saying the comparison is missing.
-   */
   const comparedQuery = usePerformance(portfolio, {
     range: selectedRange,
     ...(symbol !== undefined && { symbol }),
@@ -436,11 +427,6 @@ export const PerformanceChart: FC<PerformanceChartProps> = ({
     !isPlaceholderData &&
     performance.series.length === 0;
 
-  /**
-   * Every period ends today, so one comes back empty while the history does not
-   * only when no trading day of it has a value yet, as the year to date early in
-   * January. The whole history is asked for then, and only then.
-   */
   const historyQuery = usePerformance(
     isSelectedRangeEmpty && selectedRange !== HISTORY_RANGE ? portfolio : null,
     { range: HISTORY_RANGE, ...(symbol !== undefined && { symbol }) }

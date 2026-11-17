@@ -70,7 +70,6 @@ export default function AssetImport() {
         />
       )}
 
-      {/* A preview plans the file against one portfolio, so switching starts over. */}
       {portfolio && (
         <ImportWorkspace key={portfolio.id} portfolio={portfolio} />
       )}

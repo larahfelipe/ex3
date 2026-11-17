@@ -27,7 +27,6 @@ export const importFileRefusalOf = ({
   return null;
 };
 
-/** Below the engines' limit on a call's arguments, which `fromCharCode` spreads the bytes into. */
 const BASE64_CHUNK_BYTES = 0x8000;
 
 export const base64Of = (bytes: Uint8Array) => {

@@ -8,11 +8,6 @@ const execFileAsync = promisify(execFile);
 const VALID_JWT_SECRET = 'a'.repeat(32);
 const VALID_DATABASE_URL = 'postgresql://user:pass@localhost:5432/ex3';
 
-/**
- * dotenv never overrides variables already present in the environment, so
- * passing them explicitly, `NODE_ENV` included, keeps this test deterministic
- * whether or not the developer has a local `.env`.
- */
 const loadEnvsModule = (envs: NodeJS.ProcessEnv) =>
   execFileAsync(
     process.execPath,

@@ -21,13 +21,6 @@ export type RecurrenceRule = {
   endDate: Date | null;
 };
 
-/**
- * The `index`-th occurrence, counted from the start, which is the first. Every
- * occurrence derives from the start rather than from the previous one: a
- * monthly series started on the 31st falls on the last day of shorter months
- * and returns to the 31st, and a yearly one started on 29 February falls on 28
- * February outside leap years.
- */
 export const occurrenceAt = (
   { frequency, startDate }: Pick<RecurrenceRule, 'frequency' | 'startDate'>,
   index: number
@@ -87,10 +80,6 @@ export const nextOccurrence = (rule: RecurrenceRule, day: Date) => {
   }
 };
 
-/**
- * Charged to a card, a later occurrence never lands on an earlier statement,
- * so the soonest occurrence is still the soonest bill.
- */
 export const nextBillDay = (
   rule: RecurrenceRule & Record<'generatedThrough', Date>,
   today: Date,

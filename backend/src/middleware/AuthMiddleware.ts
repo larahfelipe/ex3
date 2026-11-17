@@ -14,12 +14,6 @@ const extractBearerToken = (authorization?: string) => {
   return scheme === BEARER_SCHEME && token?.length ? token : null;
 };
 
-/**
- * Authentication is stateful on purpose: a signed, unexpired token grants access
- * only while its session version is still the one stored on the user row.
- * Signing in, signing out or changing the password bumps that version and
- * revokes every token issued before it.
- */
 export const authMiddleware: RequestHandler = async (req, _res, next) => {
   try {
     const accessToken = extractBearerToken(req.headers.authorization);

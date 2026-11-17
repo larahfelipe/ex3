@@ -8,10 +8,6 @@ const NEW_PASSWORD_MIN_CODE_POINTS = 8;
  */
 const NEW_PASSWORD_MAX_BYTES = 72;
 
-/**
- * Bound of the previous policy, kept so accounts created under it can still
- * authenticate. It only caps the request: bcrypt's work does not grow with it.
- */
 const SUBMITTED_PASSWORD_MAX_LENGTH = 255;
 
 const COMMON_PASSWORDS: ReadonlySet<string> = new Set([

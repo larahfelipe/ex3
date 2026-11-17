@@ -63,6 +63,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  IconButton,
   Input,
   Label,
   Select,
@@ -78,7 +79,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TableRowHeader
+  TableRowHeader,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TruncatedText
 } from '@/components/ui';
 import { usePositions } from '@/hooks/use-portfolio';
 import { FIRST_PAGE, pageNumberFrom } from '@/lib/pagination';
@@ -556,19 +561,16 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                 </SelectContent>
               </Select>
 
-              <Button
+              <IconButton
+                icon={SortOrderIcon}
                 variant="outline"
                 size="icon"
-                className="shrink-0"
-                aria-label={t('positions.descending')}
+                label={t('positions.descending')}
                 aria-pressed={listing.sortOrder === 'desc'}
-                title={t('positions.descending')}
                 onClick={() =>
                   refine({ sortOrder: REVERSED_ORDER[listing.sortOrder] })
                 }
-              >
-                <SortOrderIcon aria-hidden="true" className="size-4" />
-              </Button>
+              />
             </div>
           </div>
 
@@ -691,9 +693,9 @@ export const PositionsTable: FC<PositionsTableProps> = ({
                             {position.symbol}
                           </Link>
 
-                          <span className="line-clamp-1 max-w-56 text-xs text-muted-foreground">
+                          <TruncatedText className="line-clamp-1 max-w-56 text-xs text-muted-foreground data-truncated:relative data-truncated:z-10">
                             {position.name}
-                          </span>
+                          </TruncatedText>
 
                           <span className="text-sm tabular-nums sm:hidden">
                             <ProfitLoss
@@ -794,18 +796,28 @@ export const PositionsTable: FC<PositionsTableProps> = ({
 
                       <TableCell className="text-right">
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-10 sm:size-8"
-                              aria-label={t('positions.actionsFor', {
-                                symbol: position.symbol
-                              })}
-                            >
-                              <Ellipsis aria-hidden="true" className="size-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={t('positions.actionsFor', {
+                                    symbol: position.symbol
+                                  })}
+                                >
+                                  <Ellipsis
+                                    aria-hidden="true"
+                                    className="size-4"
+                                  />
+                                </Button>
+                              </DropdownMenuTrigger>
+                            </TooltipTrigger>
+
+                            <TooltipContent>
+                              {t('positions.actions')}
+                            </TooltipContent>
+                          </Tooltip>
 
                           <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuItem asChild className="gap-2">

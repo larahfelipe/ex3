@@ -2,6 +2,7 @@ import { useState, type FC } from 'react';
 
 import Link from 'next/link';
 
+import { Pencil, Trash2 } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
 import type { Expense, InstallmentPlanDetail } from '@/app/api/v1/finances';
@@ -17,14 +18,14 @@ import {
 import {
   Button,
   Dialog,
+  DialogActionFooter,
   DialogBody,
-  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogPresence,
   DialogTitle,
+  IconButton,
   Table,
   TableBody,
   TableCell,
@@ -189,7 +190,6 @@ const InstallmentRow: FC<
 const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
   const t = useTranslations('installments.details');
   const tFinances = useTranslations('finances');
-  const tActions = useTranslations('common.actions');
   const today = useReferenceDay();
   const {
     description,
@@ -397,42 +397,45 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
         </section>
       </DialogBody>
 
-      <DialogFooter className="gap-2 sm:flex-wrap">
-        {!isNonzeroDecimal(settledAmount) && (
-          <Button
-            variant="destructive-subtle"
-            className="sm:mr-auto"
-            onClick={() => onAction({ kind: 'delete' })}
-          >
-            {tActions('delete')}
-          </Button>
-        )}
+      <DialogActionFooter
+        tools={
+          (status !== 'CANCELLED' || !isNonzeroDecimal(settledAmount)) && (
+            <>
+              {status !== 'CANCELLED' && (
+                <IconButton
+                  icon={Pencil}
+                  label={t('edit')}
+                  onClick={() => onAction({ kind: 'edit' })}
+                />
+              )}
 
+              {!isNonzeroDecimal(settledAmount) && (
+                <IconButton
+                  icon={Trash2}
+                  variant="ghost-destructive"
+                  label={t('delete')}
+                  onClick={() => onAction({ kind: 'delete' })}
+                />
+              )}
+            </>
+          )
+        }
+      >
         {isActive && (
-          <Button
-            variant="outline"
-            onClick={() => onAction({ kind: 'cancel' })}
-          >
-            {t('cancel')}
-          </Button>
-        )}
+          <>
+            <Button
+              variant="outline"
+              onClick={() => onAction({ kind: 'cancel' })}
+            >
+              {t('cancel')}
+            </Button>
 
-        <DialogClose asChild>
-          <Button variant="secondary">{tActions('close')}</Button>
-        </DialogClose>
-
-        {status !== 'CANCELLED' && (
-          <Button variant="outline" onClick={() => onAction({ kind: 'edit' })}>
-            {tActions('edit')}
-          </Button>
+            <Button onClick={() => onAction({ kind: 'reschedule' })}>
+              {t('reschedule')}
+            </Button>
+          </>
         )}
-
-        {isActive && (
-          <Button onClick={() => onAction({ kind: 'reschedule' })}>
-            {t('reschedule')}
-          </Button>
-        )}
-      </DialogFooter>
+      </DialogActionFooter>
     </>
   );
 };

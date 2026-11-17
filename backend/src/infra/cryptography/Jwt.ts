@@ -9,10 +9,6 @@ import { AuthenticationError } from '@/errors';
  */
 const SIGNING_ALGORITHM = 'HS256';
 
-/**
- * A verified signature only proves the issuer; the claims are still parsed so a
- * token minted under an older payload shape is rejected instead of trusted.
- */
 const AccessTokenClaimsSchema = z.object({
   sub: z.string().min(1),
   sessionVersion: z.number().int().nonnegative()

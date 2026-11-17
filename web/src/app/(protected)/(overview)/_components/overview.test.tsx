@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import type {
+  GetPortfolioAllocationResponseData,
   GetPortfolioIncomeResponseData,
   GetPortfolioOverviewResponseData,
   GetPortfolioPositionsResponseData,
@@ -14,7 +15,11 @@ import { nbsp, renderWithIntl, textOf } from '@/test/intl';
 import { withQueryData } from '@/test/queries';
 import type { DecimalString } from '@/types';
 
-import { concentrationOf } from './allocation-chart';
+import {
+  AllocationChart,
+  concentrationOf,
+  ringArcsOf
+} from './allocation-chart';
 import { GettingStarted, nextGettingStartedStage } from './getting-started';
 import { IncomeSummary } from './income-summary';
 import { PortfolioValueCard } from './portfolio-value-card';
@@ -68,6 +73,130 @@ describe('allocation concentration', () => {
       concentrationOf([group('PETR4', '0.6'), group('VALE3')]),
       null
     );
+  });
+});
+
+describe('allocation ring', () => {
+  const arcClassesOf = (markup: string) =>
+    [...markup.matchAll(/<circle [^>]*class="(stroke-chart-\d+)"/g)].map(
+      ([, className]) => className
+    );
+
+  const renderAllocation = (
+    allocation: Partial<GetPortfolioAllocationResponseData>
+  ) =>
+    renderWithIntl(
+      withQueryData(
+        [
+          [
+            queryKeys.allocation(PORTFOLIO.id),
+            {
+              baseCurrency: 'BRL',
+              byType: [],
+              bySector: [],
+              byCurrency: [],
+              ...allocation
+            }
+          ]
+        ],
+        <AllocationChart portfolio={PORTFOLIO} />
+      )
+    );
+
+  it('lays the arcs end to end from the first group, without the groups that hold nothing', () => {
+    assert.deepEqual(
+      ringArcsOf([
+        {
+          key: 'PETR4',
+          allocation: '0.6',
+          color: { arc: 'stroke-chart-1', swatch: 'bg-chart-1' }
+        },
+        {
+          key: 'VALE3',
+          allocation: '0.25',
+          color: { arc: 'stroke-chart-2', swatch: 'bg-chart-2' }
+        },
+        {
+          key: 'ITUB4',
+          allocation: '0',
+          color: { arc: 'stroke-chart-3', swatch: 'bg-chart-3' }
+        },
+        {
+          key: 'WEGE3',
+          allocation: '0.15',
+          color: { arc: 'stroke-chart-4', swatch: 'bg-chart-4' }
+        },
+        {
+          key: 'BBAS3',
+          color: { arc: 'stroke-chart-5', swatch: 'bg-chart-5' }
+        }
+      ]),
+      [
+        { key: 'PETR4', className: 'stroke-chart-1', start: 0, length: 60 },
+        { key: 'VALE3', className: 'stroke-chart-2', start: 60, length: 25 },
+        { key: 'WEGE3', className: 'stroke-chart-4', start: 85, length: 15 }
+      ]
+    );
+  });
+
+  it('starts each round-capped arc half a thickness late, sweeps them in and puts the total in the middle', () => {
+    const markup = renderAllocation({
+      totalValue: '1234567.89',
+      byAsset: [
+        {
+          symbol: 'VALE3',
+          name: 'Vale',
+          marketValue: '370370.37',
+          allocation: '0.3'
+        },
+        {
+          symbol: 'PETR4',
+          name: 'Petrobras',
+          marketValue: '864197.52',
+          allocation: '0.7'
+        }
+      ],
+      byType: [{ type: 'STOCK', marketValue: '1234567.89', allocation: '1' }]
+    });
+    const [, maskId] = /<mask id="([^"]+)"/.exec(markup) ?? [];
+
+    assert.ok(maskId);
+    assert.match(
+      markup,
+      new RegExp(`<g mask="url\\(#${maskId}\\)"[^>]*stroke-linecap="round"`)
+    );
+    assert.match(
+      markup,
+      /<mask [^>]*><circle [^>]*stroke-width="4.5" stroke-linecap="round" stroke-dasharray="100 0" stroke-dashoffset="-2.25" class="animate-ring-sweep" style="--ring-length:100"><\/circle><circle [^>]*stroke-width="5" stroke-linecap="butt" stroke-dasharray="100 0" stroke-dashoffset="-2.25" class="animate-ring-sweep"/
+    );
+    assert.deepEqual(arcClassesOf(markup), [
+      'stroke-chart-1',
+      'stroke-chart-2',
+      'stroke-chart-1'
+    ]);
+    assert.match(
+      markup,
+      /stroke-dasharray="30 70" stroke-dashoffset="-72.25" class="stroke-chart-2"/
+    );
+    assert.match(
+      markup,
+      /stroke-dasharray="2.25 97.75" stroke-dashoffset="-2.25" class="stroke-chart-1"/
+    );
+    assert.ok(
+      textOf(markup).includes(
+        `Valor total${nbsp('R$ 1,2 mi')}${nbsp('R$ 1.234.567,89')}`
+      )
+    );
+  });
+
+  it('leaves the ring empty and the total unavailable while a position has no price', () => {
+    const markup = renderAllocation({
+      byAsset: [{ symbol: 'PETR4', name: 'Petrobras' }],
+      byType: [{ type: 'STOCK' }]
+    });
+
+    assert.deepEqual(arcClassesOf(markup), []);
+    assert.ok(textOf(markup).includes('Valor total-Indisponível'));
   });
 });
 

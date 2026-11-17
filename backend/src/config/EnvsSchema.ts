@@ -6,21 +6,12 @@ const API_PROXY_SECRET_MIN_LENGTH = 32;
 
 const BCRYPT_SALT_MIN_ROUNDS = 10;
 
-/**
- * Cloudflare's published Turnstile test secrets, which pass, fail or report a
- * spent token whatever was solved: in production they would turn the check
- * into a constant.
- */
 const TURNSTILE_TEST_SECRET_KEY = /^[123]x0+AA$/;
 
 const DEFAULT_PORT = 8080;
 const DEFAULT_BCRYPT_SALT = 12;
 const DEFAULT_JWT_EXPIRATION = '1d';
 
-/**
- * The unit is mandatory: jsonwebtoken reads a bare numeric string ("3600") as
- * milliseconds, which would silently shrink the lifetime a thousandfold.
- */
 const TOKEN_LIFETIME_PATTERN = /^(?<quantity>[1-9]\d*)(?<unit>[smhd])$/;
 
 const SECONDS_PER_DAY = 24 * 60 * 60;
@@ -77,11 +68,6 @@ const originList = z
       .min(1, 'At least one origin is required')
   );
 
-/**
- * `.env.example` ships every optional key blank, so a copied file carries empty
- * strings. Without this they would be read as values — `PORT=` as the number
- * zero — and startup would fail on an environment that set nothing at all.
- */
 const blankAsAbsent = <Schema extends z.ZodType>(schema: Schema) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema);
 

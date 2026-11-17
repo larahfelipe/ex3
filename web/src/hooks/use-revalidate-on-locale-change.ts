@@ -12,12 +12,6 @@ import { useLocale } from 'use-intl';
 const isFieldError = (node: object): node is FieldError =>
   'type' in node && typeof node.type === 'string';
 
-/**
- * The paths, as `trigger` takes them, of the errors the form's own validation
- * wrote. A field array's `root` stands for the array. Errors the server set
- * are left out, since validating again would clear them, and so is the form's
- * own `root`, which validation never writes.
- */
 export const clientErrorPathsOf = (
   errors: object,
   prefix?: string

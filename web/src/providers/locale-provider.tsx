@@ -58,7 +58,6 @@ export const LocaleProvider: FC<LocaleProviderProps> = ({
     document.documentElement.lang = catalog.locale;
   }, [catalog.locale]);
 
-  // The last choice, which wins over a catalog that arrives after it.
   const requestedLocale = useRef(locale);
 
   const switchLocale = useCallback(

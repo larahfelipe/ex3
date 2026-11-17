@@ -34,12 +34,6 @@ const payloadOf = ({ name, content }: ChosenImportFile): ImportFilePayload => ({
   content
 });
 
-/**
- * The API keeps no file between requests, so each plan sends it again with
- * the selection. Only the answer to the latest request is shown: a click while
- * one is on its way makes that answer stale, and the plan a click asks for
- * waits a moment for the next click.
- */
 export const ImportWorkspace: FC<ImportWorkspaceProps> = ({ portfolio }) => {
   const t = useTranslations('imports');
   const tErrors = useTranslations('errors');

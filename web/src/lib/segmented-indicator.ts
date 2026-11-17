@@ -23,15 +23,8 @@ const BOX_KEYS = ['x', 'y', 'width', 'height'] as const;
 
 const BOX_TOLERANCE = 0.01;
 
-/** A size not laid out, being hidden, is zero, or `NaN` when read from a computed `auto`. */
 const isLaidOut = (size: number) => size > 0;
 
-/**
- * The option's box within the group's padding box, in the group's own pixels,
- * so it stays put however the page around the group moves. A transform on an
- * ancestor, such as a dialog scaling in, scales both rects alike and is divided
- * out. A group or an option not laid out has no box.
- */
 export const boxWithin = (
   group: GroupMetrics,
   option: Rect

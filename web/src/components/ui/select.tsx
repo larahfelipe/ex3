@@ -41,7 +41,6 @@ const SelectTrigger = ({
   </SelectPrimitive.Trigger>
 );
 
-/** The viewport hides its scrollbar with a `<style>`, which needs the page's nonce. */
 const SelectContent = ({
   className,
   children,

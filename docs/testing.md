@@ -1012,11 +1012,12 @@ leave behind.
 
 ## Personal finance
 
-Seven unit files under `src/domain` cover, without a database, the rules the
+Eight unit files under `src/domain` cover, without a database, the rules the
 finance module computes: calendar days in UTC with month ends and 29 February,
 recurrence by frequency, the exact split of a plan's total and its schedule,
 settlement from the active payments, money at the currency's minor units, the
-overview's and reports' aggregates, and the card statement a charge lands on.
+overview's and reports' aggregates, the card statement a charge lands on, and
+the notifications the open bills raise.
 The reference day is a parameter, never `new Date()` inside the rule.
 
 `src/routes/Finances.integration.ts` covers every `/v1/finances` route against
@@ -1024,8 +1025,10 @@ the database: validation with 400, another user's records the same as
 non-existent ones, partial, corrected and voided payments, plans and their
 reschedules, series generation, edits from a date and stopping, the summary,
 calendar, reports, alerts and reminder settings, credit cards and the bills,
-series and plans charged to them, and account deletion removing the finance
-rows. Concurrency is exercised with `Promise.all` — two payments on the same
+series and plans charged to them, the notification feed and its read and
+dismissed marks — persisted, resolved by a payment, a cancellation or a new due
+date, back unread after a void, private to each user — and account deletion
+removing the finance rows, the marks included. Concurrency is exercised with `Promise.all` — two payments on the same
 bill, two reads generating the same series — and atomicity with
 `injectWriteFailure`, which fails one write inside the transaction and checks
 that nothing of it was kept. Dates are relative to `utcToday()`: plans start in
@@ -1037,6 +1040,15 @@ the suite runs on changes its result.
 
 The file-by-file table, with the count of each, is in
 [`financial-management.md`](financial-management.md#tests).
+
+On the web, `bill-dialogs.test.tsx` renders a bill's summary at a fixed
+instant (`mock.timers` with `Date`), since the due distance depends on today;
+`notifications-popover.test.tsx` renders a notice, the phone's top bar with a
+seeded feed (`withQueryData`) and an empty feed; `finance-notifications.test.ts`
+checks the optimistic marks against what the API would return; and
+`icon-button.test.tsx` holds the icon button's naming. Radix portals render
+nothing in static markup, so the popover's panel and the tooltips are tested
+through the components they hold, not opened.
 
 ## Person names
 

@@ -11,7 +11,6 @@ import {
   type ReactNode
 } from 'react';
 
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 import {
@@ -61,6 +60,7 @@ import {
   Card,
   CardContent,
   DialogPresence,
+  IconButton,
   Input,
   Label,
   SearchableSelect,
@@ -111,7 +111,8 @@ import {
   dueDistanceOf,
   ExpenseStatusBadge,
   isOpenExpense,
-  originLabelOf
+  originLabelOf,
+  RowLink
 } from './finance-display';
 import { AlertTotals } from './finance-summary';
 import { PaymentFormDialog } from './payment-form-dialog';
@@ -521,15 +522,12 @@ const DayFilter: FC<
         </div>
 
         {value !== undefined && (
-          <Button
-            variant="ghost"
+          <IconButton
+            icon={X}
             size="icon"
-            className="shrink-0"
-            aria-label={t('clearDay', { label })}
+            label={t('clearDay', { label })}
             onClick={() => onChange(undefined)}
-          >
-            <X aria-hidden="true" className="size-4" />
-          </Button>
+          />
         )}
       </div>
     </div>
@@ -645,17 +643,14 @@ const BillSort: FC<
         </SelectContent>
       </Select>
 
-      <Button
+      <IconButton
+        icon={SortOrderIcon}
         variant="outline"
         size="icon"
-        className="shrink-0"
-        aria-label={t('descending')}
+        label={t('descending')}
         aria-pressed={listing.sortOrder === 'desc'}
-        title={t('descending')}
         onClick={() => refine({ sortOrder: REVERSED_ORDER[listing.sortOrder] })}
-      >
-        <SortOrderIcon aria-hidden="true" className="size-4" />
-      </Button>
+      />
     </div>
   );
 };
@@ -905,13 +900,9 @@ const BillRow: FC<
     <TableRow className={cn(status === 'CANCELLED' && 'text-muted-foreground')}>
       <TableRowHeader className="relative py-3">
         <div className="flex min-w-0 flex-col items-start gap-0.5">
-          <Link
-            href={href}
-            scroll={false}
-            className="line-clamp-2 rounded-sm font-semibold ring-offset-background wrap-anywhere after:absolute after:inset-0 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
-          >
+          <RowLink href={href} scroll={false}>
             {description}
-          </Link>
+          </RowLink>
 
           <span className="text-xs text-muted-foreground">
             {t('meta', {

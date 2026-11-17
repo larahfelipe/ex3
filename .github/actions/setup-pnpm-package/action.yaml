@@ -15,8 +15,6 @@ runs:
   steps:
     - name: Setup pnpm
       uses: pnpm/action-setup@v4
-      # An action step runs at the repository root, which has no `package.json`,
-      # so the version has to be pointed at the package's.
       with:
         package_json_file: ${{ inputs.package }}/package.json
 

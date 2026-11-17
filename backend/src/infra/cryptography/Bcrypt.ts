@@ -22,10 +22,6 @@ export class Bcrypt {
     return bcrypt.compare(plainText, digest);
   }
 
-  /**
-   * A digest of another cost takes another time to verify, which would set its
-   * account apart from an unknown email, verified at the configured cost.
-   */
   needsRehash(digest: string) {
     return bcrypt.getRounds(digest) !== this.salt;
   }

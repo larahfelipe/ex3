@@ -35,6 +35,7 @@ import type {
   GetExpensesResponseData,
   GetFinanceAlertsResponseData,
   GetFinanceCalendarResponseData,
+  GetFinanceNotificationsResponseData,
   GetFinanceReportResponseData,
   GetFinanceSettingsResponseData,
   GetFinanceSummaryResponseData,
@@ -45,6 +46,8 @@ import type {
   GetRecurringExpensesResponseData,
   InstallmentPlanChangeResponseData,
   InstallmentPlanFilters,
+  MarkFinanceNotificationsRequestPayload,
+  MarkFinanceNotificationsResponseData,
   PaymentEntryPayload,
   PaymentFilters,
   RecordPaymentResponseData,
@@ -67,6 +70,7 @@ import type {
 import type { Translator } from '@/i18n/translator';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
 import { calendarDayOf, currentInstant } from '@/lib/dates';
+import { feedWithMark } from '@/lib/finance-notifications';
 import { queryKeys } from '@/lib/react-query';
 import type { Maybe, WithId } from '@/types';
 
@@ -77,6 +81,7 @@ type FinanceQuery<Data> = {
   queryKey: QueryKey;
   request: Maybe<() => Promise<AxiosResponse<Data>>>;
   keepsPreviousData?: boolean;
+  refreshesOnFocus?: boolean;
 };
 
 type PaymentTarget = Record<'expenseId' | 'paymentId', string>;
@@ -88,21 +93,17 @@ const referenceDayParams = (today: string): ReferenceDayParams => ({ today });
 const useFinanceQuery = <Data>({
   queryKey,
   request,
-  keepsPreviousData
+  keepsPreviousData,
+  refreshesOnFocus = false
 }: FinanceQuery<Data>) =>
   useQuery<AxiosResponse<Data>, ApiProxyErrorData, Data>({
     queryKey,
     queryFn: request ?? skipToken,
     select: ({ data }) => data,
-    placeholderData: keepsPreviousData ? keepPreviousData : undefined
+    placeholderData: keepsPreviousData ? keepPreviousData : undefined,
+    refetchOnWindowFocus: refreshesOnFocus
   });
 
-/**
- * Every finance figure is derived from the same records, so a write refreshes
- * the whole scope. It is announced once the queries on screen have reloaded,
- * so the toast never runs ahead of what the page shows; a reload that fails
- * leaves its query to say so, since the write itself went through.
- */
 export const refreshFinancesThenAnnounce = async (
   queryClient: QueryClient,
   { title, description }: FinanceChangeAnnouncement
@@ -122,11 +123,6 @@ const useAnnounceFinanceChange = () => {
   );
 };
 
-/**
- * The toast is written here, not taken from the response: the API answers in
- * English. A mutation waits for its `onSuccess`, so the form that sent it stays
- * pending until the page shows the change.
- */
 const useFinanceMutation = <Variables, Data>(
   request: (variables: Variables) => Promise<AxiosResponse<Data>>,
   announcementOf: (
@@ -182,6 +178,74 @@ export const useFinanceAlerts = () => {
       api
         .getInstance()
         .get('/v1/finances/alerts', { params: referenceDayParams(today) })
+  });
+};
+
+export const useFinanceNotifications = () => {
+  const today = useReferenceDay();
+
+  return useFinanceQuery<GetFinanceNotificationsResponseData>({
+    queryKey: queryKeys.financeNotifications(today),
+    request: () =>
+      api.getInstance().get('/v1/finances/notifications', {
+        params: referenceDayParams(today)
+      }),
+    refreshesOnFocus: true
+  });
+};
+
+type NotificationFeedResponse =
+  AxiosResponse<GetFinanceNotificationsResponseData>;
+
+const NOTIFICATION_MARKS_KEY = ['finance-notification-marks'] as const;
+
+export const useMarkFinanceNotifications = () => {
+  const queryClient = useQueryClient();
+  const today = useReferenceDay();
+  const t = useTranslations('notifications');
+  const queryKey = queryKeys.financeNotifications(today);
+
+  return useMutation<
+    AxiosResponse<MarkFinanceNotificationsResponseData>,
+    ApiProxyErrorData,
+    Omit<MarkFinanceNotificationsRequestPayload, 'today'>,
+    Maybe<NotificationFeedResponse>
+  >({
+    mutationKey: NOTIFICATION_MARKS_KEY,
+    mutationFn: (mark) =>
+      api
+        .getInstance()
+        .post('/v1/finances/notifications/marks', { ...mark, today }),
+    onMutate: async (mark) => {
+      await queryClient.cancelQueries({ queryKey });
+
+      const previous =
+        queryClient.getQueryData<NotificationFeedResponse>(queryKey);
+
+      if (previous)
+        queryClient.setQueryData<NotificationFeedResponse>(queryKey, {
+          ...previous,
+          data: feedWithMark(previous.data, mark)
+        });
+
+      return previous;
+    },
+    onError: (_error, _mark, previous) => {
+      if (previous)
+        queryClient.setQueryData<NotificationFeedResponse>(queryKey, previous);
+
+      void queryClient.invalidateQueries({ queryKey });
+      toast.error(t('markFailed'));
+    },
+    onSuccess: ({ data }) => {
+      if (queryClient.isMutating({ mutationKey: NOTIFICATION_MARKS_KEY }) > 1)
+        return;
+
+      queryClient.setQueryData<NotificationFeedResponse>(
+        queryKey,
+        (current) => current && { ...current, data }
+      );
+    }
   });
 };
 

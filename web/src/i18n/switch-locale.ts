@@ -12,12 +12,6 @@ export type LocaleSwitchEffects = Record<
 type LocaleSwitchState = Record<'activeLocale', Locale> &
   Record<'requestedLocale', { current: Locale }>;
 
-/**
- * Switches the language in the order a person picks them: `requestedLocale`
- * holds the last choice across switches, so a catalog that arrives after a
- * later one is dropped, and so is its failure. The choice is saved only once
- * its catalog shows, so a failed switch leaves the saved language as it was.
- */
 export const runLocaleSwitch = async (
   next: Locale,
   { activeLocale, requestedLocale }: LocaleSwitchState,

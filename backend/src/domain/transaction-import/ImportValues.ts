@@ -61,14 +61,6 @@ const canonicalDecimalOf = (digits: string) => {
     : value.toFixed();
 };
 
-/**
- * Which of `.` and `,` separates the decimals of a written number. Both in one
- * value: the last one does. One of them more than once: the other one, as the
- * repeated one groups thousands. One of them once, with other than three
- * digits after it or after a lone zero: that one does, since a thousands group
- * always has three and never follows a zero. Otherwise the value is ambiguous
- * on its own, `1.234` and `1,234`, and the convention of the file decides.
- */
 const decimalSeparatorOf = <Convention extends DecimalSeparator | null>(
   digits: string,
   convention: Convention
@@ -146,7 +138,6 @@ export const writtenDecimalSeparatorOf = (
     : null;
 };
 
-/** Days between the epoch a workbook counts its date serials from and the Unix epoch. */
 const EXCEL_EPOCH_OFFSET_DAYS = 25_569;
 const EXCEL_1904_EPOCH_OFFSET_DAYS = 24_107;
 const DAY_MS = 86_400_000;
@@ -243,7 +234,6 @@ const saoPauloClockFormat = new Intl.DateTimeFormat('en-US', {
 export const saoPauloDayOf = (instant: Date): CalendarDay =>
   saoPauloDayFormat.format(instant);
 
-/** The wall clock of São Paulo at the instant, read as if it were UTC. */
 const saoPauloWallClockOf = (instant: number) => {
   const parts = Object.fromEntries(
     saoPauloClockFormat
@@ -261,7 +251,6 @@ const saoPauloWallClockOf = (instant: number) => {
   );
 };
 
-/** B3 settles a trade two business days after it was made: up to a week later across weekends and holidays. */
 const SETTLEMENT_WINDOW_DAYS = 7;
 
 export type DayRange = Record<'first' | 'last', CalendarDay>;
@@ -285,12 +274,6 @@ export const isWithin = (day: CalendarDay, { first, last }: DayRange) =>
 const ONE_HOUR_MS = 3_600_000;
 const NOON_MS = 12 * ONE_HOUR_MS;
 
-/**
- * The first instant of the trading day in São Paulo, where B3 trades, which
- * is the instant the web records a day typed by someone in Brazil at. Read at
- * the offset São Paulo has at noon of the day, never inside a clock change, so
- * a day daylight saving time started on at midnight starts at 01:00.
- */
 export const startOfTradingDay = (day: CalendarDay): Date => {
   const midnight = Date.parse(`${day}T00:00:00Z`);
   const offset = saoPauloWallClockOf(midnight + NOON_MS) - (midnight + NOON_MS);

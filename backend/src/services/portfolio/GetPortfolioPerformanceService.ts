@@ -81,14 +81,6 @@ export class GetPortfolioPerformanceService {
     return GetPortfolioPerformanceService.INSTANCE;
   }
 
-  /**
-   * The whole ledger up to today is read, not only the window's, because the
-   * positions held on the first day of the window are replayed from every
-   * transaction that precedes it. `MAX` starts at the first of them. With a
-   * symbol, the ledger and so the whole series is that position's alone. With
-   * a benchmark, its closes and every rate are read from a few days before the
-   * window, so a market closed on the window's first day still has a close.
-   */
   async execute({
     userId,
     portfolioId,

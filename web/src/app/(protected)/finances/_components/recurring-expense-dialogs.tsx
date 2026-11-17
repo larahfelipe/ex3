@@ -2,6 +2,7 @@ import { useId, useState, type FC } from 'react';
 
 import Link from 'next/link';
 
+import { Pencil, Trash2 } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
 import type { Expense, RecurringExpenseDetail } from '@/app/api/v1/finances';
@@ -23,14 +24,14 @@ import { PageNavigation } from '@/components/page-navigation';
 import {
   Button,
   Dialog,
+  DialogActionFooter,
   DialogBody,
-  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogPresence,
   DialogTitle,
+  IconButton,
   SegmentedControl,
   SegmentedControlItem,
   Table,
@@ -313,7 +314,6 @@ const SeriesOccurrences: FC<
 const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
   const t = useTranslations('recurring.details');
   const tFinances = useTranslations('finances');
-  const tActions = useTranslations('common.actions');
   const today = useReferenceDay();
   const historyId = useId();
   const {
@@ -450,31 +450,32 @@ const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
         </section>
       </DialogBody>
 
-      <DialogFooter className="gap-2 sm:flex-wrap">
-        <Button
-          variant="destructive-subtle"
-          className="sm:mr-auto"
-          onClick={() => onAction({ kind: 'delete' })}
-        >
-          {tActions('delete')}
-        </Button>
+      <DialogActionFooter
+        tools={
+          <>
+            {status !== 'CANCELLED' && (
+              <IconButton
+                icon={Pencil}
+                label={t('edit')}
+                onClick={() => onAction({ kind: 'edit' })}
+              />
+            )}
 
+            <IconButton
+              icon={Trash2}
+              variant="ghost-destructive"
+              label={t('delete')}
+              onClick={() => onAction({ kind: 'delete' })}
+            />
+          </>
+        }
+      >
         {status === 'ACTIVE' && (
           <Button variant="outline" onClick={() => onAction({ kind: 'stop' })}>
             {t('stop')}
           </Button>
         )}
-
-        <DialogClose asChild>
-          <Button variant="secondary">{tActions('close')}</Button>
-        </DialogClose>
-
-        {status !== 'CANCELLED' && (
-          <Button onClick={() => onAction({ kind: 'edit' })}>
-            {tActions('edit')}
-          </Button>
-        )}
-      </DialogFooter>
+      </DialogActionFooter>
     </>
   );
 };

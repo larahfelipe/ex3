@@ -14,7 +14,7 @@ import { Loader2, RefreshCw } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
 import { Toaster } from '@/components/toaster';
-import { Button } from '@/components/ui';
+import { Button, TooltipProvider } from '@/components/ui';
 import type { Locale } from '@/i18n/config';
 import type { Messages } from '@/i18n/messages/catalog';
 import { getQueryClient } from '@/lib/react-query';
@@ -69,11 +69,6 @@ const FallbackContent: FC<FallbackContentProps> = ({
   );
 };
 
-/**
- * The catalog arrives from the server layout, so only the locale it renders in
- * is sent; the handlers stay on the client because a function cannot cross
- * that edge.
- */
 export const AppProvider: FC<AppProviderProps> = ({
   locale,
   messages,
@@ -99,16 +94,18 @@ export const AppProvider: FC<AppProviderProps> = ({
 
         <Toaster />
 
-        <QueryErrorResetBoundary>
-          {({ reset }) => (
-            <ErrorBoundary
-              onReset={reset}
-              fallbackRender={(props) => <FallbackContent {...props} />}
-            >
-              <Suspense fallback={<FallbackContent />}>{children}</Suspense>
-            </ErrorBoundary>
-          )}
-        </QueryErrorResetBoundary>
+        <TooltipProvider>
+          <QueryErrorResetBoundary>
+            {({ reset }) => (
+              <ErrorBoundary
+                onReset={reset}
+                fallbackRender={(props) => <FallbackContent {...props} />}
+              >
+                <Suspense fallback={<FallbackContent />}>{children}</Suspense>
+              </ErrorBoundary>
+            )}
+          </QueryErrorResetBoundary>
+        </TooltipProvider>
       </QueryClientProvider>
     </LocaleProvider>
   </NonceProvider>

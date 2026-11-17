@@ -18,11 +18,6 @@ const probeDatabase: DependencyProbe = async () => {
   }
 };
 
-/**
- * Liveness: the process is running and its event loop answers. It deliberately
- * touches no dependency — a restart cannot fix a database that is down, and an
- * orchestrator reading this as failure would restart a healthy instance.
- */
 export const livenessControllerHandler = (_req: Request, res: Response) => {
   res.status(200).json({ status: 'alive' });
 };

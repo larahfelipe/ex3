@@ -43,13 +43,6 @@ type LedgerReplay<Entry extends LedgerEntry> =
     }
   | LocatedLedgerRefusal<Entry>;
 
-/**
- * No operation of a replay rounds at this precision. Every position it passes
- * through fits the columns, so a product of two column values has at most
- * 2 × PRECISION significant digits, adding the rest of a BUY's cost carries at
- * most one more, and the average cost is the integer quotient of that cost,
- * shifted by the scale, by a quantity of at least one unit of the scale.
- */
 const LEDGER_ARITHMETIC_PRECISION = 2 * DecimalColumn.PRECISION + 1;
 
 const LedgerDecimal = Prisma.Decimal.clone({

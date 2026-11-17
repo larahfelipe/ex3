@@ -19,12 +19,6 @@ export const botChallengeHeaders = (
 ): Record<string, string> =>
   challengeToken === null ? {} : { [BOT_CHALLENGE.Header]: challengeToken };
 
-/**
- * Read by the sign-in and sign-up pages as they render, so the site key is set
- * where the web runs rather than built into it. Production cannot sign anyone
- * in or up without one, since the API refuses every unsolved request there, so
- * its absence is logged as the failure it is.
- */
 export const botChallengeSiteKey = () => {
   const siteKey = process.env.TURNSTILE_SITE_KEY?.trim();
 

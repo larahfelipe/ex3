@@ -2,32 +2,32 @@ import { useState, type FC } from 'react';
 
 import Link from 'next/link';
 
+import { Pencil, Trash2, Undo2 } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 
-import type { ExpenseDetail, ExpensePayment } from '@/app/api/v1/finances';
+import type {
+  Expense,
+  ExpenseDetail,
+  ExpensePayment
+} from '@/app/api/v1/finances';
 import {
   installmentPlanRoute,
   recurringExpenseRoute
 } from '@/common/constants';
 import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
 import { ErrorState, LoadingState } from '@/components/data-state';
-import {
-  Metric,
-  Money,
-  PROMINENT_VALUE_CLASS,
-  UnavailableValue
-} from '@/components/financial';
+import { Metric, Money, UnavailableValue } from '@/components/financial';
 import {
   Button,
   Dialog,
+  DialogActionFooter,
   DialogBody,
-  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogPresence,
-  DialogTitle
+  DialogTitle,
+  IconButton
 } from '@/components/ui';
 import {
   useDeleteExpense,
@@ -39,7 +39,6 @@ import {
   useVoidPayment
 } from '@/hooks/use-finances';
 import { useFormat } from '@/i18n/format';
-import { srOnly } from '@/i18n/rich-text';
 import { apiErrorMessageOf } from '@/lib/api-error-message';
 import { isNonzeroDecimal } from '@/lib/decimal';
 import { cn } from '@/lib/utils';
@@ -69,6 +68,11 @@ type BillDetailsProps = Record<'expense', ExpenseDetail> &
   Record<'isRestoring', boolean> &
   Record<'restoreError', string | null>;
 
+const SUMMARY_VALUE_CLASS = 'text-xl font-semibold tracking-tight tabular-nums';
+
+const SUMMARY_DETAIL_CLASS =
+  'block text-sm font-normal tracking-normal text-muted-foreground';
+
 const isActivePayment = ({ voidedAt }: Pick<ExpensePayment, 'voidedAt'>) =>
   voidedAt === null;
 
@@ -86,7 +90,7 @@ const PaymentRow: FC<
   const shownDay = formatCalendarDay(paidOn) ?? paidOn;
 
   return (
-    <li className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3">
+    <li className="flex items-start justify-between gap-3 py-2.5">
       <div className="min-w-0 space-y-0.5">
         <p
           className={cn(
@@ -123,44 +127,34 @@ const PaymentRow: FC<
       </div>
 
       {canChange && !isVoided && (
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="xs"
+        <div className="-my-1 -mr-2 flex shrink-0 sm:-my-0.5 sm:-mr-1.5">
+          <IconButton
+            icon={Pencil}
+            label={t('correct')}
+            aria-label={t('correctNamed', { day: shownDay })}
             onClick={() => onAction({ kind: 'correct', payment })}
-          >
-            {t.rich('correct', { day: shownDay, hidden: srOnly })}
-          </Button>
+          />
 
-          <Button
-            variant="destructive-subtle"
-            size="xs"
-
+          <IconButton
+            icon={Undo2}
+            variant="ghost-destructive"
+            label={t('void')}
+            aria-label={t('voidNamed', { day: shownDay })}
             onClick={() => onAction({ kind: 'void', payment })}
-          >
-            {t.rich('void', { day: shownDay, hidden: srOnly })}
-          </Button>
+          />
         </div>
       )}
     </li>
   );
 };
 
-const BillDetails: FC<BillDetailsProps> = ({
-  expense,
-  onAction,
-  onRestore,
-  isRestoring,
-  restoreError
-}) => {
+export const BillSummary: FC<Record<'expense', Expense>> = ({ expense }) => {
   const t = useTranslations('bills.details');
   const tFinances = useTranslations('finances');
-  const tActions = useTranslations('common.actions');
+  const { formatMoney } = useFormat();
   const today = useReferenceDay();
   const {
-    description,
     status,
-    kind,
     amount,
     currency,
     outstandingAmount,
@@ -173,7 +167,131 @@ const BillDetails: FC<BillDetailsProps> = ({
     paymentMethod,
     creditCard,
     account,
-    notes,
+    notes
+  } = expense;
+
+  const isOpen = isOpenExpense(expense);
+  const dueDistance = isOpen ? dueDistanceOf(dueDate, today, tFinances) : null;
+  const isPartlySettled = isOpen && isNonzeroDecimal(settledAmount);
+
+  return (
+    <>
+      <dl className="grid gap-4 rounded-lg border bg-muted/30 p-4 sm:grid-cols-2">
+        <Metric label={t('amount')} valueClassName={SUMMARY_VALUE_CLASS}>
+          <Money value={amount} currency={currency} />
+
+          {isPartlySettled && (
+            <span className={SUMMARY_DETAIL_CLASS}>
+              {t('partlySettled', {
+                outstanding: formatMoney(outstandingAmount, currency),
+                settled: formatMoney(settledAmount, currency)
+              })}
+            </span>
+          )}
+
+          {settledOn !== null && (
+            <span className={SUMMARY_DETAIL_CLASS}>
+              {t.rich('settledOn', {
+                day: () => <CalendarDayText day={settledOn} />
+              })}
+            </span>
+          )}
+        </Metric>
+
+        <Metric
+          label={creditCard === null ? t('dueDate') : t('cardDueDate')}
+          valueClassName={SUMMARY_VALUE_CLASS}
+        >
+          <CalendarDayText day={dueDate} />
+
+          {dueDistance !== null && (
+            <span
+              className={cn(
+                SUMMARY_DETAIL_CLASS,
+                status === 'OVERDUE' && 'text-negative'
+              )}
+            >
+              {dueDistance}
+            </span>
+          )}
+
+          {originalDueDate !== null && (
+            <span className={SUMMARY_DETAIL_CLASS}>
+              {t.rich('ownDueDate', {
+                day: () => <CalendarDayText day={originalDueDate} />
+              })}
+            </span>
+          )}
+        </Metric>
+      </dl>
+
+      <section aria-labelledby="bill-facts" className="space-y-3">
+        <h3 id="bill-facts" className="text-sm font-semibold">
+          {t('facts')}
+        </h3>
+
+        <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+          <Metric label={t('paymentMethod')} valueClassName="text-sm">
+            {paymentMethod === null ? (
+              <UnavailableValue />
+            ) : (
+              tFinances(`paymentMethods.${paymentMethod}`)
+            )}
+          </Metric>
+
+          {creditCard !== null && (
+            <Metric label={t('card')} valueClassName="text-sm">
+              <CardLabel card={creditCard} className="max-w-full" />
+            </Metric>
+          )}
+
+          <Metric label={t('category')} valueClassName="text-sm">
+            {tFinances(`categories.${category}`)}
+
+            {subcategory !== null && (
+              <span className="text-muted-foreground">
+                {' · '}
+
+                {subcategory}
+              </span>
+            )}
+          </Metric>
+
+          {account !== null && (
+            <Metric label={t('account')} valueClassName="text-sm">
+              {account}
+            </Metric>
+          )}
+
+          {notes !== null && (
+            <Metric
+              label={t('notes')}
+              className="sm:col-span-2"
+              valueClassName="text-sm font-normal whitespace-pre-line"
+            >
+              {notes}
+            </Metric>
+          )}
+        </dl>
+      </section>
+    </>
+  );
+};
+
+const BillDetails: FC<BillDetailsProps> = ({
+  expense,
+  onAction,
+  onRestore,
+  isRestoring,
+  restoreError
+}) => {
+  const t = useTranslations('bills.details');
+  const tFinances = useTranslations('finances');
+  const {
+    description,
+    status,
+    kind,
+    currency,
     payments,
     history,
     installmentPlanId,
@@ -183,7 +301,7 @@ const BillDetails: FC<BillDetailsProps> = ({
   const isCancelled = status === 'CANCELLED';
   const isOpen = isOpenExpense(expense);
   const hasActivePayments = payments.some(isActivePayment);
-  const dueDistance = isOpen ? dueDistanceOf(dueDate, today, tFinances) : null;
+  const canDelete = kind === 'ONE_TIME' && !hasActivePayments;
   const originRoute =
     installmentPlanId !== null
       ? installmentPlanRoute(installmentPlanId)
@@ -197,7 +315,7 @@ const BillDetails: FC<BillDetailsProps> = ({
         <DialogTitle className="wrap-anywhere">{description}</DialogTitle>
 
         <DialogDescription asChild>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <ExpenseStatusBadge status={status} />
 
             <span>{originLabelOf(expense, tFinances)}</span>
@@ -205,7 +323,7 @@ const BillDetails: FC<BillDetailsProps> = ({
             {originRoute !== null && (
               <Link
                 href={originRoute}
-                className="text-primary underline-offset-4 hover:underline"
+                className="rounded-xs text-primary underline-offset-4 outline-hidden hover:underline focus-visible:ring-2 focus-visible:ring-focus"
               >
                 {kind === 'INSTALLMENT' ? t('viewPlan') : t('viewSeries')}
               </Link>
@@ -214,90 +332,8 @@ const BillDetails: FC<BillDetailsProps> = ({
         </DialogDescription>
       </DialogHeader>
 
-      <DialogBody>
-        <dl className="grid gap-4 sm:grid-cols-3">
-          <Metric label={t('amount')} valueClassName={PROMINENT_VALUE_CLASS}>
-            <Money value={amount} currency={currency} />
-          </Metric>
-
-          <Metric
-            label={t('outstanding')}
-            valueClassName={PROMINENT_VALUE_CLASS}
-          >
-            <Money value={outstandingAmount} currency={currency} />
-          </Metric>
-
-          <Metric label={t('settled')} valueClassName={PROMINENT_VALUE_CLASS}>
-            <Money value={settledAmount} currency={currency} />
-          </Metric>
-
-          <Metric label={creditCard === null ? t('dueDate') : t('cardDueDate')}>
-            <CalendarDayText day={dueDate} />
-
-            {originalDueDate !== null && (
-              <span className="block text-sm font-normal text-muted-foreground">
-                {t.rich('ownDueDate', {
-                  day: () => <CalendarDayText day={originalDueDate} />
-                })}
-              </span>
-            )}
-
-            {dueDistance !== null && (
-              <span
-                className={cn(
-                  'block text-sm font-normal',
-                  status === 'OVERDUE'
-                    ? 'text-negative'
-                    : 'text-muted-foreground'
-                )}
-              >
-                {dueDistance}
-              </span>
-            )}
-          </Metric>
-
-          <Metric label={t('paidInFullOn')}>
-            {settledOn === null ? (
-              <UnavailableValue />
-            ) : (
-              <CalendarDayText day={settledOn} />
-            )}
-          </Metric>
-
-          <Metric label={t('category')}>
-            {tFinances(`categories.${category}`)}
-
-            {subcategory !== null && (
-              <span className="text-muted-foreground">
-                {' · '}
-
-                {subcategory}
-              </span>
-            )}
-          </Metric>
-
-          <Metric label={t('paymentMethod')}>
-            {paymentMethod === null ? (
-              <UnavailableValue />
-            ) : (
-              tFinances(`paymentMethods.${paymentMethod}`)
-            )}
-          </Metric>
-
-          {creditCard !== null && (
-            <Metric label={t('card')}>
-              <CardLabel card={creditCard} className="max-w-full" />
-            </Metric>
-          )}
-
-          <Metric label={t('account')}>
-            {account ?? <UnavailableValue />}
-          </Metric>
-
-          <Metric label={t('notes')} className="sm:col-span-3">
-            {notes ?? <UnavailableValue />}
-          </Metric>
-        </dl>
+      <DialogBody className="gap-6">
+        <BillSummary expense={expense} />
 
         <section aria-labelledby="bill-payments" className="space-y-1">
           <h3 id="bill-payments" className="text-sm font-semibold">
@@ -336,54 +372,61 @@ const BillDetails: FC<BillDetailsProps> = ({
         </p>
       )}
 
-      <DialogFooter className="gap-2 sm:flex-wrap">
-        {kind === 'ONE_TIME' && !hasActivePayments && (
-          <Button
-            variant="destructive-subtle"
-            className="sm:mr-auto"
-            onClick={() => onAction({ kind: 'delete' })}
-          >
-            {tActions('delete')}
-          </Button>
-        )}
+      <DialogActionFooter
+        tools={
+          (!isCancelled || canDelete) && (
+            <>
+              {!isCancelled && (
+                <IconButton
+                  icon={Pencil}
+                  label={t('edit')}
+                  onClick={() => onAction({ kind: 'edit' })}
+                />
+              )}
 
-        {!isCancelled && !hasActivePayments && (
-          <Button
-            variant="outline"
-            onClick={() => onAction({ kind: 'cancel' })}
-          >
-            {t('cancel')}
-          </Button>
-        )}
+              {canDelete && (
+                <IconButton
+                  icon={Trash2}
+                  variant="ghost-destructive"
+                  label={t('delete')}
+                  onClick={() => onAction({ kind: 'delete' })}
+                />
+              )}
+            </>
+          )
+        }
+      >
+        {(isCancelled || isOpen || !hasActivePayments) && (
+          <>
+            {!isCancelled && !hasActivePayments && (
+              <Button
+                variant="outline"
+                onClick={() => onAction({ kind: 'cancel' })}
+              >
+                {t('cancel')}
+              </Button>
+            )}
 
-        {isCancelled && (
-          <Button
-            variant="outline"
-            aria-disabled={isRestoring}
-            onClick={() => {
-              if (!isRestoring) void onRestore();
-            }}
-          >
-            {t('restore')}
-          </Button>
-        )}
+            {isCancelled && (
+              <Button
+                variant="outline"
+                aria-disabled={isRestoring}
+                onClick={() => {
+                  if (!isRestoring) void onRestore();
+                }}
+              >
+                {t('restore')}
+              </Button>
+            )}
 
-        <DialogClose asChild>
-          <Button variant="secondary">{tActions('close')}</Button>
-        </DialogClose>
-
-        {!isCancelled && (
-          <Button variant="outline" onClick={() => onAction({ kind: 'edit' })}>
-            {tActions('edit')}
-          </Button>
+            {isOpen && (
+              <Button onClick={() => onAction({ kind: 'pay' })}>
+                {t('recordPayment')}
+              </Button>
+            )}
+          </>
         )}
-
-        {isOpen && (
-          <Button onClick={() => onAction({ kind: 'pay' })}>
-            {t('recordPayment')}
-          </Button>
-        )}
-      </DialogFooter>
+      </DialogActionFooter>
     </>
   );
 };

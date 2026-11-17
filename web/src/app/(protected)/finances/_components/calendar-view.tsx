@@ -2,7 +2,6 @@
 
 import { useId, useState, type FC } from 'react';
 
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 import { Check, ChevronLeft, ChevronRight, CircleAlert } from 'lucide-react';
@@ -26,6 +25,7 @@ import {
   Card,
   CardContent,
   DialogPresence,
+  IconButton,
   Skeleton
 } from '@/components/ui';
 import {
@@ -50,7 +50,8 @@ import { BillDialogs } from './bill-dialogs';
 import {
   ExpenseStatusBadge,
   isOpenExpense,
-  originLabelOf
+  originLabelOf,
+  RowLink
 } from './finance-display';
 
 type DayCellProps = Record<'day', string> &
@@ -275,13 +276,9 @@ const DayBillRow: FC<Record<'expense', Expense> & Record<'href', string>> = ({
   return (
     <li className="relative flex items-start justify-between gap-3 py-3">
       <div className="flex min-w-0 flex-col items-start gap-0.5">
-        <Link
-          href={href}
-          scroll={false}
-          className="line-clamp-2 rounded-sm font-semibold ring-offset-background wrap-anywhere after:absolute after:inset-0 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2"
-        >
+        <RowLink href={href} scroll={false}>
           {description}
-        </Link>
+        </RowLink>
 
         <span className="text-xs text-muted-foreground">
           {t('meta', {
@@ -513,25 +510,21 @@ export const CalendarView: FC = () => {
         </Button>
       )}
 
-      <Button
+      <IconButton
+        icon={ChevronLeft}
         variant="outline"
         size="icon"
+        label={t('previousMonth')}
         onClick={() => showMonth(shiftCalendarMonth(month, -1))}
-      >
-        <ChevronLeft aria-hidden="true" className="size-4" />
+      />
 
-        <span className="sr-only">{t('previousMonth')}</span>
-      </Button>
-
-      <Button
+      <IconButton
+        icon={ChevronRight}
         variant="outline"
         size="icon"
+        label={t('nextMonth')}
         onClick={() => showMonth(shiftCalendarMonth(month, 1))}
-      >
-        <ChevronRight aria-hidden="true" className="size-4" />
-
-        <span className="sr-only">{t('nextMonth')}</span>
-      </Button>
+      />
     </nav>
   );
 

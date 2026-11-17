@@ -114,8 +114,6 @@ services:
       - '127.0.0.1:3000:3000'
     healthcheck:
       <<: *app-healthcheck
-      # `next dev` compiles a page when it is first requested, so the probe only
-      # opens a connection: it checks that the server listens, not a route.
       test:
         [
           'CMD',
@@ -147,8 +145,6 @@ services:
   backend-check:
     <<: *backend-workspace
     profiles: [check]
-    # Sharing the test database's network namespace keeps `localhost:5432` from
-    # `.env.test` valid, so the suite never takes a connection string from here.
     network_mode: service:postgres-test
     command: ['sh', '-c', 'pnpm lint && pnpm typecheck && pnpm test && pnpm build']
     depends_on:

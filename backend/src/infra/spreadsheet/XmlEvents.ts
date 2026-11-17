@@ -105,13 +105,6 @@ const attributesOf = (source: string) => {
   return attributes;
 };
 
-/**
- * The elements and text of an XML document in document order, element names
- * without their namespace prefix. Every construct is found by a forward search
- * that either succeeds or fails the whole document, so reading takes time in
- * proportion to its length whatever it holds. A document type declaration is
- * refused outright.
- */
 export function* xmlEventsOf(xml: string): Generator<XmlEvent> {
   let at = 0;
 

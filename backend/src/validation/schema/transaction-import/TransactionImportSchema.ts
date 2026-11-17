@@ -6,7 +6,6 @@ import { boundedTextSchema } from '../BoundedTextSchema';
 import { PageQuerySchema } from '../PaginationQuerySchema';
 import { PortfolioScopeSchema } from '../PortfolioScopeSchema';
 
-/** Padded base64, four characters for every three bytes: linear to match. */
 const BASE64 =
   /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const BASE64_MAX_LENGTH = Math.ceil(ImportLimits.FILE_BYTES / 3) * 4;

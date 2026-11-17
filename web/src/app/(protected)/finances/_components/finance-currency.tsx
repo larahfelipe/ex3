@@ -45,11 +45,6 @@ export const useCurrencyParam = () => {
   return [currency, setCurrency] as const;
 };
 
-/**
- * Asked for no currency, the API answers in its default one. When the user has
- * no records in it, the page moves to the first currency they do have, in
- * place of the current history entry, so going back never returns here.
- */
 export const useAdoptedCurrency = (
   requested: Maybe<string>,
   answer:

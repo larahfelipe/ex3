@@ -19,11 +19,13 @@ import {
   getExpenseControllerHandler,
   getFinanceAlertsControllerHandler,
   getFinanceCalendarControllerHandler,
+  getFinanceNotificationsControllerHandler,
   getFinanceReportControllerHandler,
   getFinanceSettingsControllerHandler,
   getFinanceSummaryControllerHandler,
   getInstallmentPlanControllerHandler,
   getRecurringExpenseControllerHandler,
+  markFinanceNotificationsControllerHandler,
   recordPaymentControllerHandler,
   rescheduleInstallmentPlanControllerHandler,
   updateCreditCardControllerHandler,
@@ -60,6 +62,18 @@ financeRouter.get(
   '/v1/finances/alerts',
   authMiddleware,
   getFinanceAlertsControllerHandler as Application
+);
+
+financeRouter.get(
+  '/v1/finances/notifications',
+  authMiddleware,
+  getFinanceNotificationsControllerHandler as Application
+);
+
+financeRouter.post(
+  '/v1/finances/notifications/marks',
+  authMiddleware,
+  markFinanceNotificationsControllerHandler as Application
 );
 
 financeRouter.get(

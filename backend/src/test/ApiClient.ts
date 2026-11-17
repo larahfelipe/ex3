@@ -18,10 +18,6 @@ const SIGN_IN_ROUTE = '/v1/user';
 
 let application: Express | null = null;
 
-/**
- * `@/config` validates the environment and builds the app at import time, so it
- * is imported only once the test process is running under `.env.test`.
- */
 const app = async () => {
   if (!application) ({ app: application } = await import('@/config'));
 
@@ -50,11 +46,6 @@ export class SignInFailedError extends Error {
   }
 }
 
-/**
- * Authenticates through the real endpoint rather than signing a token locally:
- * sessions are stateful, and only the endpoint stores the token on the user row
- * that `authMiddleware` checks against.
- */
 export const signIn = async (credentials: {
   email: string;
   password: string;

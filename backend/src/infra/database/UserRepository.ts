@@ -52,16 +52,6 @@ export class UserRepository {
     });
   }
 
-  /**
-   * User and first portfolio are one nested write, which Prisma runs in a
-   * single transaction: a failure leaves neither behind. The unique index on
-   * email is the only authority on whether the address is free, so of
-   * concurrent sign-ups for one email exactly one succeeds and the others
-   * resolve to null; the other unique columns written (`users.id`,
-   * `portfolios.id`, and `portfolios.userId` with `nameKey`) hold ids generated
-   * by the same statement, so a violation can only mean the email. The session
-   * version is returned so the caller can issue the first token.
-   */
   async add(params: UserRepository.AddParams) {
     const { portfolio, ...account } = params;
     const hashedPassword = await this.bcrypt.hash(account.password);
@@ -111,10 +101,6 @@ export class UserRepository {
     });
   }
 
-  /**
-   * The increment is a single UPDATE, so concurrent callers serialize on the row
-   * lock and each receives a distinct version: at most one token per value.
-   */
   async rotateSessionVersion(id: string) {
     const { sessionVersion } = await this.prismaClient.user.update({
       where: { id },
@@ -125,12 +111,6 @@ export class UserRepository {
     return sessionVersion;
   }
 
-  /**
-   * The account and everything it holds go in one serializable transaction,
-   * dependents first, so neither a failure nor a concurrent write leaves an
-   * orphan behind. Every step matches rows by owner instead of requiring them to
-   * exist, so a concurrent deletion of the same account ends in the same state.
-   */
   async delete(id: string) {
     const ownedByUser = { portfolio: { userId: id } };
 
@@ -160,6 +140,9 @@ export class UserRepository {
       });
       await transactionClient.creditCard.deleteMany({ where: { userId: id } });
       await transactionClient.financeSettings.deleteMany({
+        where: { userId: id }
+      });
+      await transactionClient.financeNotificationMark.deleteMany({
         where: { userId: id }
       });
       await transactionClient.user.deleteMany({ where: { id } });

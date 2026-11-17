@@ -93,7 +93,7 @@ describe('authentication layout', () => {
       assert.match(brandClass, /(^|\s)text-foreground\/40(\s|$)/);
   });
 
-  it('paints the glow only with colours that both themes define', () => {
+  it('paints the glow and its glass only with colours that both themes define', () => {
     const stylesheet = readFileSync(
       new URL('../globals.css', import.meta.url),
       'utf8'
@@ -105,9 +105,14 @@ describe('authentication layout', () => {
 
       return stylesheet.slice(start, stylesheet.indexOf('}', start));
     };
-    const tokens = Array.from(
-      blockOf('@utility bg-brand-glow {').matchAll(/hsl\(var\((--[a-z-]+)\)/g),
-      ([, token]) => token
+    const tokens = [
+      '@utility bg-brand-glow {',
+      '@utility fluted-glass {'
+    ].flatMap((utility) =>
+      Array.from(
+        blockOf(utility).matchAll(/hsl\(var\((--[a-z-]+)\)/g),
+        ([, token]) => token
+      )
     );
 
     assert.ok(tokens.length > 0);

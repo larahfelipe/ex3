@@ -51,8 +51,6 @@ export default defineConfig(
       'no-console': ['error', { allow: ['error', 'warn'] }],
       'no-duplicate-imports': 'error',
       '@typescript-eslint/no-deprecated': 'error',
-      // Event handlers may return the promise of an awaited mutation; React
-      // ignores the value, so only the non-attribute checks are kept.
       '@typescript-eslint/no-misused-promises': [
         'error',
         { checksVoidReturn: { attributes: false } }
@@ -77,7 +75,6 @@ export default defineConfig(
         'warn',
         { fixStyle: 'inline-type-imports' }
       ],
-      // A scrollable region only reaches the keyboard when it is focusable.
       'jsx-a11y/no-noninteractive-tabindex': [
         'error',
         {
@@ -173,8 +170,6 @@ export default defineConfig(
     }
   },
   {
-    // Primitives forward `children` through props, so the content these rules
-    // look for is only visible at the call site.
     files: ['src/components/ui/**/*.tsx'],
     rules: {
       'jsx-a11y/anchor-has-content': 'off',

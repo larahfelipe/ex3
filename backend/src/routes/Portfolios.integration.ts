@@ -2142,7 +2142,6 @@ describe('portfolios', () => {
     const closedOn = (daysBefore: number) =>
       new Date(startOfToday.getTime() - daysBefore * DAY_MS);
 
-    /** Before the one-year window, which is at most 366 days long, and within the two weeks read before it. */
     const OPENING_DAYS_BEFORE = 370;
 
     const requestIndicators = (

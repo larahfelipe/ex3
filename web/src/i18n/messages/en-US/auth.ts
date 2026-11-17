@@ -17,7 +17,7 @@ export default {
     sessionExpired: 'Your session expired. Sign in again.',
     submit: 'Sign in',
     noAccount: "Don't have an account yet?",
-    createAccount: 'Create account',
+    createAccount: 'Sign up',
     welcome: 'Signed in as {name}'
   },
   signUp: {
@@ -38,10 +38,25 @@ export default {
     submit: 'Create account',
     welcome: 'Account created. Signed in as {name}'
   },
-  passwordRequirements: {
+  passwordStrength: {
+    label: 'Password strength',
+    levels: {
+      empty: 'Empty',
+      weak: 'Weak',
+      fair: 'Fair',
+      good: 'Good',
+      strong: 'Strong'
+    },
+    guessable: 'Commonly guessed',
     minLength: 'At least {min, number} characters',
     notEmail: "Doesn't contain your email",
-    item: '<hidden>{status, select, met {Met:} other {Not met:}} </hidden>{requirement}'
+    item: '<hidden>{status, select, met {Met:} other {Not met:}} </hidden>{requirement}',
+    announcement: {
+      level: 'Password strength: {level}.',
+      guessable: 'This is a commonly guessed pattern.',
+      allMet: 'All requirements met.',
+      missing: 'Requirements not met: {requirements}.'
+    }
   },
   signOut: {
     done: 'You signed out',

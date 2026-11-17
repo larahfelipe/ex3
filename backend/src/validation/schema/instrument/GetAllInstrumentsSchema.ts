@@ -7,7 +7,6 @@ import { PaginationQuerySchema } from '../PaginationQuerySchema';
 
 const CATALOG_SEARCH_PATTERN = /^[\p{L}\p{N} .&'-]+$/u;
 
-/** Letters, digits and name punctuation only, so no `ILIKE` wildcard reaches the query. */
 export const InstrumentSearchTermSchema = boundedTextSchema(
   'Search',
   InstrumentLimits.NAME_MAX_LENGTH
