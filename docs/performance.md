@@ -557,8 +557,8 @@ As in the sections above, nothing here was measured in a browser.
   own. `Wordmark` has no state or effect;
   the sidebar, a client component, takes it into its bundle as a few lines of
   JSX, which the route totals above were not measured again for.
-* **Icons as file conventions.** `app/favicon.ico` (8,406 bytes: 16, 32 and
-  48 px), `app/icon.svg` (3,447) and `app/apple-icon.png` (7,046) are built as
+* **Icons as file conventions.** `app/favicon.ico` (7,116 bytes: 16, 32 and
+  48 px), `app/icon.svg` (2,812) and `app/apple-icon.png` (7,089) are built as
   static routes, in place of `public/favicon.png` (7,894 bytes, linked
   relatively, so it missed on nested routes); a browser that takes SVG icons
   can skip the ICO. The tile's gradient is what weighs: the touch icon is a
