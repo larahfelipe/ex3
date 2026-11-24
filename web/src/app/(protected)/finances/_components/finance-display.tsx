@@ -1,14 +1,26 @@
-import type { ComponentProps, FC } from 'react';
+import {
+  useId,
+  useState,
+  type ComponentProps,
+  type FC,
+  type ReactNode
+} from 'react';
 
 import Link from 'next/link';
 
 import {
+  ArrowRight,
   Ban,
+  CalendarClock,
   CircleAlert,
   CircleCheck,
   CircleDot,
   CircleStop,
   Clock,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Undo2,
   type LucideIcon
 } from 'lucide-react';
 import { useTranslations } from 'use-intl';
@@ -18,6 +30,7 @@ import type {
   ExpenseCategory,
   ExpenseStatus,
   FinanceEvent,
+  FinanceEventType,
   InstallmentPlanStatus,
   PaymentMethod,
   RecurringExpenseStatus
@@ -30,8 +43,10 @@ import {
   RECURRING_EXPENSE_STATUS_TONES,
   RETIRED_EXPENSE_CATEGORIES
 } from '@/common/constants';
-import { TruncatedText } from '@/components/ui';
+import { Money } from '@/components/financial';
+import { Button, TruncatedText } from '@/components/ui';
 import { useFormat, type Format } from '@/i18n/format';
+import { srOnly } from '@/i18n/rich-text';
 import type { Translator } from '@/i18n/translator';
 import { daysBetween } from '@/lib/dates';
 import { isStorableDecimal } from '@/lib/decimal';
@@ -218,6 +233,52 @@ export const dueDistanceOf = (
 export const isOpenExpense = ({ status }: Pick<Expense, 'status'>) =>
   status === 'PENDING' || status === 'OVERDUE';
 
+export const NextPayment: FC<
+  Record<'expense', Expense> &
+    Record<'today', string> &
+    Record<'shownDueDate', string | null> &
+    Record<'payLabel', ReactNode> &
+    Record<'onPay', VoidFunction>
+> = ({ expense, today, shownDueDate, payLabel, onPay }) => {
+  const t = useTranslations('finances');
+  const { dueDate, outstandingAmount, currency, status } = expense;
+  const distance = dueDistanceOf(dueDate, today, t);
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+      <div className="min-w-0 space-y-1">
+        <p className="text-sm text-muted-foreground">{t('display.toPay')}</p>
+
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="font-semibold tabular-nums">
+            <Money value={outstandingAmount} currency={currency} />
+          </span>
+
+          {dueDate !== shownDueDate && (
+            <span
+              className={cn(
+                'text-sm',
+                status === 'OVERDUE' ? 'text-negative' : 'text-muted-foreground'
+              )}
+            >
+              {t.rich('display.toPayDue', {
+                day: () => <CalendarDayText day={dueDate} />,
+                distance: distance ?? 'none'
+              })}
+            </span>
+          )}
+
+          <ExpenseStatusBadge status={status} />
+        </p>
+      </div>
+
+      <Button size="sm" className="max-sm:w-full" onClick={onPay}>
+        {payLabel}
+      </Button>
+    </div>
+  );
+};
+
 const ROW_LINK_CLASS =
   'block rounded-sm font-semibold ring-offset-background wrap-anywhere after:absolute after:inset-0 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2';
 
@@ -319,12 +380,33 @@ const isChangeEntry = (value: unknown): value is ChangeEntry =>
 
 const countOf = (value: unknown) => (Array.isArray(value) ? value.length : 0);
 
-export const describeEvent = (
+type ChangeRow = Record<'field' | 'label' | 'from' | 'to', string>;
+
+type EventDetails = Record<'changes', Array<ChangeRow>> &
+  Record<'fromDay' | 'summary', string | null>;
+
+const EVENT_PREVIEW_COUNT = 4;
+
+const EVENT_MARKERS: Record<
+  FinanceEventType,
+  Record<'icon', LucideIcon> & Record<'tone', string>
+> = {
+  CREATED: { icon: Plus, tone: 'text-foreground' },
+  UPDATED: { icon: Pencil, tone: 'text-foreground' },
+  CANCELLED: { icon: Ban, tone: 'text-muted-foreground' },
+  RESTORED: { icon: RotateCcw, tone: 'text-info' },
+  PAYMENT_RECORDED: { icon: CircleCheck, tone: 'text-positive' },
+  PAYMENT_CORRECTED: { icon: Pencil, tone: 'text-info' },
+  PAYMENT_VOIDED: { icon: Undo2, tone: 'text-negative' },
+  RESCHEDULED: { icon: CalendarClock, tone: 'text-info' }
+};
+
+export const eventDetailsOf = (
   { type, changes }: Pick<FinanceEvent, 'type' | 'changes'>,
   currency: string,
   t: FinancesTranslator,
   format: Format
-) => {
+): EventDetails => {
   const recordedText = (field: string, value: unknown) =>
     recordedTextOf(field, value, currency, t, format);
   const fromDay =
@@ -335,21 +417,17 @@ export const describeEvent = (
     isChangeEntry(change)
   ) as Array<[string, ChangeEntry]>;
 
-  if (changedFields.length > 0) {
-    const changesText = changedFields
-      .map(([field, { from, to }]) =>
-        t('history.change', {
-          field: isChangedField(field) ? t(`changedFields.${field}`) : field,
-          from: recordedText(field, from),
-          to: recordedText(field, to)
-        })
-      )
-      .join('; ');
-
-    return fromDay === null
-      ? changesText
-      : t('history.changesFrom', { changes: changesText, day: fromDay });
-  }
+  if (changedFields.length > 0)
+    return {
+      changes: changedFields.map(([field, { from, to }]) => ({
+        field,
+        label: isChangedField(field) ? t(`changedFields.${field}`) : field,
+        from: recordedText(field, from),
+        to: recordedText(field, to)
+      })),
+      fromDay,
+      summary: null
+    };
 
   const {
     amount,
@@ -360,69 +438,192 @@ export const describeEvent = (
     cancelledOccurrences
   } = changes;
 
-  if (type.startsWith('PAYMENT_') && typeof amount === 'string')
-    return typeof paidOn === 'string'
-      ? t('history.paidOn', {
-          amount: recordedText('amount', amount),
-          day: recordedText('paidOn', paidOn)
-        })
-      : t('history.paid', { amount: recordedText('amount', amount) });
+  const summaryOf = () => {
+    if (type.startsWith('PAYMENT_') && typeof amount === 'string')
+      return typeof paidOn === 'string'
+        ? t('history.paidOn', {
+            amount: recordedText('amount', amount),
+            day: recordedText('paidOn', paidOn)
+          })
+        : t('history.paid', { amount: recordedText('amount', amount) });
 
-  if (type === 'RESCHEDULED' && Array.isArray(scheduled))
-    return t('history.rescheduled', {
-      replaced: countOf(replaced),
-      scheduled: countOf(scheduled)
-    });
+    if (type === 'RESCHEDULED' && Array.isArray(scheduled))
+      return t('history.rescheduled', {
+        replaced: countOf(replaced),
+        scheduled: countOf(scheduled)
+      });
 
-  if (type === 'CANCELLED' && fromDay !== null)
-    return t('history.stopped', {
-      day: fromDay,
-      dropped: countOf(removedOccurrences) + countOf(cancelledOccurrences)
-    });
+    if (type === 'CANCELLED' && fromDay !== null)
+      return t('history.stopped', {
+        day: fromDay,
+        dropped: countOf(removedOccurrences) + countOf(cancelledOccurrences)
+      });
 
-  return null;
+    return null;
+  };
+
+  return { changes: [], fromDay: null, summary: summaryOf() };
+};
+
+export const describeEvent = (
+  event: Pick<FinanceEvent, 'type' | 'changes'>,
+  currency: string,
+  t: FinancesTranslator,
+  format: Format
+) => {
+  const { changes, fromDay, summary } = eventDetailsOf(
+    event,
+    currency,
+    t,
+    format
+  );
+
+  if (changes.length === 0) return summary;
+
+  const changesText = changes
+    .map(({ label, from, to }) =>
+      t('history.change', { field: label, from, to })
+    )
+    .join('; ');
+
+  return fromDay === null
+    ? changesText
+    : t('history.changesFrom', { changes: changesText, day: fromDay });
+};
+
+const EventChanges: FC<Record<'changes', Array<ChangeRow>>> = ({ changes }) => {
+  const t = useTranslations('finances.history');
+
+  return (
+    <dl className="space-y-1 text-sm">
+      {changes.map(({ field, label, from, to }) => (
+        <div key={field} className="flex flex-wrap gap-x-2">
+          <dt className="text-muted-foreground first-letter:uppercase">
+            {label}
+          </dt>
+
+          <dd className="min-w-0 wrap-anywhere">
+            {t.rich('changeValue', {
+              from: () => <span className="text-muted-foreground">{from}</span>,
+              to: () => <span className="font-medium">{to}</span>,
+              arrow: () => (
+                <ArrowRight
+                  aria-hidden="true"
+                  className="mx-1 inline size-3.5 align-[-0.125em] text-muted-foreground"
+                />
+              ),
+              hidden: srOnly
+            })}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+};
+
+const HistoryEntry: FC<
+  Record<'event', FinanceEvent> &
+    Record<'currency', string> &
+    Record<'isLast', boolean>
+> = ({ event, currency, isLast }) => {
+  const t = useTranslations('finances');
+  const format = useFormat();
+  const { changes, fromDay, summary } = eventDetailsOf(
+    event,
+    currency,
+    t,
+    format
+  );
+  const { icon: Icon, tone } = EVENT_MARKERS[event.type];
+
+  return (
+    <li className="relative grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-3 pb-4 last:pb-0">
+      {!isLast && (
+        <span
+          aria-hidden="true"
+          className="absolute top-7 bottom-1 left-3 w-px -translate-x-1/2 bg-border"
+        />
+      )}
+
+      <span
+        aria-hidden="true"
+        className="flex size-6 items-center justify-center rounded-full border bg-surface-elevated"
+      >
+        <Icon className={cn('size-3.5', tone)} />
+      </span>
+
+      <div className="min-w-0 space-y-1 pt-0.5">
+        <p className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
+          <span className="font-medium">{t(`events.${event.type}`)}</span>
+
+          <time
+            dateTime={event.createdAt}
+            className="text-xs text-muted-foreground tabular-nums"
+          >
+            {format.formatExecutionDay(event.createdAt)}
+          </time>
+        </p>
+
+        {changes.length > 0 && <EventChanges changes={changes} />}
+
+        {fromDay !== null && (
+          <p className="text-xs text-muted-foreground">
+            {t('history.effectiveFrom', { day: fromDay })}
+          </p>
+        )}
+
+        {summary !== null && (
+          <p className="text-sm text-muted-foreground wrap-anywhere">
+            {summary}
+          </p>
+        )}
+      </div>
+    </li>
+  );
 };
 
 export const FinanceHistory: FC<
   Record<'events', ReadonlyArray<FinanceEvent>> & Record<'currency', string>
 > = ({ events, currency }) => {
-  const t = useTranslations('finances');
-  const format = useFormat();
+  const t = useTranslations('finances.history');
+  const listId = useId();
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  return events.length === 0 ? (
-    <p className="text-sm text-muted-foreground">{t('history.empty')}</p>
-  ) : (
-    <ol className="space-y-3 border-l pl-4">
-      {events.map((event) => {
-        const description = describeEvent(event, currency, t, format);
+  if (events.length === 0)
+    return <p className="text-sm text-muted-foreground">{t('empty')}</p>;
 
-        return (
-          <li key={event.id} className="relative space-y-0.5">
-            <span
-              aria-hidden="true"
-              className="absolute top-1.5 -left-[1.3125rem] size-2 rounded-full bg-muted-foreground"
-            />
+  const canFold = events.length > EVENT_PREVIEW_COUNT + 1;
+  const shownEvents =
+    canFold && !isExpanded ? events.slice(0, EVENT_PREVIEW_COUNT) : events;
 
-            <p className="text-sm font-medium">
-              {t(`events.${event.type}`)}
+  return (
+    <div className="space-y-3">
+      <ol id={listId}>
+        {shownEvents.map((event, index) => (
+          <HistoryEntry
+            key={event.id}
+            event={event}
+            currency={currency}
+            isLast={index === shownEvents.length - 1}
+          />
+        ))}
+      </ol>
 
-              <span className="font-normal text-muted-foreground">
-                {' · '}
-
-                <time dateTime={event.createdAt}>
-                  {format.formatExecutionDay(event.createdAt)}
-                </time>
-              </span>
-            </p>
-
-            {description !== null && (
-              <p className="text-sm text-muted-foreground wrap-anywhere">
-                {description}
-              </p>
-            )}
-          </li>
-        );
-      })}
-    </ol>
+      {canFold && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          aria-expanded={isExpanded}
+          aria-controls={listId}
+          className="ml-6 text-muted-foreground"
+          onClick={() => setIsExpanded((expanded) => !expanded)}
+        >
+          {isExpanded
+            ? t('showLatest', { count: EVENT_PREVIEW_COUNT })
+            : t('showAll', { count: events.length })}
+        </Button>
+      )}
+    </div>
   );
 };

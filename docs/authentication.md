@@ -204,6 +204,10 @@ End to end, against the database and through the HTTP API, in
   applies the policy and is bounded by the account-change throttling;
 * **profile:** the caller receives their own profile, not another account's,
   with no credential columns and no `isAdmin`;
+* **language:** a supported language saved with the names and the session
+  kept, then returned with the profile and at sign-in; an unsupported one
+  (`en`, `pt-PT`, `en-us`, empty, `null`, a number) refused with the saved one
+  kept; a change without one keeping it;
 * **user listing:** an admin receives the list with no credential columns; a
   non-admin receives 403;
 * **protected routes:** anonymous rejection on all of them.

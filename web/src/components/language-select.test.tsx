@@ -6,6 +6,7 @@ import {
   type AppRouterInstance
 } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { useTranslations } from 'use-intl';
@@ -34,7 +35,9 @@ const localeSwitchOf = (
 
 const withLocaleSwitch = (localeSwitch: LocaleSwitch, node: ReactNode) =>
   renderWithIntl(
-    <LocaleSwitchContext value={localeSwitch}>{node}</LocaleSwitchContext>,
+    <QueryClientProvider client={new QueryClient()}>
+      <LocaleSwitchContext value={localeSwitch}>{node}</LocaleSwitchContext>
+    </QueryClientProvider>,
     localeSwitch.locale
   );
 
@@ -153,19 +156,21 @@ const appIn = (locale: Locale) =>
   renderToStaticMarkup(
     <AppRouterContext value={ROUTER}>
       <LocaleProvider locale={locale} messages={MESSAGES[locale]}>
-        {navigationTrigger}
+        <QueryClientProvider client={new QueryClient()}>
+          {navigationTrigger}
 
-        <LanguageSelect />
+          <LanguageSelect />
 
-        <Formatted />
+          <Formatted />
 
-        <CurrencyAmountInput
-          value="1234.5"
-          currency="BRL"
-          decimals={2}
-          onValueChange={() => undefined}
-          onRejectedPaste={() => undefined}
-        />
+          <CurrencyAmountInput
+            value="1234.5"
+            currency="BRL"
+            decimals={2}
+            onValueChange={() => undefined}
+            onRejectedPaste={() => undefined}
+          />
+        </QueryClientProvider>
       </LocaleProvider>
     </AppRouterContext>
   );

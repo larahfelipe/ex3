@@ -61,7 +61,11 @@ const DialogContent = ({
       <DialogPrimitive.Content
         {...focusReturn}
         inert={isClosing}
-        className={cn(DIALOG_CONTENT_CLASS, 'overflow-hidden', className)}
+        className={cn(
+          DIALOG_CONTENT_CLASS,
+          'group/dialog overflow-hidden',
+          className
+        )}
         onPointerDownOutside={(event) => {
           if (hasUnsavedChanges) event.preventDefault();
 
@@ -93,19 +97,29 @@ const DialogContent = ({
 const DialogHeader = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
     className={cn(
-      'flex shrink-0 flex-col space-y-1.5 px-5 pt-5 text-center sm:text-left',
+      'flex shrink-0 flex-col space-y-1.5 border-b border-transparent px-5 pt-5 pb-3 text-center transition-colors group-has-[[data-scrolled]]/dialog:border-border sm:text-left',
       className
     )}
     {...props}
   />
 );
 
-const DialogBody = ({ className, ...props }: React.ComponentProps<'div'>) => (
+const DialogBody = ({
+  className,
+  onScroll,
+  ...props
+}: React.ComponentProps<'div'>) => (
   <div
     className={cn(
-      'grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto overscroll-contain px-5 py-4',
+      'grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto overscroll-contain px-5 pt-3 pb-4',
       className
     )}
+    onScroll={(event) => {
+      const body = event.currentTarget;
+
+      body.toggleAttribute('data-scrolled', body.scrollTop > 0);
+      onScroll?.(event);
+    }}
     {...props}
   />
 );

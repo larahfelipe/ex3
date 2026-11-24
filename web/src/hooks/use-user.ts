@@ -1,3 +1,5 @@
+import { createElement } from 'react';
+
 import { useRouter } from 'next/navigation';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -18,9 +20,11 @@ import type {
   ChangePasswordRequestPayload,
   GetCurrentUserResponseData,
   UpdateCurrentUserResponseData,
+  UpdateLocaleRequestPayload,
   UpdateProfileRequestPayload
 } from '@/app/api/v1/user';
 import { APP_ROUTES } from '@/common/constants';
+import { isSupportedLocale, type Locale } from '@/i18n/config';
 import api, { type ApiProxyErrorData } from '@/lib/axios';
 import {
   botChallengeHeaders,
@@ -28,6 +32,7 @@ import {
 } from '@/lib/bot-challenge';
 import { fullName } from '@/lib/person-name';
 import { queryKeys } from '@/lib/react-query';
+import { useLocaleSwitch } from '@/providers/locale-provider';
 import type { Maybe } from '@/types';
 
 import { selectActivePortfolio } from './use-portfolio';
@@ -53,9 +58,12 @@ const useLeaveSession = () => {
   };
 };
 
+const SignInWelcome = ({ name }: Record<'name', string>) =>
+  useTranslations('auth.signIn')('welcome', { name });
+
 export const useSignIn = (destination: string) => {
   const router = useRouter();
-  const t = useTranslations('auth.signIn');
+  const { switchLocale } = useLocaleSwitch();
 
   return useMutation<
     AxiosResponse<SignInResponseData>,
@@ -66,8 +74,15 @@ export const useSignIn = (destination: string) => {
       api.getInstance().post('/v1/sign-in', payload, {
         headers: botChallengeHeaders(challengeToken)
       }),
-    onSuccess: ({ data: userData }) => {
-      toast.success(t('welcome', { name: userData.name ?? userData.email }));
+    onSuccess: async ({ data: userData }) => {
+      if (isSupportedLocale(userData.locale))
+        await switchLocale(userData.locale).catch(() => undefined);
+
+      toast.success(
+        createElement(SignInWelcome, {
+          name: userData.name ?? userData.email
+        })
+      );
       router.push(destination);
     }
   });
@@ -155,6 +170,29 @@ export const useUpdateProfile = () => {
       );
       toast.success(t('saved'));
     }
+  });
+};
+
+const LOCALE_SAVES = { id: 'user-locale' };
+
+export const useSaveLocale = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    AxiosResponse<UpdateCurrentUserResponseData>,
+    ApiProxyErrorData,
+    Locale
+  >({
+    scope: LOCALE_SAVES,
+    mutationFn: (locale) =>
+      api
+        .getInstance()
+        .patch('/v1/user', { locale } satisfies UpdateLocaleRequestPayload),
+    onSuccess: ({ data }) =>
+      queryClient.setQueryData<CurrentUserResponse>(
+        queryKeys.currentUser(),
+        (current) => current && { ...current, data: { user: data.user } }
+      )
   });
 };
 

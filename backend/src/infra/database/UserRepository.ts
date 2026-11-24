@@ -75,12 +75,13 @@ export class UserRepository {
   }
 
   async update(params: UserRepository.UpdateParams) {
-    const { id, names, password } = params;
+    const { id, names, locale, password } = params;
 
     return this.prismaClient.user.update({
       where: { id },
       data: {
         ...names,
+        ...(locale && { locale }),
         ...(password && {
           password: await this.bcrypt.hash(password),
           sessionVersion: { increment: 1 }
@@ -158,6 +159,7 @@ namespace UserRepository {
     Record<'portfolio', Pick<Portfolio, 'name' | 'baseCurrency'>>;
   export type UpdateParams = Pick<User, 'id'> & {
     names: Pick<User, 'name' | 'firstName' | 'lastName'> | null;
+    locale: User['locale'];
     password: string | null;
   };
 }

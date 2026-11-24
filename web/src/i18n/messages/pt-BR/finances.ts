@@ -117,6 +117,9 @@ export default {
     creditCard: 'cartão'
   },
   display: {
+    toPay: 'A pagar',
+    toPayDue:
+      'Vencimento <day></day>{distance, select, none {} other { · {distance}}}',
     installmentsPaid: 'Parcelas pagas',
     progress: '{paid, number} de {count, number} pagas',
     installmentOf: 'Parcela {number, number} de {count, number}',
@@ -130,6 +133,12 @@ export default {
     yes: 'sim',
     no: 'não',
     change: '{field}: {from} → {to}',
+    changeValue:
+      '<from></from><hidden> passou para </hidden><arrow></arrow><to></to>',
+    effectiveFrom: 'Vale a partir de {day}',
+    showAll: 'Mostrar {count, plural, one {o # evento} other {os # eventos}}',
+    showLatest:
+      'Mostrar só {count, plural, one {o mais recente} other {os # mais recentes}}',
     card: '{name} final {lastFour}',
     changesFrom: '{changes}, a partir de {day}',
     paid: '{amount} pago',

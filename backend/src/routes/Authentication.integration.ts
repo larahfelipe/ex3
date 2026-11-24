@@ -988,6 +988,7 @@ describe('authentication', () => {
           firstName: stored.firstName,
           lastName: stored.lastName,
           email: stored.email,
+          locale: null,
           createdAt: stored.createdAt.toISOString(),
           updatedAt: stored.updatedAt.toISOString()
         }
@@ -1092,6 +1093,80 @@ describe('authentication', () => {
         firstName: 'Fixture',
         lastName: 'Holder'
       });
+    });
+  });
+
+  describe('language preference', () => {
+    const signInFixtureUser = async () => {
+      const { user } = await seedPortfolio();
+
+      return signIn({ email: user.email, password: FIXTURE_PASSWORD });
+    };
+
+    const changeAccount = async (accessToken: string, change: object) =>
+      client.patch(ACCOUNT_ROUTE).set(bearer(accessToken)).send(change);
+
+    const storedLocale = async () =>
+      (
+        await prismaClient.user.findUniqueOrThrow({
+          where: { email: FIXTURE_USER_EMAIL },
+          select: { locale: true }
+        })
+      ).locale;
+
+    it('saves a supported language, keeps the names and the session, and returns it with the profile', async () => {
+      const accessToken = await signInFixtureUser();
+
+      const res = await changeAccount(accessToken, { locale: 'en-US' });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.user.locale, 'en-US');
+      assert.equal(res.body.user.name, 'Fixture Holder');
+      assert.equal(await storedLocale(), 'en-US');
+
+      const profile = await client.get(ACCOUNT_ROUTE).set(bearer(accessToken));
+
+      assert.equal(profile.status, 200);
+      assert.equal(profile.body.user.locale, 'en-US');
+    });
+
+    it('returns the saved language when signing in', async () => {
+      const accessToken = await signInFixtureUser();
+      await changeAccount(accessToken, { locale: 'en-US' });
+
+      const res = await client
+        .post(SIGN_IN_ROUTE)
+        .send({ email: FIXTURE_USER_EMAIL, password: FIXTURE_PASSWORD });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.locale, 'en-US');
+    });
+
+    it('rejects a language the web does not offer and keeps the saved one', async () => {
+      const accessToken = await signInFixtureUser();
+      await changeAccount(accessToken, { locale: 'pt-BR' });
+
+      for (const locale of ['en', 'pt-PT', 'en-us', '', null, 1]) {
+        const res = await changeAccount(accessToken, { locale });
+
+        assert.equal(res.status, Errors.VALIDATION.status);
+        assert.deepEqual(res.body.details, [
+          { path: 'locale', message: 'Locale must be one of pt-BR, en-US' }
+        ]);
+      }
+
+      assert.equal(await storedLocale(), 'pt-BR');
+    });
+
+    it('keeps the saved language when a change carries none', async () => {
+      const accessToken = await signInFixtureUser();
+      await changeAccount(accessToken, { locale: 'en-US' });
+
+      const res = await changeAccount(accessToken, { firstName: 'Ana' });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.user.locale, 'en-US');
+      assert.equal(await storedLocale(), 'en-US');
     });
   });
 

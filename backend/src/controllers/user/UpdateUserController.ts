@@ -25,7 +25,7 @@ export class UpdateUserController implements Controller {
   async handle(req: ControllerRequest, res: Response) {
     const { user, body } = req;
 
-    const { firstName, lastName, passwordChange } = await validate(
+    const { firstName, lastName, locale, passwordChange } = await validate(
       UpdateUserSchema,
       body
     );
@@ -34,6 +34,7 @@ export class UpdateUserController implements Controller {
       user,
       firstName,
       lastName,
+      locale,
       passwordChange
     });
 

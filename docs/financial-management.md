@@ -505,11 +505,18 @@ payment goes through `POST /api/v1/finances/expenses/[id]/payments/create`.
   holds a value, as on edit, or reports an error is shown from the start, and
   removing one clears it.
 * *Add bill*, on the overview and the bills page, can repeat the bill: turned
-  on, it shows the frequency, whether the amount is fixed or variable, the end
-  and the first due dates in place, and saves a recurring expense whose first
-  bill is due on the bill's due date. Turned off, it saves a one-time bill and
-  keeps what was chosen for the recurrence in case it is turned on again. The
-  *Recurring* page still creates series on its own.
+  on, the *Repeat this bill* card opens below its switch onto the frequency,
+  whether the amount is fixed or variable, the end and the preview, and the
+  form saves a recurring expense whose first bill is due on the bill's due
+  date. Turned off, it saves a one-time bill and keeps what was chosen for the
+  recurrence in case it is turned on again. The order is the essentials, then
+  the repeat card, then "More details". The *Recurring* page still creates
+  series on its own.
+* The recurrence preview, in both forms, states the rule in words — "Every
+  month from 30/11/2026, with no end date", or "… until" the end — and lists
+  the first three bills' dates, with an ellipsis when more follow. It
+  updates as the frequency, the start or the end changes, and is announced
+  politely.
 * The plan form shows, as the fields change, the installments, the total
   payable, the first and last due dates and the difference from the cash
   price. The payment form dates the payment today, offers the due date in one
@@ -558,12 +565,32 @@ payment goes through `POST /api/v1/finances/expenses/[id]/payments/create`.
 * The bills list keeps search, status and sort in view, folds the rarer
   filters into a panel, shows each filter in force as a removable chip, and
   offers *Pay* on each open bill.
+* **Record dialogs** share one layout: a summary panel with the figures that
+  matter first, then titled sections divided by a rule (`DetailSection`),
+  then the history. The header gains a rule once the body scrolls.
 * **A bill's dialog** leads with a summary panel: the amount, with what is
   still owed and what was paid when partly paid, or the day it was paid in
-  full; and the due date, with how far it is (red when overdue) and, on a
-  card, the bill's own date. *Details* follows, with the payment method (a
-  dash when none), the card, the category and subcategory, and the account and
-  notes only when given. Payments and history come after.
+  full; the due date, with how far it is (red when overdue) and, on a card,
+  the bill's own date; the category and subcategory; and the payment method
+  (a dash when none), with the card beneath it. *Payments* follows, then
+  *Details* with the account and notes, only when given, then the history.
+* **A series' dialog** leads with the amount per period (or the estimate, for
+  a variable one, with about how much per month when not monthly) and the
+  next bill. Beneath them, *To pay* shows the earliest bill still open —
+  overdue ones included — with what it still owes, its status and a *Pay*
+  button; it repeats the due date only when it is not the next bill already
+  shown. *Bills* (upcoming or earlier), *Configuration* (frequency, amount
+  type, period, category, payment method and card, and the account and notes
+  when given) and the history follow.
+* **A plan's dialog** leads with what is still owed (and what was paid of the
+  total), the next installment ("n of N", how far it is), the progress bar
+  and the same *To pay* strip for the next open installment. *Installments*,
+  *Details* (total, schedule, cash price and the difference, category,
+  payment method and card, account and notes) and the history follow.
+* **History** is a timeline, newest first: each event with its icon, name
+  and date, and each changed field as what it was and what it became, read
+  aloud as "changed to". An edit from a date says from when it applies.
+  Beyond five events, the latest four show and a button shows the rest.
 * **Actions on a record** follow one layout in the bill, plan, series and
   transaction dialogs (`DialogActionFooter`): edit and delete as icon buttons
   at the start, each with a tooltip and a name that says what it acts on; the

@@ -264,7 +264,7 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
             className="min-w-0 space-y-3"
             onSubmit={submitChoice}
           >
-            <div className="space-y-2">
+            <div className="sticky -top-3 z-10 -mx-5 -mt-3 space-y-2 border-b border-transparent bg-surface-elevated px-5 pt-3 pb-3 transition-colors group-has-[[data-scrolled]]/dialog:border-border">
               <Label htmlFor={searchId}>{t('search')}</Label>
 
               <Input
@@ -340,10 +340,10 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
               <fieldset aria-busy={isAwaitingResults} className="min-w-0">
                 <legend className="sr-only">{t('results')}</legend>
 
-                <ul className="max-h-64 divide-y overflow-y-auto rounded-md border">
+                <ul className="divide-y overflow-hidden rounded-lg border">
                   {choices.map((choice) => (
                     <li key={choice.key}>
-                      <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/50 has-checked:bg-muted/70">
+                      <label className="flex min-h-14 cursor-pointer items-center gap-3 px-3 py-2.5 text-sm transition-colors hover:bg-muted/50 has-checked:bg-primary/10 has-checked:shadow-[inset_3px_0_0_var(--color-primary)]">
                         <input
                           type="radio"
                           name={formId}
@@ -353,20 +353,26 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
                           onChange={() => chooseInstrument(choice.key)}
                         />
 
-                        <span className="font-medium">{choice.symbol}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-2">
+                            <span className="font-semibold">
+                              {choice.symbol}
+                            </span>
 
-                        <TruncatedText className="min-w-0 flex-1 truncate text-muted-foreground">
-                          {choice.name}
-                        </TruncatedText>
-
-                        {choice.badge !== null && (
-                          <span className="shrink-0 rounded-sm border px-1.5 text-xs text-muted-foreground">
-                            {choice.badge}
+                            {choice.badge !== null && (
+                              <span className="shrink-0 rounded-sm border px-1.5 text-xs text-muted-foreground">
+                                {choice.badge}
+                              </span>
+                            )}
                           </span>
-                        )}
+
+                          <TruncatedText className="block truncate text-muted-foreground">
+                            {choice.name}
+                          </TruncatedText>
+                        </span>
 
                         {choice.venue !== null && (
-                          <span className="shrink-0 text-xs text-muted-foreground">
+                          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                             {choice.venue}
                           </span>
                         )}
@@ -404,7 +410,9 @@ export const AddAssetDialog: FC<AddAssetDialogProps> = ({
           </Button>
 
           <SubmitButton form={formId} isPending={isSubmitting}>
-            {t('submit')}
+            {selectedChoice === null
+              ? t('submit')
+              : t('submitNamed', { symbol: selectedChoice.symbol })}
           </SubmitButton>
         </DialogFooter>
       </DialogContent>

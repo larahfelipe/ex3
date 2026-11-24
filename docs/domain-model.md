@@ -26,7 +26,7 @@ User
 
 | Entity | Responsibility | Owner | Identity |
 | --- | --- | --- | --- |
-| `User` | Identity, name, credentials and session. | — | `id`; unique `email` |
+| `User` | Identity, name, language, credentials and session. | — | `id`; unique `email` |
 | `Portfolio` | Groups a user's ledger and positions under a base currency. It is the access boundary: every financial resource is resolved through the authenticated user's portfolio. | a `User`, who may have several | `id`; unique `(userId, nameKey)` |
 | `Instrument` | The tradable market asset: stock, ETF, fund, REIT, crypto, bond, cash. From the global catalog, shared by every user, or private to whoever registered it. | none in the catalog; a `User` when private | `(ownerId, symbol)`, with the catalog counted as a single owner |
 | `Transaction` | A financial event of a portfolio over an instrument. The source of truth of every movement. | a `Portfolio` | `id` |
@@ -49,6 +49,12 @@ neither. A change that carries one part keeps the other.
 its account's `firstName`, with no `lastName`: no split is right for every name,
 and the full name read from it is the one the account already had. The person
 can split it on the account screen.
+
+**A language of its own.** `locale` holds the interface language the person
+last picked, `pt-BR` or `en-US` (`domain/Locale.ts`, the web's `LOCALES`), and
+`null` until they pick one; sign-up sets none. A change that carries none keeps
+it, and nothing clears it. The web applies it at sign-in; see
+[`i18n.md`](i18n.md#the-accounts-language).
 
 ## Portfolio
 

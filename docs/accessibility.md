@@ -106,6 +106,7 @@ browser's default. The measured ratios are in §Measured contrast.
 | D3 | A destructive confirmation uses `AlertDialog`, with the destructive action labelled by its effect | 3.3.4 · asset and transaction deletion |
 | D4 | Closing by Esc, by the overlay and by the button leads to the same state | 2.1.2 · manual test |
 | D5 | No dialog opens another stacked dialog, except the edit and deletion that start from the transaction detail: they open on top of it so that cancelling returns to the detail with focus on the originating button | 2.4.3 · the asset → transaction flow closes the first before opening the second; `transactions-table.tsx` |
+| D6 | A record dialog's sections are `section`s labelled by their `h3` (`DetailSection`), after a summary panel in a `dl`; the history's field changes read as "what it was changed to what it became", with the arrow hidden from the screen reader, and its *Show all* button carries `aria-expanded` and `aria-controls` | 1.3.1, 4.1.2 · `detail-section.tsx`, `FinanceHistory` in `finance-display.tsx` |
 
 ## 7. Dynamic content
 

@@ -16,6 +16,14 @@ import {
 } from '@/common/constants';
 import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
 import { ErrorState, LoadingState } from '@/components/data-state';
+import {
+  DetailSection,
+  FACT_LIST_CLASS,
+  FACT_VALUE_CLASS,
+  SUMMARY_DETAIL_CLASS,
+  SUMMARY_PANEL_CLASS,
+  SUMMARY_VALUE_CLASS
+} from '@/components/detail-section';
 import { Metric, Money, UnavailableValue } from '@/components/financial';
 import {
   Button,
@@ -67,11 +75,6 @@ type BillDetailsProps = Record<'expense', ExpenseDetail> &
   Record<'onRestore', () => Promise<unknown>> &
   Record<'isRestoring', boolean> &
   Record<'restoreError', string | null>;
-
-const SUMMARY_VALUE_CLASS = 'text-xl font-semibold tracking-tight tabular-nums';
-
-const SUMMARY_DETAIL_CLASS =
-  'block text-sm font-normal tracking-normal text-muted-foreground';
 
 const isActivePayment = ({ voidedAt }: Pick<ExpensePayment, 'voidedAt'>) =>
   voidedAt === null;
@@ -165,9 +168,7 @@ export const BillSummary: FC<Record<'expense', Expense>> = ({ expense }) => {
     category,
     subcategory,
     paymentMethod,
-    creditCard,
-    account,
-    notes
+    creditCard
   } = expense;
 
   const isOpen = isOpenExpense(expense);
@@ -175,106 +176,105 @@ export const BillSummary: FC<Record<'expense', Expense>> = ({ expense }) => {
   const isPartlySettled = isOpen && isNonzeroDecimal(settledAmount);
 
   return (
-    <>
-      <dl className="grid gap-4 rounded-lg border bg-muted/30 p-4 sm:grid-cols-2">
-        <Metric label={t('amount')} valueClassName={SUMMARY_VALUE_CLASS}>
-          <Money value={amount} currency={currency} />
+    <dl className={cn(SUMMARY_PANEL_CLASS, 'sm:grid-cols-2')}>
+      <Metric label={t('amount')} valueClassName={SUMMARY_VALUE_CLASS}>
+        <Money value={amount} currency={currency} />
 
-          {isPartlySettled && (
-            <span className={SUMMARY_DETAIL_CLASS}>
-              {t('partlySettled', {
-                outstanding: formatMoney(outstandingAmount, currency),
-                settled: formatMoney(settledAmount, currency)
-              })}
-            </span>
-          )}
+        {isPartlySettled && (
+          <span className={SUMMARY_DETAIL_CLASS}>
+            {t('partlySettled', {
+              outstanding: formatMoney(outstandingAmount, currency),
+              settled: formatMoney(settledAmount, currency)
+            })}
+          </span>
+        )}
 
-          {settledOn !== null && (
-            <span className={SUMMARY_DETAIL_CLASS}>
-              {t.rich('settledOn', {
-                day: () => <CalendarDayText day={settledOn} />
-              })}
-            </span>
-          )}
-        </Metric>
+        {settledOn !== null && (
+          <span className={SUMMARY_DETAIL_CLASS}>
+            {t.rich('settledOn', {
+              day: () => <CalendarDayText day={settledOn} />
+            })}
+          </span>
+        )}
+      </Metric>
 
-        <Metric
-          label={creditCard === null ? t('dueDate') : t('cardDueDate')}
-          valueClassName={SUMMARY_VALUE_CLASS}
-        >
-          <CalendarDayText day={dueDate} />
+      <Metric
+        label={creditCard === null ? t('dueDate') : t('cardDueDate')}
+        valueClassName={SUMMARY_VALUE_CLASS}
+      >
+        <CalendarDayText day={dueDate} />
 
-          {dueDistance !== null && (
-            <span
-              className={cn(
-                SUMMARY_DETAIL_CLASS,
-                status === 'OVERDUE' && 'text-negative'
-              )}
-            >
-              {dueDistance}
-            </span>
-          )}
+        {dueDistance !== null && (
+          <span
+            className={cn(
+              SUMMARY_DETAIL_CLASS,
+              status === 'OVERDUE' && 'text-negative'
+            )}
+          >
+            {dueDistance}
+          </span>
+        )}
 
-          {originalDueDate !== null && (
-            <span className={SUMMARY_DETAIL_CLASS}>
-              {t.rich('ownDueDate', {
-                day: () => <CalendarDayText day={originalDueDate} />
-              })}
-            </span>
-          )}
-        </Metric>
+        {originalDueDate !== null && (
+          <span className={SUMMARY_DETAIL_CLASS}>
+            {t.rich('ownDueDate', {
+              day: () => <CalendarDayText day={originalDueDate} />
+            })}
+          </span>
+        )}
+      </Metric>
+
+      <Metric label={t('category')} valueClassName={FACT_VALUE_CLASS}>
+        {tFinances(`categories.${category}`)}
+
+        {subcategory !== null && (
+          <span className="text-muted-foreground">
+            {' · '}
+
+            {subcategory}
+          </span>
+        )}
+      </Metric>
+
+      <Metric label={t('paymentMethod')} valueClassName={FACT_VALUE_CLASS}>
+        {paymentMethod === null ? (
+          <UnavailableValue />
+        ) : (
+          tFinances(`paymentMethods.${paymentMethod}`)
+        )}
+
+        {creditCard !== null && (
+          <CardLabel card={creditCard} className="mt-1 flex w-fit max-w-full" />
+        )}
+      </Metric>
+    </dl>
+  );
+};
+
+export const BillFacts: FC<Record<'expense', Expense>> = ({ expense }) => {
+  const t = useTranslations('bills.details');
+  const { account, notes } = expense;
+
+  return account === null && notes === null ? null : (
+    <DetailSection title={t('facts')}>
+      <dl className={FACT_LIST_CLASS}>
+        {account !== null && (
+          <Metric label={t('account')} valueClassName={FACT_VALUE_CLASS}>
+            {account}
+          </Metric>
+        )}
+
+        {notes !== null && (
+          <Metric
+            label={t('notes')}
+            className="sm:col-span-2"
+            valueClassName="text-sm font-normal whitespace-pre-line"
+          >
+            {notes}
+          </Metric>
+        )}
       </dl>
-
-      <section aria-labelledby="bill-facts" className="space-y-3">
-        <h3 id="bill-facts" className="text-sm font-semibold">
-          {t('facts')}
-        </h3>
-
-        <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-          <Metric label={t('paymentMethod')} valueClassName="text-sm">
-            {paymentMethod === null ? (
-              <UnavailableValue />
-            ) : (
-              tFinances(`paymentMethods.${paymentMethod}`)
-            )}
-          </Metric>
-
-          {creditCard !== null && (
-            <Metric label={t('card')} valueClassName="text-sm">
-              <CardLabel card={creditCard} className="max-w-full" />
-            </Metric>
-          )}
-
-          <Metric label={t('category')} valueClassName="text-sm">
-            {tFinances(`categories.${category}`)}
-
-            {subcategory !== null && (
-              <span className="text-muted-foreground">
-                {' · '}
-
-                {subcategory}
-              </span>
-            )}
-          </Metric>
-
-          {account !== null && (
-            <Metric label={t('account')} valueClassName="text-sm">
-              {account}
-            </Metric>
-          )}
-
-          {notes !== null && (
-            <Metric
-              label={t('notes')}
-              className="sm:col-span-2"
-              valueClassName="text-sm font-normal whitespace-pre-line"
-            >
-              {notes}
-            </Metric>
-          )}
-        </dl>
-      </section>
-    </>
+    </DetailSection>
   );
 };
 
@@ -332,18 +332,26 @@ const BillDetails: FC<BillDetailsProps> = ({
         </DialogDescription>
       </DialogHeader>
 
-      <DialogBody className="gap-6">
+      <DialogBody className="gap-5">
         <BillSummary expense={expense} />
 
-        <section aria-labelledby="bill-payments" className="space-y-1">
-          <h3 id="bill-payments" className="text-sm font-semibold">
-            {t('payments')}
-          </h3>
+        <DetailSection
+          title={
+            <>
+              {t('payments')}
 
+              {payments.length > 0 && (
+                <span className="ml-2 font-normal text-muted-foreground tabular-nums">
+                  {payments.length}
+                </span>
+              )}
+            </>
+          }
+        >
           {payments.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('noPayments')}</p>
           ) : (
-            <ul className="divide-y">
+            <ul className="-mt-1 divide-y">
               {payments.map((payment) => (
                 <PaymentRow
                   key={payment.id}
@@ -355,15 +363,13 @@ const BillDetails: FC<BillDetailsProps> = ({
               ))}
             </ul>
           )}
-        </section>
+        </DetailSection>
 
-        <section aria-labelledby="bill-history" className="space-y-3">
-          <h3 id="bill-history" className="text-sm font-semibold">
-            {t('history')}
-          </h3>
+        <BillFacts expense={expense} />
 
+        <DetailSection title={t('history')}>
           <FinanceHistory events={history} currency={currency} />
-        </section>
+        </DetailSection>
       </DialogBody>
 
       {restoreError !== null && (

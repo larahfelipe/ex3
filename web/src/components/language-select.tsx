@@ -15,6 +15,7 @@ import {
   SelectValue,
   UnstyledSelectTrigger
 } from '@/components/ui';
+import { useSaveLocale } from '@/hooks/use-user';
 import {
   isSupportedLocale,
   LOCALE_NAMES,
@@ -43,6 +44,7 @@ export const LanguageSelect: FC<LanguageSelectProps> = ({
   ...control
 }) => {
   const { locale, pendingLocale, switchLocale } = useLocaleSwitch();
+  const { mutateAsync: saveToAccount } = useSaveLocale();
   const t = useTranslations('common.language');
 
   const shownLocale = pendingLocale ?? locale;
@@ -51,7 +53,7 @@ export const LanguageSelect: FC<LanguageSelectProps> = ({
   const changeLanguage = (value: string) => {
     if (!isSupportedLocale(value)) return;
 
-    switchLocale(value).catch(() => toast.error(t('failed')));
+    switchLocale(value, saveToAccount).catch(() => toast.error(t('failed')));
   };
 
   return (

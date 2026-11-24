@@ -10,11 +10,14 @@ import { billDetailRoute } from '@/common/constants';
 import { ConfirmDeletionDialog } from '@/components/confirm-deletion-dialog';
 import { ErrorState, LoadingState } from '@/components/data-state';
 import {
-  Metric,
-  Money,
-  PROMINENT_VALUE_CLASS,
-  UnavailableValue
-} from '@/components/financial';
+  DetailSection,
+  FACT_LIST_CLASS,
+  FACT_VALUE_CLASS,
+  SUMMARY_DETAIL_CLASS,
+  SUMMARY_PANEL_CLASS,
+  SUMMARY_VALUE_CLASS
+} from '@/components/detail-section';
+import { Metric, Money, UnavailableValue } from '@/components/financial';
 import {
   Button,
   Dialog,
@@ -45,6 +48,7 @@ import {
 } from '@/hooks/use-finances';
 import { useFormat } from '@/i18n/format';
 import { srOnly } from '@/i18n/rich-text';
+import type { Translator } from '@/i18n/translator';
 import { isNonzeroDecimal, isStorableDecimal } from '@/lib/decimal';
 import { cn } from '@/lib/utils';
 
@@ -56,6 +60,7 @@ import {
   FinanceHistory,
   InstallmentProgress,
   isOpenExpense,
+  NextPayment,
   originLabelOf,
   PlanStatusBadge
 } from './finance-display';
@@ -93,6 +98,19 @@ const FinancingCost: FC<Record<'cost' | 'currency', string>> = ({
   return t('financingBelow', { amount: formatMoney(magnitude, currency) });
 };
 
+const positionOf = (
+  installment: Expense,
+  t: Translator<'installments.installment'>,
+  tFinances: Translator<'finances'>
+) =>
+  installment.installmentNumber === null ||
+  installment.installmentCount === null
+    ? originLabelOf(installment, tFinances)
+    : t('position', {
+        number: installment.installmentNumber,
+        count: installment.installmentCount
+      });
+
 const InstallmentRow: FC<
   Record<'installment', Expense> &
     Record<'today', string> &
@@ -103,8 +121,6 @@ const InstallmentRow: FC<
   const { formatMoney } = useFormat();
   const {
     id,
-    installmentNumber,
-    installmentCount,
     dueDate,
     amount,
     outstandingAmount,
@@ -114,10 +130,7 @@ const InstallmentRow: FC<
   } = installment;
   const isOpen = isOpenExpense(installment);
   const dueDistance = isOpen ? dueDistanceOf(dueDate, today, tFinances) : null;
-  const position =
-    installmentNumber === null || installmentCount === null
-      ? originLabelOf(installment, tFinances)
-      : t('position', { number: installmentNumber, count: installmentCount });
+  const position = positionOf(installment, t, tFinances);
 
   return (
     <TableRow>
@@ -189,7 +202,9 @@ const InstallmentRow: FC<
 
 const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
   const t = useTranslations('installments.details');
+  const tInstallment = useTranslations('installments.installment');
   const tFinances = useTranslations('finances');
+  const { formatMoney } = useFormat();
   const today = useReferenceDay();
   const {
     description,
@@ -218,6 +233,7 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
   } = plan;
 
   const isActive = status === 'ACTIVE';
+  const nextOpen = installments.find(isOpenExpense);
   const nextDistance =
     nextDueDate === null ? null : dueDistanceOf(nextDueDate, today, tFinances);
 
@@ -237,119 +253,75 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
         </DialogDescription>
       </DialogHeader>
 
-      <DialogBody>
-        <InstallmentProgress paid={paidInstallments} count={installmentCount} />
+      <DialogBody className="gap-5">
+        <div className={SUMMARY_PANEL_CLASS}>
+          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+            <Metric
+              label={t('outstanding')}
+              valueClassName={SUMMARY_VALUE_CLASS}
+            >
+              <Money value={outstandingAmount} currency={currency} />
 
-        <dl className="grid gap-4 sm:grid-cols-3">
-          <Metric label={t('total')} valueClassName={PROMINENT_VALUE_CLASS}>
-            <Money value={totalAmount} currency={currency} />
-          </Metric>
-
-          <Metric
-            label={t('outstanding')}
-            valueClassName={PROMINENT_VALUE_CLASS}
-          >
-            <Money value={outstandingAmount} currency={currency} />
-          </Metric>
-
-          <Metric label={t('settled')} valueClassName={PROMINENT_VALUE_CLASS}>
-            <Money value={settledAmount} currency={currency} />
-          </Metric>
-
-          <Metric label={t('nextInstallment')}>
-            {nextDueDate === null || nextInstallmentNumber === null ? (
-              <UnavailableValue />
-            ) : (
-              <>
-                {t.rich('next', {
-                  number: nextInstallmentNumber,
-                  count: installmentCount,
-                  day: () => <CalendarDayText day={nextDueDate} />
+              <span className={SUMMARY_DETAIL_CLASS}>
+                {t('settledOfTotal', {
+                  settled: formatMoney(settledAmount, currency),
+                  total: formatMoney(totalAmount, currency)
                 })}
-
-                {nextDistance !== null && (
-                  <span
-                    className={cn(
-                      'block text-sm font-normal',
-                      nextDueDate < today
-                        ? 'text-negative'
-                        : 'text-muted-foreground'
-                    )}
-                  >
-                    {nextDistance}
-                  </span>
-                )}
-              </>
-            )}
-          </Metric>
-
-          <Metric label={t('cashPrice')}>
-            {principalAmount === null ? (
-              <UnavailableValue />
-            ) : (
-              <Money value={principalAmount} currency={currency} />
-            )}
-          </Metric>
-
-          <Metric label={t('overCashPrice')}>
-            {financingCost === null ? (
-              <UnavailableValue />
-            ) : (
-              <FinancingCost cost={financingCost} currency={currency} />
-            )}
-          </Metric>
-
-          <Metric label={t('schedule')}>
-            {firstDueDate === null || lastDueDate === null ? (
-              <UnavailableValue />
-            ) : (
-              t.rich('scheduleRange', {
-                first: () => <CalendarDayText day={firstDueDate} />,
-                last: () => <CalendarDayText day={lastDueDate} />
-              })
-            )}
-          </Metric>
-
-          <Metric label={t('category')}>
-            {tFinances(`categories.${category}`)}
-
-            {subcategory !== null && (
-              <span className="text-muted-foreground">
-                {' · '}
-
-                {subcategory}
               </span>
-            )}
-          </Metric>
-
-          <Metric label={t('paymentMethod')}>
-            {paymentMethod === null ? (
-              <UnavailableValue />
-            ) : (
-              tFinances(`paymentMethods.${paymentMethod}`)
-            )}
-          </Metric>
-
-          {creditCard !== null && (
-            <Metric label={t('card')}>
-              <CardLabel card={creditCard} className="max-w-full" />
             </Metric>
+
+            <Metric
+              label={t('nextInstallment')}
+              valueClassName={SUMMARY_VALUE_CLASS}
+            >
+              {nextDueDate === null || nextInstallmentNumber === null ? (
+                <UnavailableValue />
+              ) : (
+                <>
+                  <CalendarDayText day={nextDueDate} />
+
+                  <span className={SUMMARY_DETAIL_CLASS}>
+                    {tFinances('display.installmentOf', {
+                      number: nextInstallmentNumber,
+                      count: installmentCount
+                    })}
+
+                    {nextDistance !== null && (
+                      <span
+                        className={cn(nextDueDate < today && 'text-negative')}
+                      >
+                        {' · '}
+
+                        {nextDistance}
+                      </span>
+                    )}
+                  </span>
+                </>
+              )}
+            </Metric>
+          </dl>
+
+          <InstallmentProgress
+            paid={paidInstallments}
+            count={installmentCount}
+            className="border-t pt-4"
+          />
+
+          {nextOpen !== undefined && (
+            <NextPayment
+              expense={nextOpen}
+              today={today}
+              shownDueDate={nextDueDate}
+              payLabel={tInstallment.rich('pay', {
+                position: positionOf(nextOpen, tInstallment, tFinances),
+                hidden: srOnly
+              })}
+              onPay={() => onAction({ kind: 'pay', installment: nextOpen })}
+            />
           )}
+        </div>
 
-          <Metric label={t('account')}>
-            {account ?? <UnavailableValue />}
-          </Metric>
-
-          <Metric label={t('notes')} className="sm:col-span-2">
-            {notes ?? <UnavailableValue />}
-          </Metric>
-        </dl>
-
-        <section aria-labelledby="plan-installments" className="space-y-1">
-          <h3 id="plan-installments" className="text-sm font-semibold">
-            {t('installments')}
-          </h3>
-
+        <DetailSection title={t('installments')}>
           <Table label={t('table')}>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -386,15 +358,95 @@ const PlanDetails: FC<PlanDetailsProps> = ({ plan, onAction }) => {
               ))}
             </TableBody>
           </Table>
-        </section>
+        </DetailSection>
 
-        <section aria-labelledby="plan-history" className="space-y-3">
-          <h3 id="plan-history" className="text-sm font-semibold">
-            {t('history')}
-          </h3>
+        <DetailSection title={t('facts')}>
+          <dl className={FACT_LIST_CLASS}>
+            <Metric label={t('total')} valueClassName={FACT_VALUE_CLASS}>
+              <Money value={totalAmount} currency={currency} />
+            </Metric>
 
+            <Metric label={t('schedule')} valueClassName={FACT_VALUE_CLASS}>
+              {firstDueDate === null || lastDueDate === null ? (
+                <UnavailableValue />
+              ) : (
+                t.rich('scheduleRange', {
+                  first: () => <CalendarDayText day={firstDueDate} />,
+                  last: () => <CalendarDayText day={lastDueDate} />
+                })
+              )}
+            </Metric>
+
+            <Metric label={t('cashPrice')} valueClassName={FACT_VALUE_CLASS}>
+              {principalAmount === null ? (
+                <UnavailableValue />
+              ) : (
+                <Money value={principalAmount} currency={currency} />
+              )}
+            </Metric>
+
+            <Metric
+              label={t('overCashPrice')}
+              valueClassName={FACT_VALUE_CLASS}
+            >
+              {financingCost === null ? (
+                <UnavailableValue />
+              ) : (
+                <FinancingCost cost={financingCost} currency={currency} />
+              )}
+            </Metric>
+
+            <Metric label={t('category')} valueClassName={FACT_VALUE_CLASS}>
+              {tFinances(`categories.${category}`)}
+
+              {subcategory !== null && (
+                <span className="text-muted-foreground">
+                  {' · '}
+
+                  {subcategory}
+                </span>
+              )}
+            </Metric>
+
+            <Metric
+              label={t('paymentMethod')}
+              valueClassName={FACT_VALUE_CLASS}
+            >
+              {paymentMethod === null ? (
+                <UnavailableValue />
+              ) : (
+                tFinances(`paymentMethods.${paymentMethod}`)
+              )}
+
+              {creditCard !== null && (
+                <CardLabel
+                  card={creditCard}
+                  className="mt-1 flex w-fit max-w-full"
+                />
+              )}
+            </Metric>
+
+            {account !== null && (
+              <Metric label={t('account')} valueClassName={FACT_VALUE_CLASS}>
+                {account}
+              </Metric>
+            )}
+
+            {notes !== null && (
+              <Metric
+                label={t('notes')}
+                className="sm:col-span-2"
+                valueClassName="text-sm font-normal whitespace-pre-line"
+              >
+                {notes}
+              </Metric>
+            )}
+          </dl>
+        </DetailSection>
+
+        <DetailSection title={t('history')}>
           <FinanceHistory events={history} currency={currency} />
-        </section>
+        </DetailSection>
       </DialogBody>
 
       <DialogActionFooter

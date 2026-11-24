@@ -1,4 +1,5 @@
 import { UserMessages } from '@/config';
+import type { Locale } from '@/domain/Locale';
 import type { User } from '@/domain/models';
 import { isDerivedFromEmail } from '@/domain/PasswordPolicy';
 import { personNames } from '@/domain/PersonName';
@@ -30,6 +31,7 @@ export class UpdateUserService {
     user,
     firstName,
     lastName,
+    locale,
     passwordChange
   }: UpdateUserService.DTO): Promise<UpdateUserService.Result> {
     if (passwordChange) {
@@ -59,6 +61,7 @@ export class UpdateUserService {
               firstName ?? user.firstName,
               lastName === undefined ? user.lastName : lastName
             ),
+      locale: locale ?? null,
       password: passwordChange?.newPassword ?? null
     });
 
@@ -74,6 +77,7 @@ namespace UpdateUserService {
     user: User;
     firstName?: string;
     lastName?: string | null;
+    locale?: Locale;
     passwordChange?: Record<'oldPassword' | 'newPassword', string>;
   };
   export type Result = {

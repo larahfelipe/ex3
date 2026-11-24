@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import type { FinanceEvent } from '@/app/api/v1/finances';
 import {
   EXPENSE_STATUS_TONES,
   INSTALLMENT_PLAN_STATUS_TONES,
@@ -17,6 +18,7 @@ import {
   describeEvent,
   dueDistanceOf,
   ExpenseStatusBadge,
+  FinanceHistory,
   InstallmentProgress,
   originLabelOf,
   PlanStatusBadge,
@@ -366,5 +368,73 @@ describe('finance charts', () => {
     assert.ok(text.includes(nbsp('R$ 750,00')));
     assert.ok(text.includes('75%'));
     assert.ok(text.includes('25%'));
+  });
+});
+
+describe('the history timeline', () => {
+  const eventAt = (
+    index: number,
+    overrides: Partial<FinanceEvent> = {}
+  ): FinanceEvent => ({
+    id: `event-${index}`,
+    recordType: 'EXPENSE',
+    recordId: 'bill-1',
+    type: 'UPDATED',
+    changes: { notes: { from: null, to: `Nota ${index}` } },
+    createdAt: `2026-11-${String(10 + index).padStart(2, '0')}T12:00:00.000Z`,
+    ...overrides
+  });
+
+  it('lists each changed field with what it was and what it became', () => {
+    const markup = renderWithIntl(
+      <FinanceHistory
+        currency="BRL"
+        events={[
+          eventAt(1, {
+            changes: {
+              effectiveFrom: '2026-11-01',
+              amount: { from: '100', to: '120.5' }
+            }
+          }),
+          eventAt(2, {
+            type: 'PAYMENT_RECORDED',
+            changes: { amount: '50', paidOn: '2026-11-12' }
+          })
+        ]}
+      />
+    );
+
+    assert.match(
+      markup,
+      /<dt[^>]*>valor<\/dt><dd[^>]*>.*?R\$\s100,00.*?passou para.*?R\$\s120,50/
+    );
+    assert.match(textOf(markup), /Vale a partir de 01\/11\/2026/);
+    assert.match(
+      textOf(markup),
+      /Pagamento registrado.*R\$\s50,00 pago em 12\/11\/2026/
+    );
+    assert.doesNotMatch(markup, /aria-expanded/);
+  });
+
+  it('shows the latest events first and folds the rest behind a button', () => {
+    const many = renderWithIntl(
+      <FinanceHistory
+        currency="BRL"
+        events={Array.from({ length: 6 }, (_, index) => eventAt(index))}
+      />
+    );
+
+    assert.equal(many.match(/<li /g)?.length, 4);
+    assert.match(many, /aria-expanded="false"[^>]*>Mostrar os 6 eventos</);
+
+    const few = renderWithIntl(
+      <FinanceHistory
+        currency="BRL"
+        events={Array.from({ length: 5 }, (_, index) => eventAt(index))}
+      />
+    );
+
+    assert.equal(few.match(/<li /g)?.length, 5);
+    assert.doesNotMatch(few, /aria-expanded/);
   });
 });

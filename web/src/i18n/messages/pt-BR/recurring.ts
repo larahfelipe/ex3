@@ -37,13 +37,16 @@ export default {
     summary: '{frequency} em {currency}',
     amount: 'Valor {period}',
     estimate: 'Estimativa {period}',
-    monthly: 'Equivalente mensal',
+    aboutMonthly: 'Cerca de {amount} por mês',
     nextBill: 'Próxima conta',
+    payNext: 'Pagar<hidden> a conta de {day}</hidden>',
+    configuration: 'Configuração',
+    frequency: 'Frequência',
+    amountKind: 'Tipo de valor',
     schedule: 'Período',
     scheduleOpen: 'A partir de <start></start>, sem data final',
     scheduleRange: 'De <start></start> a <end></end>',
     category: 'Categoria',
-    card: 'Cartão',
     paymentMethod: 'Forma de pagamento',
     account: 'Conta bancária ou cartão',
     notes: 'Observações',
@@ -119,10 +122,12 @@ export default {
   preview: {
     empty:
       'As primeiras contas aparecem aqui quando a data de início estiver preenchida.',
-    first:
-      '{count, plural, one {A primeira conta vence em {days}} other {As primeiras contas vencem em {days}}}',
-    then: 'Depois, uma {period}, sem data final',
-    thenUntil: 'Depois, uma {period}, até {day}'
+    rule: '{frequency, select, WEEKLY {Toda semana} MONTHLY {Todo mês} other {Todo ano}} a partir de {start}, sem data final',
+    ruleUntil:
+      '{frequency, select, WEEKLY {Toda semana} MONTHLY {Todo mês} other {Todo ano}} de {start} até {end}',
+    firstBills:
+      '{count, plural, one {Primeira conta} other {Primeiras contas}}',
+    more: '<shown>…</shown><hidden>e assim por diante</hidden>'
   },
   stop: {
     title: 'Interromper {description}?',

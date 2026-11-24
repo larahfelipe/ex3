@@ -23,6 +23,7 @@ export default {
     title: 'Preferências',
     description:
       'O idioma da interface, que também escreve datas, números e valores',
-    languageHint: 'Vale na hora e fica salvo neste navegador.'
+    languageHint:
+      'Vale na hora e fica salvo na sua conta, para valer em todo dispositivo em que você entrar.'
   }
 } as const;

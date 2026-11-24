@@ -117,6 +117,9 @@ export default {
     creditCard: 'card'
   },
   display: {
+    toPay: 'To pay',
+    toPayDue:
+      'Due <day></day>{distance, select, none {} other { · {distance}}}',
     installmentsPaid: 'Installments paid',
     progress: '{paid, number} of {count, number} paid',
     installmentOf: 'Installment {number, number} of {count, number}',
@@ -131,6 +134,12 @@ export default {
     yes: 'yes',
     no: 'no',
     change: '{field}: {from} → {to}',
+    changeValue:
+      '<from></from><hidden> changed to </hidden><arrow></arrow><to></to>',
+    effectiveFrom: 'Applies from {day}',
+    showAll: 'Show {count, plural, one {the # event} other {all # events}}',
+    showLatest:
+      'Show only {count, plural, one {the latest} other {the latest #}}',
     card: '{name} ending in {lastFour}',
     changesFrom: '{changes}, from {day}',
     paid: '{amount} paid',

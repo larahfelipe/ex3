@@ -25,6 +25,7 @@ export default {
     title: 'Preferences',
     description:
       'The interface language, which also writes dates, numbers and amounts',
-    languageHint: 'Applies right away and is saved on this browser.'
+    languageHint:
+      'Applies right away and is saved to your account, so every device you sign in on uses it.'
   }
 } as const satisfies LocaleMessages<Messages['account']>;
