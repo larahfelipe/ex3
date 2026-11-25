@@ -1044,11 +1044,12 @@ The file-by-file table, with the count of each, is in
 On the web, `bill-dialogs.test.tsx` renders a bill's summary at a fixed
 instant (`mock.timers` with `Date`), since the due distance depends on today;
 `notifications-popover.test.tsx` renders a notice, the phone's top bar with a
-seeded feed (`withQueryData`) and an empty feed; `finance-notifications.test.ts`
-checks the optimistic marks against what the API would return; and
-`icon-button.test.tsx` holds the icon button's naming. Radix portals render
-nothing in static markup, so the popover's panel and the tooltips are tested
-through the components they hold, not opened.
+seeded feed (`withQueryData`) and an empty feed, and the top bar's Sign out
+button, inside a router that does nothing (`withRouter`);
+`finance-notifications.test.ts` checks the optimistic marks against what the API
+would return; and `icon-button.test.tsx` holds the icon button's naming. Radix
+portals render nothing in static markup, so the popover's panel and the tooltips
+are tested through the components they hold, not opened.
 
 ## Person names
 

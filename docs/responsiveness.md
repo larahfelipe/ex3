@@ -47,8 +47,9 @@ already stacked, never the navigation.
 
 | Region | Behaviour |
 | --- | --- |
-| Navigation | Bar fixed at the bottom, height `--navigation-bar` (3.75 rem), five 44 px targets spread across it — overview, assets, portfolios, finances and account; signing out is on the account page —, its labels needing 305 px of the 312 px it has at 320 px, brand hidden — the first tab is the Overview, where the brand leads |
-| Top bar | `NavigationHeader`, 56 px, above the page and not sticky: the wordmark on the left, linking to the overview, and the *Notifications* bell on the right, a 44 px target whose popover opens below it, at most the screen's width less 16 px, and scrolls inside itself |
+| Navigation | Bar fixed at the bottom, height `--navigation-bar` (3.75 rem), five 44 px targets spread across it — overview, assets, portfolios, finances and account; signing out is in the top bar and on the account page —, its labels needing 305 px of the 312 px it has at 320 px, brand hidden — the first tab is the Overview, where the brand leads |
+| Top bar | `NavigationHeader`, `--navigation-header` (3.5 rem) tall, above the page and not sticky: the wordmark on the left, linking to the overview, and two 44 px targets on the right, 4 px apart — the *Notifications* bell, whose popover opens below it, at most the screen's width less 16 px, and scrolls inside itself, then *Sign out*, an icon button in `--negative` under the pointer that spins and goes `aria-disabled` while the session closes |
+| Toasts | Top centre, 16 px from the sides, so the bottom bar stays clear, starting 8 px under where the top bar ends (`--navigation-header` plus `env(safe-area-inset-top)`) — on the authentication pages, which have no top bar, too, so a toast shown across sign-in or sign-out does not jump. The `Toaster` switches by `(width < 40rem)`, the same cut as `max-sm`, rather than `sonner`'s own 600 px; a toast enters from the top and is swiped up to dismiss |
 | Page shell | `<main>` with `pb-(--navigation-bar)` so it does not sit under the bar; the container in `(protected)/layout.tsx`, shared by every page, gives 16 px of side padding (`px-4`) and 32 px of vertical padding (`py-8`) |
 | Dashboard | A single stack: portfolio value, performance chart, allocation, positions summary, recorded income, recent transactions |
 | Allocation | Container below 448 px: ring above, legend below, in a column |
@@ -71,6 +72,7 @@ already stacked, never the navigation.
 | Region | Behaviour |
 | --- | --- |
 | Navigation | Rail sticky on the left, `--navigation-rail` (5 rem), label visible, brand visible as a link to the Overview, *Notifications* first in its footer with its popover opening to the right; `<main>` beside it, in the layout's flex row |
+| Toasts | Bottom right, 24 px from the edges, as on every width from `sm` up |
 | Usable width | 640 px of content, with 24 px of side padding (`sm:px-6`) |
 | Dashboard | Still a single stack — the grid only splits at 1280 px |
 | Allocation | Container above 448 px: past `@md`, ring and legend side by side |

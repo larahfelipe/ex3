@@ -11,6 +11,7 @@ import {
 } from '@/test/fixtures/finance-notifications';
 import { nbsp, renderWithIntl, textOf } from '@/test/intl';
 import { withQueryData } from '@/test/queries';
+import { withRouter } from '@/test/router';
 
 import { NotificationItem } from './notifications-popover';
 
@@ -80,9 +81,21 @@ describe('a notification', () => {
   });
 });
 
+const phoneHeaderWith = (notifications: Parameters<typeof feedOf>[0]) => {
+  const today = calendarDayOf(currentInstant());
+
+  return renderWithIntl(
+    withRouter(
+      withQueryData(
+        [[queryKeys.financeNotifications(today), feedOf(notifications)]],
+        <NavigationHeader />
+      )
+    )
+  );
+};
+
 describe('the phone header', () => {
   it('counts the unread notifications on its trigger, for the eye and for a screen reader', () => {
-    const today = calendarDayOf(currentInstant());
     const unread = [1, 2, 3].map((n) =>
       notificationOf(
         'OVERDUE',
@@ -93,26 +106,22 @@ describe('the phone header', () => {
         })
       )
     );
-    const markup = renderWithIntl(
-      withQueryData(
-        [[queryKeys.financeNotifications(today), feedOf(unread)]],
-        <NavigationHeader />
-      )
-    );
+    const markup = phoneHeaderWith(unread);
 
     assert.match(markup, /aria-haspopup="dialog"/);
     assert.match(textOf(markup), /EX3.*3Notificações, 3 não lidas/);
   });
 
   it('shows no badge when every notification is read', () => {
-    const today = calendarDayOf(currentInstant());
-    const markup = renderWithIntl(
-      withQueryData(
-        [[queryKeys.financeNotifications(today), feedOf([])]],
-        <NavigationHeader />
-      )
-    );
+    assert.match(textOf(phoneHeaderWith([])), /EX3NotificaçõesSair$/);
+  });
 
-    assert.match(textOf(markup), /EX3Notificações$/);
+  it('ends with a sign-out button, named for a screen reader and enabled', () => {
+    const markup = phoneHeaderWith([]);
+
+    assert.match(
+      markup,
+      /<button type="button" aria-disabled="false"[^>]*>(?:(?!<button).)*<span class="sr-only">Sair<\/span><\/button><\/div><\/header>$/
+    );
   });
 });

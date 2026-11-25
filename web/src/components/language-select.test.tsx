@@ -1,11 +1,6 @@
 import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import {
-  AppRouterContext,
-  type AppRouterInstance
-} from 'next/dist/shared/lib/app-router-context.shared-runtime';
-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -20,6 +15,7 @@ import {
   type LocaleSwitch
 } from '@/providers/locale-provider';
 import { nbsp, renderWithIntl, textOf } from '@/test/intl';
+import { withRouter } from '@/test/router';
 
 import { LanguageSelect } from './language-select';
 import { CurrencyAmountInput } from './money-input';
@@ -142,19 +138,9 @@ const Formatted = () => {
   );
 };
 
-const ROUTER: AppRouterInstance = {
-  bfcacheId: 'test',
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined
-};
-
 const appIn = (locale: Locale) =>
   renderToStaticMarkup(
-    <AppRouterContext value={ROUTER}>
+    withRouter(
       <LocaleProvider locale={locale} messages={MESSAGES[locale]}>
         <QueryClientProvider client={new QueryClient()}>
           {navigationTrigger}
@@ -172,7 +158,7 @@ const appIn = (locale: Locale) =>
           />
         </QueryClientProvider>
       </LocaleProvider>
-    </AppRouterContext>
+    )
   );
 
 describe('locale provider', () => {
