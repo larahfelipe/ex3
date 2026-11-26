@@ -152,7 +152,6 @@ export default {
     category: 'Categoria',
     cardDueDate: 'Pagamento no cartão',
     ownDueDate: 'Conta vence em <day></day>',
-    card: 'Cartão',
     paymentMethod: 'Forma de pagamento',
     account: 'Conta bancária ou cartão',
     notes: 'Observações',

@@ -37,6 +37,7 @@ export default {
   details: {
     title: '<tone>{type}</tone> {symbol}',
     executedOn: 'Executed on <executed>{date}</executed>',
+    facts: 'Costs and details',
     edit: 'Edit transaction',
     delete: 'Delete transaction'
   },
@@ -75,6 +76,7 @@ export default {
       INTEREST: 'Net income',
       BONUS: 'Cost added'
     },
+    effectPending: 'Fill in the quantity and the price to see the total',
     effectOf: {
       units: '{quantity} × {unitPrice}',
       unitsPlusCharges:

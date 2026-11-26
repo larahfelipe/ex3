@@ -1,4 +1,4 @@
-# ex3
+# EX3
 
 Investment portfolio tracker: it records transactions, rebuilds each asset's
 position from the ledger, and reports cost, market value, allocation and
@@ -255,7 +255,7 @@ risks of sharing the host with development are in
 | [`docs/i18n.md`](docs/i18n.md) | the web's pt-BR and en-US catalogs, the language selector and its persistence, message conventions, number, currency and date formats, error wording, and how to add a locale |
 | [`docs/accessibility.md`](docs/accessibility.md), [`docs/responsiveness.md`](docs/responsiveness.md), [`docs/performance.md`](docs/performance.md) | normative frontend criteria |
 | [`docs/toolchain.md`](docs/toolchain.md) | pinned versions and why |
-| [`docs/competitive-benchmarking.md`](docs/competitive-benchmarking.md) | what other investment trackers document, and what ex3 adopted, adapted or left out |
+| [`docs/competitive-benchmarking.md`](docs/competitive-benchmarking.md) | what other investment trackers document, and what EX3 adopted, adapted or left out |
 
 ## License
 

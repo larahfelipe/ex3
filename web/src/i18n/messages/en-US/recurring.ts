@@ -39,13 +39,16 @@ export default {
     summary: '{frequency} in {currency}',
     amount: 'Amount {period}',
     estimate: 'Estimate {period}',
-    monthly: 'Monthly equivalent',
+    aboutMonthly: 'About {amount} per month',
     nextBill: 'Next bill',
+    payNext: 'Pay<hidden> the bill due on {day}</hidden>',
+    configuration: 'Configuration',
+    frequency: 'Frequency',
+    amountKind: 'Amount type',
     schedule: 'Schedule',
     scheduleOpen: 'From <start></start>, with no end date',
     scheduleRange: 'From <start></start> to <end></end>',
     category: 'Category',
-    card: 'Card',
     paymentMethod: 'Payment method',
     account: 'Bank account or card',
     notes: 'Notes',
@@ -119,10 +122,11 @@ export default {
   },
   preview: {
     empty: 'The first bills appear here once the start date is filled in.',
-    first:
-      '{count, plural, one {The first bill is due on {days}} other {The first bills are due on {days}}}',
-    then: 'Then one {period}, with no end date',
-    thenUntil: 'Then one {period}, until {day}'
+    rule: '{frequency, select, WEEKLY {Every week} MONTHLY {Every month} other {Every year}} from {start}, with no end date',
+    ruleUntil:
+      '{frequency, select, WEEKLY {Every week} MONTHLY {Every month} other {Every year}} from {start} until {end}',
+    firstBills: '{count, plural, one {First bill} other {First bills}}',
+    more: '<shown>…</shown><hidden>and so on</hidden>'
   },
   stop: {
     title: 'Stop {description}?',

@@ -154,7 +154,6 @@ export default {
     category: 'Category',
     cardDueDate: 'Card payment due',
     ownDueDate: 'Bill due on <day></day>',
-    card: 'Card',
     paymentMethod: 'Payment method',
     account: 'Bank account or card',
     notes: 'Notes',

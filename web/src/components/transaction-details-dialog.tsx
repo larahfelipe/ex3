@@ -6,6 +6,14 @@ import { useTranslations } from 'use-intl';
 import type { ListedTransaction } from '@/app/api/v1/transactions';
 import { TRANSACTION_TYPE_TONES } from '@/common/constants';
 import {
+  DetailSection,
+  FACT_LIST_CLASS,
+  FACT_VALUE_CLASS,
+  SUMMARY_DETAIL_CLASS,
+  SUMMARY_PANEL_CLASS,
+  SUMMARY_VALUE_CLASS
+} from '@/components/detail-section';
+import {
   Metric,
   Money,
   Price,
@@ -23,6 +31,9 @@ import {
   IconButton
 } from '@/components/ui';
 import { useFormat } from '@/i18n/format';
+import { isNonzeroDecimal } from '@/lib/decimal';
+import { isCostOf, transactionEffectOf } from '@/lib/transaction-effect';
+import { cn } from '@/lib/utils';
 
 type TransactionAction = (transaction: ListedTransaction) => void;
 
@@ -36,7 +47,8 @@ const TransactionDetails: FC<
   Record<'transaction', ListedTransaction> & TransactionActions
 > = ({ transaction, onEdit, onDelete }) => {
   const t = useTranslations('transactions');
-  const { formatExecutionDay } = useFormat();
+  const { formatExecutionDay, formatMoney, formatPrice, formatQuantity } =
+    useFormat();
   const {
     type,
     symbol,
@@ -49,6 +61,12 @@ const TransactionDetails: FC<
     broker,
     notes
   } = transaction;
+  const effect = transactionEffectOf(type, {
+    quantity,
+    unitPrice,
+    fees,
+    taxes
+  });
 
   return (
     <>
@@ -71,32 +89,82 @@ const TransactionDetails: FC<
         </DialogDescription>
       </DialogHeader>
 
-      <DialogBody>
-        <dl className="grid gap-4 sm:grid-cols-2">
-          <Metric label={t('fields.quantity')}>
+      <DialogBody className="gap-5">
+        <dl className={cn(SUMMARY_PANEL_CLASS, 'sm:grid-cols-2')}>
+          <Metric
+            label={t(`form.effect.${type}`)}
+            className="sm:col-span-2"
+            valueClassName={SUMMARY_VALUE_CLASS}
+          >
+            {effect === null ? (
+              <UnavailableValue />
+            ) : (
+              <>
+                {formatMoney(effect.net, currency)}
+
+                <span className={SUMMARY_DETAIL_CLASS}>
+                  {t(
+                    !isNonzeroDecimal(effect.charges)
+                      ? 'form.effectOf.units'
+                      : isCostOf(type)
+                        ? 'form.effectOf.unitsPlusCharges'
+                        : 'form.effectOf.unitsLessCharges',
+                    {
+                      quantity: formatQuantity(effect.quantity),
+                      unitPrice: formatPrice(effect.unitPrice, currency),
+                      charges: formatMoney(effect.charges, currency)
+                    }
+                  )}
+                </span>
+              </>
+            )}
+          </Metric>
+
+          <Metric
+            label={t('fields.quantity')}
+            valueClassName={FACT_VALUE_CLASS}
+          >
             <Quantity value={quantity} />
           </Metric>
 
-          <Metric label={t(`unitPrice.${type}`)}>
+          <Metric
+            label={t(`unitPrice.${type}`)}
+            valueClassName={FACT_VALUE_CLASS}
+          >
             <Price exact value={unitPrice} currency={currency} />
           </Metric>
-
-          <Metric label={t('fields.fees')}>
-            <Money value={fees} currency={currency} />
-          </Metric>
-
-          <Metric label={t('fields.taxes')}>
-            <Money value={taxes} currency={currency} />
-          </Metric>
-
-          <Metric label={t('fields.broker')}>
-            {broker ?? <UnavailableValue />}
-          </Metric>
-
-          <Metric label={t('fields.notes')} className="sm:col-span-2">
-            {notes ?? <UnavailableValue />}
-          </Metric>
         </dl>
+
+        <DetailSection title={t('details.facts')}>
+          <dl className={FACT_LIST_CLASS}>
+            <Metric label={t('fields.fees')} valueClassName={FACT_VALUE_CLASS}>
+              <Money value={fees} currency={currency} />
+            </Metric>
+
+            <Metric label={t('fields.taxes')} valueClassName={FACT_VALUE_CLASS}>
+              <Money value={taxes} currency={currency} />
+            </Metric>
+
+            {broker !== null && (
+              <Metric
+                label={t('fields.broker')}
+                valueClassName={FACT_VALUE_CLASS}
+              >
+                {broker}
+              </Metric>
+            )}
+
+            {notes !== null && (
+              <Metric
+                label={t('fields.notes')}
+                className="sm:col-span-2"
+                valueClassName="text-sm font-normal whitespace-pre-line"
+              >
+                {notes}
+              </Metric>
+            )}
+          </dl>
+        </DetailSection>
       </DialogBody>
 
       <DialogActionFooter

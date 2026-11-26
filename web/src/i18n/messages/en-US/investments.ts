@@ -235,7 +235,8 @@ export default {
       alreadyHeld: '{symbol} is already in this portfolio',
       searchFailed: "Couldn't search the instruments",
       failed: "Couldn't add the asset",
-      submit: 'Add'
+      submit: 'Add',
+      submitNamed: 'Add {symbol}'
     },
     deletion: {
       title: 'Delete {symbol}?',

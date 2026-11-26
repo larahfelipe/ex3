@@ -35,6 +35,7 @@ export default {
   details: {
     title: '<tone>{type}</tone> {symbol}',
     executedOn: 'Executada em <executed>{date}</executed>',
+    facts: 'Custos e detalhes',
     edit: 'Editar transação',
     delete: 'Excluir transação'
   },
@@ -73,6 +74,7 @@ export default {
       INTEREST: 'Rendimento líquido',
       BONUS: 'Custo adicionado'
     },
+    effectPending: 'Preencha a quantidade e o preço para ver o total',
     effectOf: {
       units: '{quantity} × {unitPrice}',
       unitsPlusCharges:

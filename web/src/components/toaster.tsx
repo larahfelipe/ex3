@@ -1,6 +1,11 @@
 'use client';
 
-import { useEffect, useRef, type CSSProperties } from 'react';
+import {
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+  type CSSProperties
+} from 'react';
 
 import { CircleAlert, CircleCheck, Info, TriangleAlert } from 'lucide-react';
 import { Toaster as Sonner } from 'sonner';
@@ -17,9 +22,32 @@ const ACTION_BUTTON_CLASSES =
 
 const CLOSE_BUTTON_CLASSES = 'size-6!';
 
+const PHONE_LAYOUT_QUERY = '(width < 40rem)';
+
+const TOP_OFFSET = {
+  top: 'calc(env(safe-area-inset-top) + var(--navigation-header) + 0.5rem)'
+};
+
+const subscribeToPhoneLayout = (onChange: VoidFunction) => {
+  const query = window.matchMedia(PHONE_LAYOUT_QUERY);
+
+  query.addEventListener('change', onChange);
+
+  return () => query.removeEventListener('change', onChange);
+};
+
+const isPhoneLayout = () => window.matchMedia(PHONE_LAYOUT_QUERY).matches;
+
+const isPhoneLayoutOnServer = () => false;
+
 export function Toaster() {
   const toasterRef = useRef<HTMLElement>(null);
   const t = useTranslations('common.toasts');
+  const isPhone = useSyncExternalStore(
+    subscribeToPhoneLayout,
+    isPhoneLayout,
+    isPhoneLayoutOnServer
+  );
 
   useEffect(() => {
     const toaster = toasterRef.current;
@@ -44,7 +72,9 @@ export function Toaster() {
   return (
     <Sonner
       ref={toasterRef}
-      position="bottom-right"
+      position={isPhone ? 'top-center' : 'bottom-right'}
+      offset={TOP_OFFSET}
+      mobileOffset={TOP_OFFSET}
       theme={APP_THEME}
       closeButton
       containerAriaLabel={t('region')}

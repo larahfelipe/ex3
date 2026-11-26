@@ -13,6 +13,7 @@ model User {
   firstName      String?
   lastName       String?
   email          String      @unique
+  locale         String?
   password       String
   portfolios     Portfolio[]
   sessionVersion Int         @default(0)

@@ -1,11 +1,7 @@
 import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-import {
-  AppRouterContext,
-  type AppRouterInstance
-} from 'next/dist/shared/lib/app-router-context.shared-runtime';
-
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { useTranslations } from 'use-intl';
@@ -19,6 +15,7 @@ import {
   type LocaleSwitch
 } from '@/providers/locale-provider';
 import { nbsp, renderWithIntl, textOf } from '@/test/intl';
+import { withRouter } from '@/test/router';
 
 import { LanguageSelect } from './language-select';
 import { CurrencyAmountInput } from './money-input';
@@ -34,7 +31,9 @@ const localeSwitchOf = (
 
 const withLocaleSwitch = (localeSwitch: LocaleSwitch, node: ReactNode) =>
   renderWithIntl(
-    <LocaleSwitchContext value={localeSwitch}>{node}</LocaleSwitchContext>,
+    <QueryClientProvider client={new QueryClient()}>
+      <LocaleSwitchContext value={localeSwitch}>{node}</LocaleSwitchContext>
+    </QueryClientProvider>,
     localeSwitch.locale
   );
 
@@ -139,35 +138,27 @@ const Formatted = () => {
   );
 };
 
-const ROUTER: AppRouterInstance = {
-  bfcacheId: 'test',
-  back: () => undefined,
-  forward: () => undefined,
-  refresh: () => undefined,
-  push: () => undefined,
-  replace: () => undefined,
-  prefetch: () => undefined
-};
-
 const appIn = (locale: Locale) =>
   renderToStaticMarkup(
-    <AppRouterContext value={ROUTER}>
+    withRouter(
       <LocaleProvider locale={locale} messages={MESSAGES[locale]}>
-        {navigationTrigger}
+        <QueryClientProvider client={new QueryClient()}>
+          {navigationTrigger}
 
-        <LanguageSelect />
+          <LanguageSelect />
 
-        <Formatted />
+          <Formatted />
 
-        <CurrencyAmountInput
-          value="1234.5"
-          currency="BRL"
-          decimals={2}
-          onValueChange={() => undefined}
-          onRejectedPaste={() => undefined}
-        />
+          <CurrencyAmountInput
+            value="1234.5"
+            currency="BRL"
+            decimals={2}
+            onValueChange={() => undefined}
+            onRejectedPaste={() => undefined}
+          />
+        </QueryClientProvider>
       </LocaleProvider>
-    </AppRouterContext>
+    )
   );
 
 describe('locale provider', () => {

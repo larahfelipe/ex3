@@ -10,6 +10,7 @@ import { ChoiceField } from '@/components/form-field';
 import { SegmentedControl, SegmentedControlItem } from '@/components/ui';
 import { useReferenceDay } from '@/hooks/use-finances';
 import { useFormat } from '@/i18n/format';
+import { srOnly } from '@/i18n/rich-text';
 import { shiftCalendarDay, shiftCalendarDayByMonths } from '@/lib/dates';
 
 import { DayField, type ValidationTranslator } from './finance-form';
@@ -116,8 +117,7 @@ export const occurrenceDayAt = (
 
 const SeriesPreview: FC<StartFieldProps> = ({ startName }) => {
   const t = useTranslations('recurring.preview');
-  const tFinances = useTranslations('finances');
-  const { formatCalendarDay, formatList } = useFormat();
+  const { formatCalendarDay } = useFormat();
   const { control } = useFormContext<RecurrenceInput>();
   const [frequency, startDate, endMode, endDate] = useWatch({
     control,
@@ -125,33 +125,60 @@ const SeriesPreview: FC<StartFieldProps> = ({ startName }) => {
   });
 
   const end = endMode === 'date' && endDate !== '' ? endDate : null;
+  const isWithinEnd = (day: string | null): day is string =>
+    day !== null && (end === null || day <= end);
   const days = Array.from({ length: PREVIEWED_OCCURRENCES }, (_, index) =>
     occurrenceDayAt(frequency, startDate, index)
-  ).filter(
-    (day): day is string => day !== null && (end === null || day <= end)
-  );
-  const shownDays = days.map((day) => formatCalendarDay(day) ?? day);
-  const period = tFinances(`perPeriod.${frequency}`);
-  const shownEnd = end === null ? null : (formatCalendarDay(end) ?? end);
+  ).filter(isWithinEnd);
+  const continues =
+    days.length === PREVIEWED_OCCURRENCES &&
+    isWithinEnd(occurrenceDayAt(frequency, startDate, PREVIEWED_OCCURRENCES));
+  const dayText = (day: string) => formatCalendarDay(day) ?? day;
 
   return (
     <div
       aria-live="polite"
-      className="space-y-1 rounded-lg border bg-muted/40 p-4 text-sm"
+      className="grid gap-3 rounded-lg border bg-muted/30 p-4 text-sm"
     >
       {days.length === 0 ? (
         <p className="text-muted-foreground">{t('empty')}</p>
       ) : (
         <>
           <p className="font-medium">
-            {t('first', { count: days.length, days: formatList(shownDays) })}
+            {end === null
+              ? t('rule', { frequency, start: dayText(startDate) })
+              : t('ruleUntil', {
+                  frequency,
+                  start: dayText(startDate),
+                  end: dayText(end)
+                })}
           </p>
 
-          <p className="text-muted-foreground">
-            {shownEnd === null
-              ? t('then', { period })
-              : t('thenUntil', { period, day: shownEnd })}
-          </p>
+          <div className="grid gap-1.5">
+            <p className="text-xs text-muted-foreground">
+              {t('firstBills', { count: days.length })}
+            </p>
+
+            <ol className="flex flex-wrap items-center gap-1.5">
+              {days.map((day) => (
+                <li
+                  key={day}
+                  className="rounded-md border bg-surface-elevated px-2 py-1 text-xs font-medium tabular-nums"
+                >
+                  <time dateTime={day}>{dayText(day)}</time>
+                </li>
+              ))}
+
+              {continues && (
+                <li className="px-1 text-muted-foreground">
+                  {t.rich('more', {
+                    shown: (chunks) => <span aria-hidden="true">{chunks}</span>,
+                    hidden: srOnly
+                  })}
+                </li>
+              )}
+            </ol>
+          </div>
         </>
       )}
     </div>

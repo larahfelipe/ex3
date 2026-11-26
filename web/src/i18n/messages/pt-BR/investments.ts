@@ -233,7 +233,8 @@ export default {
       alreadyHeld: '{symbol} já está nesta carteira',
       searchFailed: 'Não foi possível buscar os instrumentos',
       failed: 'Não foi possível adicionar o ativo',
-      submit: 'Adicionar'
+      submit: 'Adicionar',
+      submitNamed: 'Adicionar {symbol}'
     },
     deletion: {
       title: 'Excluir {symbol}?',

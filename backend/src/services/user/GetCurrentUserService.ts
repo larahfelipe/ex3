@@ -40,6 +40,7 @@ namespace GetCurrentUserService {
       | 'firstName'
       | 'lastName'
       | 'email'
+      | 'locale'
       | 'createdAt'
       | 'updatedAt'
     >

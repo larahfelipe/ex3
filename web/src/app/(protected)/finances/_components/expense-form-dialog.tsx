@@ -21,7 +21,6 @@ import {
   FINANCE_LIMITS,
   RECURRENCE_FREQUENCIES
 } from '@/common/constants';
-import { FormSection } from '@/components/form-field';
 import { InfoNote } from '@/components/info-note';
 import { SubmitButton } from '@/components/submit-button';
 import {
@@ -276,6 +275,7 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
   const tErrors = useTranslations('errors');
   const tActions = useTranslations('common.actions');
   const formId = useId();
+  const repeatsTitleId = useId();
   const repeatsHintId = useId();
   const today = useReferenceDay();
   const [isSaving, setIsSaving] = useState(false);
@@ -338,7 +338,7 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
         if (!isSaving) onCancel();
       }}
     >
-      <DialogContent className="sm:max-w-xl" hasUnsavedChanges={isDirty}>
+      <DialogContent className="sm:max-w-2xl" hasUnsavedChanges={isDirty}>
         <DialogHeader>
           <DialogTitle>
             {target.kind === 'create' ? t('addTitle') : t('editTitle')}
@@ -379,8 +379,8 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
               </div>
 
               {target.kind === 'create' && (
-                <div className="grid gap-4">
-                  <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5 text-sm hover:bg-muted/50 has-checked:bg-muted/40">
+                <div className="rounded-lg border transition-colors has-checked:border-primary/40">
+                  <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-3 py-3 text-sm transition-colors hover:bg-muted/50 has-checked:rounded-b-none">
                     <input
                       type="checkbox"
                       aria-describedby={repeatsHintId}
@@ -391,7 +391,9 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
                     />
 
                     <span className="grid gap-0.5">
-                      <span className="font-medium">{t('repeats')}</span>
+                      <span id={repeatsTitleId} className="font-medium">
+                        {t('repeats')}
+                      </span>
 
                       <span
                         id={repeatsHintId}
@@ -403,9 +405,13 @@ export const ExpenseFormDialog: FC<ExpenseFormDialogProps> = ({
                   </label>
 
                   {repeats && (
-                    <FormSection title={tRecurring('recurrenceSection')}>
+                    <div
+                      role="group"
+                      aria-labelledby={repeatsTitleId}
+                      className="grid gap-4 border-t p-3 sm:p-4"
+                    >
                       <RecurrenceFields startName="dueDate" />
-                    </FormSection>
+                    </div>
                   )}
                 </div>
               )}

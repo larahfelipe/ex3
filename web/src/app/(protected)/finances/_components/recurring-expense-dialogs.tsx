@@ -15,11 +15,14 @@ import {
   StaleState
 } from '@/components/data-state';
 import {
-  Metric,
-  Money,
-  PROMINENT_VALUE_CLASS,
-  UnavailableValue
-} from '@/components/financial';
+  DetailSection,
+  FACT_LIST_CLASS,
+  FACT_VALUE_CLASS,
+  SUMMARY_DETAIL_CLASS,
+  SUMMARY_PANEL_CLASS,
+  SUMMARY_VALUE_CLASS
+} from '@/components/detail-section';
+import { Metric, Money, UnavailableValue } from '@/components/financial';
 import { PageNavigation } from '@/components/page-navigation';
 import {
   Button,
@@ -34,6 +37,7 @@ import {
   IconButton,
   SegmentedControl,
   SegmentedControlItem,
+  Skeleton,
   Table,
   TableBody,
   TableCell,
@@ -65,6 +69,7 @@ import {
   ExpenseStatusBadge,
   FinanceHistory,
   isOpenExpense,
+  NextPayment,
   SeriesStatusBadge
 } from './finance-display';
 import { PaymentFormDialog } from './payment-form-dialog';
@@ -190,7 +195,6 @@ const SeriesOccurrences: FC<
 > = ({ series, onPay }) => {
   const t = useTranslations('recurring.occurrences');
   const today = useReferenceDay();
-  const headingId = useId();
   const viewInputName = useId();
   const [view, setView] = useState<OccurrenceView>('upcoming');
   const [page, setPage] = useState(FIRST_PAGE);
@@ -213,12 +217,9 @@ const SeriesOccurrences: FC<
   const isLoading = data === undefined && !isError;
 
   return (
-    <section aria-labelledby={headingId} className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id={headingId} className="text-sm font-semibold">
-          {t('title')}
-        </h3>
-
+    <DetailSection
+      title={t('title')}
+      action={
         <fieldset>
           <legend className="sr-only">{t('view')}</legend>
 
@@ -239,8 +240,8 @@ const SeriesOccurrences: FC<
             ))}
           </SegmentedControl>
         </fieldset>
-      </div>
-
+      }
+    >
       <div aria-busy={isLoading || isPlaceholderData} className="space-y-3">
         {isLoading && <LoadingState label={t('loading')} className="h-40" />}
 
@@ -307,15 +308,58 @@ const SeriesOccurrences: FC<
           </div>
         )}
       </div>
-    </section>
+    </DetailSection>
+  );
+};
+
+const NextToPay: FC<
+  Record<'series', RecurringExpenseDetail> &
+    Record<'onPay', (occurrence: Expense) => void>
+> = ({ series, onPay }) => {
+  const t = useTranslations('recurring.details');
+  const today = useReferenceDay();
+  const { formatCalendarDay } = useFormat();
+  const { data, isError } = useExpenses({
+    recurringExpenseId: series.id,
+    status: 'OPEN',
+    sortBy: 'dueDate',
+    sortOrder: 'asc',
+    page: FIRST_PAGE,
+    pageSize: 1
+  });
+
+  if (isError) return null;
+
+  if (data === undefined)
+    return (
+      <div aria-hidden="true" className="border-t pt-4">
+        <Skeleton className="h-12 w-full" />
+      </div>
+    );
+
+  const [next] = data.items;
+
+  if (next === undefined) return null;
+
+  const day = formatCalendarDay(next.dueDate) ?? next.dueDate;
+
+  return (
+    <NextPayment
+      expense={next}
+      today={today}
+      shownDueDate={series.nextDueDate}
+      payLabel={t.rich('payNext', { day, hidden: srOnly })}
+      onPay={() => onPay(next)}
+    />
   );
 };
 
 const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
   const t = useTranslations('recurring.details');
+  const tForm = useTranslations('recurring.form');
   const tFinances = useTranslations('finances');
+  const { formatMoney } = useFormat();
   const today = useReferenceDay();
-  const historyId = useId();
   const {
     description,
     status,
@@ -339,6 +383,8 @@ const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
   const period = tFinances(`perPeriod.${frequency}`);
   const nextDistance =
     nextDueDate === null ? null : dueDistanceOf(nextDueDate, today, tFinances);
+  const payOccurrence = (occurrence: Expense) =>
+    onAction({ kind: 'pay', occurrence });
 
   return (
     <>
@@ -359,95 +405,120 @@ const SeriesDetails: FC<SeriesDetailsProps> = ({ series, onAction }) => {
         </DialogDescription>
       </DialogHeader>
 
-      <DialogBody>
-        <dl className="grid gap-4 sm:grid-cols-3">
-          <Metric
-            label={t(isVariable ? 'estimate' : 'amount', { period })}
-            valueClassName={PROMINENT_VALUE_CLASS}
-          >
-            <Money value={amount} currency={currency} />
-          </Metric>
+      <DialogBody className="gap-5">
+        <div className={SUMMARY_PANEL_CLASS}>
+          <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+            <Metric
+              label={t(isVariable ? 'estimate' : 'amount', { period })}
+              valueClassName={SUMMARY_VALUE_CLASS}
+            >
+              <Money value={amount} currency={currency} />
 
-          {frequency !== 'MONTHLY' && (
-            <Metric label={t('monthly')} valueClassName={PROMINENT_VALUE_CLASS}>
-              <Money value={monthlyEquivalent} currency={currency} />
+              {frequency !== 'MONTHLY' && (
+                <span className={SUMMARY_DETAIL_CLASS}>
+                  {t('aboutMonthly', {
+                    amount: formatMoney(monthlyEquivalent, currency)
+                  })}
+                </span>
+              )}
             </Metric>
-          )}
 
-          <Metric label={t('nextBill')}>
-            {nextDueDate === null ? (
-              <UnavailableValue />
-            ) : (
-              <>
-                <CalendarDayText day={nextDueDate} />
+            <Metric label={t('nextBill')} valueClassName={SUMMARY_VALUE_CLASS}>
+              {nextDueDate === null ? (
+                <UnavailableValue />
+              ) : (
+                <>
+                  <CalendarDayText day={nextDueDate} />
 
-                {nextDistance !== null && (
-                  <span className="block text-sm font-normal text-muted-foreground">
-                    {nextDistance}
-                  </span>
-                )}
-              </>
-            )}
-          </Metric>
-
-          <Metric label={t('schedule')}>
-            {endDate === null
-              ? t.rich('scheduleOpen', {
-                  start: () => <CalendarDayText day={startDate} />
-                })
-              : t.rich('scheduleRange', {
-                  start: () => <CalendarDayText day={startDate} />,
-                  end: () => <CalendarDayText day={endDate} />
-                })}
-          </Metric>
-
-          <Metric label={t('category')}>
-            {tFinances(`categories.${category}`)}
-
-            {subcategory !== null && (
-              <span className="text-muted-foreground">
-                {' · '}
-
-                {subcategory}
-              </span>
-            )}
-          </Metric>
-
-          <Metric label={t('paymentMethod')}>
-            {paymentMethod === null ? (
-              <UnavailableValue />
-            ) : (
-              tFinances(`paymentMethods.${paymentMethod}`)
-            )}
-          </Metric>
-
-          {creditCard !== null && (
-            <Metric label={t('card')}>
-              <CardLabel card={creditCard} className="max-w-full" />
+                  {nextDistance !== null && (
+                    <span className={SUMMARY_DETAIL_CLASS}>{nextDistance}</span>
+                  )}
+                </>
+              )}
             </Metric>
-          )}
+          </dl>
 
-          <Metric label={t('account')}>
-            {account ?? <UnavailableValue />}
-          </Metric>
+          <NextToPay series={series} onPay={payOccurrence} />
+        </div>
 
-          <Metric label={t('notes')} className="sm:col-span-2">
-            {notes ?? <UnavailableValue />}
-          </Metric>
-        </dl>
+        <SeriesOccurrences series={series} onPay={payOccurrence} />
 
-        <SeriesOccurrences
-          series={series}
-          onPay={(occurrence) => onAction({ kind: 'pay', occurrence })}
-        />
+        <DetailSection title={t('configuration')}>
+          <dl className={FACT_LIST_CLASS}>
+            <Metric label={t('frequency')} valueClassName={FACT_VALUE_CLASS}>
+              {tFinances(`frequencies.${frequency}`)}
+            </Metric>
 
-        <section aria-labelledby={historyId} className="space-y-3">
-          <h3 id={historyId} className="text-sm font-semibold">
-            {t('history')}
-          </h3>
+            <Metric label={t('amountKind')} valueClassName={FACT_VALUE_CLASS}>
+              {tForm(`amountKinds.${isVariable ? 'variable' : 'fixed'}`)}
+            </Metric>
 
+            <Metric
+              label={t('schedule')}
+              className="sm:col-span-2"
+              valueClassName={FACT_VALUE_CLASS}
+            >
+              {endDate === null
+                ? t.rich('scheduleOpen', {
+                    start: () => <CalendarDayText day={startDate} />
+                  })
+                : t.rich('scheduleRange', {
+                    start: () => <CalendarDayText day={startDate} />,
+                    end: () => <CalendarDayText day={endDate} />
+                  })}
+            </Metric>
+
+            <Metric label={t('category')} valueClassName={FACT_VALUE_CLASS}>
+              {tFinances(`categories.${category}`)}
+
+              {subcategory !== null && (
+                <span className="text-muted-foreground">
+                  {' · '}
+
+                  {subcategory}
+                </span>
+              )}
+            </Metric>
+
+            <Metric
+              label={t('paymentMethod')}
+              valueClassName={FACT_VALUE_CLASS}
+            >
+              {paymentMethod === null ? (
+                <UnavailableValue />
+              ) : (
+                tFinances(`paymentMethods.${paymentMethod}`)
+              )}
+
+              {creditCard !== null && (
+                <CardLabel
+                  card={creditCard}
+                  className="mt-1 flex w-fit max-w-full"
+                />
+              )}
+            </Metric>
+
+            {account !== null && (
+              <Metric label={t('account')} valueClassName={FACT_VALUE_CLASS}>
+                {account}
+              </Metric>
+            )}
+
+            {notes !== null && (
+              <Metric
+                label={t('notes')}
+                className="sm:col-span-2"
+                valueClassName="text-sm font-normal whitespace-pre-line"
+              >
+                {notes}
+              </Metric>
+            )}
+          </dl>
+        </DetailSection>
+
+        <DetailSection title={t('history')}>
           <FinanceHistory events={history} currency={currency} />
-        </section>
+        </DetailSection>
       </DialogBody>
 
       <DialogActionFooter

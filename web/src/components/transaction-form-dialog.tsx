@@ -28,6 +28,7 @@ import { TRANSACTION_TYPES, UNIT_PRICE_DECIMALS } from '@/common/constants';
 import { currencyFractionDigits } from '@/common/utils';
 import { LoadingState } from '@/components/data-state';
 import { DatePicker } from '@/components/date-picker';
+import { UnavailableValue } from '@/components/financial';
 import {
   ChoiceField,
   FormField,
@@ -708,6 +709,39 @@ const TransactionForm: FC<TransactionFormProps> = ({
               control={formControl}
             />
 
+            <div className="grid gap-1 rounded-lg border bg-muted/30 px-4 py-3 sm:col-span-2">
+              <p className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <span className="text-sm text-muted-foreground">
+                  {tForm(`effect.${selectedType}`)}
+                </span>
+
+                <span className="text-lg font-semibold tracking-tight tabular-nums">
+                  {effect === null ? (
+                    <UnavailableValue />
+                  ) : (
+                    formatMoney(effect.net, currency)
+                  )}
+                </span>
+              </p>
+
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {effect === null
+                  ? tForm('effectPending')
+                  : tForm(
+                      !isNonzeroDecimal(effect.charges)
+                        ? 'effectOf.units'
+                        : isCostOf(selectedType)
+                          ? 'effectOf.unitsPlusCharges'
+                          : 'effectOf.unitsLessCharges',
+                      {
+                        quantity: formatQuantity(effect.quantity),
+                        unitPrice: formatPrice(effect.unitPrice, currency),
+                        charges: formatMoney(effect.charges, currency)
+                      }
+                    )}
+              </p>
+            </div>
+
             <OptionalFields>
               {details.isShown('fees') && (
                 <AmountField
@@ -771,33 +805,6 @@ const TransactionForm: FC<TransactionFormProps> = ({
                 </FormField>
               )}
             </OptionalFields>
-
-            {effect !== null && (
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg bg-muted/50 px-3 py-2.5 text-sm sm:col-span-2">
-                <span className="text-muted-foreground">
-                  {tForm(`effect.${selectedType}`)}
-                </span>
-
-                <span className="font-semibold tabular-nums">
-                  {formatMoney(effect.net, currency)}
-                </span>
-
-                <span className="w-full text-xs text-muted-foreground tabular-nums">
-                  {tForm(
-                    !isNonzeroDecimal(effect.charges)
-                      ? 'effectOf.units'
-                      : isCostOf(selectedType)
-                        ? 'effectOf.unitsPlusCharges'
-                        : 'effectOf.unitsLessCharges',
-                    {
-                      quantity: formatQuantity(effect.quantity),
-                      unitPrice: formatPrice(effect.unitPrice, currency),
-                      charges: formatMoney(effect.charges, currency)
-                    }
-                  )}
-                </span>
-              </div>
-            )}
 
             <OptionalDetailButtons
               label={tForm('optionalDetails')}

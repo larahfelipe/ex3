@@ -6,6 +6,7 @@ export type User = {
   firstName: string | null;
   lastName: string | null;
   email: string;
+  locale: string | null;
   password: string;
   sessionVersion: number;
   isAdmin: boolean;

@@ -7,6 +7,7 @@ export type UserProperties = {
   firstName: string | null;
   lastName: string | null;
   email: string;
+  locale: string | null;
 };
 
 export type User = WithId & WithAccessToken & WithTimestamps & UserProperties;

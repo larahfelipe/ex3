@@ -20,7 +20,7 @@ import { messageFallbackOf, reportIntlError } from '@/i18n/errors';
 import { localeCookieOf } from '@/i18n/locale-cookie';
 import type { Messages } from '@/i18n/messages/catalog';
 import { loadMessages } from '@/i18n/messages/load';
-import { runLocaleSwitch } from '@/i18n/switch-locale';
+import { runLocaleSwitch, type SaveToAccount } from '@/i18n/switch-locale';
 import type { Children } from '@/types';
 
 type LocaleProviderProps = Children &
@@ -29,7 +29,10 @@ type LocaleProviderProps = Children &
 
 export type LocaleSwitch = Record<'locale', Locale> &
   Record<'pendingLocale', Locale | null> &
-  Record<'switchLocale', (locale: Locale) => Promise<void>>;
+  Record<
+    'switchLocale',
+    (locale: Locale, saveToAccount?: SaveToAccount) => Promise<void>
+  >;
 
 type ActiveCatalog = Record<'locale', Locale> & Record<'messages', Messages>;
 
@@ -61,7 +64,7 @@ export const LocaleProvider: FC<LocaleProviderProps> = ({
   const requestedLocale = useRef(locale);
 
   const switchLocale = useCallback(
-    (next: Locale) =>
+    (next: Locale, saveToAccount?: SaveToAccount) =>
       runLocaleSwitch(
         next,
         { activeLocale: catalog.locale, requestedLocale },
@@ -73,7 +76,8 @@ export const LocaleProvider: FC<LocaleProviderProps> = ({
             document.cookie = localeCookieOf(saved);
             router.refresh();
           },
-          setPendingLocale
+          setPendingLocale,
+          saveToAccount
         }
       ),
     [catalog.locale, router]

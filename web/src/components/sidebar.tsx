@@ -102,6 +102,9 @@ const NAVIGATION_ICON_CLASS =
 const NAVIGATION_TOGGLE_CLASS =
   'absolute top-3.5 right-0 z-10 hidden size-6 translate-x-1/2 items-center justify-center rounded-full border bg-surface text-muted-foreground shadow-surface ring-offset-background transition-colors before:absolute before:-inset-2.5 hover:border-input hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-90 lg:flex';
 
+const HEADER_ACTION_CLASS =
+  'flex size-11 items-center justify-center rounded-md text-muted-foreground ring-offset-background transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-95';
+
 const BRAND_LINK_CLASS =
   'relative -my-0.5 flex h-8 items-center rounded-md px-2 text-lg outline-hidden ring-offset-background transition-colors before:absolute before:-inset-x-1 before:-inset-y-1.5 hover:bg-accent focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 motion-safe:active:scale-95';
 
@@ -412,8 +415,10 @@ export const NavigationHeader: FC = () => {
   const t = useTranslations('navigation');
   const tNotifications = useTranslations('notifications');
 
+  const { mutate: signOut, isPending: isSigningOut } = useSignOut();
+
   return (
-    <header className="flex h-14 items-center justify-between gap-2 border-b bg-background px-2 sm:hidden">
+    <header className="flex h-(--navigation-header) items-center justify-between gap-2 border-b bg-background px-2 sm:hidden">
       <Link
         href={APP_ROUTES.Protected.Overview}
         aria-label={t('brand', { title: APP_TITLE })}
@@ -422,32 +427,57 @@ export const NavigationHeader: FC = () => {
         <Wordmark />
       </Link>
 
-      <NotificationsPopover
-        side="bottom"
-        align="end"
-        renderTrigger={(unreadCount) => (
-          <button
-            type="button"
-            className="flex size-11 items-center justify-center rounded-md text-muted-foreground ring-offset-background transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 data-[state=open]:bg-accent data-[state=open]:text-foreground motion-safe:active:scale-95"
-          >
-            <span aria-hidden="true" className="relative">
-              <Bell size={20} />
+      <div className="flex items-center gap-1">
+        <NotificationsPopover
+          side="bottom"
+          align="end"
+          renderTrigger={(unreadCount) => (
+            <button
+              type="button"
+              className={cn(
+                HEADER_ACTION_CLASS,
+                'data-[state=open]:bg-accent data-[state=open]:text-foreground'
+              )}
+            >
+              <span aria-hidden="true" className="relative">
+                <Bell size={20} />
 
-              <CountBadge
-                count={unreadCount}
-                tone="primary"
-                className="-top-1.5 -right-2"
-              />
-            </span>
+                <CountBadge
+                  count={unreadCount}
+                  tone="primary"
+                  className="-top-1.5 -right-2"
+                />
+              </span>
 
-            <span className="sr-only">
-              {tNotifications('label')}
+              <span className="sr-only">
+                {tNotifications('label')}
 
-              {tNotifications('unreadCount', { count: unreadCount })}
-            </span>
-          </button>
-        )}
-      />
+                {tNotifications('unreadCount', { count: unreadCount })}
+              </span>
+            </button>
+          )}
+        />
+
+        <button
+          type="button"
+          aria-disabled={isSigningOut}
+          className={cn(
+            HEADER_ACTION_CLASS,
+            'hover:bg-negative/10 hover:text-negative aria-disabled:pointer-events-none aria-disabled:opacity-50'
+          )}
+          onClick={() => {
+            if (!isSigningOut) signOut();
+          }}
+        >
+          {isSigningOut ? (
+            <Loader2 aria-hidden="true" size={20} className="animate-spin" />
+          ) : (
+            <LogOut aria-hidden="true" size={20} />
+          )}
+
+          <span className="sr-only">{t('signOut')}</span>
+        </button>
+      </div>
     </header>
   );
 };
